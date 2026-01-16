@@ -18,6 +18,17 @@
   min-height: calc(var(--header-height) - 0.5rem);
 }
 
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.logo-image {
+  height: 32px;
+  width: auto;
+}
+
 .logo h2 {
   font-size: 1.5rem;
   font-weight: 700;

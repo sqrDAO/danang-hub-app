@@ -21,6 +21,7 @@ const Header = ({ isAdmin = false }) => {
     <header className="header">
       <div className="header-container container">
         <Link to={basePath} className="logo">
+          <img src="/assets/logo.svg" alt="Danang Hub" className="logo-image" />
           <h2 className="gradient-text">Danang Hub</h2>
         </Link>
         

@@ -19,6 +19,7 @@
   max-height: 90vh;
   overflow-y: auto;
   animation: modalSlideIn 0.3s ease;
+  padding: var(--spacing-lg);
 }
 
 @keyframes modalSlideIn {
@@ -65,5 +66,5 @@
 }
 
 .modal-body {
-  padding: var(--spacing-md) 0;
+  padding: var(--spacing-md) 0 0 0;
 }

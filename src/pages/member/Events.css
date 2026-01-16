@@ -106,10 +106,6 @@
   cursor: not-allowed;
 }
 
-.page-header {
-  margin-bottom: var(--spacing-xl);
-}
-
 .page-subtitle {
   color: var(--text-secondary);
   font-size: 1rem;
@@ -134,14 +130,6 @@
   padding: 1rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
-}
-
-/* Page Header with button */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
 }
 
 /* My Events Section */
@@ -247,15 +235,6 @@
 }
 
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-md);
-  }
-  
-  .page-header .btn {
-    width: 100%;
-  }
   
   .events-grid {
     grid-template-columns: 1fr;
