@@ -63,7 +63,8 @@ const MemberBookings = () => {
 
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
-    queryFn: () => getBookings({ memberId: currentUser?.uid })
+    queryFn: () => getBookings({ memberId: currentUser?.uid }),
+    enabled: !!currentUser?.uid
   })
 
   const { data: amenities = [], isLoading: amenitiesLoading } = useQuery({

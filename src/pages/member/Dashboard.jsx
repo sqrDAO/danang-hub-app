@@ -14,7 +14,8 @@ const MemberDashboard = () => {
   
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
-    queryFn: () => getBookings({ memberId: currentUser?.uid })
+    queryFn: () => getBookings({ memberId: currentUser?.uid }),
+    enabled: !!currentUser?.uid
   })
   
   const { data: events = [] } = useQuery({
@@ -28,7 +29,7 @@ const MemberDashboard = () => {
   })
 
   const upcomingBookings = myBookings
-    .filter(b => b.status === 'approved' || b.status === 'checked-in')
+    .filter(b => b.status === 'pending' || b.status === 'approved' || b.status === 'checked-in')
     .filter(b => new Date(b.startTime) > new Date())
     .slice(0, 5)
 

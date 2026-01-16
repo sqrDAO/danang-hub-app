@@ -17,17 +17,24 @@ const BOOKINGS_COLLECTION = 'bookings'
 
 export const getBookings = async (filters = {}) => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
-  let q = query(bookingsRef, orderBy('startTime', 'desc'))
+  
+  // Build query constraints - where clauses must come before orderBy
+  const constraints = []
   
   if (filters.memberId) {
-    q = query(q, where('memberId', '==', filters.memberId))
+    constraints.push(where('memberId', '==', filters.memberId))
   }
   if (filters.amenityId) {
-    q = query(q, where('amenityId', '==', filters.amenityId))
+    constraints.push(where('amenityId', '==', filters.amenityId))
   }
   if (filters.status) {
-    q = query(q, where('status', '==', filters.status))
+    constraints.push(where('status', '==', filters.status))
   }
+  
+  // Add orderBy last
+  constraints.push(orderBy('startTime', 'desc'))
+  
+  const q = query(bookingsRef, ...constraints)
   
   const snapshot = await getDocs(q)
   return snapshot.docs.map(doc => ({ 
