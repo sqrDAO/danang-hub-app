@@ -16,10 +16,25 @@
 }
 
 .suggestions-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-md);
+  align-items: flex-end;
   margin-bottom: var(--spacing-lg);
+}
+
+.suggestions-form .form-group {
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
+  margin-bottom: 0;
+}
+
+.suggestions-form > .btn {
+  align-self: flex-end;
+  white-space: nowrap;
+  padding: 1rem 1.5rem;
+  margin-bottom: 0;
 }
 
 .suggestions-results {
@@ -136,6 +151,15 @@
   }
   
   .suggestions-form {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  
+  .suggestions-form .form-group {
+    max-width: none;
+    width: 100%;
+  }
+  
+  .suggestions-form .btn {
+    width: 100%;
   }
 }
