@@ -42,6 +42,7 @@
 
 .calendar-grid {
   display: flex;
+  align-items: flex-start;
   gap: var(--spacing-sm);
   overflow-x: auto;
   padding-bottom: var(--spacing-md);
@@ -50,12 +51,7 @@
 .time-column {
   min-width: 60px;
   flex-shrink: 0;
-}
-
-.time-column-header {
-  /* Match the calendar-date-header height */
-  height: 95px;
-  margin-bottom: var(--spacing-sm);
+  padding-top: 105px; /* Offset to align with time-slots below date headers */
 }
 
 .time-labels {
@@ -79,7 +75,7 @@
 
 .date-column {
   flex: 1;
-  min-width: 120px;
+  min-width: 100px;
 }
 
 .calendar-date-header {

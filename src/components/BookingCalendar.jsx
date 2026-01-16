@@ -211,7 +211,6 @@ const BookingCalendar = ({
 
       <div className="calendar-grid">
         <div className="time-column">
-          <div className="time-column-header"></div>
           <div className="time-labels">
             {timeSlots.map((slot, index) => (
               <div 
