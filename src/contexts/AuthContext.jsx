@@ -3,7 +3,11 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
@@ -64,6 +68,46 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Sign up with Email and Password
+  const signUpWithEmail = async (email, password, displayName) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Update the user's display name
+      await updateProfile(result.user, { displayName })
+      
+      // Create user profile in Firestore
+      await createUserProfile({ ...result.user, displayName })
+      
+      return result.user
+    } catch (error) {
+      console.error('Error signing up with email:', error)
+      throw error
+    }
+  }
+
+  // Sign in with Email and Password
+  const signInWithEmail = async (email, password) => {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      await createUserProfile(result.user)
+      return result.user
+    } catch (error) {
+      console.error('Error signing in with email:', error)
+      throw error
+    }
+  }
+
+  // Reset password
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+    } catch (error) {
+      console.error('Error sending password reset email:', error)
+      throw error
+    }
+  }
+
   // Sign out
   const logout = async () => {
     try {
@@ -106,6 +150,9 @@ export const AuthProvider = ({ children }) => {
     userProfile,
     loading,
     signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
+    resetPassword,
     logout,
     isAdmin,
   }

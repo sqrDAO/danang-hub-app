@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import Avatar from './Avatar'
 import './Header.css'
 
 const Header = ({ isAdmin = false }) => {
@@ -49,10 +50,10 @@ const Header = ({ isAdmin = false }) => {
         <div className="header-user">
           {userProfile && (
             <div className="user-info">
-              <img 
-                src={userProfile.photoURL || '/default-avatar.png'} 
-                alt={userProfile.displayName}
-                className="user-avatar"
+              <Avatar 
+                src={userProfile.photoURL} 
+                name={userProfile.displayName}
+                size="md"
               />
               <span className="user-name">{userProfile.displayName}</span>
             </div>

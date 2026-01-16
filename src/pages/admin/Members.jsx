@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
+import Avatar from '../../components/Avatar'
 import { getMembers, updateMember, deleteMember } from '../../services/members'
 import './Members.css'
 
@@ -86,9 +87,11 @@ const AdminMembers = () => {
                 <tr key={member.id}>
                   <td>
                     <div className="member-cell">
-                      {member.photoURL && (
-                        <img src={member.photoURL} alt={member.displayName} className="member-avatar" />
-                      )}
+                      <Avatar 
+                        src={member.photoURL} 
+                        name={member.displayName}
+                        size="sm"
+                      />
                       <span>{member.displayName || 'N/A'}</span>
                     </div>
                   </td>

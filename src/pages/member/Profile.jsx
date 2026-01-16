@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
+import Avatar from '../../components/Avatar'
 import { updateMember } from '../../services/members'
 import './Profile.css'
 
@@ -45,13 +46,12 @@ const MemberProfile = () => {
 
         <div className="profile-card glass">
           <div className="profile-header">
-            {userProfile.photoURL && (
-              <img 
-                src={userProfile.photoURL} 
-                alt={userProfile.displayName}
-                className="profile-avatar"
-              />
-            )}
+            <Avatar 
+              src={userProfile.photoURL} 
+              name={userProfile.displayName}
+              size="xl"
+              className="profile-avatar"
+            />
             <div className="profile-info">
               <h2 className="profile-name">{userProfile.displayName || 'N/A'}</h2>
               <p className="profile-email">{userProfile.email || 'N/A'}</p>
