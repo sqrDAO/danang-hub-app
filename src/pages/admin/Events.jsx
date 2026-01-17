@@ -14,6 +14,7 @@ import {
 } from '../../services/events'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
+import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { showToast } from '../../components/Toast'
 import './Events.css'
@@ -46,6 +47,11 @@ const AdminEvents = () => {
     queryFn: getAmenities
   })
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjects
+  })
+
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const eventId = await createEvent({ ...data, status: 'approved' })
@@ -70,9 +76,12 @@ const AdminEvents = () => {
       return eventId
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['events'])
-      queryClient.invalidateQueries(['pendingEvents'])
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setIsModalOpen(false)
       resetForm()
       showToast('Event created successfully!', 'success')
@@ -85,8 +94,10 @@ const AdminEvents = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateEvent(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['events'])
-      queryClient.invalidateQueries(['pendingEvents'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       setIsModalOpen(false)
       resetForm()
       showToast('Event updated successfully!', 'success')
@@ -131,11 +142,12 @@ const AdminEvents = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['events'])
-      queryClient.invalidateQueries(['pendingEvents'])
-      queryClient.invalidateQueries(['approvedEvents'])
-      queryClient.invalidateQueries(['myEvents'])
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast('Event approved! It will now appear on the calendar.', 'success')
     },
     onError: () => {
@@ -146,9 +158,10 @@ const AdminEvents = () => {
   const rejectMutation = useMutation({
     mutationFn: ({ eventId, reason }) => rejectEvent(eventId, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries(['events'])
-      queryClient.invalidateQueries(['pendingEvents'])
-      queryClient.invalidateQueries(['myEvents'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       showToast('Event rejected.', 'info')
     },
     onError: () => {
@@ -159,7 +172,9 @@ const AdminEvents = () => {
   const promoteWaitlistMutation = useMutation({
     mutationFn: ({ eventId, count }) => promoteFromWaitlist(eventId, count),
     onSuccess: (result) => {
-      queryClient.invalidateQueries(['events'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       showToast(`Promoted ${result.promoted} member(s) from waitlist!`, 'success')
     },
     onError: () => {
@@ -170,8 +185,10 @@ const AdminEvents = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteEvent,
     onSuccess: () => {
-      queryClient.invalidateQueries(['events'])
-      queryClient.invalidateQueries(['pendingEvents'])
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       showToast('Event deleted successfully!', 'success')
     }
   })
@@ -235,19 +252,26 @@ const AdminEvents = () => {
       title: formData.get('title'),
       description: formData.get('description'),
       date: formData.get('date'),
-      capacity: parseInt(formData.get('capacity')) || 0,
-      location: formData.get('location'),
+      capacity: parseInt(formData.get('capacity')) || 80,
+      duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: formData.get('organizerId'),
       waitlist: []
+    }
+
+    // Handle hosting projects (text input)
+    const hostingProjects = formData.get('hostingProjects')
+    if (hostingProjects && hostingProjects.trim()) {
+      data.hostingProjects = hostingProjects.trim()
     }
 
     // Handle amenity linking
     if (linkAmenity && linkedAmenityId) {
       const eventDate = new Date(formData.get('date'))
+      const duration = data.duration || 60
       const startTime = new Date(eventDate)
       startTime.setHours(startTime.getHours() - 1) // 1 hour before event
       const endTime = new Date(eventDate)
-      endTime.setHours(endTime.getHours() + 2) // 2 hours after event
+      endTime.setMinutes(endTime.getMinutes() + duration + 60) // Duration + 1 hour buffer after event
       
       data.linkedAmenityId = linkedAmenityId
       data.linkedAmenityStartTime = startTime.toISOString()
@@ -351,10 +375,22 @@ const AdminEvents = () => {
                   <p className="event-organizer">
                     👤 Organizer: {getOrganizerName(event.organizerId)}
                   </p>
-                  <p className="event-location">📍 {event.location || 'N/A'}</p>
+                  {event.duration && (
+                    <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                  )}
                   <p className="event-capacity">
-                    👥 {event.attendees?.length || 0} / {event.capacity || 'Unlimited'}
+                    👥 {event.attendees?.length || 0} / {event.capacity || 80}
                   </p>
+                  {event.hostingProjects && (
+                    <p className="event-projects">
+                      🏢 Hosted by: {typeof event.hostingProjects === 'string' 
+                        ? event.hostingProjects 
+                        : event.hostingProjects.map(projectId => {
+                            const project = projects.find(p => p.id === projectId)
+                            return project?.name || projectId
+                          }).join(', ')}
+                    </p>
+                  )}
                   {event.waitlist && event.waitlist.length > 0 && (
                     <p className="event-waitlist">
                       ⏳ Waitlist: {event.waitlist.length}
@@ -461,23 +497,46 @@ const AdminEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Location</label>
+              <label className="form-label">Duration (minutes) *</label>
               <input
-                type="text"
-                name="location"
+                type="number"
+                name="duration"
                 className="form-field"
-                defaultValue={selectedEvent?.location || ''}
+                placeholder="e.g., 60"
+                defaultValue={selectedEvent?.duration || 60}
+                min="15"
+                step="15"
+                required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Capacity</label>
+              <label className="form-label">Capacity *</label>
               <input
                 type="number"
                 name="capacity"
                 className="form-field"
-                defaultValue={selectedEvent?.capacity || 0}
-                min="0"
+                defaultValue={selectedEvent?.capacity || 80}
+                min="1"
+                max="80"
+                required
               />
+              <small className="form-hint">Maximum capacity is 80 (Main Hall)</small>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Hosting Project(s)</label>
+              <input
+                type="text"
+                name="hostingProjects"
+                className="form-field"
+                placeholder="e.g., Project Alpha, Project Beta"
+                defaultValue={typeof selectedEvent?.hostingProjects === 'string' 
+                  ? selectedEvent.hostingProjects 
+                  : selectedEvent?.hostingProjects?.map(projectId => {
+                      const project = projects.find(p => p.id === projectId)
+                      return project?.name || projectId
+                    }).join(', ') || ''}
+              />
+              <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
             </div>
             <div className="form-group">
               <label className="form-label">Organizer</label>

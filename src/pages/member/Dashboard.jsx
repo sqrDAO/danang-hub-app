@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
 import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
-import { getEvents } from '../../services/events'
+import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import './Dashboard.css'
 
@@ -19,8 +19,8 @@ const MemberDashboard = () => {
   })
   
   const { data: events = [] } = useQuery({
-    queryKey: ['events'],
-    queryFn: getEvents
+    queryKey: ['upcomingEvents'],
+    queryFn: getUpcomingEvents
   })
   
   const { data: amenities = [] } = useQuery({
@@ -34,7 +34,12 @@ const MemberDashboard = () => {
     .slice(0, 5)
 
   const upcomingEvents = events
-    .filter(e => new Date(e.date) > new Date())
+    .filter(e => {
+      if (!e.date) return false
+      const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
+      const now = new Date()
+      return eventDate > now
+    })
     .slice(0, 5)
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false).length

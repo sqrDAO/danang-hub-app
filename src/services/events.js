@@ -59,34 +59,133 @@ export const createEvent = async (data) => {
   return docRef.id
 }
 
+export const getUpcomingEvents = async () => {
+  try {
+    // Get both approved and pending events, then filter by date in memory
+    const eventsRef = collection(db, EVENTS_COLLECTION)
+    
+    // Try to fetch both in parallel, with error handling for each
+    const fetchApproved = async () => {
+      try {
+        const q = query(eventsRef, where('status', '==', 'approved'))
+        const snapshot = await getDocs(q)
+        return snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          date: doc.data().date?.toDate?.() || doc.data().date,
+        }))
+      } catch (error) {
+        console.warn('Error fetching approved events:', error)
+        return []
+      }
+    }
+    
+    const fetchPending = async () => {
+      try {
+        const q = query(eventsRef, where('status', '==', 'pending'))
+        const snapshot = await getDocs(q)
+        return snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          date: doc.data().date?.toDate?.() || doc.data().date,
+        }))
+      } catch (error) {
+        console.warn('Error fetching pending events:', error)
+        return []
+      }
+    }
+    
+    const [approvedEvents, pendingEvents] = await Promise.all([
+      fetchApproved(),
+      fetchPending()
+    ])
+    
+    const allEvents = [...approvedEvents, ...pendingEvents]
+    
+    // Sort by date descending
+    return allEvents.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date)
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date)
+      return dateB - dateA
+    })
+  } catch (error) {
+    console.error('Error fetching upcoming events:', error)
+    return []
+  }
+}
+
 export const getApprovedEvents = async () => {
-  const eventsRef = collection(db, EVENTS_COLLECTION)
-  const q = query(
-    eventsRef,
-    where('status', '==', 'approved'),
-    orderBy('date', 'desc')
-  )
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(doc => ({ 
-    id: doc.id, 
-    ...doc.data(),
-    date: doc.data().date?.toDate?.() || doc.data().date,
-  }))
+  try {
+    const eventsRef = collection(db, EVENTS_COLLECTION)
+    const q = query(
+      eventsRef,
+      where('status', '==', 'approved'),
+      orderBy('date', 'desc')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      date: doc.data().date?.toDate?.() || doc.data().date,
+    }))
+  } catch (error) {
+    console.error('Error fetching approved events:', error)
+    // If index is missing, try without orderBy as fallback
+    if (error.code === 'failed-precondition') {
+      const eventsRef = collection(db, EVENTS_COLLECTION)
+      const q = query(eventsRef, where('status', '==', 'approved'))
+      const snapshot = await getDocs(q)
+      const events = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        date: doc.data().date?.toDate?.() || doc.data().date,
+      }))
+      // Sort manually
+      return events.sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date)
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date)
+        return dateB - dateA
+      })
+    }
+    throw error
+  }
 }
 
 export const getPendingEvents = async () => {
-  const eventsRef = collection(db, EVENTS_COLLECTION)
-  const q = query(
-    eventsRef,
-    where('status', '==', 'pending'),
-    orderBy('date', 'desc')
-  )
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(doc => ({ 
-    id: doc.id, 
-    ...doc.data(),
-    date: doc.data().date?.toDate?.() || doc.data().date,
-  }))
+  try {
+    const eventsRef = collection(db, EVENTS_COLLECTION)
+    const q = query(
+      eventsRef,
+      where('status', '==', 'pending'),
+      orderBy('date', 'desc')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      date: doc.data().date?.toDate?.() || doc.data().date,
+    }))
+  } catch (error) {
+    console.error('Error fetching pending events:', error)
+    // If index is missing, try without orderBy as fallback
+    if (error.code === 'failed-precondition') {
+      const eventsRef = collection(db, EVENTS_COLLECTION)
+      const q = query(eventsRef, where('status', '==', 'pending'))
+      const snapshot = await getDocs(q)
+      const events = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        date: doc.data().date?.toDate?.() || doc.data().date,
+      }))
+      // Sort manually
+      return events.sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date)
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date)
+        return dateB - dateA
+      })
+    }
+    throw error
+  }
 }
 
 export const getMyEvents = async (organizerId) => {

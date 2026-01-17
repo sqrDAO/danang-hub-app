@@ -80,5 +80,13 @@ service cloud.firestore {
       // Admins can delete any event
       allow delete: if isAdmin();
     }
+    
+    // Projects collection
+    match /projects/{projectId} {
+      // Everyone can read projects
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete projects
+      allow write: if isAdmin();
+    }
   }
 }

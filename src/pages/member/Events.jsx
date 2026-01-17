@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import { 
-  getApprovedEvents, 
+  getApprovedEvents,
+  getUpcomingEvents,
   getMyEvents,
   createEvent,
   deleteEvent,
@@ -15,6 +16,7 @@ import {
 } from '../../services/events'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
+import { getProjects } from '../../services/projects'
 import { showToast } from '../../components/Toast'
 import './Events.css'
 
@@ -24,11 +26,27 @@ const MemberEvents = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [linkAmenity, setLinkAmenity] = useState(false)
 
-  // Fetch approved events (for registration)
+  // Fetch upcoming events (approved and pending)
+  const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
+    queryKey: ['upcomingEvents'],
+    queryFn: getUpcomingEvents,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  })
+  
+  // Also keep approved events for registration logic
   const { data: approvedEvents = [] } = useQuery({
     queryKey: ['approvedEvents'],
     queryFn: getApprovedEvents
   })
+
+  // Debug logging
+  if (eventsError) {
+    console.error('Error loading upcoming events:', eventsError)
+  }
+  if (upcomingEventsData.length > 0) {
+    console.log('Upcoming events loaded:', upcomingEventsData.length, upcomingEventsData)
+  }
 
   // Fetch my created events (all statuses)
   const { data: myEvents = [] } = useQuery({
@@ -47,11 +65,18 @@ const MemberEvents = () => {
     queryFn: getAmenities
   })
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjects
+  })
+
   const createMutation = useMutation({
     mutationFn: createEvent,
     onSuccess: () => {
-      queryClient.invalidateQueries(['myEvents'])
-      queryClient.invalidateQueries(['approvedEvents'])
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       setIsModalOpen(false)
       showToast('Event submitted for approval! You will be notified when approved.', 'success')
     },
@@ -123,11 +148,17 @@ const MemberEvents = () => {
       title: formData.get('title'),
       description: formData.get('description'),
       date: formData.get('date'),
-      capacity: parseInt(formData.get('capacity')) || 0,
-      location: formData.get('location'),
+      capacity: parseInt(formData.get('capacity')) || 80,
+      duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: currentUser.uid,
       status: 'pending',
       waitlist: []
+    }
+
+    // Handle hosting projects (text input)
+    const hostingProjects = formData.get('hostingProjects')
+    if (hostingProjects && hostingProjects.trim()) {
+      data.hostingProjects = hostingProjects.trim()
     }
 
     // Handle optional amenity linking request
@@ -197,8 +228,21 @@ const MemberEvents = () => {
     return statusClasses[status] || 'status-badge'
   }
 
-  const upcomingEvents = approvedEvents.filter(e => new Date(e.date) > new Date())
-  const pastEvents = approvedEvents.filter(e => new Date(e.date) <= new Date())
+  // Filter upcoming events by date (approved and pending)
+  const upcomingEvents = upcomingEventsData.filter(e => {
+    if (!e.date) return false
+    const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
+    const now = new Date()
+    return eventDate > now
+  })
+  
+  // Past events (only approved ones for historical record)
+  const pastEvents = approvedEvents.filter(e => {
+    if (!e.date) return false
+    const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
+    const now = new Date()
+    return eventDate <= now
+  })
 
   return (
     <Layout>
@@ -233,12 +277,22 @@ const MemberEvents = () => {
                     <p className="event-date">
                       📅 {event.date?.toLocaleDateString()} at {event.date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    {event.location && (
-                      <p className="event-location">📍 {event.location}</p>
+                    {event.duration && (
+                      <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
                     )}
                     <p className="event-capacity">
-                      👥 Capacity: {event.capacity || 'Unlimited'}
+                      👥 Capacity: {event.capacity || 80}
                     </p>
+                    {event.hostingProjects && (
+                      <p className="event-projects">
+                        🏢 Hosted by: {typeof event.hostingProjects === 'string' 
+                          ? event.hostingProjects 
+                          : event.hostingProjects.map(projectId => {
+                              const project = projects.find(p => p.id === projectId)
+                              return project?.name || projectId
+                            }).join(', ')}
+                      </p>
+                    )}
                     {event.status === 'rejected' && event.rejectionReason && (
                       <p className="event-rejection-reason">
                         ❌ Reason: {event.rejectionReason}
@@ -275,7 +329,18 @@ const MemberEvents = () => {
               <p className="section-description">Click "Register" to join an event. If full, join the waitlist!</p>
             )}
           </div>
-          {upcomingEvents.length > 0 ? (
+          {isLoadingEvents ? (
+            <p className="empty-state">Loading events...</p>
+          ) : eventsError ? (
+            <p className="empty-state" style={{ color: '#ef4444' }}>
+              Error loading events. Please refresh the page.
+              {process.env.NODE_ENV === 'development' && (
+                <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                  {eventsError.message}
+                </div>
+              )}
+            </p>
+          ) : upcomingEvents.length > 0 ? (
             <div className="events-grid">
               {upcomingEvents.map(event => {
                 const registered = isRegistered(event)
@@ -296,12 +361,22 @@ const MemberEvents = () => {
                         Organizer: {getOrganizerName(event.organizerId)}
                         {isMyEvent && <span className="my-event-tag"> (You)</span>}
                       </p>
-                      {event.location && (
-                        <p className="event-location">📍 {event.location}</p>
+                      {event.duration && (
+                        <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
                       )}
                       <p className="event-capacity">
-                        👥 {event.attendees?.length || 0} / {event.capacity || '∞'} attendees
+                        👥 {event.attendees?.length || 0} / {event.capacity || 80} attendees
                       </p>
+                      {event.hostingProjects && (
+                        <p className="event-projects">
+                          🏢 Hosted by: {typeof event.hostingProjects === 'string' 
+                            ? event.hostingProjects 
+                            : event.hostingProjects.map(projectId => {
+                                const project = projects.find(p => p.id === projectId)
+                                return project?.name || projectId
+                              }).join(', ')}
+                        </p>
+                      )}
                       {event.waitlist && event.waitlist.length > 0 && (
                         <p className="event-waitlist">
                           {event.waitlist.length} on waitlist
@@ -357,7 +432,14 @@ const MemberEvents = () => {
               })}
             </div>
           ) : (
-            <p className="empty-state">No upcoming events. Why not create one?</p>
+            <div>
+              <p className="empty-state">No upcoming events. Why not create one?</p>
+              {approvedEvents.length > 0 && (
+                <p className="empty-state" style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: '#a1a1aa' }}>
+                  ({approvedEvents.length} approved event(s) found, but none are upcoming)
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -382,8 +464,16 @@ const MemberEvents = () => {
                       <p className="event-organizer">
                         Organizer: {getOrganizerName(event.organizerId)}
                       </p>
-                      {event.location && (
-                        <p className="event-location">📍 {event.location}</p>
+                      {event.duration && (
+                        <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                      )}
+                      {event.hostingProjects && event.hostingProjects.length > 0 && (
+                        <p className="event-projects">
+                          🏢 Hosted by: {event.hostingProjects.map(projectId => {
+                            const project = projects.find(p => p.id === projectId)
+                            return project?.name || projectId
+                          }).join(', ')}
+                        </p>
                       )}
                       {registered && (
                         <p className="event-attended">✅ You attended this event</p>
@@ -440,23 +530,40 @@ const MemberEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Location</label>
+              <label className="form-label">Duration (minutes) *</label>
               <input
-                type="text"
-                name="location"
+                type="number"
+                name="duration"
                 className="form-field"
-                placeholder="e.g., Main Hall, Room 101"
+                placeholder="e.g., 60"
+                defaultValue="60"
+                min="15"
+                step="15"
+                required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Capacity (leave 0 for unlimited)</label>
+              <label className="form-label">Capacity *</label>
               <input
                 type="number"
                 name="capacity"
                 className="form-field"
-                defaultValue="0"
-                min="0"
+                defaultValue="80"
+                min="1"
+                max="80"
+                required
               />
+              <small className="form-hint">Maximum capacity is 80 (Main Hall)</small>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Hosting Project(s)</label>
+              <input
+                type="text"
+                name="hostingProjects"
+                className="form-field"
+                placeholder="e.g., Project Alpha, Project Beta"
+              />
+              <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
             </div>
             <div className="form-group">
               <label className="form-checkbox">
