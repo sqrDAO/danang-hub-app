@@ -75,17 +75,38 @@ const AdminDashboard = () => {
             <h2 className="section-title">Recent Bookings</h2>
             {recentBookings.length > 0 ? (
               <ul className="booking-list">
-                {recentBookings.map(booking => (
-                  <li key={booking.id} className="booking-item">
-                    <div className="booking-info">
-                      <span className="booking-member">{booking.memberId}</span>
-                      <span className="booking-status">{booking.status}</span>
-                    </div>
-                    <span className="booking-time">
-                      {booking.startTime?.toLocaleString() || 'N/A'}
-                    </span>
-                  </li>
-                ))}
+                {recentBookings.map(booking => {
+                  const member = members.find(m => m.id === booking.memberId)
+                  const amenity = amenities.find(a => a.id === booking.amenityId)
+                  return (
+                    <li key={booking.id} className="booking-item">
+                      <div className="booking-info">
+                        <span className="booking-amenity">{amenity?.name || booking.amenityId}</span>
+                        <span className="booking-member">{member?.displayName || member?.email || booking.memberId}</span>
+                      </div>
+                      <div className="booking-right">
+                        <span className={`status-badge ${booking.status}`}>
+                          {booking.status || 'pending'}
+                        </span>
+                        <div className="booking-time-info">
+                          <span className="booking-time">
+                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            }) : 'N/A'}
+                          </span>
+                          <span className="booking-time-small">
+                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            }) : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="empty-state">No recent bookings</p>

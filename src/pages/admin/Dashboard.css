@@ -57,6 +57,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  text-align: left;
 }
 
 .booking-item,
@@ -66,7 +67,8 @@
   border-radius: var(--border-radius);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .booking-info,
@@ -74,26 +76,99 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  min-width: 0;
 }
 
-.booking-member,
-.event-title {
+.booking-amenity {
+  display: block;
   font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+  text-align: left;
+  width: 100%;
 }
 
-.booking-status {
-  font-size: 0.85rem;
+.booking-member {
+  display: block;
+  font-size: 0.875rem;
   color: var(--text-secondary);
-  padding: 0.25rem 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  display: inline-block;
+  text-align: left;
+  width: 100%;
 }
 
-.booking-time,
+.booking-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.booking-time-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.booking-time {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.booking-time-small {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 .event-date {
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.status-badge.approved {
+  background: rgba(34, 211, 238, 0.2);
+  color: var(--accent-secondary);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.status-badge.checked-in {
+  background: rgba(34, 211, 238, 0.3);
+  color: var(--accent-secondary);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+}
+
+.status-badge.completed {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-badge.cancelled {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .event-capacity {
@@ -126,14 +201,7 @@
   .booking-time-info {
     align-items: flex-start;
     width: 100%;
-  }
-
-  .booking-time-info::before {
-    content: '';
-    width: 100%;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-    margin-bottom: var(--spacing-sm);
+    text-align: left;
   }
 }
 
