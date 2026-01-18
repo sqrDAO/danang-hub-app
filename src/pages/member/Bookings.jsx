@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
@@ -127,6 +127,16 @@ const MemberBookings = () => {
     setAlternativeSlots([])
   }
 
+  // Recalculate end time when duration changes and start time is already selected
+  useEffect(() => {
+    if (selectedStartTime && duration) {
+      const newEndTime = new Date(selectedStartTime)
+      // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
+      newEndTime.setTime(selectedStartTime.getTime() + duration * 60 * 60 * 1000)
+      setSelectedEndTime(newEndTime)
+    }
+  }, [duration, selectedStartTime])
+
   const handleBookAmenity = (amenity) => {
     setSelectedAmenity(amenity)
     setDuration(DEFAULT_DURATION_HOURS[amenity.type] || 2)
@@ -140,7 +150,8 @@ const MemberBookings = () => {
 
     const startTime = new Date(slotTime)
     const endTime = new Date(startTime)
-    endTime.setHours(endTime.getHours() + duration)
+    // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
+    endTime.setTime(startTime.getTime() + duration * 60 * 60 * 1000)
 
     setSelectedStartTime(startTime)
     setSelectedEndTime(endTime)
@@ -182,7 +193,8 @@ const MemberBookings = () => {
       altStart.setHours(hour, 0, 0, 0)
       
       const altEnd = new Date(altStart)
-      altEnd.setHours(altEnd.getHours() + durationHours)
+      // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
+      altEnd.setTime(altStart.getTime() + durationHours * 60 * 60 * 1000)
       
       // Don't suggest the original time
       if (altStart.getTime() !== originalStart.getTime()) {
@@ -326,15 +338,26 @@ const MemberBookings = () => {
                 const amenity = amenities.find(a => a.id === booking.amenityId)
                 return (
                   <div key={booking.id} className="booking-card">
-                    <div className="booking-info">
+                    <div className="booking-header">
                       <h4 className="booking-amenity">{amenity?.name || booking.amenityId}</h4>
-                      <span className={`status-badge ${booking.status}`}>
-                        {booking.status}
-                      </span>
                     </div>
-                    <div className="booking-details">
-                      <p>Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
-                      <p>End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                    <div className="booking-content">
+                      <div className="booking-status-section">
+                        <span className={`status-badge ${booking.status}`}>
+                          {booking.status}
+                        </span>
+                        {booking.startTime && booking.endTime ? (() => {
+                          const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
+                          const durationText = hours % 1 === 0 
+                            ? `${hours} hour${hours !== 1 ? 's' : ''}` 
+                            : `${hours.toFixed(1)} hours`
+                          return <p className="booking-duration">{durationText}</p>
+                        })() : null}
+                      </div>
+                      <div className="booking-time-section">
+                        <p className="booking-time">Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
+                        <p className="booking-time">End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                      </div>
                     </div>
                     <div className="booking-actions">
                       {booking.status === 'pending' && (
@@ -373,15 +396,26 @@ const MemberBookings = () => {
                 const amenity = amenities.find(a => a.id === booking.amenityId)
                 return (
                   <div key={booking.id} className="booking-card">
-                    <div className="booking-info">
+                    <div className="booking-header">
                       <h4 className="booking-amenity">{amenity?.name || booking.amenityId}</h4>
-                      <span className={`status-badge ${booking.status}`}>
-                        {booking.status}
-                      </span>
                     </div>
-                    <div className="booking-details">
-                      <p>Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
-                      <p>End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                    <div className="booking-content">
+                      <div className="booking-status-section">
+                        <span className={`status-badge ${booking.status}`}>
+                          {booking.status}
+                        </span>
+                        {booking.startTime && booking.endTime ? (() => {
+                          const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
+                          const durationText = hours % 1 === 0 
+                            ? `${hours} hour${hours !== 1 ? 's' : ''}` 
+                            : `${hours.toFixed(1)} hours`
+                          return <p className="booking-duration">{durationText}</p>
+                        })() : null}
+                      </div>
+                      <div className="booking-time-section">
+                        <p className="booking-time">Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
+                        <p className="booking-time">End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
                 )

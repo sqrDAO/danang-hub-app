@@ -87,7 +87,11 @@ const MemberDashboard = () => {
                         <span className="booking-amenity">{amenity?.name || booking.amenityId}</span>
                         <span className="booking-duration">
                           {booking.endTime && booking.startTime
-                            ? `${Math.round((new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60))}h`
+                            ? (() => {
+                                const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
+                                // Show fractional hours (e.g., 1.5h) if not a whole number
+                                return hours % 1 === 0 ? `${hours}h` : `${hours.toFixed(1)}h`
+                              })()
                             : ''}
                         </span>
                       </div>

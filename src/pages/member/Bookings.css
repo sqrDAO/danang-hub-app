@@ -98,10 +98,16 @@
     padding: var(--spacing-sm);
   }
 
-  .booking-info {
+  .booking-content {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-sm);
+  }
+
+  .booking-time-section {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
   }
 
   .booking-actions {
@@ -121,16 +127,35 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.booking-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
+.booking-header {
+  margin-bottom: var(--spacing-md);
 }
 
 .booking-amenity {
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.booking-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.booking-status-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
+.booking-time-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
 }
 
 .status-badge {
@@ -172,14 +197,17 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-.booking-details {
-  margin-bottom: var(--spacing-md);
-}
-
-.booking-details p {
+.booking-time {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 0.25rem;
+  white-space: nowrap;
+}
+
+.booking-duration {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .booking-actions {
