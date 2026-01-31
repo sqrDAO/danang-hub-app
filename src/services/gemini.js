@@ -4,7 +4,29 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 // Using gemini-2.5-flash (stable model) - see https://ai.google.dev/gemini-api/docs/models
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
-const SYSTEM_INSTRUCTION = `You are a helpful assistant for Danang Blockchain Hub. 
+const buildSystemInstruction = (memberId) => {
+  const now = new Date()
+  const nowVietnam = now.toLocaleString('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+  const todayISO = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+  const authStatus = memberId
+    ? 'The user is LOGGED IN. You may call create_booking for them – do not ask them to log in.'
+    : 'The user is NOT logged in. Do not call create_booking; inform them they need to log in to create bookings.'
+
+  return `You are a helpful assistant for Danang Blockchain Hub. 
+${authStatus}
+
+Current date/time in Vietnam (Asia/Ho_Chi_Minh): ${nowVietnam}. Today's date (YYYY-MM-DD): ${todayISO}. 
+When the user says "next Monday", "tomorrow", "this Friday", etc., compute the actual date from the current date and convert to ISO format (e.g. 2026-02-03T08:00:00) for check_availability and create_booking. Do NOT ask the user for the specific date – compute it yourself.
+
 You help members with:
 - Booking amenities (desks, meeting rooms, podcast rooms, event spaces)
 - Finding available time slots
@@ -23,6 +45,7 @@ For event/workshop booking: First use list_amenities with minCapacity set to the
 
 Be friendly, concise, and helpful.
 Use proper markdown formatting: put list items on separate lines (each starting with * and a space), use **bold** for emphasis.`
+}
 
 const FUNCTION_DECLARATIONS = [
   {
@@ -128,7 +151,7 @@ export const chatWithGemini = async (message, conversationHistory = []) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
-        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] }
+        systemInstruction: { parts: [{ text: buildSystemInstruction() }] }
       })
     })
 
@@ -172,7 +195,7 @@ export const chatWithGeminiAgent = async (
     while (iteration < maxIterations) {
       const requestBody = {
         contents,
-        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        systemInstruction: { parts: [{ text: buildSystemInstruction(memberId) }] },
         tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }]
       }
 
