@@ -145,6 +145,15 @@
   border-left: 2px solid rgba(255, 255, 255, 0.5) !important;
 }
 
+.day-item.pending {
+  opacity: 0.7;
+  border-style: dashed !important;
+  border-color: rgba(255, 193, 7, 0.8) !important;
+  border-left: 2px dashed rgba(255, 193, 7, 0.8) !important;
+  background: rgba(255, 193, 7, 0.15) !important;
+  color: rgba(255, 193, 7, 1) !important;
+}
+
 .day-item-more {
   font-size: 0.7rem;
   color: var(--text-secondary);
@@ -185,6 +194,11 @@
 .legend-color.day-item-event {
   background: rgba(124, 58, 237, 0.3);
   border-color: var(--accent-primary);
+}
+
+.legend-color.pending {
+  background: rgba(255, 193, 7, 0.15);
+  border: 2px dashed rgba(255, 193, 7, 0.8);
 }
 
 .legend-color.mine {

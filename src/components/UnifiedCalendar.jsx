@@ -146,6 +146,7 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
           start: startDate,
           end: endDate,
           isMine: belongsToUser,
+          status: booking.status,
           data: booking
         })
       })
@@ -326,8 +327,8 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
                       {dayItems.slice(0, 3).map(item => (
                         <div
                           key={item.id}
-                          className={`day-item day-item-${item.type} ${item.isMine ? 'mine' : ''}`}
-                          title={`${item.type === 'booking' ? 'Booking' : 'Event'}: ${item.title}`}
+                          className={`day-item day-item-${item.type} ${item.isMine ? 'mine' : ''} ${item.status === 'pending' ? 'pending' : ''}`}
+                          title={`${item.type === 'booking' ? 'Booking' : 'Event'}: ${item.title}${item.status === 'pending' ? ' (Pending)' : ''}`}
                         >
                           {item.title}
                         </div>
@@ -354,6 +355,10 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
         <div className="legend-item">
           <div className="legend-color day-item-event"></div>
           <span>Event</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color pending"></div>
+          <span>Pending</span>
         </div>
         <div className="legend-item">
           <div className="legend-color mine"></div>
