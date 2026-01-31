@@ -177,7 +177,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           <ul className="nav-list">
             {isPublic ? (
               <>
-                <li><Link to="/" onClick={closeMobileMenu} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
+                <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
                 <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
                 <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
               </>
@@ -276,7 +276,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
         <ul className="mobile-nav-list">
           {isPublic ? (
             <>
-              <li><Link to="/" onClick={closeMobileMenu} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
+              <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
               <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
               <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
             </>
