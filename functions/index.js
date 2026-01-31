@@ -251,22 +251,26 @@ exports.sendBookingConfirmation = functions.firestore
       const booking = snap.data();
 
       try {
-        // Get member details
+        // Get member details (includes preferences.emailNotifications)
         const memberDoc = await db.collection("members")
             .doc(booking.memberId).get();
-        const member = memberDoc.data();
+        const member = memberDoc.exists ? memberDoc.data() : null;
+        const prefs = (member && member.preferences) || {};
+        const sendEmail = prefs.emailNotifications !== false;
 
         // Get amenity details
         const amenityDoc = await db.collection("amenities")
             .doc(booking.amenityId).get();
-        const amenity = amenityDoc.data();
+        const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        // TODO: Integrate with email service
+        // TODO: Integrate with email service; only send if sendEmail is true
         console.log("Booking confirmation:", {
           memberEmail: member && member.email ? member.email : null,
+          memberPhone: member && member.phone ? member.phone : null,
           amenityName: amenity && amenity.name ? amenity.name : null,
           startTime: booking.startTime,
           endTime: booking.endTime,
+          sendEmail,
         });
 
         return null;
@@ -329,7 +333,7 @@ exports.cleanupOldBookings = functions.pubsub
       }
     });
 
-// Send event reminders
+// Send event reminders (respects member preferences.eventReminders)
 exports.sendEventReminders = functions.pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
@@ -355,10 +359,29 @@ exports.sendEventReminders = functions.pubsub
           const attendees = event.attendees || [];
           const waitlist = event.waitlist || [];
 
-          // TODO: Integrate with email/push notification service
+          // Resolve attendees who have eventReminders enabled
+          const membersToRemind = [];
+          for (const memberId of attendees) {
+            const memberRef = db.collection("members").doc(memberId);
+            const memberDoc = await memberRef.get();
+            const member = memberDoc.exists ? memberDoc.data() : null;
+            const prefs = (member && member.preferences) || {};
+            if (prefs.eventReminders !== false) {
+              membersToRemind.push({
+                memberId,
+                email: member && member.email ? member.email : null,
+                displayName: member && member.displayName ?
+                  member.displayName : null,
+              });
+            }
+          }
+
+          // TODO: Integrate with email/push notification service;
+          // send only to membersToRemind
           console.log(`Event reminder for ${event.title}:`, {
             eventId: eventDoc.id,
             attendees: attendees.length,
+            membersToRemind: membersToRemind.length,
             waitlist: waitlist.length,
             date: event.date,
           });

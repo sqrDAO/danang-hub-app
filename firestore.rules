@@ -18,6 +18,9 @@ service cloud.firestore {
     }
     
     // Members collection
+    // Profile fields: uid, displayName, email, photoURL, membershipType,
+    // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
+    // createdAt, updatedAt. Only membershipType is restricted for owner updates.
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
@@ -29,7 +32,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) && 
                        (!('membershipType' in request.resource.data) || 
                         request.resource.data.membershipType == resource.data.membershipType);
-      // Only admins can update membershipType
+      // Only admins can update membershipType or any member
       allow update: if isAdmin();
       // Only admins can delete members
       allow delete: if isAdmin();

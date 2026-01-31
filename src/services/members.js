@@ -11,6 +11,8 @@ import {
   orderBy
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getBookings } from './bookings'
+import { getEvents } from './events'
 
 const MEMBERS_COLLECTION = 'members'
 
@@ -41,4 +43,22 @@ export const updateMember = async (uid, data) => {
 export const deleteMember = async (uid) => {
   const memberRef = doc(db, MEMBERS_COLLECTION, uid)
   await deleteDoc(memberRef)
+}
+
+/**
+ * Get aggregated activity stats for a member
+ * @param {string} uid - Member's user ID
+ * @returns {Promise<{ totalBookings: number, eventsAttended: number, eventsOrganized: number }>}
+ */
+export const getMemberStats = async (uid) => {
+  const [bookings, events] = await Promise.all([
+    getBookings({ memberId: uid }),
+    getEvents()
+  ])
+
+  return {
+    totalBookings: bookings.length,
+    eventsAttended: events.filter(e => e.attendees?.includes(uid)).length,
+    eventsOrganized: events.filter(e => e.organizerId === uid).length
+  }
 }

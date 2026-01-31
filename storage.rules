@@ -23,6 +23,11 @@ service firebase.storage {
       return request.resource.size < 5 * 1024 * 1024;
     }
     
+    // Helper function to validate avatar file size (10MB max)
+    function isValidAvatarSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
     // Amenity photos
     match /amenities/{amenityId}/{allPaths=**} {
       // Public read access for amenity photos
@@ -35,6 +40,16 @@ service firebase.storage {
       
       // Only admins can delete amenity photos
       allow delete: if isAdmin();
+    }
+
+    // Member avatar photos (10MB max)
+    match /members/{userId}/avatar/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() &&
+                     request.auth.uid == userId &&
+                     isImageFile() &&
+                     isValidAvatarSize();
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
     
     // Deny all other paths

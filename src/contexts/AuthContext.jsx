@@ -124,6 +124,17 @@ export const AuthProvider = ({ children }) => {
     return userProfile?.membershipType === 'admin'
   }
 
+  // Refresh user profile from Firestore after updates
+  const refreshUserProfile = async () => {
+    if (currentUser) {
+      const userRef = doc(db, 'members', currentUser.uid)
+      const userSnap = await getDoc(userRef)
+      if (userSnap.exists()) {
+        setUserProfile(userSnap.data())
+      }
+    }
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -155,6 +166,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     logout,
     isAdmin,
+    refreshUserProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

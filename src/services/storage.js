@@ -2,29 +2,32 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { storage } from './firebase'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
 /**
  * Validates if a file is a valid image
  * @param {File} file - The file to validate
+ * @param {number} [maxSize=MAX_FILE_SIZE] - Max file size in bytes
  * @returns {Object} - { valid: boolean, error?: string }
  */
-const validateImageFile = (file) => {
+const validateImageFile = (file, maxSize = MAX_FILE_SIZE) => {
   if (!file) {
     return { valid: false, error: 'No file provided' }
   }
 
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return { 
-      valid: false, 
-      error: 'Invalid file type. Please upload JPG, PNG, or WebP images only.' 
+    return {
+      valid: false,
+      error: 'Invalid file type. Please upload JPG, PNG, or WebP images only.'
     }
   }
 
-  if (file.size > MAX_FILE_SIZE) {
-    return { 
-      valid: false, 
-      error: `File size exceeds 5MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB` 
+  if (file.size > maxSize) {
+    const limitMB = (maxSize / 1024 / 1024).toFixed(0)
+    return {
+      valid: false,
+      error: `File size exceeds ${limitMB}MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
     }
   }
 
@@ -93,6 +96,61 @@ export const deleteAmenityPhoto = async (photoUrl) => {
   } catch (error) {
     console.error('Error deleting amenity photo:', error)
     throw new Error(`Failed to delete photo: ${error.message}`)
+  }
+}
+
+/**
+ * Uploads an avatar image for a member to Firebase Storage
+ * @param {string} userId - The member's user ID
+ * @param {File} file - The image file to upload
+ * @returns {Promise<string>} - The download URL of the uploaded avatar
+ */
+export const uploadMemberAvatar = async (userId, file) => {
+  const validation = validateImageFile(file, AVATAR_MAX_FILE_SIZE)
+  if (!validation.valid) {
+    throw new Error(validation.error)
+  }
+
+  try {
+    const timestamp = Date.now()
+    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const storagePath = `members/${userId}/avatar/${timestamp}-${sanitizedFilename}`
+
+    const storageRef = ref(storage, storagePath)
+    await uploadBytes(storageRef, file)
+    const downloadURL = await getDownloadURL(storageRef)
+
+    return downloadURL
+  } catch (error) {
+    console.error('Error uploading member avatar:', error)
+    throw new Error(`Failed to upload avatar: ${error.message}`)
+  }
+}
+
+/**
+ * Deletes a member avatar from Firebase Storage
+ * @param {string} photoUrl - The download URL of the avatar to delete
+ * @returns {Promise<void>}
+ */
+export const deleteMemberAvatar = async (photoUrl) => {
+  if (!photoUrl) {
+    throw new Error('Photo URL is required')
+  }
+
+  try {
+    const url = new URL(photoUrl)
+    const pathMatch = url.pathname.match(/\/o\/(.+)\?/)
+
+    if (!pathMatch) {
+      throw new Error('Invalid photo URL format')
+    }
+
+    const storagePath = decodeURIComponent(pathMatch[1])
+    const storageRef = ref(storage, storagePath)
+    await deleteObject(storageRef)
+  } catch (error) {
+    console.error('Error deleting member avatar:', error)
+    throw new Error(`Failed to delete avatar: ${error.message}`)
   }
 }
 
