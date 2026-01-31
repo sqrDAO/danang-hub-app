@@ -124,6 +124,27 @@
   font-weight: 600;
 }
 
+.chatbot-login-cta {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--accent-gradient);
+  color: white;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: var(--transition);
+  border: none;
+  cursor: pointer;
+}
+
+.chatbot-login-cta:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  color: white;
+}
+
 .typing-indicator {
   display: flex;
   gap: 0.5rem;

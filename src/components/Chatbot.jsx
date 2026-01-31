@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../contexts/AuthContext'
 import { chatWithGeminiAgent } from '../services/gemini'
@@ -15,8 +16,12 @@ const normalizeMarkdown = (text) => {
     .trim()
 }
 
+const LOGIN_CTA_PATTERNS = /log in|sign in|not logged in/i
+
 const Chatbot = () => {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     {
@@ -90,27 +95,50 @@ const Chatbot = () => {
             </button>
           </div>
           <div className="chatbot-messages">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`chatbot-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-              >
-                {message.role === 'assistant' ? (
-                  <ReactMarkdown
-                    components={{
-                      ul: ({ children }) => <ul className="chatbot-list">{children}</ul>,
-                      ol: ({ children }) => <ol className="chatbot-list">{children}</ol>,
-                      li: ({ children }) => <li>{children}</li>,
-                      p: ({ children }) => <p className="chatbot-paragraph">{children}</p>
-                    }}
-                  >
-                    {normalizeMarkdown(message.content)}
-                  </ReactMarkdown>
-                ) : (
-                  message.content
-                )}
-              </div>
-            ))}
+            {messages.map((message, index) => {
+              const showLoginCta =
+                message.role === 'assistant' &&
+                !currentUser &&
+                LOGIN_CTA_PATTERNS.test(message.content) &&
+                index === messages.length - 1
+
+              return (
+                <div
+                  key={index}
+                  className={`chatbot-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+                >
+                  {message.role === 'assistant' ? (
+                    <>
+                      <ReactMarkdown
+                        components={{
+                          ul: ({ children }) => <ul className="chatbot-list">{children}</ul>,
+                          ol: ({ children }) => <ol className="chatbot-list">{children}</ol>,
+                          li: ({ children }) => <li>{children}</li>,
+                          p: ({ children }) => <p className="chatbot-paragraph">{children}</p>
+                        }}
+                      >
+                        {normalizeMarkdown(message.content)}
+                      </ReactMarkdown>
+                      {showLoginCta && (
+                        <a
+                          href={`/login?redirect=${encodeURIComponent(location.pathname || '/')}`}
+                          className="chatbot-login-cta"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            navigate(`/login?redirect=${encodeURIComponent(location.pathname || '/')}`)
+                            setIsOpen(false)
+                          }}
+                        >
+                          Log in to continue
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    message.content
+                  )}
+                </div>
+              )
+            })}
             {isLoading && (
               <div className="chatbot-message assistant-message">
                 <div className="typing-indicator">
