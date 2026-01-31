@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { chatWithGeminiAgent } from '../services/gemini'
 import { getAmenities } from '../services/amenities'
 import { checkSlotAvailabilityCallable } from '../services/functions'
-import { createBooking } from '../services/bookings'
+import { createBookingWithEventIfEventSpace } from '../services/bookings'
+import { createEvent } from '../services/events'
 import './Chatbot.css'
 
 const normalizeMarkdown = (text) => {
@@ -50,10 +51,16 @@ const Chatbot = () => {
         content: msg.content
       }))
       
+      const createBookingForAgent = (args) =>
+        createBookingWithEventIfEventSpace(args, {
+          getAmenities,
+          createEvent
+        })
+
       const toolImplementations = {
         listAmenities: getAmenities,
         checkAvailability: checkSlotAvailabilityCallable,
-        createBooking
+        createBooking: createBookingForAgent
       }
       const response = await chatWithGeminiAgent(
         userMessage,

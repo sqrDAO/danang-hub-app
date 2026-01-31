@@ -101,6 +101,43 @@ export const createBooking = async (data) => {
   return docRef.id
 }
 
+// Create booking and a linked event when amenity is event-space (for AI chatbot)
+export const createBookingWithEventIfEventSpace = async (
+  { amenityId, memberId, startTime, endTime },
+  { getAmenities, createEvent }
+) => {
+  const amenities = await getAmenities()
+  const amenity = amenities.find((a) => a.id === amenityId)
+
+  const bookingId = await createBooking({
+    amenityId,
+    memberId,
+    startTime,
+    endTime
+  })
+
+  if (amenity?.type === 'event-space') {
+    const start = new Date(startTime)
+    const end = new Date(endTime)
+    const durationMinutes = Math.round((end - start) / (60 * 1000))
+
+    await createEvent({
+      title: `${amenity.name} Booking`,
+      description: 'Booking made via AI assistant',
+      date: startTime,
+      duration: durationMinutes,
+      organizerId: memberId,
+      status: 'pending',
+      requestedAmenityId: amenityId,
+      bookingId,
+      capacity: amenity.capacity || 80,
+      waitlist: []
+    })
+  }
+
+  return bookingId
+}
+
 export const updateBooking = async (id, data) => {
   const bookingRef = doc(db, BOOKINGS_COLLECTION, id)
   const updateData = { ...data }
