@@ -4,6 +4,111 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 // Using gemini-2.5-flash (stable model) - see https://ai.google.dev/gemini-api/docs/models
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
+const SYSTEM_INSTRUCTION = `You are a helpful assistant for Danang Blockchain Hub. 
+You help members with:
+- Booking amenities (desks, meeting rooms, podcast rooms, event spaces)
+- Finding available time slots
+- Event information
+- General questions about the hub
+
+IMPORTANT: When users ask to check availability or book event spaces, you MUST use the provided tools (list_amenities, check_availability, create_booking) to perform these actions. Do NOT just say you will check - actually call the tools and report the real results.
+
+For event/workshop booking: First use list_amenities to find suitable spaces (filter by capacity), then use check_availability for each suitable space, then use create_booking when the user confirms.
+
+Be friendly, concise, and helpful.
+Use proper markdown formatting: put list items on separate lines (each starting with * and a space), use **bold** for emphasis.`
+
+const FUNCTION_DECLARATIONS = [
+  {
+    name: 'list_amenities',
+    description: 'List all available amenities (desks, meeting rooms, podcast rooms, event spaces) at the hub. Use this to find spaces suitable for events - filter by capacity for the number of attendees.',
+    parameters: {
+      type: 'object',
+      properties: {
+        minCapacity: {
+          type: 'integer',
+          description: 'Optional. Minimum capacity needed. Use for events - e.g. 50 for a 50-person workshop.'
+        },
+        type: {
+          type: 'string',
+          description: 'Optional. Filter by amenity type: desk, meeting-room, podcast-room'
+        }
+      }
+    }
+  },
+  {
+    name: 'check_availability',
+    description: 'Check if a specific amenity is available for a given date and time range. Call this after list_amenities to verify the slot is free before booking.',
+    parameters: {
+      type: 'object',
+      properties: {
+        amenityId: {
+          type: 'string',
+          description: 'The ID of the amenity to check (from list_amenities)'
+        },
+        startTime: {
+          type: 'string',
+          description: 'Start time in ISO 8601 format, e.g. 2026-02-19T18:00:00'
+        },
+        endTime: {
+          type: 'string',
+          description: 'End time in ISO 8601 format, e.g. 2026-02-19T21:00:00'
+        }
+      },
+      required: ['amenityId', 'startTime', 'endTime']
+    }
+  },
+  {
+    name: 'create_booking',
+    description: 'Create a booking for an amenity. User must be logged in. Call this only after confirming availability and when the user has approved the booking.',
+    parameters: {
+      type: 'object',
+      properties: {
+        amenityId: {
+          type: 'string',
+          description: 'The ID of the amenity to book'
+        },
+        startTime: {
+          type: 'string',
+          description: 'Start time in ISO 8601 format'
+        },
+        endTime: {
+          type: 'string',
+          description: 'End time in ISO 8601 format'
+        }
+      },
+      required: ['amenityId', 'startTime', 'endTime']
+    }
+  }
+]
+
+const buildContents = (conversationHistory, latestMessage) => {
+  const contents = []
+  conversationHistory.forEach(msg => {
+    contents.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    })
+  })
+  contents.push({
+    role: 'user',
+    parts: [{ text: latestMessage }]
+  })
+  return contents
+}
+
+const extractFunctionCall = (response) => {
+  const parts = response?.candidates?.[0]?.content?.parts || []
+  const part = parts.find(p => p.functionCall)
+  return part?.functionCall
+}
+
+const extractText = (response) => {
+  const parts = response?.candidates?.[0]?.content?.parts || []
+  const textParts = parts.filter(p => p.text).map(p => p.text)
+  return textParts.join('\n').trim() || null
+}
+
 export const chatWithGemini = async (message, conversationHistory = []) => {
   if (!GEMINI_API_KEY) {
     console.warn('Gemini API key not configured')
@@ -11,35 +116,13 @@ export const chatWithGemini = async (message, conversationHistory = []) => {
   }
 
   try {
-    const systemContext = `You are a helpful assistant for Danang Blockchain Hub. 
-You help members with:
-- Booking amenities (desks, meeting rooms, podcast rooms)
-- Finding available time slots
-- Event information
-- General questions about the hub
-
-Be friendly, concise, and helpful.`
-
-    // Build contents array - Gemini API expects array of content objects
-    const contents = [
-      {
-        parts: [{ text: systemContext }]
-      },
-      ...conversationHistory.map(msg => ({
-        parts: [{ text: msg.content }]
-      })),
-      {
-        parts: [{ text: message }]
-      }
-    ]
-
+    const contents = buildContents(conversationHistory, message)
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: contents
+        contents,
+        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] }
       })
     })
 
@@ -50,9 +133,134 @@ Be friendly, concise, and helpful.`
     }
 
     const data = await response.json()
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not process your request.'
+    return extractText(data) || 'Sorry, I could not process your request.'
   } catch (error) {
     console.error('Error chatting with Gemini:', error)
+    return 'Sorry, I encountered an error. Please try again later.'
+  }
+}
+
+/**
+ * Agent version with function calling - can check availability and create bookings
+ * @param {string} message - User message
+ * @param {Array} conversationHistory - [{role, content}]
+ * @param {Object} toolImplementations - { listAmenities, checkAvailability, createBooking }
+ * @param {string} memberId - Current user's ID (required for create_booking)
+ */
+export const chatWithGeminiAgent = async (
+  message,
+  conversationHistory = [],
+  toolImplementations,
+  memberId
+) => {
+  if (!GEMINI_API_KEY) {
+    return 'AI assistant is not available. Please configure your Gemini API key.'
+  }
+
+  const { listAmenities, checkAvailability, createBooking } = toolImplementations || {}
+  let contents = buildContents(conversationHistory, message)
+  const maxIterations = 10
+  let iteration = 0
+
+  try {
+    while (iteration < maxIterations) {
+      const requestBody = {
+        contents,
+        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }]
+      }
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Gemini API error:', response.status, errorText)
+        throw new Error(`Gemini API request failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      const functionCall = extractFunctionCall(data)
+      if (!functionCall) {
+        return extractText(data) || 'Sorry, I could not process your request.'
+      }
+
+      const { name, args } = functionCall
+      let result
+
+      try {
+        if (name === 'list_amenities') {
+          if (!listAmenities) throw new Error('list_amenities tool not configured')
+          const amenities = await listAmenities()
+          const filtered = amenities.filter(a => {
+            if (args.minCapacity && (a.capacity || 0) < args.minCapacity) return false
+            if (args.type && a.type !== args.type) return false
+            return a.isAvailable !== false
+          })
+          result = {
+            amenities: filtered.map(a => ({
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              capacity: a.capacity,
+              description: a.description
+            })),
+            count: filtered.length
+          }
+        } else if (name === 'check_availability') {
+          if (!checkAvailability) throw new Error('check_availability tool not configured')
+          result = await checkAvailability(args.amenityId, args.startTime, args.endTime)
+        } else if (name === 'create_booking') {
+          if (!createBooking || !checkAvailability) throw new Error('create_booking tool not configured')
+          if (!memberId) {
+            result = { success: false, error: 'Please log in to create a booking. You can sign in from the menu.' }
+          } else {
+            const availability = await checkAvailability(args.amenityId, args.startTime, args.endTime)
+            if (!availability.available) {
+              result = { success: false, error: 'This slot was just booked by someone else. Please choose another time.' }
+            } else {
+              const bookingId = await createBooking({
+                amenityId: args.amenityId,
+                memberId,
+                startTime: args.startTime,
+                endTime: args.endTime
+              })
+              result = { success: true, bookingId }
+            }
+          }
+        } else {
+          result = { error: `Unknown function: ${name}` }
+        }
+      } catch (toolError) {
+        console.error(`Tool ${name} error:`, toolError)
+        result = { success: false, error: toolError.message || 'Tool execution failed' }
+      }
+
+      contents.push(
+        {
+          role: 'model',
+          parts: [{ functionCall: { name, args } }]
+        },
+        {
+          role: 'user',
+          parts: [{
+            functionResponse: {
+              name,
+              response: result
+            }
+          }]
+        }
+      )
+      iteration++
+    }
+
+    return 'I reached my limit of tool calls. Please try again with a simpler request.'
+  } catch (error) {
+    console.error('Error in chatWithGeminiAgent:', error)
     return 'Sorry, I encountered an error. Please try again later.'
   }
 }

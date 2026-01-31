@@ -103,6 +103,27 @@
   align-self: flex-start;
 }
 
+.assistant-message .chatbot-paragraph {
+  margin: 0 0 0.5rem 0;
+}
+
+.assistant-message .chatbot-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.assistant-message .chatbot-list {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.assistant-message .chatbot-list li {
+  margin-bottom: 0.25rem;
+}
+
+.assistant-message strong {
+  font-weight: 600;
+}
+
 .typing-indicator {
   display: flex;
   gap: 0.5rem;

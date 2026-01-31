@@ -141,6 +141,33 @@ export const checkOut = async (id) => {
   })
 }
 
+// Check if a specific time slot is available for an amenity
+export const checkSlotAvailability = async (amenityId, startTime, endTime) => {
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  const bookings = await getBookings({ amenityId })
+  const activeBookings = bookings.filter(b =>
+    ['pending', 'approved', 'checked-in'].includes(b.status)
+  )
+  const conflicts = activeBookings.filter(booking => {
+    const bookingStart = new Date(booking.startTime)
+    const bookingEnd = new Date(booking.endTime)
+    return (
+      (start >= bookingStart && start < bookingEnd) ||
+      (end > bookingStart && end <= bookingEnd) ||
+      (start <= bookingStart && end >= bookingEnd)
+    )
+  })
+  return {
+    available: conflicts.length === 0,
+    conflicts: conflicts.map(c => ({
+      id: c.id,
+      startTime: c.startTime,
+      endTime: c.endTime
+    }))
+  }
+}
+
 // Get availability for a specific date
 export const getAvailabilityForDate = async (amenityId, date) => {
   const startOfDay = new Date(date)

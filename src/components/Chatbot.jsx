@@ -1,8 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
-import { chatWithGemini } from '../services/gemini'
+import ReactMarkdown from 'react-markdown'
+import { useAuth } from '../contexts/AuthContext'
+import { chatWithGeminiAgent } from '../services/gemini'
+import { getAmenities } from '../services/amenities'
+import { checkSlotAvailability, createBooking } from '../services/bookings'
 import './Chatbot.css'
 
+const normalizeMarkdown = (text) => {
+  return text
+    .replace(/\s+\*\s+\*\*/g, '\n* **') // Inline " * **bold**" -> list item on new line
+    .replace(/([?.!):])\s+\*\s+/g, '$1\n* ') // "? * text" -> list item on new line
+    .trim()
+}
+
 const Chatbot = () => {
+  const { currentUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     {
@@ -37,7 +49,17 @@ const Chatbot = () => {
         content: msg.content
       }))
       
-      const response = await chatWithGemini(userMessage, conversationHistory)
+      const toolImplementations = {
+        listAmenities: getAmenities,
+        checkAvailability: checkSlotAvailability,
+        createBooking
+      }
+      const response = await chatWithGeminiAgent(
+        userMessage,
+        conversationHistory,
+        toolImplementations,
+        currentUser?.uid
+      )
       setMessages(prev => [...prev, { role: 'assistant', content: response }])
     } catch (error) {
       setMessages(prev => [...prev, {
@@ -65,7 +87,20 @@ const Chatbot = () => {
                 key={index}
                 className={`chatbot-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
               >
-                {message.content}
+                {message.role === 'assistant' ? (
+                  <ReactMarkdown
+                    components={{
+                      ul: ({ children }) => <ul className="chatbot-list">{children}</ul>,
+                      ol: ({ children }) => <ol className="chatbot-list">{children}</ol>,
+                      li: ({ children }) => <li>{children}</li>,
+                      p: ({ children }) => <p className="chatbot-paragraph">{children}</p>
+                    }}
+                  >
+                    {normalizeMarkdown(message.content)}
+                  </ReactMarkdown>
+                ) : (
+                  message.content
+                )}
               </div>
             ))}
             {isLoading && (
