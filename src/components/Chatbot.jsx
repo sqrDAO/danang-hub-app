@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../contexts/AuthContext'
 import { chatWithGeminiAgent } from '../services/gemini'
 import { getAmenities } from '../services/amenities'
-import { checkSlotAvailability, createBooking } from '../services/bookings'
+import { checkSlotAvailabilityCallable } from '../services/functions'
+import { createBooking } from '../services/bookings'
 import './Chatbot.css'
 
 const normalizeMarkdown = (text) => {
@@ -51,7 +52,7 @@ const Chatbot = () => {
       
       const toolImplementations = {
         listAmenities: getAmenities,
-        checkAvailability: checkSlotAvailability,
+        checkAvailability: checkSlotAvailabilityCallable,
         createBooking
       }
       const response = await chatWithGeminiAgent(

@@ -13,6 +13,8 @@ You help members with:
 
 The hub has an Event Space (Main Hall) that accommodates up to 80 people. Use list_amenities with minCapacity to find it for workshops and events.
 
+Event Hall requires booking at least 2 weeks in advance. If a user requests a date within 2 weeks, the check_availability tool will return unavailable with that reason. Inform the user about this rule and suggest a later date.
+
 IMPORTANT: When users ask to check availability or book event spaces, you MUST use the provided tools (list_amenities, check_availability, create_booking) to perform these actions. Do NOT just say you will check - actually call the tools and report the real results.
 
 For event/workshop booking: First use list_amenities with minCapacity set to the attendee count (e.g. 50 for 50 people) to find suitable spaces. The Event Space holds up to 80. Then use check_availability for each suitable space, then use create_booking when the user confirms.
@@ -223,7 +225,10 @@ export const chatWithGeminiAgent = async (
           } else {
             const availability = await checkAvailability(args.amenityId, args.startTime, args.endTime)
             if (!availability.available) {
-              result = { success: false, error: 'This slot was just booked by someone else. Please choose another time.' }
+              result = {
+                success: false,
+                error: availability.error || 'This slot was just booked by someone else. Please choose another time.'
+              }
             } else {
               const bookingId = await createBooking({
                 amenityId: args.amenityId,

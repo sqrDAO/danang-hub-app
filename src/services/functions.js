@@ -1,6 +1,22 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
 
+// Check slot availability (no auth required - for chatbot)
+export const checkSlotAvailabilityCallable = async (amenityId, startTime, endTime) => {
+  try {
+    const checkAvailability = httpsCallable(functions, 'checkSlotAvailability')
+    const result = await checkAvailability({
+      amenityId,
+      startTime: new Date(startTime).toISOString(),
+      endTime: new Date(endTime).toISOString()
+    })
+    return result.data
+  } catch (error) {
+    console.error('Error checking slot availability:', error)
+    return { available: false, conflicts: [] }
+  }
+}
+
 // Check for booking conflicts before creating a booking
 export const checkBookingConflicts = async (amenityId, startTime, endTime, excludeBookingId = null) => {
   try {

@@ -61,6 +61,79 @@ exports.checkBookingConflicts = functions.https.onCall(
     },
 );
 
+// Check slot availability - no auth (for chatbot, public availability)
+exports.checkSlotAvailability = functions.https.onCall(
+    async (data, context) => {
+      const {amenityId, startTime, endTime} = data;
+
+      if (!amenityId || !startTime || !endTime) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "amenityId, startTime, and endTime are required",
+        );
+      }
+
+      try {
+        const newStart = new Date(startTime);
+
+        // Event Hall (event-space) requires booking at least 2 weeks in advance
+        const amenityRef = db.collection("amenities").doc(amenityId);
+        const amenityDoc = await amenityRef.get();
+        if (amenityDoc.exists) {
+          const amenity = amenityDoc.data();
+          if (amenity.type === "event-space") {
+            const minDate = new Date();
+            minDate.setDate(minDate.getDate() + 14);
+            minDate.setHours(0, 0, 0, 0);
+            if (newStart < minDate) {
+              return {
+                available: false,
+                error: "Event Hall requires 2-week advance booking.",
+              };
+            }
+          }
+        }
+
+        const bookingsQuery = db.collection("bookings")
+            .where("amenityId", "==", amenityId)
+            .where("status", "in", ["pending", "approved", "checked-in"]);
+
+        const snapshot = await bookingsQuery.get();
+        const conflicts = [];
+        const newEnd = new Date(endTime);
+
+        snapshot.forEach((doc) => {
+          const booking = doc.data();
+          const bookingStart = booking.startTime.toDate();
+          const bookingEnd = booking.endTime.toDate();
+
+          if (
+            (newStart >= bookingStart && newStart < bookingEnd) ||
+            (newEnd > bookingStart && newEnd <= bookingEnd) ||
+            (newStart <= bookingStart && newEnd >= bookingEnd)
+          ) {
+            conflicts.push({
+              id: doc.id,
+              startTime: bookingStart.toISOString(),
+              endTime: bookingEnd.toISOString(),
+            });
+          }
+        });
+
+        return {
+          available: conflicts.length === 0,
+          conflicts,
+        };
+      } catch (error) {
+        console.error("Error checking slot availability:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "Error checking availability",
+        );
+      }
+    },
+);
+
 // Auto check-out expired bookings
 exports.autoCheckoutExpiredBookings = functions.pubsub
     .schedule("every 1 hours")
