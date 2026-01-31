@@ -247,7 +247,22 @@ const AdminEvents = () => {
     e.preventDefault()
     const formData = new FormData(e.target)
     const linkedAmenityId = formData.get('linkedAmenityId')
-    
+    const eventDate = new Date(formData.get('date'))
+
+    // Event hall must be booked at least 2 weeks in advance
+    if (linkAmenity && linkedAmenityId) {
+      const requestedAmenity = amenities.find(a => a.id === linkedAmenityId)
+      if (requestedAmenity?.type === 'event-space') {
+        const twoWeeksFromNow = new Date()
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
+        twoWeeksFromNow.setHours(0, 0, 0, 0)
+        if (eventDate < twoWeeksFromNow) {
+          showToast('Event Hall must be booked at least 2 weeks in advance.', 'error')
+          return
+        }
+      }
+    }
+
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
@@ -264,9 +279,14 @@ const AdminEvents = () => {
       data.hostingProjects = hostingProjects.trim()
     }
 
+    // Optional event link
+    const eventLink = formData.get('eventLink')
+    if (eventLink && eventLink.trim()) {
+      data.eventLink = eventLink.trim()
+    }
+
     // Handle amenity linking
     if (linkAmenity && linkedAmenityId) {
-      const eventDate = new Date(formData.get('date'))
       const duration = data.duration || 60
       const startTime = new Date(eventDate)
       startTime.setHours(startTime.getHours() - 1) // 1 hour before event
@@ -407,6 +427,11 @@ const AdminEvents = () => {
                       ✅ Linked: {amenities.find(a => a.id === event.linkedAmenityId)?.name}
                     </p>
                   )}
+                  {event.eventLink && (
+                    <p className="event-link">
+                      🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                    </p>
+                  )}
                   {event.description && (
                     <p className="event-description">{event.description}</p>
                   )}
@@ -498,9 +523,17 @@ const AdminEvents = () => {
                 type="datetime-local"
                 name="date"
                 className="form-field"
+                min={linkAmenity ? (() => {
+                  const min = new Date()
+                  min.setDate(min.getDate() + 14)
+                  return min.toISOString().slice(0, 16)
+                })() : undefined}
                 defaultValue={selectedEvent?.date ? new Date(selectedEvent.date).toISOString().slice(0, 16) : ''}
                 required
               />
+              {linkAmenity && (
+                <small className="form-hint">Event Hall requires booking at least 2 weeks in advance. $50 deposit required.</small>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Duration (minutes) *</label>
@@ -545,6 +578,17 @@ const AdminEvents = () => {
               <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
             </div>
             <div className="form-group">
+              <label className="form-label">Event Link</label>
+              <input
+                type="url"
+                name="eventLink"
+                className="form-field"
+                placeholder="e.g., https://lu.ma/your-event"
+                defaultValue={selectedEvent?.eventLink || ''}
+              />
+              <small className="form-hint">Optional. Link to event page (e.g. Lu.ma, Eventbrite)</small>
+            </div>
+            <div className="form-group">
               <label className="form-label">Organizer</label>
               <select name="organizerId" className="form-field" defaultValue={selectedEvent?.organizerId || ''} required>
                 <option value="">Select organizer</option>
@@ -566,18 +610,23 @@ const AdminEvents = () => {
               </label>
             </div>
             {linkAmenity && (
-              <div className="form-group">
-                <label className="form-label">Amenity</label>
-                <select name="linkedAmenityId" className="form-field" defaultValue={selectedEvent?.linkedAmenityId || ''}>
-                  <option value="">Select amenity</option>
-                  {amenities.filter(a => a.isAvailable !== false && a.type === 'event-space').map(amenity => (
-                    <option key={amenity.id} value={amenity.id}>
-                      {amenity.name}
-                    </option>
-                  ))}
-                </select>
-                <small className="form-hint">Amenity will be booked 1 hour before and 2 hours after event</small>
-              </div>
+              <>
+                <div className="event-hall-notice">
+                  <p><strong>Event Hall:</strong> $50 deposit required for cleaning and support.</p>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amenity</label>
+                  <select name="linkedAmenityId" className="form-field" defaultValue={selectedEvent?.linkedAmenityId || ''}>
+                    <option value="">Select amenity</option>
+                    {amenities.filter(a => a.isAvailable !== false && a.type === 'event-space').map(amenity => (
+                      <option key={amenity.id} value={amenity.id}>
+                        {amenity.name}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="form-hint">Amenity will be booked 1 hour before and 2 hours after event</small>
+                </div>
+              </>
             )}
             <div className="form-actions">
               <button type="submit" className="btn btn-primary">

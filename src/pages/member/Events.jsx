@@ -28,7 +28,25 @@ const MemberEvents = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [linkAmenity, setLinkAmenity] = useState(false)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
+  const [dateError, setDateError] = useState(null)
   const processedActionRef = useRef(null)
+
+  const validateEventHallDate = (dateValue) => {
+    if (!linkAmenity || !dateValue) {
+      setDateError(null)
+      return true
+    }
+    const eventDate = new Date(dateValue)
+    const twoWeeksFromNow = new Date()
+    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
+    twoWeeksFromNow.setHours(0, 0, 0, 0)
+    if (eventDate < twoWeeksFromNow) {
+      setDateError('Event Hall must be booked at least 2 weeks in advance.')
+      return false
+    }
+    setDateError(null)
+    return true
+  }
 
   // Fetch upcoming events (approved and pending)
   const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
@@ -204,7 +222,23 @@ const MemberEvents = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    
+    const eventDate = new Date(formData.get('date'))
+    const linkedAmenityId = formData.get('linkedAmenityId')
+
+    // Event hall must be booked at least 2 weeks in advance
+    if (linkAmenity && linkedAmenityId) {
+      const requestedAmenity = amenities.find(a => a.id === linkedAmenityId)
+      if (requestedAmenity?.type === 'event-space') {
+        const twoWeeksFromNow = new Date()
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
+        twoWeeksFromNow.setHours(0, 0, 0, 0)
+        if (eventDate < twoWeeksFromNow) {
+          showToast('Event Hall must be booked at least 2 weeks in advance.', 'error')
+          return
+        }
+      }
+    }
+
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
@@ -222,16 +256,27 @@ const MemberEvents = () => {
       data.hostingProjects = hostingProjects.trim()
     }
 
+    // Optional event link
+    const eventLink = formData.get('eventLink')
+    if (eventLink && eventLink.trim()) {
+      data.eventLink = eventLink.trim()
+    }
+
     // Handle optional amenity linking request
-    if (linkAmenity) {
-      const linkedAmenityId = formData.get('linkedAmenityId')
-      if (linkedAmenityId) {
-        data.requestedAmenityId = linkedAmenityId
-        data.amenityNote = formData.get('amenityNote') || ''
-      }
+    if (linkAmenity && linkedAmenityId) {
+      data.requestedAmenityId = linkedAmenityId
+      data.amenityNote = formData.get('amenityNote') || ''
     }
 
     createMutation.mutate(data)
+  }
+
+  const handleOpenCreateModal = () => {
+    const eventSpaceAmenities = amenities.filter(a => a.isAvailable !== false && a.type === 'event-space')
+    const defaultAmenity = eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name)) || eventSpaceAmenities[0]
+    setLinkAmenity(true)
+    setPrefillAmenityId(defaultAmenity?.id || null)
+    setIsModalOpen(true)
   }
 
   const handleDeleteMyEvent = async (eventId) => {
@@ -413,7 +458,7 @@ const MemberEvents = () => {
             <h1 className="page-title">Events</h1>
             <p className="page-subtitle">Browse, register, or create your own events</p>
           </div>
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-primary" onClick={handleOpenCreateModal}>
             + Create Event
           </button>
         </div>
@@ -452,6 +497,11 @@ const MemberEvents = () => {
                               const project = projects.find(p => p.id === projectId)
                               return project?.name || projectId
                             }).join(', ')}
+                      </p>
+                    )}
+                    {event.eventLink && (
+                      <p className="event-link">
+                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
                       </p>
                     )}
                     {event.status === 'rejected' && event.rejectionReason && (
@@ -536,6 +586,11 @@ const MemberEvents = () => {
                                 const project = projects.find(p => p.id === projectId)
                                 return project?.name || projectId
                               }).join(', ')}
+                        </p>
+                      )}
+                      {event.eventLink && (
+                        <p className="event-link">
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
                         </p>
                       )}
                       {event.waitlist && event.waitlist.length > 0 && (
@@ -638,6 +693,11 @@ const MemberEvents = () => {
                             }).join(', ')}
                         </p>
                       )}
+                      {event.eventLink && (
+                        <p className="event-link">
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                        </p>
+                      )}
                       {registered && (
                         <p className="event-attended">✅ You attended this event</p>
                       )}
@@ -658,6 +718,7 @@ const MemberEvents = () => {
             setIsModalOpen(false)
             setLinkAmenity(false)
             setPrefillAmenityId(null)
+            setDateError(null)
           }}
           title="Create Event Request"
         >
@@ -689,9 +750,21 @@ const MemberEvents = () => {
               <input
                 type="datetime-local"
                 name="date"
-                className="form-field"
+                className={`form-field ${dateError ? 'form-field-error' : ''}`}
+                min={linkAmenity ? (() => {
+                  const min = new Date()
+                  min.setDate(min.getDate() + 14)
+                  return min.toISOString().slice(0, 16)
+                })() : undefined}
+                onChange={(e) => validateEventHallDate(e.target.value)}
                 required
               />
+              {dateError && (
+                <p className="form-error">{dateError}</p>
+              )}
+              {linkAmenity && !dateError && (
+                <small className="form-hint">Event Hall requires booking at least 2 weeks in advance</small>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Duration (minutes) *</label>
@@ -730,11 +803,30 @@ const MemberEvents = () => {
               <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
             </div>
             <div className="form-group">
+              <label className="form-label">Event Link</label>
+              <input
+                type="url"
+                name="eventLink"
+                className="form-field"
+                placeholder="e.g., https://lu.ma/your-event"
+              />
+              <small className="form-hint">Optional. Add a link to your event page (e.g. Lu.ma, Eventbrite)</small>
+            </div>
+            <div className="form-group">
               <label className="form-checkbox">
                 <input
                   type="checkbox"
                   checked={linkAmenity}
-                  onChange={(e) => setLinkAmenity(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setLinkAmenity(checked)
+                    if (!checked) {
+                      setDateError(null)
+                    } else {
+                      const dateInput = e.target.closest('form')?.querySelector('input[name="date"]')
+                      if (dateInput?.value) validateEventHallDate(dateInput.value)
+                    }
+                  }}
                 />
                 <span>Request Event Space (Main Hall) booking</span>
               </label>
@@ -746,6 +838,13 @@ const MemberEvents = () => {
                 : eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name)) || eventSpaceAmenities[0]
               return (
               <>
+                <div className="event-hall-notice">
+                  <p><strong>Event Hall requirements:</strong></p>
+                  <ul>
+                    <li>Must be booked at least 2 weeks in advance</li>
+                    <li>$50 deposit required for cleaning and support</li>
+                  </ul>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Preferred Amenity</label>
                   <select name="linkedAmenityId" className="form-field" defaultValue={defaultAmenity?.id || ''}>
@@ -773,7 +872,7 @@ const MemberEvents = () => {
               <button 
                 type="submit" 
                 className="btn btn-primary"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || !!dateError}
               >
                 {createMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
               </button>

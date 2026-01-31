@@ -203,6 +203,24 @@ button {
   min-height: 44px;
 }
 
+/* Dark color-scheme for native UI - improves visibility of icons/spinners on dark fields */
+input[type="date"].form-field,
+input[type="datetime-local"].form-field,
+input[type="time"].form-field,
+input[type="number"].form-field {
+  color-scheme: dark;
+}
+
+/* Improve number input +/- spinner visibility on dark backgrounds */
+input[type="number"].form-field::-webkit-inner-spin-button,
+input[type="number"].form-field::-webkit-outer-spin-button {
+  opacity: 1;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  margin: 2px;
+}
+
 .form-field:focus {
   outline: none;
   border-color: var(--accent-primary);

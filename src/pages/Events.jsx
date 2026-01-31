@@ -156,6 +156,11 @@ const Events = () => {
                               }).join(', ')}
                         </p>
                       )}
+                      {event.eventLink && (
+                        <p className="event-link">
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                        </p>
+                      )}
                       {event.waitlist && event.waitlist.length > 0 && (
                         <p className="event-waitlist">
                           {event.waitlist.length} on waitlist
@@ -262,6 +267,11 @@ const Events = () => {
                             const project = projects.find(p => p.id === projectId)
                             return project?.name || projectId
                           }).join(', ')}
+                      </p>
+                    )}
+                    {event.eventLink && (
+                      <p className="event-link">
+                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
                       </p>
                     )}
                     {currentUser && event.attendees?.includes(currentUser.uid) && (

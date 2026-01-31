@@ -240,6 +240,11 @@ const Home = () => {
                               }).join(', ')}
                         </p>
                       )}
+                      {event.eventLink && (
+                        <p className="event-preview-link">
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                        </p>
+                      )}
                       {event.description && (
                         <p className="event-preview-description">{event.description}</p>
                       )}
@@ -288,6 +293,11 @@ const Home = () => {
                                 const project = projects.find(p => p.id === projectId)
                                 return project?.name || projectId
                               }).join(', ')}
+                        </p>
+                      )}
+                      {event.eventLink && (
+                        <p className="event-preview-link">
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
                         </p>
                       )}
                       {currentUser && event.attendees?.includes(currentUser.uid) && (

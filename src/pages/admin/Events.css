@@ -1,3 +1,16 @@
+.event-hall-notice {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.event-hall-notice p {
+  margin: 0;
+}
+
 .events-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

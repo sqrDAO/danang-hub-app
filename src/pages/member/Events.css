@@ -1,3 +1,45 @@
+.event-hall-notice {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.event-hall-notice p {
+  margin: 0 0 0.5rem 0;
+}
+
+.event-hall-notice ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.event-hall-notice li {
+  margin-bottom: 0.25rem;
+}
+
+.event-link a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.event-link a:hover {
+  text-decoration: underline;
+}
+
+.form-field-error {
+  border-color: #f87171 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.form-error {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #f87171;
+}
+
 .events-section {
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-xl);
