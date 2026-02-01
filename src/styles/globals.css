@@ -67,9 +67,9 @@
   --btn-secondary-bg: rgba(0, 0, 0, 0.05);
   --btn-secondary-border: rgba(0, 0, 0, 0.2);
   --btn-secondary-hover-bg: rgba(0, 0, 0, 0.08);
-  --form-field-bg: rgba(0, 0, 0, 0.04);
-  --form-field-border: rgba(0, 0, 0, 0.15);
-  --form-field-focus-bg: rgba(0, 0, 0, 0.06);
+  --form-field-bg: #f3f4f6;
+  --form-field-border: #d1d5db;
+  --form-field-focus-bg: #e5e7eb;
   --form-section-bg: rgba(0, 0, 0, 0.03);
   --form-section-border: rgba(0, 0, 0, 0.1);
   --form-divider: rgba(0, 0, 0, 0.1);
@@ -260,6 +260,16 @@ button {
   font-family: inherit;
   transition: var(--transition);
   min-height: 44px;
+}
+
+[data-theme="light"] .form-field {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+}
+
+[data-theme="light"] .form-field:focus {
+  background: #e5e7eb;
+  border-color: var(--accent-primary);
 }
 
 input[type="date"].form-field,

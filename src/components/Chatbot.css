@@ -31,7 +31,7 @@
   height: 600px;
   max-height: calc(100vh - 120px);
   background: var(--surface-color);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   display: flex;
   flex-direction: column;
@@ -40,10 +40,14 @@
   overflow: hidden;
 }
 
+[data-theme="light"] .chatbot-container {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
 .chatbot-header {
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--form-section-bg);
+  border-bottom: 1px solid var(--form-divider);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -70,7 +74,7 @@
 }
 
 .chatbot-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--btn-secondary-bg);
   color: var(--text-primary);
 }
 
@@ -98,9 +102,15 @@
 }
 
 .assistant-message {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--form-section-bg);
   color: var(--text-primary);
   align-self: flex-start;
+  border: 1px solid var(--card-border);
+}
+
+[data-theme="light"] .assistant-message {
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
 }
 
 .assistant-message .chatbot-paragraph {
@@ -179,7 +189,7 @@
 
 .chatbot-input-form {
   padding: var(--spacing-md);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--form-divider);
   display: flex;
   gap: var(--spacing-sm);
 }
@@ -188,16 +198,26 @@
   flex: 1;
   padding: 0.75rem;
   min-height: 44px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
   border-radius: var(--border-radius);
   color: var(--text-primary);
   font-family: inherit;
 }
 
+[data-theme="light"] .chatbot-input {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+}
+
 .chatbot-input:focus {
   outline: none;
   border-color: var(--accent-primary);
+  background: var(--form-field-focus-bg);
+}
+
+[data-theme="light"] .chatbot-input:focus {
+  background: #e5e7eb;
 }
 
 .chatbot-send {

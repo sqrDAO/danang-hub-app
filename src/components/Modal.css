@@ -22,6 +22,16 @@
   padding: var(--spacing-lg);
 }
 
+.modal-content.glass {
+  background: var(--surface-color);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .modal-content.glass {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 768px) {
   .modal-overlay {
     padding: 0;
@@ -79,7 +89,7 @@
   align-items: center;
   margin-bottom: var(--spacing-lg);
   padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--form-divider);
 }
 
 .modal-title {
@@ -102,7 +112,7 @@
 
 .modal-close:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--btn-secondary-bg);
 }
 
 .modal-body {
