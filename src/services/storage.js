@@ -155,6 +155,34 @@ export const deleteMemberAvatar = async (photoUrl) => {
 }
 
 /**
+ * Uploads an event banner image to Firebase Storage
+ * @param {File} file - The image file to upload
+ * @returns {Promise<string>} - The download URL of the uploaded banner
+ */
+export const uploadEventBanner = async (file) => {
+  const validation = validateImageFile(file)
+  if (!validation.valid) {
+    throw new Error(validation.error)
+  }
+
+  try {
+    const timestamp = Date.now()
+    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const storagePath = `events/banners/${timestamp}-${sanitizedFilename}`
+
+    const storageRef = ref(storage, storagePath)
+    const contentType = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg'
+    await uploadBytes(storageRef, file, { contentType })
+    const downloadURL = await getDownloadURL(storageRef)
+
+    return downloadURL
+  } catch (error) {
+    console.error('Error uploading event banner:', error)
+    throw new Error(`Failed to upload banner: ${error.message}`)
+  }
+}
+
+/**
  * Uploads multiple photos for an amenity
  * @param {string} amenityId - The ID of the amenity
  * @param {File[]} files - Array of image files to upload

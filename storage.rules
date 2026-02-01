@@ -51,6 +51,16 @@ service firebase.storage {
                      isValidAvatarSize();
       allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Event banner images (authenticated users when creating event, 5MB max)
+    // contentType may be missing for some uploads (e.g. generated images), so allow image/* or octet-stream
+    match /events/banners/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() &&
+                     (isImageFile() || request.resource.contentType == 'application/octet-stream') &&
+                     isValidSize();
+      allow delete: if isAdmin();
+    }
     
     // Deny all other paths
     match /{allPaths=**} {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
@@ -16,6 +16,7 @@ import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
+import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
 import './Events.css'
 
@@ -25,6 +26,7 @@ const AdminEvents = () => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [linkAmenity, setLinkAmenity] = useState(false)
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
+  const bannerInputRef = useRef(null)
   const queryClient = useQueryClient()
 
   const { data: allEvents = [], isLoading } = useQuery({
@@ -197,6 +199,9 @@ const AdminEvents = () => {
     setSelectedEvent(null)
     setIsCreateMode(true)
     setLinkAmenity(false)
+    if (bannerInputRef.current) {
+      bannerInputRef.current.value = ''
+    }
   }
 
   const handleCreate = () => {
@@ -243,7 +248,7 @@ const AdminEvents = () => {
     return organizer?.displayName || organizer?.email || organizerId
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
     const linkedAmenityId = formData.get('linkedAmenityId')
@@ -299,8 +304,30 @@ const AdminEvents = () => {
     }
 
     if (isCreateMode) {
+      const bannerFile = bannerInputRef.current?.files?.[0]
+      if (!bannerFile) {
+        showToast('Please add an Event Banner image.', 'error')
+        return
+      }
+      try {
+        data.bannerUrl = await uploadEventBanner(bannerFile)
+      } catch (err) {
+        showToast(err.message || 'Failed to upload banner image.', 'error')
+        return
+      }
       createMutation.mutate(data)
     } else {
+      const bannerFile = bannerInputRef.current?.files?.[0]
+      if (bannerFile) {
+        try {
+          data.bannerUrl = await uploadEventBanner(bannerFile)
+        } catch (err) {
+          showToast(err.message || 'Failed to upload banner image.', 'error')
+          return
+        }
+      } else if (selectedEvent?.bannerUrl) {
+        data.bannerUrl = selectedEvent.bannerUrl
+      }
       updateMutation.mutate({ id: selectedEvent.id, data })
     }
   }
@@ -382,6 +409,11 @@ const AdminEvents = () => {
           {filteredEvents.length > 0 ? (
             filteredEvents.map(event => (
               <div key={event.id} className={`event-card glass ${event.status}`}>
+                {event.bannerUrl && (
+                  <div className="event-card-banner">
+                    <img src={event.bannerUrl} alt="" />
+                  </div>
+                )}
                 <div className="event-header">
                   <h3 className="event-title">{event.title}</h3>
                   <span className={getStatusBadge(event.status || 'approved')}>
@@ -509,13 +541,45 @@ const AdminEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description</label>
+              <label className="form-label">Description <span className="form-required">*</span></label>
               <textarea
                 name="description"
                 className="form-field"
                 defaultValue={selectedEvent?.description || ''}
                 rows="3"
+                required
+                aria-required
               />
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Event Banner {isCreateMode && <span className="form-required">*</span>}
+              </label>
+              <div className="event-banner-upload">
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  name="banner"
+                  id="event-banner-input"
+                  className="event-banner-input"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  required={isCreateMode}
+                  aria-required={isCreateMode}
+                />
+                <span className="event-banner-upload-label">
+                  {isCreateMode ? 'Choose banner image (required)' : 'Choose image to replace banner'}
+                </span>
+              </div>
+              {isCreateMode ? (
+                <small className="form-hint">Required. JPG, PNG or WebP. Max 5MB.</small>
+              ) : selectedEvent?.bannerUrl ? (
+                <div className="event-banner-preview">
+                  <img src={selectedEvent.bannerUrl} alt="Current banner" />
+                  <small className="form-hint">Upload a new image to replace the current banner.</small>
+                </div>
+              ) : (
+                <small className="form-hint">Optional. Upload an image to set or replace the banner.</small>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Date & Time</label>

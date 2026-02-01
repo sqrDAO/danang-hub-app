@@ -182,6 +182,19 @@
   opacity: 1 !important;
 }
 
+.event-preview-banner {
+  height: 140px;
+  background: var(--form-section-bg, rgba(255, 255, 255, 0.03));
+  flex-shrink: 0;
+}
+
+.event-preview-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .event-preview-card.past-event {
   opacity: 0.7;
 }

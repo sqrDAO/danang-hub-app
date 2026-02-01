@@ -213,6 +213,11 @@ const Home = () => {
               <div className="events-preview-grid">
                 {upcomingEvents.map(event => (
                   <div key={event.id} className="event-preview-card glass">
+                    {event.bannerUrl && (
+                      <div className="event-preview-banner">
+                        <img src={event.bannerUrl} alt="" />
+                      </div>
+                    )}
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">
@@ -276,6 +281,11 @@ const Home = () => {
               <div className="events-preview-grid">
                 {pastEvents.map(event => (
                   <div key={event.id} className="event-preview-card glass past-event">
+                    {event.bannerUrl && (
+                      <div className="event-preview-banner">
+                        <img src={event.bannerUrl} alt="" />
+                      </div>
+                    )}
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">

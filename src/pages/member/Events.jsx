@@ -18,6 +18,7 @@ import {
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
+import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
 import './Events.css'
 
@@ -30,6 +31,7 @@ const MemberEvents = () => {
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
   const processedActionRef = useRef(null)
+  const bannerInputRef = useRef(null)
 
   const validateEventHallDate = (dateValue) => {
     if (!linkAmenity || !dateValue) {
@@ -219,7 +221,7 @@ const MemberEvents = () => {
     }
   })
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
     const eventDate = new Date(formData.get('date'))
@@ -239,6 +241,19 @@ const MemberEvents = () => {
       }
     }
 
+    const bannerFile = bannerInputRef.current?.files?.[0]
+    if (!bannerFile) {
+      showToast('Please add an Event Banner image.', 'error')
+      return
+    }
+    let bannerUrl
+    try {
+      bannerUrl = await uploadEventBanner(bannerFile)
+    } catch (err) {
+      showToast(err.message || 'Failed to upload banner image.', 'error')
+      return
+    }
+
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
@@ -247,7 +262,8 @@ const MemberEvents = () => {
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: currentUser.uid,
       status: 'pending',
-      waitlist: []
+      waitlist: [],
+      bannerUrl
     }
 
     // Handle hosting projects (text input)
@@ -473,6 +489,11 @@ const MemberEvents = () => {
             <div className="events-grid">
               {myEvents.map(event => (
                 <div key={event.id} className={`event-card my-event ${event.status}`}>
+                  {event.bannerUrl && (
+                    <div className="event-card-banner">
+                      <img src={event.bannerUrl} alt="" />
+                    </div>
+                  )}
                   <div className="event-header">
                     <h3 className="event-title">{event.title}</h3>
                     <span className={getStatusBadge(event.status)}>
@@ -561,6 +582,11 @@ const MemberEvents = () => {
                 const isMyEvent = event.organizerId === currentUser?.uid
                 return (
                   <div key={event.id} className={`event-card ${isMyEvent ? 'my-event-approved' : ''}`}>
+                    {event.bannerUrl && (
+                      <div className="event-card-banner">
+                        <img src={event.bannerUrl} alt="" />
+                      </div>
+                    )}
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
@@ -670,6 +696,11 @@ const MemberEvents = () => {
                 const registered = isRegistered(event)
                 return (
                   <div key={event.id} className="event-card past-event">
+                    {event.bannerUrl && (
+                      <div className="event-card-banner">
+                        <img src={event.bannerUrl} alt="" />
+                      </div>
+                    )}
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
@@ -719,6 +750,7 @@ const MemberEvents = () => {
             setLinkAmenity(false)
             setPrefillAmenityId(null)
             setDateError(null)
+            if (bannerInputRef.current) bannerInputRef.current.value = ''
           }}
           title="Create Event Request"
         >
@@ -737,13 +769,32 @@ const MemberEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description</label>
+              <label className="form-label">Description *</label>
               <textarea
                 name="description"
                 className="form-field"
                 placeholder="What's your event about?"
                 rows="3"
+                required
+                aria-required
               />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Event Banner *</label>
+              <div className="event-banner-upload">
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  name="banner"
+                  id="member-event-banner-input"
+                  className="event-banner-input"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  required
+                  aria-required
+                />
+                <span className="event-banner-upload-label">Choose banner image (required)</span>
+              </div>
+              <small className="form-hint">Required. JPG, PNG or WebP. Max 5MB.</small>
             </div>
             <div className="form-group">
               <label className="form-label">Date & Time *</label>

@@ -130,6 +130,11 @@ const Events = () => {
                 const waitlistPosition = currentUser ? getWaitlistPosition(event) : null
                 return (
                   <div key={event.id} className="event-card">
+                    {event.bannerUrl && (
+                      <div className="event-card-banner">
+                        <img src={event.bannerUrl} alt="" />
+                      </div>
+                    )}
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
@@ -246,6 +251,11 @@ const Events = () => {
             <div className="events-grid">
               {pastEvents.map(event => (
                 <div key={event.id} className="event-card past-event">
+                  {event.bannerUrl && (
+                    <div className="event-card-banner">
+                      <img src={event.bannerUrl} alt="" />
+                    </div>
+                  )}
                   <div className="event-header">
                     <h3 className="event-title">{event.title}</h3>
                     <span className="event-date-badge">
