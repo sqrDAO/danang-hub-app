@@ -22,6 +22,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   }
 
   const basePath = isPublic ? '/' : isAdmin ? '/admin' : '/member'
+  const profilePath = isAdmin ? '/admin/profile' : '/member/profile'
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -188,14 +189,12 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <NavLink to="/admin/amenities">Amenities</NavLink>
                 <NavLink to="/admin/bookings">Bookings</NavLink>
                 <NavLink to="/admin/events">Events</NavLink>
-                <NavLink to="/admin/profile">Profile</NavLink>
               </>
             ) : (
               <>
                 <NavLink to="/member">Dashboard</NavLink>
                 <NavLink to="/member/bookings">My Bookings</NavLink>
                 <NavLink to="/member/events">Events</NavLink>
-                <NavLink to="/member/profile">Profile</NavLink>
               </>
             )}
           </ul>
@@ -210,14 +209,14 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
             ) : (
               <>
                 {userProfile && (
-                  <div className="user-info">
+                  <Link to={checkAdmin() ? '/admin/profile' : '/member/profile'} className="user-info user-info-link" aria-label="Go to profile">
                     <Avatar 
                       src={userProfile.photoURL} 
                       name={userProfile.displayName}
                       size="md"
                     />
                     <span className="user-name">{userProfile.displayName}</span>
-                  </div>
+                  </Link>
                 )}
                 <button className="btn btn-secondary" onClick={handleLogout}>
                   Logout
@@ -227,14 +226,14 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           ) : (
             <>
               {userProfile && (
-                <div className="user-info">
+                <Link to={profilePath} className="user-info user-info-link" aria-label="Go to profile">
                   <Avatar 
                     src={userProfile.photoURL} 
                     name={userProfile.displayName}
                     size="md"
                   />
                   <span className="user-name">{userProfile.displayName}</span>
-                </div>
+                </Link>
               )}
               <button className="btn btn-secondary" onClick={handleLogout}>
                 Logout
@@ -261,7 +260,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
       <nav className={`mobile-nav ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="mobile-nav-header">
           {!isPublic && userProfile && (
-            <div className="mobile-user-info">
+            <Link to={profilePath} className="mobile-user-info mobile-user-info-link" onClick={closeMobileMenu} aria-label="Go to profile">
               <Avatar 
                 src={userProfile.photoURL} 
                 name={userProfile.displayName}
@@ -271,7 +270,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <div className="mobile-user-name">{userProfile.displayName}</div>
                 <div className="mobile-user-email">{userProfile.email}</div>
               </div>
-            </div>
+            </Link>
           )}
         </div>
         <ul className="mobile-nav-list">
@@ -288,14 +287,12 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
               <NavLink to="/admin/amenities">Amenities</NavLink>
               <NavLink to="/admin/bookings">Bookings</NavLink>
               <NavLink to="/admin/events">Events</NavLink>
-              <NavLink to="/admin/profile">Profile</NavLink>
             </>
           ) : (
             <>
               <NavLink to="/member">Dashboard</NavLink>
               <NavLink to="/member/bookings">My Bookings</NavLink>
               <NavLink to="/member/events">Events</NavLink>
-              <NavLink to="/member/profile">Profile</NavLink>
             </>
           )}
         </ul>

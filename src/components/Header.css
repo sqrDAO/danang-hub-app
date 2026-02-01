@@ -82,6 +82,24 @@
   gap: var(--spacing-sm);
 }
 
+.user-info-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin: calc(-1 * var(--spacing-xs)) calc(-1 * var(--spacing-sm));
+  transition: var(--transition);
+}
+
+.user-info-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.user-info-link .user-name {
+  color: inherit;
+}
+
 .user-avatar {
   width: 36px;
   height: 36px;
@@ -191,6 +209,17 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+.mobile-user-info-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.mobile-user-info-link:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .mobile-user-details {
