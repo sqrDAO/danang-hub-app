@@ -69,6 +69,7 @@ A full-stack Firebase-powered React application for managing members, amenities,
 
 ### 🎨 User Experience
 - **Responsive Design**: Mobile-friendly interface with modern UI
+- **Dark/Light Mode**: System-aware theme switching with manual toggle
 - **Loading States**: Skeleton loaders for better perceived performance
 - **Toast Notifications**: User-friendly feedback for actions
 - **Modal Dialogs**: Smooth booking and event registration flows
@@ -79,7 +80,7 @@ A full-stack Firebase-powered React application for managing members, amenities,
 - **Frontend Framework**: React 18 with Vite
 - **Routing**: React Router v6 with protected routes
 - **State Management**: 
-  - React Context API for authentication
+  - React Context API for authentication and theme management
   - TanStack React Query for server state and data fetching
 - **Backend Services**: 
   - Firebase Authentication (Google OAuth)
@@ -88,7 +89,7 @@ A full-stack Firebase-powered React application for managing members, amenities,
   - Firebase Storage (for file uploads)
 - **AI Integration**: Google Gemini API (gemini-2.5-flash model)
 - **Markdown Rendering**: react-markdown for AI chatbot responses
-- **Styling**: Custom CSS with CSS variables, glassmorphism design
+- **Styling**: Custom CSS with CSS variables, glassmorphism design, theme-aware components
 - **Date Handling**: date-fns for date manipulation
 - **Build Tool**: Vite for fast development and optimized production builds
 
