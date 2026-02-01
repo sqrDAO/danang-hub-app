@@ -124,6 +124,13 @@ export const AuthProvider = ({ children }) => {
     return userProfile?.membershipType === 'admin'
   }
 
+  // Profile is complete when Company and Role (job title) are set (all users including admins)
+  const isProfileComplete = () => {
+    const company = userProfile?.company?.trim()
+    const jobTitle = userProfile?.jobTitle?.trim()
+    return !!(company && jobTitle)
+  }
+
   // Refresh user profile from Firestore after updates
   const refreshUserProfile = async () => {
     if (currentUser) {
@@ -166,6 +173,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     logout,
     isAdmin,
+    isProfileComplete,
     refreshUserProfile,
   }
 

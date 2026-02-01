@@ -23,11 +23,11 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         
-        {/* Admin Routes */}
+        {/* Admin Routes (require Company + Role for profile completion) */}
         <Route
           path="/admin"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAdmin requireProfileComplete>
               <AdminDashboard />
             </ProtectedRoute>
           }
@@ -35,7 +35,7 @@ function App() {
         <Route
           path="/admin/members"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAdmin requireProfileComplete>
               <AdminMembers />
             </ProtectedRoute>
           }
@@ -43,7 +43,7 @@ function App() {
         <Route
           path="/admin/amenities"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAdmin requireProfileComplete>
               <AdminAmenities />
             </ProtectedRoute>
           }
@@ -51,7 +51,7 @@ function App() {
         <Route
           path="/admin/bookings"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAdmin requireProfileComplete>
               <AdminBookings />
             </ProtectedRoute>
           }
@@ -59,17 +59,25 @@ function App() {
         <Route
           path="/admin/events"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAdmin requireProfileComplete>
               <AdminEvents />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/profile"
+          element={
+            <ProtectedRoute requireAdmin>
+              <MemberProfile />
+            </ProtectedRoute>
+          }
+        />
         
-        {/* Member Routes */}
+        {/* Member Routes (require Company + Role for first-time users) */}
         <Route
           path="/member"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireProfileComplete>
               <MemberDashboard />
             </ProtectedRoute>
           }
@@ -77,7 +85,7 @@ function App() {
         <Route
           path="/member/bookings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireProfileComplete>
               <MemberBookings />
             </ProtectedRoute>
           }
@@ -85,7 +93,7 @@ function App() {
         <Route
           path="/member/events"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireProfileComplete>
               <MemberEvents />
             </ProtectedRoute>
           }

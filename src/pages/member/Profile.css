@@ -1,3 +1,26 @@
+.profile-complete-banner {
+  max-width: 600px;
+  margin: 0 auto var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-left: 4px solid var(--accent-primary);
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.profile-complete-banner-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.profile-complete-banner-text strong {
+  color: var(--accent-secondary);
+}
+
+.form-required {
+  color: var(--accent-secondary);
+  margin-left: 2px;
+}
+
 .profile-card {
   max-width: 600px;
   margin: 0 auto;

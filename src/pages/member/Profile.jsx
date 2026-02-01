@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
@@ -11,7 +12,11 @@ import './Profile.css'
 const URL_PATTERN = /^https?:\/\/.+\..+/
 const PHONE_PATTERN = /^[\d\s\-+()]+$/
 
-const validateProfileForm = (data) => {
+const validateProfileForm = (data, requireCompanyAndRole = false) => {
+  if (requireCompanyAndRole) {
+    if (!data.company?.trim()) return 'Company is required'
+    if (!data.jobTitle?.trim()) return 'Role (job title) is required'
+  }
   if (data.linkedIn && data.linkedIn.trim() && !URL_PATTERN.test(data.linkedIn.trim())) {
     return 'LinkedIn must be a valid URL'
   }
@@ -37,8 +42,11 @@ const formatMemberSince = (createdAt) => {
 }
 
 const MemberProfile = () => {
-  const { userProfile, currentUser, refreshUserProfile } = useAuth()
+  const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
+  const location = useLocation()
   const queryClient = useQueryClient()
+  const profileComplete = isProfileComplete()
+  const isAdminRoute = location.pathname.startsWith('/admin')
   const [isEditing, setIsEditing] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const avatarInputRef = useRef(null)
@@ -85,6 +93,12 @@ const MemberProfile = () => {
   })
 
   useEffect(() => {
+    if (!profileComplete && userProfile) {
+      setIsEditing(true)
+    }
+  }, [profileComplete, userProfile])
+
+  useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges && isEditing) {
         e.preventDefault()
@@ -112,7 +126,7 @@ const MemberProfile = () => {
       website: formData.get('website')?.trim() || '',
       preferences
     }
-    const validationError = validateProfileForm(data)
+    const validationError = validateProfileForm(data, !profileComplete)
     if (validationError) {
       showToast(validationError, 'error')
       return
@@ -147,9 +161,17 @@ const MemberProfile = () => {
   const isAvatarUploading = avatarMutation.isPending
 
   return (
-    <Layout>
+    <Layout isAdmin={isAdminRoute}>
       <div className="container">
         <h1 className="page-title">My Profile</h1>
+
+        {!profileComplete && (
+          <div className="profile-complete-banner glass" role="alert">
+            <p className="profile-complete-banner-text">
+              Please add your <strong>Company</strong> and <strong>Role</strong> below to continue using the hub.
+            </p>
+          </div>
+        )}
 
         <div className="profile-card glass">
           <div className="profile-header">
@@ -221,23 +243,25 @@ const MemberProfile = () => {
               <section className="profile-section">
                 <h3 className="profile-section-title">Professional</h3>
                 <div className="form-group">
-                  <label className="form-label">Company</label>
+                  <label className="form-label">Company {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="company"
                     className="form-field"
                     defaultValue={userProfile.company}
-                    placeholder="Optional"
+                    placeholder={profileComplete ? 'Optional' : 'Your company or organization'}
+                    required={!profileComplete}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Job Title</label>
+                  <label className="form-label">Role {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="jobTitle"
                     className="form-field"
                     defaultValue={userProfile.jobTitle}
-                    placeholder="Optional"
+                    placeholder={profileComplete ? 'Optional' : 'Your job title or role'}
+                    required={!profileComplete}
                   />
                 </div>
                 <div className="form-group">
@@ -342,7 +366,7 @@ const MemberProfile = () => {
                   <span className="detail-value">{userProfile.company || '—'}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Job Title</span>
+                  <span className="detail-label">Role</span>
                   <span className="detail-value">{userProfile.jobTitle || '—'}</span>
                 </div>
                 <div className="profile-detail-item">

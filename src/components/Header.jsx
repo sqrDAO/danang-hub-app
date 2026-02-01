@@ -188,6 +188,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <NavLink to="/admin/amenities">Amenities</NavLink>
                 <NavLink to="/admin/bookings">Bookings</NavLink>
                 <NavLink to="/admin/events">Events</NavLink>
+                <NavLink to="/admin/profile">Profile</NavLink>
               </>
             ) : (
               <>
@@ -287,6 +288,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
               <NavLink to="/admin/amenities">Amenities</NavLink>
               <NavLink to="/admin/bookings">Bookings</NavLink>
               <NavLink to="/admin/events">Events</NavLink>
+              <NavLink to="/admin/profile">Profile</NavLink>
             </>
           ) : (
             <>
