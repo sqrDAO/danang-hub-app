@@ -171,7 +171,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   return (
     <header className="header">
       <div className="header-container container">
-        <Link to={basePath} className="logo" onClick={closeMobileMenu}>
+        <Link to="/" className="logo" onClick={closeMobileMenu}>
           <img src="/assets/logo.svg" alt="Hub Portal" className="logo-image" />
           <h2 className="gradient-text">Hub Portal</h2>
         </Link>

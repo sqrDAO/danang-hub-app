@@ -267,7 +267,7 @@ const Login = () => {
       <div className="login-container">
         <div className="login-card">
         <div className="login-logo">
-          <img src="/assets/logo.svg" alt="Danang Blockchain Hub" />
+          <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub" />
         </div>
         <div className="login-header">
           <h1 className="gradient-text">Reset Password</h1>
@@ -325,7 +325,7 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/assets/logo.svg" alt="Danang Blockchain Hub" />
+          <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub" />
         </div>
         <div className="login-header">
           <h1 className="gradient-text">
@@ -333,7 +333,7 @@ const Login = () => {
           </h1>
           <p className="login-subtitle">
             {isSignUp 
-              ? 'Join the Danang Blockchain Hub community' 
+              ? 'Join the Da Nang Blockchain Hub community' 
               : 'Sign in to access your dashboard'}
           </p>
         </div>

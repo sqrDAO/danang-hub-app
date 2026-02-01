@@ -21,7 +21,7 @@ const buildSystemInstruction = (memberId) => {
     ? 'The user is LOGGED IN. You may call create_booking for them – do not ask them to log in.'
     : 'The user is NOT logged in. Do not call create_booking; inform them they need to log in to create bookings.'
 
-  return `You are a helpful assistant for Danang Blockchain Hub. 
+  return `You are a helpful assistant for Da Nang Blockchain Hub. 
 ${authStatus}
 
 Current date/time in Vietnam (Asia/Ho_Chi_Minh): ${nowVietnam}. Today's date (YYYY-MM-DD): ${todayISO}. 

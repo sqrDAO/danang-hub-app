@@ -121,7 +121,7 @@ const Home = () => {
         <section id="hero" className="hero-section">
           <div className="hero-content">
             <h1 className="hero-title">
-              Welcome to <span className="gradient-text">Danang Blockchain Hub</span>
+              Welcome to <span className="gradient-text">Da Nang Blockchain Hub</span>
             </h1>
             <p className="hero-subtitle">
               Your collaborative workspace for innovation, networking, and community events

@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for Danang Hub App",
+  "description": "Cloud Functions for Da Nang Hub App",
   "scripts": {
     "lint": "eslint .",
     "serve": "firebase emulators:start --only functions",

@@ -1,6 +1,6 @@
-# Danang Blockchain Hub Management App
+# Da Nang Blockchain Hub Management App
 
-A full-stack Firebase-powered React application for managing members, amenities, bookings, and events at Danang Blockchain Hub.
+A full-stack Firebase-powered React application for managing members, amenities, bookings, and events at Da Nang Blockchain Hub.
 
 ## Features
 
@@ -131,7 +131,7 @@ Open http://localhost:3000
 ### Step 2: Register Web App
 
 1. In Firebase dashboard, click the **Web icon** (`</>`)
-2. App nickname: `Danang Hub Web App`
+2. App nickname: `Da Nang Hub Web App`
 3. **Do NOT** check "Firebase Hosting"
 4. Click **"Register app"**
 5. Copy the Firebase configuration object
@@ -424,4 +424,4 @@ The app works without Gemini, but the AI chatbot will be disabled.
 
 ## License
 
-Private - Danang Blockchain Hub
+Private - Da Nang Blockchain Hub
