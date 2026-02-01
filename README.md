@@ -87,6 +87,7 @@ A full-stack Firebase-powered React application for managing members, amenities,
   - Cloud Functions (Node.js serverless functions)
   - Firebase Storage (for file uploads)
 - **AI Integration**: Google Gemini API (gemini-2.5-flash model)
+- **Markdown Rendering**: react-markdown for AI chatbot responses
 - **Styling**: Custom CSS with CSS variables, glassmorphism design
 - **Date Handling**: date-fns for date manipulation
 - **Build Tool**: Vite for fast development and optimized production builds
@@ -199,6 +200,7 @@ firebase deploy --only functions
 | Function | Type | Description |
 |----------|------|-------------|
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-booking conflicts |
+| `checkSlotAvailability` | Callable | Public slot availability check for chatbot and unauthenticated queries |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Automatically checks out bookings that have passed their end time |
 | `sendBookingConfirmation` | Firestore Trigger (onCreate) | Sends confirmation notification when a booking is created |
 | `updateEventCapacity` | Firestore Trigger (onUpdate) | Monitors event capacity and logs when events are full |
@@ -379,7 +381,7 @@ firebase use your-project-id
 
 **Functions not triggering**
 - Check function logs: `firebase functions:log`
-- Verify Node.js version is 18
+- Verify Node.js version is 20
 - Ensure Firestore triggers are correct
 
 ### Environment Issues
