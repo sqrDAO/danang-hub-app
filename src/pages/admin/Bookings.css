@@ -68,10 +68,11 @@
 
 .booking-card-mobile {
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   margin-bottom: var(--spacing-md);
+  box-shadow: var(--card-shadow, none);
 }
 
 .booking-card-mobile-header {

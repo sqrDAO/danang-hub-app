@@ -8,7 +8,7 @@
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
   padding: calc(var(--spacing-xl) * 2) var(--spacing-lg);
   text-align: center;
-  color: white;
+  color: var(--hero-text);
 }
 
 .hero-content {
@@ -21,13 +21,24 @@
   font-weight: 700;
   margin-bottom: var(--spacing-md);
   line-height: 1.2;
+  color: var(--hero-text);
+}
+
+/* Hero title brand: white with shadow so it reads on the gradient (gradient-text is overridden here) */
+.hero-section .hero-title .gradient-text {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--hero-text);
+  color: var(--hero-text);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 20px rgba(0, 0, 0, 0.15);
 }
 
 .hero-subtitle {
   font-size: 1.25rem;
   margin-bottom: var(--spacing-xl);
-  opacity: 0.95;
+  opacity: 0.9;
   line-height: 1.6;
+  color: var(--hero-text);
 }
 
 .hero-cta {
@@ -96,7 +107,7 @@
   flex-wrap: wrap;
   gap: var(--spacing-md);
   padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--form-divider);
 }
 
 .section-title {
@@ -129,7 +140,9 @@
   padding: 0;
   border-radius: var(--radius-lg);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow, none);
   min-height: 200px;
   display: flex;
   flex-direction: column;
@@ -176,14 +189,14 @@
 .event-preview-card.past-event:hover {
   transform: translateZ(0);
   box-shadow: none;
-  border-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--card-border);
   z-index: 1;
 }
 
 .amenity-preview-card:hover,
 .event-preview-card:hover {
   transform: translate3d(0, -4px, 0);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
+  box-shadow: var(--card-shadow, none), 0 8px 24px rgba(124, 58, 237, 0.2);
   border-color: rgba(124, 58, 237, 0.3);
   z-index: 10;
   will-change: transform;
@@ -195,7 +208,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
 }
 
 .amenity-preview-photo img {
@@ -221,13 +234,13 @@
 .amenity-preview-photo-placeholder {
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
   font-size: 0.9rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .amenity-preview-name,
@@ -312,10 +325,10 @@
   min-height: 180px;
   visibility: visible !important;
   opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
 }
 
 .cta-content .btn {
@@ -326,7 +339,7 @@
 
 @supports not (backdrop-filter: blur(10px)) {
   .cta-content {
-    background: rgba(22, 22, 30, 0.95);
+    background: var(--surface-color);
   }
 }
 

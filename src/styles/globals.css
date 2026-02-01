@@ -5,10 +5,30 @@
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
   --accent-primary: #7c3aed;
-  /* Violet */
   --accent-secondary: #22d3ee;
-  /* Cyan */
+  --color-primary: #7c3aed;
+  --color-secondary: #22d3ee;
+  --hero-text: #ffffff;
   --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-hover-bg: rgba(255, 255, 255, 0.05);
+  --card-hover-border: rgba(255, 255, 255, 0.2);
+  --card-shadow: none;
+  --btn-secondary-bg: rgba(255, 255, 255, 0.05);
+  --btn-secondary-border: rgba(255, 255, 255, 0.3);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.15);
+  --form-field-bg: rgba(255, 255, 255, 0.05);
+  --form-field-border: rgba(255, 255, 255, 0.1);
+  --form-field-focus-bg: rgba(255, 255, 255, 0.08);
+  --form-section-bg: rgba(255, 255, 255, 0.03);
+  --form-section-border: rgba(255, 255, 255, 0.1);
+  --form-divider: rgba(255, 255, 255, 0.1);
+  --spinner-track: rgba(255, 255, 255, 0.1);
+  --form-field-spinner-bg: rgba(255, 255, 255, 0.12);
 
   --font-main: 'Outfit', sans-serif;
 
@@ -20,6 +40,44 @@
   --border-radius: 12px;
   --transition: all 0.3s ease;
   --header-height: 80px;
+  --header-bg: rgba(13, 13, 18, 0.95);
+  --header-border: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] {
+  --bg-color: #f8f9fa;
+  --bg-secondary: #ffffff;
+  --surface-color: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4b5563;
+  --accent-primary: #6d28d9;
+  --accent-secondary: #0891b2;
+  --color-primary: #6d28d9;
+  --color-secondary: #0891b2;
+  --hero-text: #ffffff;
+  --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.18);
+  --card-hover-bg: #ffffff;
+  --card-hover-border: rgba(0, 0, 0, 0.25);
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --btn-secondary-bg: rgba(0, 0, 0, 0.05);
+  --btn-secondary-border: rgba(0, 0, 0, 0.2);
+  --btn-secondary-hover-bg: rgba(0, 0, 0, 0.08);
+  --form-field-bg: rgba(0, 0, 0, 0.04);
+  --form-field-border: rgba(0, 0, 0, 0.15);
+  --form-field-focus-bg: rgba(0, 0, 0, 0.06);
+  --form-section-bg: rgba(0, 0, 0, 0.03);
+  --form-section-border: rgba(0, 0, 0, 0.1);
+  --form-divider: rgba(0, 0, 0, 0.1);
+  --spinner-track: rgba(0, 0, 0, 0.1);
+  --form-field-spinner-bg: rgba(0, 0, 0, 0.1);
+  --header-bg: rgba(248, 249, 250, 0.95);
+  --header-border: rgba(0, 0, 0, 0.08);
+  color-scheme: light;
 }
 
 * {
@@ -104,17 +162,17 @@ button {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--text-primary);
   backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: #ffffff;
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--text-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
 }
 
 .btn-danger {
@@ -141,32 +199,33 @@ button {
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: var(--border-radius);
 }
 
 @supports not (backdrop-filter: blur(10px)) {
   .glass {
-    background: rgba(22, 22, 30, 0.95);
+    background: var(--surface-color);
   }
 }
 
 .card {
   padding: var(--spacing-lg);
   transition: var(--transition);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow, none);
 }
 
 .card:hover {
   transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
 }
 
 .card-title {
@@ -194,8 +253,8 @@ button {
 .form-field {
   width: 100%;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
   border-radius: var(--border-radius);
   color: var(--text-primary);
   font-family: inherit;
@@ -203,7 +262,6 @@ button {
   min-height: 44px;
 }
 
-/* Dark color-scheme for native UI - improves visibility of icons/spinners on dark fields */
 input[type="date"].form-field,
 input[type="datetime-local"].form-field,
 input[type="time"].form-field,
@@ -211,12 +269,18 @@ input[type="number"].form-field {
   color-scheme: dark;
 }
 
-/* Improve number input +/- spinner visibility on dark backgrounds */
+[data-theme="light"] input[type="date"].form-field,
+[data-theme="light"] input[type="datetime-local"].form-field,
+[data-theme="light"] input[type="time"].form-field,
+[data-theme="light"] input[type="number"].form-field {
+  color-scheme: light;
+}
+
 input[type="number"].form-field::-webkit-inner-spin-button,
 input[type="number"].form-field::-webkit-outer-spin-button {
   opacity: 1;
   height: 24px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--form-field-spinner-bg);
   border-radius: 4px;
   margin: 2px;
 }
@@ -224,7 +288,7 @@ input[type="number"].form-field::-webkit-outer-spin-button {
 .form-field:focus {
   outline: none;
   border-color: var(--accent-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--form-field-focus-bg);
 }
 
 textarea.form-field {
@@ -238,7 +302,7 @@ select.form-field {
   -moz-appearance: none;
   appearance: none;
   padding-right: 2.5rem;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--form-field-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23a1a1aa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
@@ -247,8 +311,12 @@ select.form-field {
   background-origin: padding-box;
 }
 
+[data-theme="light"] select.form-field {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 select.form-field:focus {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--form-field-focus-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%237c3aed' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
 }
@@ -264,13 +332,17 @@ select.form-field:focus {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--form-field-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 12px 12px;
   background-clip: padding-box;
   background-origin: padding-box;
+}
+
+[data-theme="light"] .filter-select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%231a1a2e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 @media (max-width: 768px) {
@@ -283,7 +355,7 @@ select.form-field:focus {
 .filter-select:focus {
   outline: none;
   border-color: var(--accent-primary);
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--form-field-focus-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%237c3aed' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
 }
@@ -342,7 +414,7 @@ select.form-field:focus {
   gap: var(--spacing-md);
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-md);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--form-divider);
 }
 
 /* Form Row for side-by-side fields */
@@ -356,9 +428,9 @@ select.form-field:focus {
 .form-section {
   margin: var(--spacing-lg) 0;
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--form-section-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--form-section-border);
 }
 
 .form-section-title {
@@ -370,7 +442,7 @@ select.form-field:focus {
 
 /* Loading Spinner */
 .spinner {
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  border: 3px solid var(--spinner-track);
   border-top: 3px solid var(--accent-primary);
   border-radius: 50%;
   width: 40px;

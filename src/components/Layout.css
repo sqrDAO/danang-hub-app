@@ -6,6 +6,6 @@
 
 .main-content {
   margin-top: var(--header-height);
-  padding: var(--spacing-xl) 0;
+  padding: 0 0 var(--spacing-xl);
   flex: 1;
 }

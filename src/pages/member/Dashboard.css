@@ -64,6 +64,13 @@
   padding: var(--spacing-lg);
 }
 
+[data-theme="light"] .dashboard-section.glass,
+[data-theme="light"] .stat-card.glass {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow, none);
+}
+
 .section-title {
   font-size: 1.5rem;
   font-weight: 600;
@@ -80,12 +87,14 @@
 .booking-item,
 .event-item {
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   text-align: left;
+  box-shadow: var(--card-shadow, none);
 }
 
 .booking-info,

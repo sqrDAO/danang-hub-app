@@ -90,9 +90,9 @@
 .form-section {
   margin: var(--spacing-lg) 0;
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--form-section-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--form-section-border);
 }
 
 .form-section-title {
@@ -122,8 +122,8 @@
   padding: 0.5rem 0.75rem;
   min-height: 44px;
   min-width: 44px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
   border-radius: var(--border-radius);
   cursor: pointer;
   transition: var(--transition);
@@ -136,7 +136,7 @@
 }
 
 .day-checkbox:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--form-field-focus-bg);
 }
 
 .day-checkbox.selected {
@@ -179,8 +179,8 @@
   aspect-ratio: 1;
   border-radius: var(--border-radius);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
 }
 
 .photo-preview-item img {
@@ -227,7 +227,7 @@
   border-radius: var(--border-radius);
   overflow: hidden;
   margin-bottom: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
 }
 
 .amenity-photo-preview img {

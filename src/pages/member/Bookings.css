@@ -28,12 +28,13 @@
 
 .amenity-card {
   padding: 0;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: var(--card-shadow, none);
 }
 
 /* Photo section should clip but rest of card should allow overflow */
@@ -73,7 +74,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
 }
 
 .amenity-photo-preview img {
@@ -99,13 +100,13 @@
 .amenity-photo-placeholder {
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
   font-size: 0.9rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .amenity-header {
@@ -193,9 +194,10 @@
 
 .booking-card {
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow, none);
 }
 
 .booking-header {
@@ -335,9 +337,11 @@
 
 .booking-summary {
   padding: var(--spacing-lg);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   margin-bottom: var(--spacing-lg);
+  box-shadow: var(--card-shadow, none);
 }
 
 .booking-summary h3 {

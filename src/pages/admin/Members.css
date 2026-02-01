@@ -11,7 +11,7 @@
 .members-table th {
   text-align: left;
   padding: var(--spacing-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--card-border);
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.9rem;
@@ -19,7 +19,7 @@
 
 .members-table td {
   padding: var(--spacing-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .member-cell {
@@ -32,7 +32,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--btn-secondary-border);
 }
 
 .membership-badge {
@@ -63,10 +63,11 @@
 
 .member-card-mobile {
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   margin-bottom: var(--spacing-md);
+  box-shadow: var(--card-shadow, none);
 }
 
 .member-card-mobile-header {

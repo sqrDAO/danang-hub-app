@@ -45,6 +45,12 @@
   margin-bottom: var(--spacing-xl);
 }
 
+[data-theme="light"] .events-section.glass {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow, none);
+}
+
 .events-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -54,11 +60,12 @@
 
 .event-card {
   padding: var(--spacing-lg);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   display: flex;
   flex-direction: column;
+  box-shadow: var(--card-shadow, none);
 }
 
 .event-card.past-event {

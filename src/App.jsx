@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Chatbot from './components/Chatbot'
 import ToastContainer from './components/Toast'
@@ -17,8 +18,9 @@ import MemberProfile from './pages/member/Profile'
 
 function App() {
   return (
-    <AuthProvider>
-      <Routes>
+    <ThemeProvider>
+      <AuthProvider>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -109,9 +111,10 @@ function App() {
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Chatbot />
-      <ToastContainer />
-    </AuthProvider>
+        <Chatbot />
+        <ToastContainer />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 
