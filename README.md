@@ -5,9 +5,12 @@ A full-stack Firebase-powered React application for managing members, amenities,
 ## Features
 
 ### 🔐 Authentication & User Management
-- **Firebase Authentication**: Google OAuth login and social authentication
+- **Firebase Authentication**: Google OAuth, Email/Password, and crypto wallet sign-in
+- **EVM Wallet Login**: Connect any EIP-6963 compatible wallet (MetaMask, Rabby, Coinbase Wallet, etc.) — auto-discovers all installed wallets
+- **Solana Wallet Login**: Connect any Wallet Standard compatible Solana wallet (Phantom, Solflare, Backpack, etc.)
+- **Wallet Auth Flow**: Sign a server-generated nonce → verify signature via Cloud Function → Firebase custom token
 - **Role-Based Access**: Admin and member roles with protected routes
-- **User Profiles**: Member profile management with avatar support
+- **User Profiles**: Member profile management with avatar support and connected wallet address display
 - **Member Directory**: View and manage all hub members (admin)
 
 ### 📅 Amenity Booking System
@@ -82,10 +85,10 @@ A full-stack Firebase-powered React application for managing members, amenities,
 - **State Management**: 
   - React Context API for authentication and theme management
   - TanStack React Query for server state and data fetching
-- **Backend Services**: 
-  - Firebase Authentication (Google OAuth)
+- **Backend Services**:
+  - Firebase Authentication (Google OAuth, Email/Password, Custom Token for wallets)
   - Cloud Firestore (NoSQL database)
-  - Cloud Functions (Node.js serverless functions)
+  - Cloud Functions (Node.js serverless functions — includes `ethers` v6, `tweetnacl`, `bs58` for wallet signature verification)
   - Firebase Storage (for file uploads)
 - **AI Integration**: Google Gemini API (gemini-2.5-flash model)
 - **Markdown Rendering**: react-markdown for AI chatbot responses
@@ -161,8 +164,9 @@ VITE_GEMINI_API_KEY=your-gemini-api-key  # Optional, for AI features
 
 #### Authentication
 1. Go to **Build** → **Authentication** → Click **"Get started"**
-2. Go to **Sign-in method** tab → Enable **Google** provider
+2. Go to **Sign-in method** tab → Enable **Google** provider and **Email/Password** provider
 3. Set project support email → Click **"Save"**
+4. Wallet sign-in uses **Custom Token** (no extra provider needed — handled server-side by Cloud Functions)
 
 #### Firestore Database
 1. Go to **Build** → **Firestore Database** → Click **"Create database"**
@@ -205,6 +209,8 @@ firebase deploy --only functions
 |----------|------|-------------|
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-booking conflicts |
 | `checkSlotAvailability` | Callable | Public slot availability check for chatbot and unauthenticated queries |
+| `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (stored in `nonces/{address}`, 5-min expiry) |
+| `verifyWalletSignature` | Callable | Verifies EVM or Solana wallet signature, invalidates nonce, returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Automatically checks out bookings that have passed their end time |
 | `sendBookingConfirmation` | Firestore Trigger (onCreate) | Sends confirmation notification when a booking is created |
 | `updateEventCapacity` | Firestore Trigger (onUpdate) | Monitors event capacity and logs when events are full |
@@ -321,7 +327,8 @@ src/
 │   ├── gemini.js           # Gemini AI integration
 │   ├── members.js          # Member management
 │   ├── projects.js         # Project management
-│   └── storage.js          # File storage operations
+│   ├── storage.js          # File storage operations
+│   └── walletAuth.js       # EIP-6963 EVM wallet discovery + Solana Wallet Standard sign-in
 ├── contexts/               # React contexts
 │   └── AuthContext.jsx     # Authentication state management
 ├── styles/                 # Global styles
@@ -337,10 +344,11 @@ functions/
 
 | Collection | Description |
 |------------|-------------|
-| `members` | User profiles, membership types (admin/member), and personal information |
+| `members` | User profiles, membership types (admin/member), personal information, and optional `walletAddress` |
 | `amenities` | Available resources (desks, meeting rooms, podcast rooms) with custom availability settings |
 | `bookings` | Booking records with status (pending/approved/checked-in/completed), time slots, and member associations |
 | `events` | Events with approval status, capacity, attendees, waitlist, and hosting projects |
+| `nonces` | Short-lived nonces for wallet authentication (keyed by wallet address, auto-deleted after use) |
 | `projects` | Project information for event hosting associations |
 
 ## Amenity Availability
@@ -361,6 +369,20 @@ Admins can customize these settings per amenity in the `/admin/amenities` page. 
 **"Firebase: Error (auth/unauthorized-domain)"**
 - Go to **Authentication** → **Settings** → **Authorized domains**
 - Add your domain (e.g., `localhost`)
+
+**Wallet sign-in returns 500 / "iam.serviceAccounts.signBlob denied"**
+
+`createCustomToken` requires the `serviceAccountTokenCreator` IAM role on the App Engine default service account:
+```bash
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:YOUR_PROJECT_ID@appspot.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --condition=None
+```
+
+**No wallets detected on EVM button click**
+- Ensure a browser extension wallet (MetaMask, Rabby, etc.) is installed and enabled
+- EIP-6963 requires the wallet extension to be active in the current browser profile
 
 ### Firestore Issues
 
