@@ -27,6 +27,7 @@ const MemberEvents = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false)
   const [linkAmenity, setLinkAmenity] = useState(false)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
@@ -747,6 +748,7 @@ const MemberEvents = () => {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false)
+            setHasAcceptedGuidelines(false)
             setLinkAmenity(false)
             setPrefillAmenityId(null)
             setDateError(null)
@@ -758,8 +760,30 @@ const MemberEvents = () => {
             Submit your event for approval. Once approved by an admin, it will appear on the calendar.
           </p>
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">Event Title *</label>
+            <div className="form-group event-guidelines-ack">
+              <label className="form-checkbox">
+                <input
+                  type="checkbox"
+                  checked={hasAcceptedGuidelines}
+                  onChange={(e) => setHasAcceptedGuidelines(e.target.checked)}
+                />
+                <span>
+                  I have read and understood the{' '}
+                  <a
+                    href="https://www.danangblockchainhub.com/event-guidelines.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Event Guidelines
+                  </a>
+                  .
+                </span>
+              </label>
+              <small className="form-hint">You must accept the Event Guidelines before filling out the form.</small>
+            </div>
+            <fieldset className="event-create-fieldset" disabled={!hasAcceptedGuidelines}>
+              <div className="form-group">
+                <label className="form-label">Event Title *</label>
               <input
                 type="text"
                 name="title"
@@ -927,6 +951,9 @@ const MemberEvents = () => {
               >
                 {createMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
               </button>
+            </div>
+            </fieldset>
+            <div className="form-actions form-actions-outside">
               <button
                 type="button"
                 className="btn btn-secondary"

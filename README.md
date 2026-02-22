@@ -93,6 +93,9 @@ A full-stack Firebase-powered React application for managing members, amenities,
 - **Date Handling**: date-fns for date manipulation
 - **Build Tool**: Vite for fast development and optimized production builds
 
+### Reference links
+- **Event Guidelines**: The app does not host an in-app Event Guidelines page. All “Event Guidelines” links point to the canonical page at **https://www.danangblockchainhub.com/event-guidelines.html**. Use that URL for any future references to event guidelines.
+
 ---
 
 ## Quick Start

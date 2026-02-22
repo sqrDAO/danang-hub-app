@@ -1,3 +1,35 @@
+/* Event Guidelines acknowledgement (Create Event modal) */
+.event-guidelines-ack {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--form-divider);
+}
+
+.event-guidelines-ack .form-checkbox a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.event-guidelines-ack .form-checkbox a:hover {
+  text-decoration: underline;
+}
+
+.event-create-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.event-create-fieldset:disabled {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.form-actions-outside {
+  margin-top: var(--spacing-md);
+}
+
 /* Event Banner file upload - visible upload zone */
 .event-banner-upload {
   display: flex;
