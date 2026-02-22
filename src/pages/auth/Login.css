@@ -6,6 +6,8 @@
   padding: var(--spacing-lg);
   position: relative;
   overflow: hidden;
+  background: var(--bg-color);
+  color: var(--text-primary);
 }
 
 /* Animated background */
@@ -55,14 +57,20 @@
   padding: var(--spacing-xl) var(--spacing-lg);
   text-align: center;
   position: relative;
-  background: rgba(22, 22, 30, 0.8);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: 24px;
   box-shadow: 
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   animation: cardSlideUp 0.5s ease-out;
+}
+
+[data-theme="light"] .login-card {
+  background: var(--surface-color);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 @keyframes cardSlideUp {
@@ -159,22 +167,36 @@
   padding: 0.9rem 1rem 0.9rem 3rem;
   min-height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--form-field-border);
+  background: var(--form-field-bg);
   color: var(--text-primary);
   font-size: 0.95rem;
   transition: all 0.2s ease;
 }
 
+[data-theme="light"] .login-card .form-group input {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+}
+
 .form-group input::placeholder {
-  color: rgba(161, 161, 170, 0.6);
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+[data-theme="light"] .login-card .form-group input::placeholder {
+  color: #6b7280;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--form-field-focus-bg);
   box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+}
+
+[data-theme="light"] .login-card .form-group input:focus {
+  background: #e5e7eb;
 }
 
 .form-group input:focus + .input-icon,
@@ -266,15 +288,15 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .google-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--btn-secondary-border);
   transform: translateY(-1px);
 }
 
@@ -295,7 +317,12 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: var(--form-divider);
+}
+
+[data-theme="light"] .auth-divider::before,
+[data-theme="light"] .auth-divider::after {
+  background: linear-gradient(90deg, transparent, var(--form-divider), transparent);
 }
 
 .auth-divider span {
@@ -310,7 +337,7 @@
 .auth-footer {
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-lg);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--form-divider);
   text-align: center;
 }
 
@@ -341,9 +368,14 @@
   gap: 8px;
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-md);
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--form-section-bg);
   border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.1);
+  border: 1px solid var(--form-section-border);
+}
+
+[data-theme="light"] .signup-features {
+  background: rgba(124, 58, 237, 0.06);
+  border-color: rgba(124, 58, 237, 0.15);
 }
 
 .signup-features li {
@@ -370,9 +402,13 @@
 .password-strength-bar {
   flex: 1;
   height: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--form-divider);
   border-radius: 2px;
   transition: background 0.3s ease;
+}
+
+[data-theme="light"] .password-strength-bar {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .password-strength-bar.weak { background: #ef4444; }
