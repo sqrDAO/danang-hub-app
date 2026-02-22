@@ -1,5 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
+const {ethers} = require("ethers");
+const nacl = require("tweetnacl");
+const bs58 = require("bs58");
 
 admin.initializeApp();
 
@@ -396,6 +400,122 @@ exports.sendEventReminders = functions.pubsub
         return null;
       }
     });
+
+// Generate a one-time nonce for wallet authentication
+exports.generateWalletNonce = functions.https.onCall(
+    async (data, context) => {
+      const {address, chain} = data;
+
+      if (!address || typeof address !== "string") {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Address is required",
+        );
+      }
+      if (!chain || !["ethereum", "solana"].includes(chain)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Chain must be ethereum or solana",
+        );
+      }
+
+      const nonce = crypto.randomBytes(32).toString("hex");
+      const now = Date.now();
+      const expiresAt = now + 5 * 60 * 1000;
+
+      await db.collection("nonces").doc(address).set({
+        nonce,
+        createdAt: now,
+        expiresAt,
+      });
+
+      return {nonce};
+    },
+);
+
+// Verify wallet signature and return a Firebase custom token
+exports.verifyWalletSignature = functions.https.onCall(
+    async (data, context) => {
+      const {address, signature, chain} = data;
+
+      if (!address || !signature || !chain) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "address, signature, and chain are required",
+        );
+      }
+
+      const nonceRef = db.collection("nonces").doc(address);
+      const nonceDoc = await nonceRef.get();
+
+      if (!nonceDoc.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Nonce not found. Please try again.",
+        );
+      }
+
+      const {nonce, expiresAt} = nonceDoc.data();
+
+      if (Date.now() > expiresAt) {
+        await nonceRef.delete();
+        throw new functions.https.HttpsError(
+            "deadline-exceeded",
+            "Nonce expired. Please try again.",
+        );
+      }
+
+      // Invalidate nonce immediately to prevent replay attacks
+      await nonceRef.delete();
+
+      const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${nonce}`;
+      let uid;
+
+      if (chain === "ethereum") {
+        let recoveredAddress;
+        try {
+          recoveredAddress = ethers.verifyMessage(message, signature);
+        } catch (err) {
+          throw new functions.https.HttpsError(
+              "invalid-argument",
+              "Invalid signature",
+          );
+        }
+        if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+          throw new functions.https.HttpsError(
+              "permission-denied",
+              "Signature verification failed",
+          );
+        }
+        uid = `eth_${address.toLowerCase()}`;
+      } else if (chain === "solana") {
+        try {
+          const msgBytes = Buffer.from(message, "utf8");
+          const sigBytes = Buffer.from(signature, "hex");
+          const pubkeyBytes = bs58.decode(address);
+          const valid = nacl.sign.detached.verify(
+              msgBytes, sigBytes, pubkeyBytes,
+          );
+          if (!valid) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Signature verification failed",
+            );
+          }
+        } catch (err) {
+          if (err instanceof functions.https.HttpsError) throw err;
+          throw new functions.https.HttpsError(
+              "invalid-argument",
+              "Invalid signature",
+          );
+        }
+        uid = `sol_${address}`;
+      }
+
+      const token = await admin.auth().createCustomToken(uid);
+      return {token};
+    },
+);
 
 // Auto-promote from waitlist when spots open
 exports.autoPromoteWaitlist = functions.firestore

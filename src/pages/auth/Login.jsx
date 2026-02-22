@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/walletAuth'
 import './Login.css'
 
 // Icon components
@@ -25,25 +26,47 @@ const LockIcon = () => (
   </svg>
 )
 
+const EVMWalletIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#627eea" opacity="0.9" />
+    <path d="M2 17l10 5 10-5" stroke="#627eea" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M2 12l10 5 10-5" stroke="#627eea" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const SolanaIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M3 14.5h11.5l2.5-2.5H5.5z" fill="#14f195" />
+    <path d="M3 10.5h11.5l2.5-2.5H5.5z" fill="#9945ff" opacity="0.85" />
+    <path d="M3 6.5h11.5l2.5-2.5H5.5z" fill="#9945ff" />
+  </svg>
+)
+
 // Maximum password length constant
 const MAX_PASSWORD_LENGTH = 128
 
 const Login = () => {
-  const { 
-    currentUser, 
-    userProfile, 
-    signInWithGoogle, 
-    signUpWithEmail, 
-    signInWithEmail, 
+  const {
+    currentUser,
+    userProfile,
+    signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
+    signInWithEVMWallet,
+    signInWithSolana,
     resetPassword,
-    loading, 
-    isAdmin 
+    loading,
+    isAdmin
   } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   
   const [isSignUp, setIsSignUp] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [evmWallets, setEvmWallets] = useState([])
+  const [showWalletPicker, setShowWalletPicker] = useState(false)
+  const [solanaWallets, setSolanaWallets] = useState([])
+  const [showSolanaWalletPicker, setShowSolanaWalletPicker] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -202,6 +225,90 @@ const Login = () => {
     } catch (error) {
       console.error('Sign in error:', error)
       setError('Failed to sign in with Google. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleEVMWalletClick = async () => {
+    if (submitting || loading) return
+    setError('')
+    setShowWalletPicker(false)
+    setShowSolanaWalletPicker(false)
+
+    const wallets = await discoverEIP6963Wallets()
+
+    if (wallets.length === 0) {
+      setError('No EVM wallet found. Install MetaMask, Rabby, or another EVM wallet.')
+      return
+    }
+
+    if (wallets.length === 1) {
+      await handleSelectWallet(wallets[0])
+      return
+    }
+
+    setEvmWallets(wallets)
+    setShowWalletPicker(true)
+  }
+
+  const handleSelectWallet = async (wallet) => {
+    if (submitting || loading) return
+    setShowWalletPicker(false)
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' })
+      const address = accounts[0]
+      await signInWithEVMWallet(wallet.provider, address)
+    } catch (error) {
+      if (error.code === 4001) {
+        setError('Connection rejected. Please approve in your wallet.')
+      } else {
+        setError('Failed to connect wallet. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSolanaWalletClick = async () => {
+    if (submitting || loading) return
+    setError('')
+    setShowSolanaWalletPicker(false)
+    setShowWalletPicker(false)
+
+    const wallets = await discoverSolanaWallets()
+
+    if (wallets.length === 0) {
+      setError('No Solana wallet found. Install Phantom, Solflare, or another Solana wallet.')
+      return
+    }
+
+    if (wallets.length === 1) {
+      await handleSelectSolanaWallet(wallets[0])
+      return
+    }
+
+    setSolanaWallets(wallets)
+    setShowSolanaWalletPicker(true)
+  }
+
+  const handleSelectSolanaWallet = async (wallet) => {
+    if (submitting || loading) return
+    setShowSolanaWalletPicker(false)
+    setSubmitting(true)
+    setError('')
+
+    try {
+      await signInWithSolana(wallet)
+    } catch (error) {
+      if (error.code === 4001) {
+        setError('Connection rejected. Please approve in your wallet.')
+      } else {
+        setError('Failed to connect wallet. Please try again.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -440,7 +547,7 @@ const Login = () => {
           <span>or continue with</span>
         </div>
 
-        <button 
+        <button
           className="btn login-button google-button"
           onClick={handleGoogleSignIn}
           disabled={loading || submitting}
@@ -453,6 +560,61 @@ const Login = () => {
           </svg>
           Continue with Google
         </button>
+
+        <div className="auth-divider">
+          <span>or sign in with wallet</span>
+        </div>
+
+        <button
+          className="btn login-button evm-wallet-button"
+          onClick={handleEVMWalletClick}
+          disabled={loading || submitting}
+        >
+          <EVMWalletIcon />
+          Connect EVM Wallet
+        </button>
+
+        <button
+          className="btn login-button solana-button"
+          onClick={handleSolanaWalletClick}
+          disabled={loading || submitting}
+        >
+          <SolanaIcon />
+          Solana Wallet
+        </button>
+
+        {showWalletPicker && (
+          <div className="wallet-picker">
+            {evmWallets.map((wallet) => (
+              <button
+                key={wallet.info.uuid}
+                className="wallet-option"
+                onClick={() => handleSelectWallet(wallet)}
+              >
+                <img src={wallet.info.icon} alt={wallet.info.name} width={24} height={24} />
+                {wallet.info.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {showSolanaWalletPicker && (
+          <div className="wallet-picker">
+            {solanaWallets.map((wallet) => (
+              <button
+                key={wallet.name}
+                className="wallet-option"
+                onClick={() => handleSelectSolanaWallet(wallet)}
+              >
+                {wallet.icon
+                  ? <img src={wallet.icon} alt={wallet.name} width={24} height={24} />
+                  : <SolanaIcon />
+                }
+                {wallet.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="auth-footer">
           <p>
