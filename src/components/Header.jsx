@@ -180,9 +180,10 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           <ul className="nav-list">
             {isPublic ? (
               <>
-                <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
+                <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
                 <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
                 <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+                <li><Link to="/event-guidelines" onClick={closeMobileMenu} className={location.pathname === '/event-guidelines' ? 'active' : ''}>Event Guidelines</Link></li>
               </>
             ) : isAdmin ? (
               <>
@@ -302,9 +303,10 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
         <ul className="mobile-nav-list">
           {isPublic ? (
             <>
-              <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') ? 'active' : ''}>Home</Link></li>
+              <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
               <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
               <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+              <li><Link to="/event-guidelines" onClick={closeMobileMenu} className={location.pathname === '/event-guidelines' ? 'active' : ''}>Event Guidelines</Link></li>
             </>
           ) : isAdmin ? (
             <>

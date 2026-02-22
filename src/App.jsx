@@ -15,6 +15,7 @@ import AdminEvents from './pages/admin/Events'
 import MemberBookings from './pages/member/Bookings'
 import MemberEvents from './pages/member/Events'
 import MemberProfile from './pages/member/Profile'
+import EventGuidelines from './pages/EventGuidelines'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/event-guidelines" element={<EventGuidelines />} />
         
         {/* Admin Routes (require Company + Role for profile completion) */}
         <Route
