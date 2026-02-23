@@ -419,6 +419,21 @@ exports.generateWalletNonce = functions.https.onCall(
         );
       }
 
+      const ethAddressRegex = /^0x[0-9a-fA-F]{40}$/;
+      const solAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+      if (chain === "ethereum" && !ethAddressRegex.test(address)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Invalid Ethereum address format",
+        );
+      }
+      if (chain === "solana" && !solAddressRegex.test(address)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Invalid Solana address format",
+        );
+      }
+
       const nonce = crypto.randomBytes(32).toString("hex");
       const now = Date.now();
       const expiresAt = now + 5 * 60 * 1000;
@@ -446,27 +461,32 @@ exports.verifyWalletSignature = functions.https.onCall(
       }
 
       const nonceRef = db.collection("nonces").doc(address);
-      const nonceDoc = await nonceRef.get();
+      let nonce;
 
-      if (!nonceDoc.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Nonce not found. Please try again.",
-        );
-      }
+      await db.runTransaction(async (tx) => {
+        const nonceDoc = await tx.get(nonceRef);
 
-      const {nonce, expiresAt} = nonceDoc.data();
+        if (!nonceDoc.exists) {
+          throw new functions.https.HttpsError(
+              "not-found",
+              "Nonce not found. Please try again.",
+          );
+        }
 
-      if (Date.now() > expiresAt) {
-        await nonceRef.delete();
-        throw new functions.https.HttpsError(
-            "deadline-exceeded",
-            "Nonce expired. Please try again.",
-        );
-      }
+        const {nonce: storedNonce, expiresAt} = nonceDoc.data();
 
-      // Invalidate nonce immediately to prevent replay attacks
-      await nonceRef.delete();
+        if (Date.now() > expiresAt) {
+          tx.delete(nonceRef);
+          throw new functions.https.HttpsError(
+              "deadline-exceeded",
+              "Nonce expired. Please try again.",
+          );
+        }
+
+        // Atomically consume the nonce to prevent replay attacks
+        tx.delete(nonceRef);
+        nonce = storedNonce;
+      });
 
       const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${nonce}`;
       let uid;

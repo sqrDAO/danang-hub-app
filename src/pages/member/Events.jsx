@@ -828,7 +828,7 @@ const MemberEvents = () => {
                 className={`form-field ${dateError ? 'form-field-error' : ''}`}
                 min={linkAmenity ? (() => {
                   const min = new Date()
-                  min.setDate(min.getDate() + 14)
+                  min.setDate(min.getDate() + 7)
                   return min.toISOString().slice(0, 16)
                 })() : undefined}
                 onChange={(e) => validateEventHallDate(e.target.value)}

@@ -589,7 +589,7 @@ const AdminEvents = () => {
                 className="form-field"
                 min={linkAmenity ? (() => {
                   const min = new Date()
-                  min.setDate(min.getDate() + 14)
+                  min.setDate(min.getDate() + 7)
                   return min.toISOString().slice(0, 16)
                 })() : undefined}
                 defaultValue={selectedEvent?.date ? new Date(selectedEvent.date).toISOString().slice(0, 16) : ''}

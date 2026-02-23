@@ -6,8 +6,12 @@ const generateWalletNonce = httpsCallable(functions, 'generateWalletNonce')
 const verifyWalletSignature = httpsCallable(functions, 'verifyWalletSignature')
 
 export function formatAddress(addr) {
+  if (!addr) return ''
   return addr.slice(0, 6) + '...' + addr.slice(-4)
 }
+
+const buildSignInMessage = (nonce) =>
+  `Sign in to Da Nang Blockchain Hub\nNonce: ${nonce}`
 
 /**
  * Discovers all installed EVM wallets using EIP-6963.
@@ -31,7 +35,7 @@ export function discoverEIP6963Wallets() {
  */
 export async function signInWithEVMWallet(provider, address) {
   const { data } = await generateWalletNonce({ address, chain: 'ethereum' })
-  const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${data.nonce}`
+  const message = buildSignInMessage(data.nonce)
 
   const signature = await provider.request({
     method: 'personal_sign',
@@ -97,18 +101,21 @@ export async function signInWithSolanaWallet(walletEntry) {
     address = walletEntry._provider.publicKey.toString()
 
     const { data } = await generateWalletNonce({ address, chain: 'solana' })
-    const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${data.nonce}`
+    const message = buildSignInMessage(data.nonce)
     const messageBytes = new TextEncoder().encode(message)
     const { signature } = await walletEntry._provider.signMessage(messageBytes, 'utf8')
     signatureHex = Array.from(signature).map((b) => b.toString(16).padStart(2, '0')).join('')
   } else {
     const wallet = walletEntry._wallet
     const { accounts } = await wallet.features['standard:connect'].connect()
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts returned from wallet connect')
+    }
     const account = accounts[0]
     address = account.address
 
     const { data } = await generateWalletNonce({ address, chain: 'solana' })
-    const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${data.nonce}`
+    const message = buildSignInMessage(data.nonce)
     const messageBytes = new TextEncoder().encode(message)
     const [{ signature }] = await wallet.features['solana:signMessage'].signMessage({
       account,

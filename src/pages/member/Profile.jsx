@@ -65,9 +65,13 @@ const MemberProfile = () => {
   const avatarInputRef = useRef(null)
 
   const copyAddress = async (addr) => {
-    await navigator.clipboard.writeText(addr)
-    setCopiedAddress(true)
-    setTimeout(() => setCopiedAddress(false), 2000)
+    try {
+      await navigator.clipboard.writeText(addr)
+      setCopiedAddress(true)
+      setTimeout(() => setCopiedAddress(false), 2000)
+    } catch {
+      alert('Failed to copy address to clipboard.')
+    }
   }
 
   const { data: stats, isLoading: statsLoading } = useQuery({

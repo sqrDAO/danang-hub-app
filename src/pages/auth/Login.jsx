@@ -237,7 +237,13 @@ const Login = () => {
     setShowWalletPicker(false)
     setShowSolanaWalletPicker(false)
 
-    const wallets = await discoverEIP6963Wallets()
+    let wallets
+    try {
+      wallets = await discoverEIP6963Wallets()
+    } catch {
+      setError('Failed to detect EVM wallets. Please try again.')
+      return
+    }
 
     if (wallets.length === 0) {
       setError('No EVM wallet found. Install MetaMask, Rabby, or another EVM wallet.')
@@ -280,7 +286,13 @@ const Login = () => {
     setShowSolanaWalletPicker(false)
     setShowWalletPicker(false)
 
-    const wallets = await discoverSolanaWallets()
+    let wallets
+    try {
+      wallets = await discoverSolanaWallets()
+    } catch {
+      setError('Failed to detect Solana wallets. Please try again.')
+      return
+    }
 
     if (wallets.length === 0) {
       setError('No Solana wallet found. Install Phantom, Solflare, or another Solana wallet.')
