@@ -314,9 +314,9 @@ select.form-field {
   padding-right: 2.5rem;
   background-color: var(--form-field-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23a1a1aa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
+  background-repeat: no-repeat !important;
   background-position: right 1rem center;
-  background-size: 12px 12px;
+  background-size: 12px 12px !important;
   background-clip: padding-box;
   background-origin: padding-box;
 }
@@ -344,15 +344,17 @@ select.form-field:focus {
   appearance: none;
   background-color: var(--form-field-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
+  background-repeat: no-repeat !important;
   background-position: right 0.75rem center;
-  background-size: 12px 12px;
+  background-size: 12px 12px !important;
   background-clip: padding-box;
   background-origin: padding-box;
 }
 
 [data-theme="light"] .filter-select {
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%231a1a2e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat !important;
+  background-size: 12px 12px !important;
 }
 
 @media (max-width: 768px) {
@@ -367,7 +369,8 @@ select.form-field:focus {
   border-color: var(--accent-primary);
   background-color: var(--form-field-focus-bg);
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%237c3aed' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
+  background-repeat: no-repeat !important;
+  background-size: 12px 12px !important;
 }
 
 /* Page Header - consistent alignment for title and controls */

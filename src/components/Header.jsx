@@ -172,8 +172,8 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     <header className="header">
       <div className="header-container container">
         <Link to="/" className="logo" onClick={closeMobileMenu}>
-          <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub Portal" className="logo-image" />
-          <h2 className="gradient-text">Da Nang Blockchain Hub Portal</h2>
+          <img src="/assets/logo.svg" alt="Hub Portal" className="logo-image" />
+          <h2 className="gradient-text">Hub Portal</h2>
         </Link>
         
         <nav className="nav">
