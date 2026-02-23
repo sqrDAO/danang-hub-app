@@ -254,15 +254,15 @@ const AdminEvents = () => {
     const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = new Date(formData.get('date'))
 
-    // Event hall must be booked at least 2 weeks in advance
+    // Event hall must be booked at least 1 week in advance
     if (linkAmenity && linkedAmenityId) {
       const requestedAmenity = amenities.find(a => a.id === linkedAmenityId)
       if (requestedAmenity?.type === 'event-space') {
-        const twoWeeksFromNow = new Date()
-        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
-        twoWeeksFromNow.setHours(0, 0, 0, 0)
-        if (eventDate < twoWeeksFromNow) {
-          showToast('Event Hall must be booked at least 2 weeks in advance.', 'error')
+        const oneWeekFromNow = new Date()
+        oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7)
+        oneWeekFromNow.setHours(0, 0, 0, 0)
+        if (eventDate < oneWeekFromNow) {
+          showToast('Event Hall must be booked at least 1 week in advance.', 'error')
           return
         }
       }
@@ -589,14 +589,14 @@ const AdminEvents = () => {
                 className="form-field"
                 min={linkAmenity ? (() => {
                   const min = new Date()
-                  min.setDate(min.getDate() + 14)
+                  min.setDate(min.getDate() + 7)
                   return min.toISOString().slice(0, 16)
                 })() : undefined}
                 defaultValue={selectedEvent?.date ? new Date(selectedEvent.date).toISOString().slice(0, 16) : ''}
                 required
               />
               {linkAmenity && (
-                <small className="form-hint">Event Hall requires booking at least 2 weeks in advance. $50 deposit required.</small>
+                <small className="form-hint">Event Hall requires booking at least 1 week in advance. $50 deposit required.</small>
               )}
             </div>
             <div className="form-group">

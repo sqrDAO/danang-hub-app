@@ -10,10 +10,22 @@ import { showToast } from '../../components/Toast'
 import './Profile.css'
 
 const URL_PATTERN = /^https?:\/\/.+\..+/
+
+const walletChainLabel = (address) =>
+  address?.startsWith('0x') ? 'Ethereum Wallet' : 'Solana Wallet'
 const PHONE_PATTERN = /^[\d\s\-+()]+$/
 
-const validateProfileForm = (data, requireCompanyAndRole = false) => {
-  if (requireCompanyAndRole) {
+const CopyIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+)
+
+const validateProfileForm = (data, requireFields = false) => {
+  if (requireFields) {
+    if (!data.displayName?.trim()) return 'Name is required'
+    if (!data.email?.trim()) return 'Email is required'
     if (!data.company?.trim()) return 'Company is required'
     if (!data.jobTitle?.trim()) return 'Role (job title) is required'
   }
@@ -49,7 +61,18 @@ const MemberProfile = () => {
   const isAdminRoute = location.pathname.startsWith('/admin')
   const [isEditing, setIsEditing] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [copiedAddress, setCopiedAddress] = useState(false)
   const avatarInputRef = useRef(null)
+
+  const copyAddress = async (addr) => {
+    try {
+      await navigator.clipboard.writeText(addr)
+      setCopiedAddress(true)
+      setTimeout(() => setCopiedAddress(false), 2000)
+    } catch {
+      alert('Failed to copy address to clipboard.')
+    }
+  }
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['memberStats', currentUser?.uid],
@@ -168,7 +191,7 @@ const MemberProfile = () => {
         {!profileComplete && (
           <div className="profile-complete-banner glass" role="alert">
             <p className="profile-complete-banner-text">
-              Please add your <strong>Company</strong> and <strong>Role</strong> below to continue using the hub.
+              Please add your <strong>Name</strong>, <strong>Email</strong>, <strong>Company</strong>, and <strong>Role</strong> below to continue using the hub.
             </p>
           </div>
         )}
@@ -209,22 +232,24 @@ const MemberProfile = () => {
               <section className="profile-section">
                 <h3 className="profile-section-title">Basic Info</h3>
                 <div className="form-group">
-                  <label className="form-label">Display Name</label>
+                  <label className="form-label">Name {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="displayName"
                     className="form-field"
                     defaultValue={userProfile.displayName}
+                    placeholder="Your full name"
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Email {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="email"
                     name="email"
                     className="form-field"
                     defaultValue={userProfile.email}
+                    placeholder="you@example.com"
                     required
                   />
                 </div>
@@ -238,6 +263,27 @@ const MemberProfile = () => {
                     placeholder="Optional"
                   />
                 </div>
+                {userProfile.walletAddress && (
+                  <div className="form-group">
+                    <label className="form-label">{walletChainLabel(userProfile.walletAddress)}</label>
+                    <div className="wallet-address-field">
+                      <input
+                        type="text"
+                        className="form-field wallet-address-input"
+                        value={userProfile.walletAddress}
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        className="wallet-copy-btn"
+                        onClick={() => copyAddress(userProfile.walletAddress)}
+                        title="Copy address"
+                      >
+                        {copiedAddress ? 'Copied!' : <CopyIcon />}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="profile-section">
@@ -357,6 +403,21 @@ const MemberProfile = () => {
                   <span className="detail-label">Phone</span>
                   <span className="detail-value">{userProfile.phone || '—'}</span>
                 </div>
+                {userProfile.walletAddress && (
+                  <div className="profile-detail-item profile-detail-wallet">
+                    <span className="detail-label">{walletChainLabel(userProfile.walletAddress)}</span>
+                    <span className="detail-value wallet-address-display">
+                      <span className="wallet-address-text">{userProfile.walletAddress}</span>
+                      <button
+                        className="wallet-copy-btn"
+                        onClick={() => copyAddress(userProfile.walletAddress)}
+                        title="Copy address"
+                      >
+                        {copiedAddress ? 'Copied!' : <CopyIcon />}
+                      </button>
+                    </span>
+                  </div>
+                )}
               </section>
 
               <section className="profile-section">

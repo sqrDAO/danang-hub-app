@@ -415,6 +415,85 @@
 .password-strength-bar.medium { background: #eab308; }
 .password-strength-bar.strong { background: #22c55e; }
 
+/* Wallet Buttons */
+.evm-wallet-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--btn-secondary-bg);
+  border: 1px solid #627eea;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.evm-wallet-button:hover {
+  background: rgba(98, 126, 234, 0.1);
+  border-color: #627eea;
+  transform: translateY(-1px);
+}
+
+.solana-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--btn-secondary-bg);
+  border: 1px solid #9945ff;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.solana-button:hover {
+  background: rgba(153, 69, 255, 0.1);
+  border-color: #9945ff;
+  transform: translateY(-1px);
+}
+
+/* Wallet Picker */
+.wallet-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+[data-theme="light"] .wallet-picker {
+  background: var(--surface-color);
+  border-color: var(--card-border);
+}
+
+.wallet-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.wallet-option:hover {
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+.wallet-option img {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .login-card {

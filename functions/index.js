@@ -1,5 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
+const {ethers} = require("ethers");
+const nacl = require("tweetnacl");
+const bs58 = require("bs58");
 
 admin.initializeApp();
 
@@ -137,19 +141,19 @@ exports.checkSlotAvailability = functions.https.onCall(
       try {
         const newStart = new Date(startTime);
 
-        // Event Hall (event-space) requires booking at least 2 weeks in advance
+        // Event Hall (event-space) requires booking at least 1 week in advance
         const amenityRef = db.collection("amenities").doc(amenityId);
         const amenityDoc = await amenityRef.get();
         if (amenityDoc.exists) {
           const amenity = amenityDoc.data();
           if (amenity.type === "event-space") {
             const minDate = new Date();
-            minDate.setDate(minDate.getDate() + 14);
+            minDate.setDate(minDate.getDate() + 7);
             minDate.setHours(0, 0, 0, 0);
             if (newStart < minDate) {
               return {
                 available: false,
-                error: "Event Hall requires 2-week advance booking.",
+                error: "Event Hall requires 1-week advance booking.",
                 minBookableDate: minDate.toISOString(),
               };
             }
@@ -396,6 +400,142 @@ exports.sendEventReminders = functions.pubsub
         return null;
       }
     });
+
+// Generate a one-time nonce for wallet authentication
+exports.generateWalletNonce = functions.https.onCall(
+    async (data, context) => {
+      const {address, chain} = data;
+
+      if (!address || typeof address !== "string") {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Address is required",
+        );
+      }
+      if (!chain || !["ethereum", "solana"].includes(chain)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Chain must be ethereum or solana",
+        );
+      }
+
+      const ethAddressRegex = /^0x[0-9a-fA-F]{40}$/;
+      const solAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+      if (chain === "ethereum" && !ethAddressRegex.test(address)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Invalid Ethereum address format",
+        );
+      }
+      if (chain === "solana" && !solAddressRegex.test(address)) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Invalid Solana address format",
+        );
+      }
+
+      const nonce = crypto.randomBytes(32).toString("hex");
+      const now = Date.now();
+      const expiresAt = now + 5 * 60 * 1000;
+
+      await db.collection("nonces").doc(address).set({
+        nonce,
+        createdAt: now,
+        expiresAt,
+      });
+
+      return {nonce};
+    },
+);
+
+// Verify wallet signature and return a Firebase custom token
+exports.verifyWalletSignature = functions.https.onCall(
+    async (data, context) => {
+      const {address, signature, chain} = data;
+
+      if (!address || !signature || !chain) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "address, signature, and chain are required",
+        );
+      }
+
+      const nonceRef = db.collection("nonces").doc(address);
+      let nonce;
+
+      await db.runTransaction(async (tx) => {
+        const nonceDoc = await tx.get(nonceRef);
+
+        if (!nonceDoc.exists) {
+          throw new functions.https.HttpsError(
+              "not-found",
+              "Nonce not found. Please try again.",
+          );
+        }
+
+        const {nonce: storedNonce, expiresAt} = nonceDoc.data();
+
+        if (Date.now() > expiresAt) {
+          tx.delete(nonceRef);
+          throw new functions.https.HttpsError(
+              "deadline-exceeded",
+              "Nonce expired. Please try again.",
+          );
+        }
+
+        // Atomically consume the nonce to prevent replay attacks
+        tx.delete(nonceRef);
+        nonce = storedNonce;
+      });
+
+      const message = `Sign in to Da Nang Blockchain Hub\nNonce: ${nonce}`;
+      let uid;
+
+      if (chain === "ethereum") {
+        let recoveredAddress;
+        try {
+          recoveredAddress = ethers.verifyMessage(message, signature);
+        } catch (err) {
+          throw new functions.https.HttpsError(
+              "invalid-argument",
+              "Invalid signature",
+          );
+        }
+        if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+          throw new functions.https.HttpsError(
+              "permission-denied",
+              "Signature verification failed",
+          );
+        }
+        uid = `eth_${address.toLowerCase()}`;
+      } else if (chain === "solana") {
+        try {
+          const msgBytes = Buffer.from(message, "utf8");
+          const sigBytes = Buffer.from(signature, "hex");
+          const pubkeyBytes = bs58.decode(address);
+          const valid = nacl.sign.detached.verify(
+              msgBytes, sigBytes, pubkeyBytes,
+          );
+          if (!valid) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Signature verification failed",
+            );
+          }
+        } catch (err) {
+          if (err instanceof functions.https.HttpsError) throw err;
+          throw new functions.https.HttpsError(
+              "invalid-argument",
+              "Invalid signature",
+          );
+        }
+        uid = `sol_${address}`;
+      }
+
+      const token = await admin.auth().createCustomToken(uid);
+      return {token};
+    },
+);
 
 // Auto-promote from waitlist when spots open
 exports.autoPromoteWaitlist = functions.firestore

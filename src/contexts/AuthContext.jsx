@@ -9,8 +9,12 @@ import {
   updateProfile,
   sendPasswordResetEmail
 } from 'firebase/auth'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
+import {
+  signInWithEVMWallet as walletAuthSignInWithEVMWallet,
+  signInWithSolanaWallet as walletAuthSignInWithSolanaWallet,
+} from '../services/walletAuth'
 
 const AuthContext = createContext({})
 
@@ -28,31 +32,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   // Create or update user profile in Firestore
-  const createUserProfile = async (user) => {
+  const createUserProfile = async (user, extraFields = {}) => {
     const userRef = doc(db, 'members', user.uid)
     const userSnap = await getDoc(userRef)
 
     if (!userSnap.exists()) {
-      // Create new member profile
-      await setDoc(userRef, {
+      const baseProfile = {
         uid: user.uid,
         displayName: user.displayName || '',
         email: user.email || '',
         photoURL: user.photoURL || '',
-        membershipType: 'member', // Default membership type
+        membershipType: 'member',
         createdAt: new Date().toISOString(),
-      })
+        ...(extraFields.walletAddress && { walletAddress: extraFields.walletAddress }),
+      }
+      await setDoc(userRef, baseProfile)
+      setUserProfile(baseProfile)
+      return baseProfile
     }
 
-    const profileData = userSnap.exists() ? userSnap.data() : {
-      uid: user.uid,
-      displayName: user.displayName || '',
-      email: user.email || '',
-      photoURL: user.photoURL || '',
-      membershipType: 'member',
-      createdAt: new Date().toISOString(),
+    // Doc already exists — always persist walletAddress if provided
+    // (handles race where onAuthStateChanged created the doc before the wallet method ran)
+    if (extraFields.walletAddress) {
+      await updateDoc(userRef, { walletAddress: extraFields.walletAddress })
+      const profileData = { ...userSnap.data(), walletAddress: extraFields.walletAddress }
+      setUserProfile(profileData)
+      return profileData
     }
 
+    const profileData = userSnap.data()
     setUserProfile(profileData)
     return profileData
   }
@@ -108,6 +116,32 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Sign in with EVM wallet (EIP-6963 provider)
+  const signInWithEVMWallet = async (provider, address) => {
+    try {
+      const firebaseUser = await walletAuthSignInWithEVMWallet(provider, address)
+      await createUserProfile(firebaseUser, {
+        walletAddress: address,
+      })
+    } catch (error) {
+      console.error('Error signing in with EVM wallet:', error)
+      throw error
+    }
+  }
+
+  // Sign in with a Solana wallet (Wallet Standard or legacy)
+  const signInWithSolana = async (walletEntry) => {
+    try {
+      const { user: firebaseUser, address } = await walletAuthSignInWithSolanaWallet(walletEntry)
+      await createUserProfile(firebaseUser, {
+        walletAddress: address,
+      })
+    } catch (error) {
+      console.error('Error signing in with Solana wallet:', error)
+      throw error
+    }
+  }
+
   // Sign out
   const logout = async () => {
     try {
@@ -124,11 +158,13 @@ export const AuthProvider = ({ children }) => {
     return userProfile?.membershipType === 'admin'
   }
 
-  // Profile is complete when Company and Role (job title) are set (all users including admins)
+  // Profile is complete when Name, Email, Company and Role are all set
   const isProfileComplete = () => {
+    const displayName = userProfile?.displayName?.trim()
+    const email = userProfile?.email?.trim()
     const company = userProfile?.company?.trim()
     const jobTitle = userProfile?.jobTitle?.trim()
-    return !!(company && jobTitle)
+    return !!(displayName && email && company && jobTitle)
   }
 
   // Refresh user profile from Firestore after updates
@@ -170,6 +206,8 @@ export const AuthProvider = ({ children }) => {
     signInWithGoogle,
     signUpWithEmail,
     signInWithEmail,
+    signInWithEVMWallet,
+    signInWithSolana,
     resetPassword,
     logout,
     isAdmin,
