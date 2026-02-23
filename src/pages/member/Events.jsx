@@ -40,11 +40,11 @@ const MemberEvents = () => {
       return true
     }
     const eventDate = new Date(dateValue)
-    const twoWeeksFromNow = new Date()
-    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
-    twoWeeksFromNow.setHours(0, 0, 0, 0)
-    if (eventDate < twoWeeksFromNow) {
-      setDateError('Event Hall must be booked at least 2 weeks in advance.')
+    const oneWeekFromNow = new Date()
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7)
+    oneWeekFromNow.setHours(0, 0, 0, 0)
+    if (eventDate < oneWeekFromNow) {
+      setDateError('Event Hall must be booked at least 1 week in advance.')
       return false
     }
     setDateError(null)
@@ -228,15 +228,15 @@ const MemberEvents = () => {
     const eventDate = new Date(formData.get('date'))
     const linkedAmenityId = formData.get('linkedAmenityId')
 
-    // Event hall must be booked at least 2 weeks in advance
+    // Event hall must be booked at least 1 week in advance
     if (linkAmenity && linkedAmenityId) {
       const requestedAmenity = amenities.find(a => a.id === linkedAmenityId)
       if (requestedAmenity?.type === 'event-space') {
-        const twoWeeksFromNow = new Date()
-        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
-        twoWeeksFromNow.setHours(0, 0, 0, 0)
-        if (eventDate < twoWeeksFromNow) {
-          showToast('Event Hall must be booked at least 2 weeks in advance.', 'error')
+        const oneWeekFromNow = new Date()
+        oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7)
+        oneWeekFromNow.setHours(0, 0, 0, 0)
+        if (eventDate < oneWeekFromNow) {
+          showToast('Event Hall must be booked at least 1 week in advance.', 'error')
           return
         }
       }
@@ -838,7 +838,7 @@ const MemberEvents = () => {
                 <p className="form-error">{dateError}</p>
               )}
               {linkAmenity && !dateError && (
-                <small className="form-hint">Event Hall requires booking at least 2 weeks in advance</small>
+                <small className="form-hint">Event Hall requires booking at least 1 week in advance</small>
               )}
             </div>
             <div className="form-group">
@@ -916,7 +916,7 @@ const MemberEvents = () => {
                 <div className="event-hall-notice">
                   <p><strong>Event Hall requirements:</strong></p>
                   <ul>
-                    <li>Must be booked at least 2 weeks in advance</li>
+                    <li>Must be booked at least 1 week in advance</li>
                     <li>$50 deposit required for cleaning and support</li>
                   </ul>
                 </div>
