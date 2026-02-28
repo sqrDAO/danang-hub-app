@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import Layout from '../../components/Layout'
 import { getMembers } from '../../services/members'
 import { getBookings } from '../../services/bookings'
 import { getEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { formatEventDate } from '../../utils/timezone'
+import { formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Dashboard.css'
+
+const DESCRIPTION_MAX_LENGTH = 120
 
 const AdminDashboard = () => {
   const { data: members = [] } = useQuery({
@@ -42,6 +45,18 @@ const AdminDashboard = () => {
 
   const recentBookings = bookings.slice(0, 5)
   const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).slice(0, 5)
+
+  const getOrganizerName = (organizerId) => {
+    const organizer = members.find(m => m.id === organizerId)
+    return organizer?.displayName || '—'
+  }
+
+  const truncateDescription = (text) => {
+    if (!text || typeof text !== 'string') return ''
+    return text.length <= DESCRIPTION_MAX_LENGTH
+      ? text
+      : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
+  }
 
   return (
     <Layout isAdmin>
@@ -115,22 +130,68 @@ const AdminDashboard = () => {
           </div>
 
           <div className="dashboard-section glass">
-            <h2 className="section-title">Upcoming Events</h2>
+            <div className="section-title-row">
+              <h2 className="section-title">Upcoming Events</h2>
+              <Link to="/admin/events" className="btn btn-secondary btn-sm">View all</Link>
+            </div>
             {upcomingEvents.length > 0 ? (
-              <ul className="event-list">
-                {upcomingEvents.map(event => (
-                  <li key={event.id} className="event-item">
-                    <div className="event-info">
-                      <h4 className="event-title">{event.title}</h4>
-                      <span className="event-date">
-                        {event.date ? formatEventDate(event.date) : 'N/A'}
-                      </span>
-                    </div>
-                    <span className="event-capacity">
-                      {event.attendees?.length || 0} / {event.capacity}
-                    </span>
-                  </li>
-                ))}
+              <ul className="event-list event-list-detailed">
+                {upcomingEvents.map(event => {
+                  const attendeeCount = event.attendees?.length ?? 0
+                  const capacity = event.capacity ?? 0
+                  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
+                  const full = capacity > 0 && attendeeCount >= capacity
+                  const title = event.title || event.name || 'Untitled Event'
+                  return (
+                    <li key={event.id} className="event-item event-item-detailed">
+                      {event.bannerUrl && (
+                        <div className="event-item-banner">
+                          <img src={event.bannerUrl} alt="" />
+                        </div>
+                      )}
+                      <div className="event-item-main">
+                        <div className="event-item-header">
+                          <h4 className="event-title">{title}</h4>
+                        </div>
+                        <div className="event-meta">
+                          <span className="event-datetime">
+                            {event.date ? formatEventDate(event.date) : 'N/A'}
+                            {event.date && (
+                              <span className="event-time"> at {formatEventTime(event.date)}</span>
+                            )}
+                          </span>
+                          <span className="event-organizer">
+                            Organizer: {getOrganizerName(event.organizerId)}
+                          </span>
+                        </div>
+                        {event.description && (
+                          <p className="event-description-truncated">
+                            {truncateDescription(event.description)}
+                          </p>
+                        )}
+                        <div className="event-capacity-row">
+                          <span className="event-capacity">
+                            {attendeeCount} / {capacity || '∞'} attendees
+                          </span>
+                          {capacity > 0 && (
+                            <span className="event-spots">
+                              {full ? 'Full' : `${spotsLeft} spots left`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="event-item-actions">
+                        <Link
+                          to="/admin/events"
+                          className="event-view-details"
+                          aria-label={`Manage event: ${title}`}
+                        >
+                          Manage
+                        </Link>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="empty-state">No upcoming events</p>
