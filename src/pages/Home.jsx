@@ -221,11 +221,15 @@ const Home = () => {
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">
-                        {event.date?.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                        {event.date ? (() => {
+                          const d = event.date instanceof Date ? event.date : new Date(event.date)
+                          return d.toLocaleDateString('en-US', {
+                            timeZone: 'Asia/Ho_Chi_Minh',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })
+                        })() : null}
                       </p>
                       {event.duration && (
                         <p className="event-preview-duration">⏱️ Duration: {event.duration} minutes</p>
@@ -289,11 +293,15 @@ const Home = () => {
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">
-                        {event.date?.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                        {event.date ? (() => {
+                          const d = event.date instanceof Date ? event.date : new Date(event.date)
+                          return d.toLocaleDateString('en-US', {
+                            timeZone: 'Asia/Ho_Chi_Minh',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })
+                        })() : null}
                       </p>
                       {event.hostingProjects && (
                         <p className="event-preview-projects">

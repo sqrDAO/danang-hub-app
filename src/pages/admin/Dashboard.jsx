@@ -4,6 +4,7 @@ import { getMembers } from '../../services/members'
 import { getBookings } from '../../services/bookings'
 import { getEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
+import { formatEventDate } from '../../utils/timezone'
 import './Dashboard.css'
 
 const AdminDashboard = () => {
@@ -122,7 +123,7 @@ const AdminDashboard = () => {
                     <div className="event-info">
                       <h4 className="event-title">{event.title}</h4>
                       <span className="event-date">
-                        {event.date?.toLocaleDateString() || 'N/A'}
+                        {event.date ? formatEventDate(event.date) : 'N/A'}
                       </span>
                     </div>
                     <span className="event-capacity">

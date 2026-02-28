@@ -18,6 +18,7 @@ import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
+import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 
 const AdminEvents = () => {
@@ -252,7 +253,7 @@ const AdminEvents = () => {
     e.preventDefault()
     const formData = new FormData(e.target)
     const linkedAmenityId = formData.get('linkedAmenityId')
-    const eventDate = new Date(formData.get('date'))
+    const eventDate = parseHubDateTime(formData.get('date'))
 
     // Event hall must be booked at least 1 week in advance
     if (linkAmenity && linkedAmenityId) {
@@ -271,7 +272,7 @@ const AdminEvents = () => {
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
-      date: formData.get('date'),
+      date: eventDate.toISOString(),
       capacity: parseInt(formData.get('capacity')) || 80,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: formData.get('organizerId'),
@@ -422,7 +423,7 @@ const AdminEvents = () => {
                 </div>
                 <div className="event-info">
                   <p className="event-date">
-                    📅 {event.date?.toLocaleDateString()} at {event.date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
                   </p>
                   <p className="event-organizer">
                     👤 Organizer: {getOrganizerName(event.organizerId)}
@@ -590,9 +591,9 @@ const AdminEvents = () => {
                 min={linkAmenity ? (() => {
                   const min = new Date()
                   min.setDate(min.getDate() + 7)
-                  return min.toISOString().slice(0, 16)
+                  return toDatetimeLocalHub(min)
                 })() : undefined}
-                defaultValue={selectedEvent?.date ? new Date(selectedEvent.date).toISOString().slice(0, 16) : ''}
+                defaultValue={selectedEvent?.date ? toDatetimeLocalHub(selectedEvent.date) : ''}
                 required
               />
               {linkAmenity && (

@@ -8,6 +8,7 @@ import { getApprovedEvents, getUpcomingEvents, registerForEvent, unregisterFromE
 import { getMembers } from '../services/members'
 import { getProjects } from '../services/projects'
 import { showToast } from '../components/Toast'
+import { formatEventDate } from '../utils/timezone'
 import './Events.css'
 
 const Events = () => {
@@ -138,7 +139,7 @@ const Events = () => {
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
-                        {event.date?.toLocaleDateString() || 'N/A'}
+                        {formatEventDate(event.date) || 'N/A'}
                       </span>
                     </div>
                     <div className="event-info">
@@ -259,7 +260,7 @@ const Events = () => {
                   <div className="event-header">
                     <h3 className="event-title">{event.title}</h3>
                     <span className="event-date-badge">
-                      {event.date?.toLocaleDateString() || 'N/A'}
+                      {formatEventDate(event.date) || 'N/A'}
                     </span>
                   </div>
                   <div className="event-info">

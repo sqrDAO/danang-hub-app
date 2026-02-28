@@ -20,6 +20,7 @@ import { getAmenities } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
+import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 
 const MemberEvents = () => {
@@ -39,7 +40,7 @@ const MemberEvents = () => {
       setDateError(null)
       return true
     }
-    const eventDate = new Date(dateValue)
+    const eventDate = parseHubDateTime(dateValue)
     const oneWeekFromNow = new Date()
     oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7)
     oneWeekFromNow.setHours(0, 0, 0, 0)
@@ -225,7 +226,7 @@ const MemberEvents = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const eventDate = new Date(formData.get('date'))
+    const eventDate = parseHubDateTime(formData.get('date'))
     const linkedAmenityId = formData.get('linkedAmenityId')
 
     // Event hall must be booked at least 1 week in advance
@@ -258,7 +259,7 @@ const MemberEvents = () => {
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
-      date: formData.get('date'),
+      date: eventDate.toISOString(),
       capacity: parseInt(formData.get('capacity')) || 80,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: currentUser.uid,
@@ -503,7 +504,7 @@ const MemberEvents = () => {
                   </div>
                   <div className="event-info">
                     <p className="event-date">
-                      📅 {event.date?.toLocaleDateString()} at {event.date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
                     </p>
                     {event.duration && (
                       <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
@@ -591,7 +592,7 @@ const MemberEvents = () => {
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
-                        {event.date?.toLocaleDateString() || 'N/A'}
+                        {formatEventDate(event.date) || 'N/A'}
                       </span>
                     </div>
                     <div className="event-info">
@@ -705,7 +706,7 @@ const MemberEvents = () => {
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
-                        {event.date?.toLocaleDateString() || 'N/A'}
+                        {formatEventDate(event.date) || 'N/A'}
                       </span>
                     </div>
                     <div className="event-info">
@@ -829,7 +830,7 @@ const MemberEvents = () => {
                 min={linkAmenity ? (() => {
                   const min = new Date()
                   min.setDate(min.getDate() + 7)
-                  return min.toISOString().slice(0, 16)
+                  return toDatetimeLocalHub(min)
                 })() : undefined}
                 onChange={(e) => validateEventHallDate(e.target.value)}
                 required
