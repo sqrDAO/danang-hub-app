@@ -141,23 +141,10 @@ exports.checkSlotAvailability = functions.https.onCall(
       try {
         const newStart = new Date(startTime);
 
-        // Event Hall (event-space) requires booking at least 1 week in advance
         const amenityRef = db.collection("amenities").doc(amenityId);
         const amenityDoc = await amenityRef.get();
         if (amenityDoc.exists) {
           const amenity = amenityDoc.data();
-          if (amenity.type === "event-space") {
-            const minDate = new Date();
-            minDate.setDate(minDate.getDate() + 7);
-            minDate.setHours(0, 0, 0, 0);
-            if (newStart < minDate) {
-              return {
-                available: false,
-                error: "Event Hall requires 1-week advance booking.",
-                minBookableDate: minDate.toISOString(),
-              };
-            }
-          }
           if (AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenity.type)) {
             if (!isWithinBusinessHours(startTime, endTime)) {
               return {

@@ -255,20 +255,6 @@ const AdminEvents = () => {
     const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = parseHubDateTime(formData.get('date'))
 
-    // Event hall must be booked at least 1 week in advance
-    if (linkAmenity && linkedAmenityId) {
-      const requestedAmenity = amenities.find(a => a.id === linkedAmenityId)
-      if (requestedAmenity?.type === 'event-space') {
-        const oneWeekFromNow = new Date()
-        oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7)
-        oneWeekFromNow.setHours(0, 0, 0, 0)
-        if (eventDate < oneWeekFromNow) {
-          showToast('Event Hall must be booked at least 1 week in advance.', 'error')
-          return
-        }
-      }
-    }
-
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
@@ -588,16 +574,11 @@ const AdminEvents = () => {
                 type="datetime-local"
                 name="date"
                 className="form-field"
-                min={linkAmenity ? (() => {
-                  const min = new Date()
-                  min.setDate(min.getDate() + 7)
-                  return toDatetimeLocalHub(min)
-                })() : undefined}
                 defaultValue={selectedEvent?.date ? toDatetimeLocalHub(selectedEvent.date) : ''}
                 required
               />
               {linkAmenity && (
-                <small className="form-hint">Event Hall requires booking at least 1 week in advance. $50 deposit required.</small>
+                <small className="form-hint">$50 deposit required.</small>
               )}
             </div>
             <div className="form-group">
