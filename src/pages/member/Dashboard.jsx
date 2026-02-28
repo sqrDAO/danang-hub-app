@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
 import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { formatEventDate } from '../../utils/timezone'
+import { getMembers } from '../../services/members'
+import { formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Dashboard.css'
+
+const DESCRIPTION_MAX_LENGTH = 120
 
 const MemberDashboard = () => {
   const { currentUser } = useAuth()
@@ -29,6 +33,11 @@ const MemberDashboard = () => {
     queryFn: getAmenities
   })
 
+  const { data: members = [] } = useQuery({
+    queryKey: ['members'],
+    queryFn: getMembers
+  })
+
   const upcomingBookings = myBookings
     .filter(b => b.status === 'pending' || b.status === 'approved' || b.status === 'checked-in')
     .filter(b => new Date(b.startTime) > new Date())
@@ -44,6 +53,32 @@ const MemberDashboard = () => {
     .slice(0, 5)
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false).length
+
+  const getOrganizerName = (organizerId) => {
+    const organizer = members.find(m => m.id === organizerId)
+    return organizer?.displayName || '—'
+  }
+
+  const isRegistered = (event) =>
+    event.attendees?.includes(currentUser?.uid) ?? false
+
+  const isFull = (event) =>
+    event.capacity != null && (event.attendees?.length ?? 0) >= event.capacity
+
+  const isOnWaitlist = (event) =>
+    event.waitlist?.includes(currentUser?.uid) ?? false
+
+  const getWaitlistPosition = (event) => {
+    if (!event.waitlist?.length || !isOnWaitlist(event)) return null
+    return event.waitlist.indexOf(currentUser?.uid) + 1
+  }
+
+  const truncateDescription = (text) => {
+    if (!text || typeof text !== 'string') return ''
+    return text.length <= DESCRIPTION_MAX_LENGTH
+      ? text
+      : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
+  }
 
   return (
     <Layout>
@@ -126,22 +161,88 @@ const MemberDashboard = () => {
           </div>
 
           <div className="dashboard-section glass">
-            <h2 className="section-title">Upcoming Events</h2>
+            <div className="section-title-row">
+              <h2 className="section-title">Upcoming Events</h2>
+              <Link to="/member/events" className="btn btn-secondary btn-sm">View all</Link>
+            </div>
             {upcomingEvents.length > 0 ? (
-              <ul className="event-list">
-                {upcomingEvents.map(event => (
-                  <li key={event.id} className="event-item">
-                    <div className="event-info">
-                      <h4 className="event-title">{event.title}</h4>
-                      <span className="event-date">
-                        {event.date ? formatEventDate(event.date) : 'N/A'}
-                      </span>
-                    </div>
-                    <span className="event-capacity">
-                      {event.attendees?.length || 0} / {event.capacity || '∞'}
-                    </span>
-                  </li>
-                ))}
+              <ul className="event-list event-list-detailed">
+                {upcomingEvents.map(event => {
+                  const registered = isRegistered(event)
+                  const full = isFull(event)
+                  const onWaitlist = isOnWaitlist(event)
+                  const waitlistPosition = getWaitlistPosition(event)
+                  const attendeeCount = event.attendees?.length ?? 0
+                  const capacity = event.capacity ?? 0
+                  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
+                  const title = event.title || event.name || 'Untitled Event'
+                  const isExternal = Boolean(event.eventLink)
+                  return (
+                    <li key={event.id} className="event-item event-item-detailed">
+                      {event.bannerUrl && (
+                        <div className="event-item-banner">
+                          <img src={event.bannerUrl} alt="" />
+                        </div>
+                      )}
+                      <div className="event-item-main">
+                        <div className="event-item-header">
+                          <h4 className="event-title">{title}</h4>
+                        </div>
+                        <div className="event-meta">
+                          <span className="event-datetime">
+                            {event.date ? formatEventDate(event.date) : 'N/A'}
+                            {event.date && (
+                              <span className="event-time"> at {formatEventTime(event.date)}</span>
+                            )}
+                          </span>
+                          <span className="event-organizer">
+                            Organizer: {getOrganizerName(event.organizerId)}
+                          </span>
+                        </div>
+                        {event.description && (
+                          <p className="event-description-truncated">
+                            {truncateDescription(event.description)}
+                          </p>
+                        )}
+                        <div className="event-capacity-row">
+                          <span className="event-capacity">
+                            {attendeeCount} / {capacity || '∞'} attendees
+                          </span>
+                          {capacity > 0 && (
+                            <span className="event-spots">
+                              {full ? 'Full' : `${spotsLeft} spots left`}
+                            </span>
+                          )}
+                        </div>
+                        {(registered || onWaitlist) && (
+                          <span className="event-my-status">
+                            {registered ? '✓ Attending' : onWaitlist ? `On waitlist${waitlistPosition ? ` #${waitlistPosition}` : ''}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="event-item-actions">
+                        <Link
+                          to="/member/events"
+                          className="event-view-details"
+                          aria-label={`View details for ${title}`}
+                        >
+                          View details
+                        </Link>
+                        {isExternal && (
+                          <a
+                            href={event.eventLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="event-signup-link"
+                            aria-label={`Sign up for ${title}`}
+                          >
+                            Signup
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="empty-state">No upcoming events</p>
