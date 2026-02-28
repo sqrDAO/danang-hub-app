@@ -199,7 +199,7 @@ exports.checkSlotAvailability = functions.https.onCall(
 const HUB_UTC_OFFSET_HOURS = 7;
 
 /**
- * Get start-of-day timestamp for today in hub timezone (Asia/Ho_Chi_Minh, UTC+7).
+ * Get start-of-day timestamp for today in hub timezone (Asia/Ho_Chi_Minh).
  * Bookings with startTime before this have a booking date that has passed.
  * @return {admin.firestore.Timestamp}
  */
@@ -281,7 +281,7 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
           await batch.commit();
         }
         if (toComplete.size > 0) {
-          console.log(`Auto-completed ${toComplete.size} past/expired bookings`);
+          console.log(`Auto-completed ${toComplete.size} past/expired`);
         }
 
         return null;
