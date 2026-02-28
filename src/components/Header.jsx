@@ -183,6 +183,9 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
                 <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
                 <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+                {currentUser && checkAdmin() && (
+                  <li><Link to="/admin" onClick={closeMobileMenu} className={location.pathname.startsWith('/admin') ? 'active' : ''}>Admin</Link></li>
+                )}
               </>
             ) : isAdmin ? (
               <>
@@ -305,6 +308,9 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
               <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
               <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
               <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+              {currentUser && checkAdmin() && (
+                <li><Link to="/admin" onClick={closeMobileMenu} className={location.pathname.startsWith('/admin') ? 'active' : ''}>Admin</Link></li>
+              )}
             </>
           ) : isAdmin ? (
             <>
