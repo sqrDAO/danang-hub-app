@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
+import { showToast } from '../../components/Toast'
 import { getBookings, updateBooking, deleteBooking, checkIn, checkOut } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
@@ -63,16 +64,33 @@ const AdminBookings = () => {
     return amenity?.name || amenityId
   }
 
+  const isSameDayAsBooking = (booking) => {
+    if (!booking?.startTime) return false
+    const bookingDate = new Date(booking.startTime)
+    const today = new Date()
+    return bookingDate.toDateString() === today.toDateString()
+  }
+
   const handleStatusChange = async (id, newStatus) => {
     await updateMutation.mutateAsync({ id, data: { status: newStatus } })
   }
 
   const handleCheckIn = async (id) => {
-    await checkInMutation.mutateAsync(id)
+    try {
+      await checkInMutation.mutateAsync(id)
+      showToast('Booking checked in successfully', 'success')
+    } catch (err) {
+      showToast(err.message || 'Failed to check in booking', 'error')
+    }
   }
 
   const handleCheckOut = async (id) => {
-    await checkOutMutation.mutateAsync(id)
+    try {
+      await checkOutMutation.mutateAsync(id)
+      showToast('Booking checked out successfully', 'success')
+    } catch (err) {
+      showToast(err.message || 'Failed to check out booking', 'error')
+    }
   }
 
   const handleDelete = async (id) => {
@@ -160,6 +178,8 @@ const AdminBookings = () => {
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => handleCheckIn(booking.id)}
+                          disabled={!isSameDayAsBooking(booking)}
+                          title={!isSameDayAsBooking(booking) ? 'Check In is only allowed on the same day as the booking' : undefined}
                         >
                           Check In
                         </button>
@@ -168,6 +188,8 @@ const AdminBookings = () => {
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleCheckOut(booking.id)}
+                          disabled={!isSameDayAsBooking(booking)}
+                          title={!isSameDayAsBooking(booking) ? 'Check Out is only allowed on the same day as the booking' : undefined}
                         >
                           Check Out
                         </button>
@@ -230,6 +252,8 @@ const AdminBookings = () => {
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => handleCheckIn(booking.id)}
+                      disabled={!isSameDayAsBooking(booking)}
+                      title={!isSameDayAsBooking(booking) ? 'Check In is only allowed on the same day as the booking' : undefined}
                     >
                       Check In
                     </button>
@@ -238,6 +262,8 @@ const AdminBookings = () => {
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleCheckOut(booking.id)}
+                      disabled={!isSameDayAsBooking(booking)}
+                      title={!isSameDayAsBooking(booking) ? 'Check Out is only allowed on the same day as the booking' : undefined}
                     >
                       Check Out
                     </button>

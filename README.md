@@ -64,7 +64,7 @@ A full-stack Firebase-powered React application for managing members, amenities,
 
 ### ⚙️ Cloud Functions & Automation
 - **Conflict Checking**: Server-side validation to prevent double-bookings
-- **Auto Checkout**: Automatic checkout of expired bookings (hourly)
+- **Auto Checkout**: Auto-complete expired or past-day bookings (hourly) — checked-in past end time or any booking whose date has passed
 - **Booking Confirmations**: Automated notifications on booking creation
 - **Event Reminders**: Scheduled reminders for upcoming events (hourly)
 - **Waitlist Promotion**: Automatic promotion from waitlist when capacity opens
@@ -211,7 +211,7 @@ firebase deploy --only functions
 | `checkSlotAvailability` | Callable | Public slot availability check for chatbot and unauthenticated queries |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (stored in `nonces/{address}`, 5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana wallet signature, invalidates nonce, returns Firebase custom token |
-| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Automatically checks out bookings that have passed their end time |
+| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time (checked-in) or past their booking date (pending/approved/checked-in) |
 | `sendBookingConfirmation` | Firestore Trigger (onCreate) | Sends confirmation notification when a booking is created |
 | `updateEventCapacity` | Firestore Trigger (onUpdate) | Monitors event capacity and logs when events are full |
 | `sendEventReminders` | Scheduled (hourly) | Sends reminders for events happening in the next 24 hours |

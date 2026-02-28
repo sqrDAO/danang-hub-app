@@ -165,6 +165,15 @@ export const deleteBooking = async (id) => {
 }
 
 export const checkIn = async (id) => {
+  const booking = await getBooking(id)
+  if (!booking) {
+    throw new Error('Booking not found')
+  }
+  const bookingDate = new Date(booking.startTime)
+  const today = new Date()
+  if (bookingDate.toDateString() !== today.toDateString()) {
+    throw new Error('Check in is only allowed on the same day as the booking')
+  }
   await updateBooking(id, {
     status: 'checked-in',
     checkInTime: new Date()
@@ -172,6 +181,15 @@ export const checkIn = async (id) => {
 }
 
 export const checkOut = async (id) => {
+  const booking = await getBooking(id)
+  if (!booking) {
+    throw new Error('Booking not found')
+  }
+  const bookingDate = new Date(booking.startTime)
+  const today = new Date()
+  if (bookingDate.toDateString() !== today.toDateString()) {
+    throw new Error('Check out is only allowed on the same day as the booking')
+  }
   await updateBooking(id, {
     status: 'completed',
     checkOutTime: new Date()

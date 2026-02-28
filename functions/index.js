@@ -209,7 +209,32 @@ exports.checkSlotAvailability = functions.https.onCall(
     },
 );
 
-// Auto check-out expired bookings
+const HUB_UTC_OFFSET_HOURS = 7;
+
+/**
+ * Get start-of-day timestamp for today in hub timezone (Asia/Ho_Chi_Minh, UTC+7).
+ * Bookings with startTime before this have a booking date that has passed.
+ * @return {admin.firestore.Timestamp}
+ */
+function getStartOfTodayHubTimezone() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HUB_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = parseInt(parts.find((p) => p.type === "year").value, 10);
+  const month = parseInt(parts.find((p) => p.type === "month").value, 10) - 1;
+  const day = parseInt(parts.find((p) => p.type === "day").value, 10);
+  const midnightUtc = Date.UTC(year, month, day, 0, 0, 0, 0);
+  const startOfTodayVN = new Date(
+      midnightUtc - HUB_UTC_OFFSET_HOURS * 60 * 60 * 1000,
+  );
+  return admin.firestore.Timestamp.fromDate(startOfTodayVN);
+}
+
+// Auto check-out expired bookings + auto-complete past-day bookings
 exports.autoCheckoutExpiredBookings = functions.pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
@@ -218,27 +243,58 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
         const oneHourAgo = admin.firestore.Timestamp.fromMillis(
             now.toMillis() - 60 * 60 * 1000,
         );
+        const startOfToday = getStartOfTodayHubTimezone();
 
-        const expiredBookings = await db.collection("bookings")
+        const toComplete = new Map(); // docRef -> update data
+
+        // 1. Checked-in bookings past their end time: auto check-out
+        const expiredCheckedIn = await db.collection("bookings")
             .where("status", "==", "checked-in")
             .where("endTime", "<=", oneHourAgo)
             .get();
 
-        const batch = db.batch();
-        let count = 0;
-
-        expiredBookings.forEach((doc) => {
-          batch.update(doc.ref, {
+        expiredCheckedIn.forEach((doc) => {
+          toComplete.set(doc.ref.path, {
             status: "completed",
             checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: new Date().toISOString(),
           });
-          count++;
         });
 
-        if (count > 0) {
+        // 2. Past-day bookings (pending/approved/checked-in): auto-complete
+        //    Covers staff forgetting to check in or check out
+        const pastDayStatuses = ["pending", "approved", "checked-in"];
+        for (const status of pastDayStatuses) {
+          const pastDayQuery = await db.collection("bookings")
+              .where("status", "==", status)
+              .where("startTime", "<", startOfToday)
+              .get();
+
+          pastDayQuery.forEach((doc) => {
+            toComplete.set(doc.ref.path, {
+              status: "completed",
+              checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: new Date().toISOString(),
+            });
+          });
+        }
+
+        const refs = Array.from(toComplete.keys()).map((path) =>
+          db.doc(path),
+        );
+        const updates = Array.from(toComplete.values());
+        const batchSize = 500;
+        for (let i = 0; i < refs.length; i += batchSize) {
+          const batch = db.batch();
+          const chunk = refs.slice(i, i + batchSize);
+          const chunkUpdates = updates.slice(i, i + batchSize);
+          chunk.forEach((ref, idx) => {
+            batch.update(ref, chunkUpdates[idx]);
+          });
           await batch.commit();
-          console.log(`Auto-checked out ${count} expired bookings`);
+        }
+        if (toComplete.size > 0) {
+          console.log(`Auto-completed ${toComplete.size} past/expired bookings`);
         }
 
         return null;
