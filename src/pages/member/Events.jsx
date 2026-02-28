@@ -29,7 +29,7 @@ const MemberEvents = () => {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false)
-  const [linkAmenity, setLinkAmenity] = useState(false)
+  const [linkAmenity, setLinkAmenity] = useState(true)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
   const processedActionRef = useRef(null)
@@ -863,17 +863,9 @@ const MemberEvents = () => {
               <label className="form-checkbox">
                 <input
                   type="checkbox"
-                  checked={linkAmenity}
-                  onChange={(e) => {
-                    const checked = e.target.checked
-                    setLinkAmenity(checked)
-                    if (!checked) {
-                      setDateError(null)
-                    } else {
-                      const dateInput = e.target.closest('form')?.querySelector('input[name="date"]')
-                      if (dateInput?.value) validateEventHallDate(dateInput.value)
-                    }
-                  }}
+                  checked={true}
+                  disabled
+                  readOnly
                 />
                 <span>Request Event Space (Main Hall) booking</span>
               </label>
@@ -893,7 +885,7 @@ const MemberEvents = () => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Preferred Amenity</label>
-                  <select name="linkedAmenityId" className="form-field" defaultValue={defaultAmenity?.id || ''}>
+                  <select name="linkedAmenityId" className="form-field" defaultValue={defaultAmenity?.id ?? ''}>
                     <option value="">Select amenity</option>
                     {eventSpaceAmenities.map(amenity => (
                       <option key={amenity.id} value={amenity.id}>
@@ -930,7 +922,6 @@ const MemberEvents = () => {
                 className="btn btn-secondary"
                 onClick={() => {
                   setIsModalOpen(false)
-                  setLinkAmenity(false)
                 }}
               >
                 Cancel

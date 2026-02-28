@@ -208,6 +208,7 @@ const AdminEvents = () => {
   const handleCreate = () => {
     setIsCreateMode(true)
     setSelectedEvent(null)
+    setLinkAmenity(true)
     setIsModalOpen(true)
   }
 
@@ -649,22 +650,28 @@ const AdminEvents = () => {
               <label className="form-checkbox">
                 <input
                   type="checkbox"
-                  checked={linkAmenity}
-                  onChange={(e) => setLinkAmenity(e.target.checked)}
+                  checked={isCreateMode ? true : linkAmenity}
+                  disabled={isCreateMode}
+                  readOnly={isCreateMode}
+                  onChange={(e) => !isCreateMode && setLinkAmenity(e.target.checked)}
                 />
                 <span>Link to amenity booking</span>
               </label>
             </div>
-            {linkAmenity && (
+            {(linkAmenity || isCreateMode) && (() => {
+              const eventSpaceAmenities = amenities.filter(a => a.isAvailable !== false && a.type === 'event-space')
+              const defaultEventHallId = eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name))?.id || eventSpaceAmenities[0]?.id
+              const selectDefaultValue = selectedEvent?.linkedAmenityId || defaultEventHallId || ''
+              return (
               <>
                 <div className="event-hall-notice">
                   <p><strong>Event Hall:</strong> $50 deposit required for cleaning and support.</p>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Amenity</label>
-                  <select name="linkedAmenityId" className="form-field" defaultValue={selectedEvent?.linkedAmenityId || ''}>
+                  <select name="linkedAmenityId" className="form-field" defaultValue={selectDefaultValue}>
                     <option value="">Select amenity</option>
-                    {amenities.filter(a => a.isAvailable !== false && a.type === 'event-space').map(amenity => (
+                    {eventSpaceAmenities.map(amenity => (
                       <option key={amenity.id} value={amenity.id}>
                         {amenity.name}
                       </option>
@@ -673,7 +680,8 @@ const AdminEvents = () => {
                   <small className="form-hint">Amenity will be booked 1 hour before and 2 hours after event</small>
                 </div>
               </>
-            )}
+              )
+            })()}
             <div className="form-actions">
               <button type="submit" className="btn btn-primary">
                 {isCreateMode ? 'Create' : 'Save Changes'}
