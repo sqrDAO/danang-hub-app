@@ -56,6 +56,18 @@
   border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
+.btn-view-profile {
+  background: rgba(34, 211, 238, 0.15);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  color: var(--accent-secondary);
+}
+
+.btn-view-profile:hover {
+  background: rgba(34, 211, 238, 0.25);
+  border-color: rgba(34, 211, 238, 0.6);
+  color: var(--accent-secondary);
+}
+
 /* Mobile Card Layout */
 .member-card-mobile {
   display: none;
