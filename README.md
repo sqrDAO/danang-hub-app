@@ -183,11 +183,14 @@ VITE_GEMINI_API_KEY=your-gemini-api-key  # Optional, for AI features
 ```bash
 # Initialize Firebase (if first time)
 firebase init
-# Select: Firestore, Functions
+# Select: Firestore, Functions, Storage
 # Use existing project
 
 # Deploy Firestore rules
 firebase deploy --only firestore:rules
+
+# Deploy Storage rules (for member avatars / file uploads)
+firebase deploy --only storage
 
 # Deploy Cloud Functions
 firebase deploy --only functions
@@ -330,7 +333,10 @@ src/
 │   ├── storage.js          # File storage operations
 │   └── walletAuth.js       # EIP-6963 EVM wallet discovery + Solana Wallet Standard sign-in
 ├── contexts/               # React contexts
-│   └── AuthContext.jsx     # Authentication state management
+│   ├── AuthContext.jsx     # Authentication state management
+│   └── ThemeContext.jsx    # Dark/light theme (persisted to localStorage)
+├── utils/                  # Utilities
+│   └── timezone.js         # Timezone helpers (e.g. Asia/Ho_Chi_Minh)
 ├── styles/                 # Global styles
 │   └── globals.css         # Global CSS variables and styles
 ├── App.jsx                 # Main app component with routing
@@ -423,12 +429,14 @@ firebase use your-project-id
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server |
+| `npm run dev` | Start development server (port 3000) |
 | `npm run build` | Build for production |
+| `npm run lint` | Run ESLint (max-warnings 0) |
 | `npm run preview` | Preview production build |
-| `firebase deploy` | Deploy all Firebase resources |
+| `firebase deploy` | Deploy all (Firestore rules, Storage rules, Functions, Hosting) |
 | `firebase deploy --only functions` | Deploy Cloud Functions |
 | `firebase deploy --only firestore:rules` | Deploy Firestore rules |
+| `firebase deploy --only storage` | Deploy Storage rules |
 | `firebase functions:log` | View function logs |
 | `firebase emulators:start` | Start local emulators |
 
