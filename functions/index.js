@@ -17,6 +17,9 @@ const AMENITY_TYPES_WITH_BUSINESS_HOURS = [
   "desk", "meeting-room", "podcast-room",
 ];
 
+// Amenity types that support multiple concurrent bookings up to capacity
+const AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY = ["desk"];
+
 /**
  * @param {Date} date The date to extract time from
  * @param {string} timeZone IANA timezone (e.g. Asia/Ho_Chi_Minh)
@@ -83,6 +86,19 @@ exports.checkBookingConflicts = functions.https.onCall(
       const {amenityId, startTime, endTime, excludeBookingId} = data;
 
       try {
+        const amenityRef = db.collection("amenities").doc(amenityId);
+        const amenitySnap = await amenityRef.get();
+        const amenity = amenitySnap.exists ? amenitySnap.data() : null;
+        const amenityType = amenity && amenity.type ? amenity.type : null;
+
+        let amenityCapacityRaw = 1;
+        if (amenity && typeof amenity.capacity === "number") {
+          amenityCapacityRaw = amenity.capacity;
+        }
+
+        const amenityCapacity =
+          amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+
         const bookingsQuery = db.collection("bookings")
             .where("amenityId", "==", amenityId)
             .where("status", "in", ["pending", "approved", "checked-in"]);
@@ -115,7 +131,22 @@ exports.checkBookingConflicts = functions.https.onCall(
           }
         });
 
-        return {hasConflicts: conflicts.length > 0, conflicts};
+        const overlapCount = conflicts.length;
+        let hasConflicts;
+
+        if (
+          amenityType &&
+          AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY.includes(amenityType) &&
+          amenityCapacity > 1
+        ) {
+          // Allow concurrent bookings up to capacity; block only when full
+          hasConflicts = overlapCount >= amenityCapacity;
+        } else {
+          // For single-occupancy amenities, any overlap is a conflict
+          hasConflicts = overlapCount > 0;
+        }
+
+        return {hasConflicts, conflicts};
       } catch (error) {
         console.error("Error checking booking conflicts:", error);
         throw new functions.https.HttpsError(
@@ -143,8 +174,22 @@ exports.checkSlotAvailability = functions.https.onCall(
 
         const amenityRef = db.collection("amenities").doc(amenityId);
         const amenityDoc = await amenityRef.get();
+
+        let amenityType = null;
+        let amenityCapacity = 1;
+
         if (amenityDoc.exists) {
           const amenity = amenityDoc.data();
+          amenityType = amenity.type || null;
+
+          let amenityCapacityRaw = 1;
+          if (typeof amenity.capacity === "number") {
+            amenityCapacityRaw = amenity.capacity;
+          }
+
+          amenityCapacity =
+            amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+
           if (AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenity.type)) {
             if (!isWithinBusinessHours(startTime, endTime)) {
               return {
@@ -182,8 +227,23 @@ exports.checkSlotAvailability = functions.https.onCall(
           }
         });
 
+        const overlapCount = conflicts.length;
+        let available;
+
+        if (
+          amenityType &&
+          AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY.includes(amenityType) &&
+          amenityCapacity > 1
+        ) {
+          // For shared-capacity amenities, mark unavailable when full
+          available = overlapCount < amenityCapacity;
+        } else {
+          // For single-occupancy amenities, any overlap makes slot unavailable
+          available = overlapCount === 0;
+        }
+
         return {
-          available: conflicts.length === 0,
+          available,
           conflicts,
         };
       } catch (error) {

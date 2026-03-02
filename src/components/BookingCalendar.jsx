@@ -97,19 +97,33 @@ const BookingCalendar = ({
     return slotDateTime < now
   }
 
-  // Check if a time slot is booked
+  // Check if a time slot is fully booked (respect amenity capacity for shared spaces)
   const isSlotBooked = (date, timeSlot) => {
     if (!bookings.length) return false
-    
+
     const slotDateTime = new Date(date)
     const [hours, minutes] = timeSlot.time.split(':').map(Number)
     slotDateTime.setHours(hours, minutes, 0, 0)
-    
-    return bookings.some(booking => {
+
+    const overlappingCount = bookings.reduce((count, booking) => {
       const start = new Date(booking.startTime)
       const end = new Date(booking.endTime)
       return slotDateTime >= start && slotDateTime < end
-    })
+        ? count + 1
+        : count
+    }, 0)
+
+    const capacity = typeof amenity?.capacity === 'number' && amenity.capacity > 0
+      ? amenity.capacity
+      : 1
+
+    // Desks are treated as shared coworking spaces with capacity-based concurrency
+    if (amenity?.type === 'desk' && capacity > 1) {
+      return overlappingCount >= capacity
+    }
+
+    // For non-desk amenities, any overlap means the slot is booked
+    return overlappingCount > 0
   }
 
   // Check if slot is selected
