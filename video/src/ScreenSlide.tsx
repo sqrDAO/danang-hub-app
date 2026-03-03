@@ -74,6 +74,9 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
       style={{
         background:
           "radial-gradient(circle at top left, #1e293b, #020617 40%, #000000 80%)",
+        color: "white",
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
         opacity,
       }}
     >
@@ -101,10 +104,11 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            fontSize: 24,
+            fontSize: 18,
             fontWeight: 600,
-            letterSpacing: 0.4,
-            color: "white",
+            letterSpacing: 2,
+            textTransform: "uppercase",
+            color: "#e5e7eb",
           }}
         >
           <div>Da Nang Blockchain Hub</div>
@@ -114,10 +118,10 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
               alignItems: "center",
               gap: 8,
               fontSize: 14,
-              opacity: 0.85,
+              opacity: 0.9,
             }}
           >
-            <span>Member Journey</span>
+            <span style={{ color: "#38bdf8" }}>Member Journey</span>
             <span
               style={{
                 width: 4,
@@ -188,14 +192,13 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
               display: "flex",
               flexDirection: "column",
               gap: 16,
-              color: "white",
             }}
           >
             <div
               style={{
-                fontSize: 28,
-                fontWeight: 600,
-                letterSpacing: 0.3,
+                fontSize: 32,
+                fontWeight: 650,
+                letterSpacing: 0.4,
                 lineHeight: 1.3,
                 opacity: titleOpacity,
               }}
@@ -204,7 +207,7 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             </div>
             <div
               style={{
-                fontSize: 16,
+                fontSize: 18,
                 lineHeight: 1.6,
                 color: "#e5e7eb",
                 opacity: descriptionOpacity,
@@ -219,7 +222,7 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                fontSize: 13,
+                fontSize: 14,
                 color: "#9ca3af",
               }}
             >
