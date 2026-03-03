@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence } from "remotion";
+import { AbsoluteFill, Sequence, Audio, staticFile } from "remotion";
 import screensManifest from "../screens.json";
 import { ScreenSlide } from "./ScreenSlide";
 import { CtaScreen } from "./CtaScreen";
@@ -24,11 +24,13 @@ const typedManifest = screensManifest as ScreensManifest;
 
 export const WalkthroughComposition: React.FC = () => {
   const slides = typedManifest.screens;
+  const audioSrc = staticFile("audio/background.mp3");
 
   let accumulatedFrom = 0;
 
   return (
     <AbsoluteFill>
+      <Audio src={audioSrc} />
       {slides.map((screen, index) => {
         const durationInFrames = Math.round(screen.duration * FPS);
         const from =
@@ -46,6 +48,8 @@ export const WalkthroughComposition: React.FC = () => {
           >
             <ScreenSlide
               id={screen.id}
+              title={screen.title}
+              description={screen.description}
               imagePath={screen.imagePath}
             />
           </Sequence>
