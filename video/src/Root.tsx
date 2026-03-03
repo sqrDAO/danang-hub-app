@@ -1,5 +1,6 @@
 import { Composition } from "remotion";
 import { WalkthroughComposition } from "./WalkthroughComposition";
+import { WalkthroughVerticalComposition } from "./WalkthroughVerticalComposition";
 import screensManifest from "../screens.json";
 
 const FPS = 30;
@@ -26,6 +27,14 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1920}
         height={1080}
+      />
+      <Composition
+        id="MemberWalkthroughVertical"
+        component={WalkthroughVerticalComposition}
+        durationInFrames={totalDurationInFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
       />
     </>
   );
