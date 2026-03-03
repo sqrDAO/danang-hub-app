@@ -13,12 +13,16 @@ type ScreenSlideProps = {
   title: string;
   description: string;
   imagePath: string;
+  index: number;
+  totalSlides: number;
 };
 
 export const ScreenSlide: React.FC<ScreenSlideProps> = ({
   title,
   description,
   imagePath,
+  index,
+  totalSlides,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -75,12 +79,10 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
     >
       <div
         style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          flexDirection: "column",
+          height: "100%",
+          gap: 24,
           padding: 32,
           boxSizing: "border-box",
         }}
@@ -94,57 +96,104 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             pointerEvents: "none",
           }}
         />
-        <div
+        <header
           style={{
-            transform: `scale(${zoomScale})`,
-            transformOrigin: "center center",
-            transition: "transform 0.2s linear",
-            width: "100%",
-            height: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: 24,
+            fontWeight: 600,
+            letterSpacing: 0.4,
+            color: "white",
           }}
         >
-          <Img
-            src={imageSrc}
+          <div>Da Nang Blockchain Hub</div>
+          <div
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              borderRadius: 18,
-              boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 14,
+              opacity: 0.85,
             }}
-          />
-        </div>
+          >
+            <span>Member Journey</span>
+            <span
+              style={{
+                width: 4,
+                height: 4,
+                borderRadius: "999px",
+                backgroundColor: "#38bdf8",
+              }}
+            />
+            <span>
+              Step {index + 1} of {totalSlides}
+            </span>
+          </div>
+        </header>
 
-        <div
+        <main
           style={{
-            position: "absolute",
-            left: 32,
-            right: 32,
-            bottom: 32,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            pointerEvents: "none",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
+            gap: 32,
+            flex: 1,
+            alignItems: "center",
           }}
         >
           <div
             style={{
-              backdropFilter: "blur(18px)",
-              WebkitBackdropFilter: "blur(18px)",
+              position: "relative",
+              width: "100%",
+              padding: 24,
+              borderRadius: 24,
               background:
-                "linear-gradient(135deg, rgba(15,23,42,0.88), rgba(15,23,42,0.74))",
-              borderRadius: 16,
-              border: "1px solid rgba(148,163,184,0.5)",
-              padding: "14px 18px",
+                "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.4))",
               boxShadow:
-                "0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,0.8)",
-              maxWidth: 640,
+                "0 24px 60px rgba(15,23,42,0.75), 0 0 0 1px rgba(148,163,184,0.15)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%)",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                transform: `scale(${zoomScale})`,
+                transformOrigin: "center center",
+                transition: "transform 0.2s linear",
+              }}
+            >
+              <Img
+                src={imageSrc}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  borderRadius: 18,
+                  boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
+                }}
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
               color: "white",
             }}
           >
             <div
               style={{
-                fontSize: 18,
+                fontSize: 28,
                 fontWeight: 600,
                 letterSpacing: 0.3,
                 lineHeight: 1.3,
@@ -155,8 +204,7 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             </div>
             <div
               style={{
-                marginTop: 6,
-                fontSize: 14,
+                fontSize: 16,
                 lineHeight: 1.6,
                 color: "#e5e7eb",
                 opacity: descriptionOpacity,
@@ -164,8 +212,81 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             >
               {description}
             </div>
+
+            <div
+              style={{
+                marginTop: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                fontSize: 13,
+                color: "#9ca3af",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "999px",
+                    backgroundColor: "#38bdf8",
+                  }}
+                />
+                <span>Designed for new hub members</span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "999px",
+                    backgroundColor: "#4ade80",
+                  }}
+                />
+                <span>Shows a single key step in the journey</span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "auto",
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              {Array.from({ length: totalSlides }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: 4,
+                    borderRadius: 999,
+                    backgroundColor:
+                      i === index ? "#38bdf8" : "rgba(148,163,184,0.3)",
+                    boxShadow:
+                      i === index
+                        ? "0 0 12px rgba(56,189,248,0.9)"
+                        : "none",
+                    transition: "background-color 0.25s ease-out",
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     </AbsoluteFill>
   );

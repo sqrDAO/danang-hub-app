@@ -51,6 +51,8 @@ export const WalkthroughComposition: React.FC = () => {
               title={screen.title}
               description={screen.description}
               imagePath={screen.imagePath}
+              index={index}
+              totalSlides={slides.length}
             />
           </Sequence>
         );
