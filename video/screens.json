@@ -1,0 +1,48 @@
+{
+  "projectName": "Da Nang Blockchain Hub Member Journey",
+  "screens": [
+    {
+      "id": "home",
+      "title": "Welcome to Da Nang Blockchain Hub",
+      "description": "The public homepage introduces the hub, showcases amenities and events, and invites you to sign in or apply for membership.",
+      "imagePath": "screens/home.png",
+      "duration": 4
+    },
+    {
+      "id": "login",
+      "title": "Sign In with Email, Google, or Wallet",
+      "description": "The unified login page lets you access the hub with email and password, Google OAuth, or EVM/Solana wallets via secure nonce-based authentication.",
+      "imagePath": "screens/login.png",
+      "duration": 4
+    },
+    {
+      "id": "profile",
+      "title": "Complete Your Member Profile",
+      "description": "On your profile page, you fill in company, role, and contact details, upload an avatar, and confirm your connected wallet so admins can verify your membership.",
+      "imagePath": "screens/profile.png",
+      "duration": 4
+    },
+    {
+      "id": "member-dashboard",
+      "title": "Member Dashboard Overview",
+      "description": "The member dashboard gives you a snapshot of upcoming bookings and events, plus quick links into booking, events, and profile management.",
+      "imagePath": "screens/member-dashboard.png",
+      "duration": 4
+    },
+    {
+      "id": "booking",
+      "title": "Book a Workspace or Meeting Room",
+      "description": "From the bookings page, use the visual day and week calendar to choose an amenity, see available 30-minute slots, and create a new reservation with conflict checking.",
+      "imagePath": "screens/booking.png",
+      "duration": 5
+    },
+    {
+      "id": "events",
+      "title": "Discover and Register for Hub Events",
+      "description": "On the member events page, browse upcoming events, review capacity and waitlist status, and register with a single click so the system can track your attendance.",
+      "imagePath": "screens/events.png",
+      "duration": 5
+    }
+  ]
+}
+
