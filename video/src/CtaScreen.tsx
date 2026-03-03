@@ -19,27 +19,53 @@ export const CtaScreen: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  // Label slides up
+  const labelSpring = spring({
+    frame,
+    fps,
+    config: { damping: 20, stiffness: 100, mass: 0.7 },
+  });
+  const labelY = interpolate(labelSpring, [0, 1], [10, 0]);
+
+  // Title slides up
   const titleSpring = spring({
     frame,
     fps,
-    config: {
-      damping: 18,
-      stiffness: 120,
-      mass: 0.7,
-    },
+    config: { damping: 18, stiffness: 120, mass: 0.7 },
   });
 
+  // Body paragraph — delayed fade
+  const bodyOpacity = interpolate(frame, [20, 35], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Status dot — delayed fade
+  const statusOpacity = interpolate(frame, [30, 45], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // URL pill — further delayed fade
+  const urlOpacity = interpolate(frame, [40, 55], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // QR bounce entrance
   const qrBounce = spring({
     frame: frame - 10,
     fps,
-    config: {
-      damping: 18,
-      stiffness: 140,
-      mass: 0.9,
-    },
+    config: { damping: 18, stiffness: 140, mass: 0.9 },
   });
-
   const qrScale = 0.92 + qrBounce * 0.08;
+
+  // Subtle pulsing glow on QR card
+  const glowPulse = interpolate(
+    Math.sin((frame / fps) * Math.PI * 0.4),
+    [-1, 1],
+    [0.12, 0.22]
+  );
 
   const qrSrc = staticFile("screens/cta-qr.png");
 
@@ -89,7 +115,8 @@ export const CtaScreen: React.FC = () => {
               letterSpacing: 2,
               textTransform: "uppercase",
               color: "#38bdf8",
-              opacity: 0.9,
+              opacity: labelSpring * 0.9,
+              transform: `translateY(${labelY}px)`,
             }}
           >
             Da Nang Blockchain Hub
@@ -113,6 +140,7 @@ export const CtaScreen: React.FC = () => {
               lineHeight: 1.7,
               color: "#e5e7eb",
               maxWidth: 520,
+              opacity: bodyOpacity,
             }}
           >
             Scan the QR code to open the member portal, create your profile, and
@@ -127,6 +155,7 @@ export const CtaScreen: React.FC = () => {
               marginTop: 8,
               fontSize: 14,
               color: "#9ca3af",
+              opacity: statusOpacity,
             }}
           >
             <span
@@ -152,6 +181,7 @@ export const CtaScreen: React.FC = () => {
               fontSize: 14,
               color: "#cbd5f5",
               background: "rgba(15,23,42,0.7)",
+              opacity: urlOpacity,
             }}
           >
             <span
@@ -176,6 +206,7 @@ export const CtaScreen: React.FC = () => {
         >
           <div
             style={{
+              position: "relative",
               padding: 28,
               borderRadius: 24,
               background:
@@ -188,6 +219,18 @@ export const CtaScreen: React.FC = () => {
               gap: 16,
             }}
           >
+            {/* Pulsing glow overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 24,
+                background:
+                  "radial-gradient(circle, rgba(56,189,248,0.6), transparent 65%)",
+                opacity: glowPulse,
+                pointerEvents: "none",
+              }}
+            />
             <div
               style={{
                 transform: `scale(${qrScale})`,
@@ -220,5 +263,4 @@ export const CtaScreen: React.FC = () => {
       </div>
     </AbsoluteFill>
   );
-}
-
+};

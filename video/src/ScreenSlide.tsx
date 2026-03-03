@@ -15,6 +15,7 @@ type ScreenSlideProps = {
   imagePath: string;
   index: number;
   totalSlides: number;
+  bullets?: string[];
 };
 
 export const ScreenSlide: React.FC<ScreenSlideProps> = ({
@@ -23,46 +24,67 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
   imagePath,
   index,
   totalSlides,
+  bullets,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
+  // Header entrance — slides down from above
+  const headerSlide = spring({
+    frame,
+    fps,
+    config: { damping: 20, stiffness: 90, mass: 0.7 },
+  });
+  const headerY = interpolate(headerSlide, [0, 1], [-12, 0]);
+
+  // Zoom — increased to 8%, smoother spring
   const zoomProgress = spring({
     frame,
     fps,
-    config: {
-      damping: 20,
-      stiffness: 120,
-      mass: 0.6,
-    },
+    config: { damping: 28, stiffness: 90, mass: 0.6 },
     durationInFrames,
   });
+  const zoomScale = 1 + zoomProgress * 0.08;
 
-  const zoomScale = 1 + zoomProgress * 0.05;
-
-  const fadeIn = interpolate(frame, [0, 10], [0, 1], {
+  // Fade in/out — extended windows
+  const fadeIn = interpolate(frame, [0, 15], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-
   const fadeOut = interpolate(
     frame,
-    [durationInFrames - 10, durationInFrames],
+    [durationInFrames - 15, durationInFrames],
     [1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-
   const opacity = fadeIn * fadeOut;
 
-  const titleOpacity = interpolate(frame, [6, 18], [0, 1], {
+  // Title — spring slide-up + extended opacity ramp
+  const titleSpring = spring({
+    frame: frame - 6,
+    fps,
+    config: { damping: 22, stiffness: 100, mass: 0.8 },
+  });
+  const titleY = interpolate(titleSpring, [0, 1], [20, 0]);
+  const titleOpacity = interpolate(frame, [6, 22], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const descriptionOpacity = interpolate(frame, [12, 26], [0, 1], {
+  // Description — staggered spring slide-up + extended opacity ramp
+  const descSpring = spring({
+    frame: frame - 14,
+    fps,
+    config: { damping: 22, stiffness: 100, mass: 0.8 },
+  });
+  const descY = interpolate(descSpring, [0, 1], [16, 0]);
+  const descriptionOpacity = interpolate(frame, [14, 30], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Progress fill for the active slide bar
+  const progressFill = interpolate(frame, [0, durationInFrames], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -109,6 +131,7 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
             letterSpacing: 2,
             textTransform: "uppercase",
             color: "#e5e7eb",
+            transform: `translateY(${headerY}px)`,
           }}
         >
           <div>Da Nang Blockchain Hub</div>
@@ -171,7 +194,6 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
               style={{
                 transform: `scale(${zoomScale})`,
                 transformOrigin: "center center",
-                transition: "transform 0.2s linear",
               }}
             >
               <Img
@@ -201,6 +223,7 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
                 letterSpacing: 0.4,
                 lineHeight: 1.3,
                 opacity: titleOpacity,
+                transform: `translateY(${titleY}px)`,
               }}
             >
               {title}
@@ -211,56 +234,42 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
                 lineHeight: 1.6,
                 color: "#e5e7eb",
                 opacity: descriptionOpacity,
+                transform: `translateY(${descY}px)`,
               }}
             >
               {description}
             </div>
 
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                fontSize: 14,
-                color: "#9ca3af",
-              }}
-            >
+            {bullets && bullets.length > 0 && (
               <div
                 style={{
+                  marginTop: 16,
                   display: "flex",
-                  alignItems: "center",
-                  gap: 6,
+                  flexDirection: "column",
+                  gap: 8,
+                  fontSize: 14,
+                  color: "#9ca3af",
+                  opacity: descriptionOpacity,
                 }}
               >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "999px",
-                    backgroundColor: "#38bdf8",
-                  }}
-                />
-                <span>Designed for new hub members</span>
+                {bullets.map((bullet, i) => (
+                  <div
+                    key={i}
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "999px",
+                        backgroundColor: i === 0 ? "#38bdf8" : "#4ade80",
+                      }}
+                    />
+                    <span>{bullet}</span>
+                  </div>
+                ))}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "999px",
-                    backgroundColor: "#4ade80",
-                  }}
-                />
-                <span>Shows a single key step in the journey</span>
-              </div>
-            </div>
+            )}
 
             <div
               style={{
@@ -277,15 +286,29 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
                     flex: 1,
                     height: 4,
                     borderRadius: 999,
-                    backgroundColor:
-                      i === index ? "#38bdf8" : "rgba(148,163,184,0.3)",
+                    backgroundColor: "rgba(148,163,184,0.3)",
+                    overflow: "hidden",
+                    position: "relative",
                     boxShadow:
                       i === index
                         ? "0 0 12px rgba(56,189,248,0.9)"
                         : "none",
-                    transition: "background-color 0.25s ease-out",
                   }}
-                />
+                >
+                  {i === index && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        height: "100%",
+                        width: `${progressFill * 100}%`,
+                        backgroundColor: "#38bdf8",
+                        borderRadius: 999,
+                      }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -294,4 +317,3 @@ export const ScreenSlide: React.FC<ScreenSlideProps> = ({
     </AbsoluteFill>
   );
 };
-

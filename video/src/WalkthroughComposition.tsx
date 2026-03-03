@@ -1,10 +1,16 @@
-import { AbsoluteFill, Sequence, Audio, staticFile } from "remotion";
+import {
+  AbsoluteFill,
+  Sequence,
+  Audio,
+  staticFile,
+  useVideoConfig,
+} from "remotion";
 import screensManifest from "../screens.json";
 import { ScreenSlide } from "./ScreenSlide";
 import { CtaScreen } from "./CtaScreen";
 
 const FPS = 30;
-const OVERLAP_FRAMES = 15;
+const OVERLAP_FRAMES = 24;
 const CTA_DURATION_SECONDS = 6;
 
 type ScreenConfig = {
@@ -13,6 +19,7 @@ type ScreenConfig = {
   description: string;
   imagePath: string;
   duration: number;
+  bullets?: string[];
 };
 
 type ScreensManifest = {
@@ -25,18 +32,27 @@ const typedManifest = screensManifest as ScreensManifest;
 export const WalkthroughComposition: React.FC = () => {
   const slides = typedManifest.screens;
   const audioSrc = staticFile("audio/background.mp3");
+  const { durationInFrames } = useVideoConfig();
 
   let accumulatedFrom = 0;
 
   return (
     <AbsoluteFill>
-      <Audio src={audioSrc} />
+      <Audio
+        src={audioSrc}
+        volume={(f) => {
+          const fadeInFrames = 30;
+          const fadeOutFrames = 30;
+          const fadeIn = Math.min(1, f / fadeInFrames);
+          const fadeOut = Math.min(1, (durationInFrames - f) / fadeOutFrames);
+          return Math.min(fadeIn, fadeOut) * 0.6;
+        }}
+      />
       {slides.map((screen, index) => {
         const durationInFrames = Math.round(screen.duration * FPS);
         const from =
           index === 0 ? 0 : Math.max(0, accumulatedFrom - OVERLAP_FRAMES);
-        const sequenceDuration =
-          durationInFrames + (index === 0 ? OVERLAP_FRAMES : OVERLAP_FRAMES);
+        const sequenceDuration = durationInFrames + OVERLAP_FRAMES;
 
         accumulatedFrom += durationInFrames;
 
@@ -53,6 +69,7 @@ export const WalkthroughComposition: React.FC = () => {
               imagePath={screen.imagePath}
               index={index}
               totalSlides={slides.length}
+              bullets={screen.bullets}
             />
           </Sequence>
         );
@@ -67,4 +84,3 @@ export const WalkthroughComposition: React.FC = () => {
     </AbsoluteFill>
   );
 };
-

@@ -40,3 +40,4 @@ firestore-debug.log
 ui-debug.log
 *-firebase-adminsdk-*.json
 video/output.mp4
+video/output-hq.mp4
