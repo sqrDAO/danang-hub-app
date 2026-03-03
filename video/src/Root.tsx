@@ -5,6 +5,7 @@ import screensManifest from "../screens.json";
 
 const FPS = 30;
 const OVERLAP_FRAMES = 15;
+const OPENING_DURATION_SECONDS = 4;
 const CTA_DURATION_SECONDS = 6;
 
 const slidesDurationInFrames = screensManifest.screens.reduce(
@@ -13,6 +14,7 @@ const slidesDurationInFrames = screensManifest.screens.reduce(
 );
 
 const totalDurationInFrames =
+  Math.round(OPENING_DURATION_SECONDS * FPS) +
   slidesDurationInFrames +
   OVERLAP_FRAMES +
   Math.round(CTA_DURATION_SECONDS * FPS);

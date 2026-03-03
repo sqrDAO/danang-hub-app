@@ -6,11 +6,13 @@ import {
   useVideoConfig,
 } from "remotion";
 import screensManifest from "../screens.json";
+import { OpeningScreen } from "./OpeningScreen";
 import { ScreenSlide } from "./ScreenSlide";
 import { CtaScreen } from "./CtaScreen";
 
 const FPS = 30;
 const OVERLAP_FRAMES = 24;
+const OPENING_DURATION_SECONDS = 4;
 const CTA_DURATION_SECONDS = 6;
 
 type ScreenConfig = {
@@ -156,10 +158,14 @@ export const WalkthroughComposition: React.FC = () => {
   const audioSrc = staticFile("audio/background.mp3");
   const { durationInFrames } = useVideoConfig();
 
-  let accumulatedFrom = 0;
+  const openingDurationInFrames = Math.round(OPENING_DURATION_SECONDS * FPS);
+  let accumulatedFrom = openingDurationInFrames;
 
   return (
     <AbsoluteFill>
+      <Sequence from={0} durationInFrames={openingDurationInFrames}>
+        <OpeningScreen />
+      </Sequence>
       <Audio
         src={audioSrc}
         volume={(f) => {
@@ -176,7 +182,9 @@ export const WalkthroughComposition: React.FC = () => {
       {slides.map((screen, index) => {
         const durationInFrames = Math.round(screen.duration * FPS);
         const from =
-          index === 0 ? 0 : Math.max(0, accumulatedFrom - OVERLAP_FRAMES);
+          index === 0
+            ? openingDurationInFrames
+            : Math.max(openingDurationInFrames, accumulatedFrom - OVERLAP_FRAMES);
         const sequenceDuration = durationInFrames + OVERLAP_FRAMES;
 
         accumulatedFrom += durationInFrames;
