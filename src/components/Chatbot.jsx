@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { chatWithGeminiAgent } from '../services/gemini'
 import { getAmenities } from '../services/amenities'
@@ -19,6 +20,7 @@ const normalizeMarkdown = (text) => {
 const LOGIN_CTA_PATTERNS = /log in|sign in|not logged in/i
 
 const Chatbot = () => {
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -26,7 +28,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hello! I\'m your AI assistant. How can I help you with bookings or events today?'
+      content: t('chatbot.greeting')
     }
   ])
   const [input, setInput] = useState('')
@@ -77,7 +79,7 @@ const Chatbot = () => {
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.'
+        content: t('chatbot.error')
       }])
     } finally {
       setIsLoading(false)

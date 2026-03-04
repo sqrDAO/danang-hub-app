@@ -115,6 +115,38 @@
   gap: var(--spacing-md);
 }
 
+.language-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  margin-right: var(--spacing-xs);
+}
+
+.language-toggle-button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 1.2;
+  transition: var(--transition);
+}
+
+.language-toggle-button.active {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.language-toggle-button:not(.active):hover {
+  color: var(--text-primary);
+}
+
 .user-info {
   display: flex;
   align-items: center;

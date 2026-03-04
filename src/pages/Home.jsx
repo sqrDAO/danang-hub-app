@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
@@ -11,6 +12,7 @@ import { getProjects } from '../services/projects'
 import './Home.css'
 
 const Home = () => {
+  const { t, i18n } = useTranslation()
   const { currentUser, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
@@ -114,6 +116,8 @@ const Home = () => {
     return eventDate <= now
   })
 
+  const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
+
   return (
     <Layout public>
       <div className="home-container">
@@ -121,10 +125,10 @@ const Home = () => {
         <section id="hero" className="hero-section">
           <div className="hero-content">
             <h1 className="hero-title">
-              <span className="gradient-text">Da Nang Blockchain Hub</span> Portal
+              <span className="gradient-text">Da Nang Blockchain Hub</span> {t('home.heroPortalLabel', { defaultValue: 'Portal' })}
             </h1>
             <p className="hero-subtitle">
-              Book spaces, join events, and manage your membership at the builders-first Web3 hub in Central Vietnam
+              {t('home.heroSubtitle')}
             </p>
             {currentUser ? (
               <div className="hero-cta">
@@ -132,19 +136,19 @@ const Home = () => {
                   to={isAdmin() ? '/admin' : '/member'} 
                   className="btn btn-primary btn-large"
                 >
-                  Dashboard
+                  {t('home.ctaDashboard')}
                 </Link>
                 <a href="#amenities" className="btn btn-secondary btn-large">
-                  Browse Amenities
+                  {t('home.ctaBrowseAmenities')}
                 </a>
               </div>
             ) : (
               <div className="hero-cta">
                 <Link to="/login?signup=true" className="btn btn-primary btn-large">
-                  Get Started
+                  {t('home.ctaGetStarted')}
                 </Link>
                 <a href="#amenities" className="btn btn-secondary btn-large">
-                  Browse Amenities
+                  {t('home.ctaBrowseAmenities')}
                 </a>
               </div>
             )}
@@ -155,10 +159,10 @@ const Home = () => {
         <section id="amenities" className="preview-section">
           <div className="container">
             <div className="section-header">
-              <h2 className="section-title">Available Amenities</h2>
+              <h2 className="section-title">{t('home.amenitiesTitle')}</h2>
             </div>
             {amenitiesLoading ? (
-              <p className="loading-text">Loading amenities...</p>
+              <p className="loading-text">{t('home.amenitiesLoading')}</p>
             ) : availableAmenities.length > 0 ? (
               <div className="amenities-preview-grid">
                 {availableAmenities.map(amenity => (
@@ -172,14 +176,16 @@ const Home = () => {
                       </div>
                     ) : (
                       <div className="amenity-preview-photo-placeholder">
-                        <span>No photo</span>
+                        <span>{t('home.amenitiesNoPhoto')}</span>
                       </div>
                     )}
                     <div>
                       <h4 className="amenity-preview-name">{amenity.name}</h4>
                       <p className="amenity-preview-type">{amenity.type}</p>
                       {amenity.capacity && (
-                        <p className="amenity-preview-capacity">Capacity: {amenity.capacity}</p>
+                        <p className="amenity-preview-capacity">
+                          {t('home.amenitiesCapacity', { count: amenity.capacity })}
+                        </p>
                       )}
                       {amenity.description && (
                         <p className="amenity-preview-description">{amenity.description}</p>
@@ -190,13 +196,13 @@ const Home = () => {
                       onClick={() => handleBookAmenity(amenity)}
                       style={{ marginTop: 'var(--spacing-md)' }}
                     >
-                      📅 Book Now
+                      📅 {t('common.bookNow')}
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="empty-state">No amenities available at this time</p>
+              <p className="empty-state">{t('home.amenitiesEmpty')}</p>
             )}
           </div>
         </section>
@@ -205,10 +211,10 @@ const Home = () => {
         <section id="events" className="preview-section">
           <div className="container">
             <div className="section-header">
-              <h2 className="section-title">Upcoming Events</h2>
+              <h2 className="section-title">{t('home.eventsTitle')}</h2>
             </div>
             {eventsLoading ? (
-              <p className="loading-text">Loading events...</p>
+              <p className="loading-text">{t('home.eventsLoading')}</p>
             ) : upcomingEvents.length > 0 ? (
               <div className="events-preview-grid">
                 {upcomingEvents.map(event => (
@@ -223,7 +229,7 @@ const Home = () => {
                       <p className="event-preview-date">
                         {event.date ? (() => {
                           const d = event.date instanceof Date ? event.date : new Date(event.date)
-                          return d.toLocaleDateString('en-US', {
+                          return d.toLocaleDateString(locale, {
                             timeZone: 'Asia/Ho_Chi_Minh',
                             month: 'short',
                             day: 'numeric',
@@ -232,26 +238,36 @@ const Home = () => {
                         })() : null}
                       </p>
                       {event.duration && (
-                        <p className="event-preview-duration">⏱️ Duration: {event.duration} minutes</p>
+                        <p className="event-preview-duration">
+                          ⏱️ {t('home.eventsDuration', { minutes: event.duration })}
+                        </p>
                       )}
                       {event.capacity && (
                         <p className="event-preview-capacity">
-                          👥 {event.attendees?.length || 0} / {event.capacity} attendees
+                          👥 {t('home.eventsCapacity', {
+                            attendees: event.attendees?.length || 0,
+                            capacity: event.capacity
+                          })}
                         </p>
                       )}
                       {event.hostingProjects && (
                         <p className="event-preview-projects">
-                          🏢 Hosted by: {typeof event.hostingProjects === 'string' 
-                            ? event.hostingProjects 
-                            : event.hostingProjects.map(projectId => {
-                                const project = projects.find(p => p.id === projectId)
-                                return project?.name || projectId
-                              }).join(', ')}
+                          🏢 {t('home.eventsHostedBy', {
+                            hosts: typeof event.hostingProjects === 'string'
+                              ? event.hostingProjects
+                              : event.hostingProjects.map(projectId => {
+                                  const project = projects.find(p => p.id === projectId)
+                                  return project?.name || projectId
+                                }).join(', ')
+                          })}
                         </p>
                       )}
                       {event.eventLink && (
                         <p className="event-preview-link">
-                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                          🔗{' '}
+                          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
+                            {t('home.eventsLink')}
+                          </a>
                         </p>
                       )}
                       {event.description && (
@@ -264,13 +280,15 @@ const Home = () => {
                       disabled={event.capacity && event.attendees?.length >= event.capacity}
                       style={{ marginTop: 'var(--spacing-md)' }}
                     >
-                      {event.capacity && event.attendees?.length >= event.capacity ? 'Event Full' : 'Register for Event'}
+                      {event.capacity && event.attendees?.length >= event.capacity
+                        ? t('home.eventsFull')
+                        : t('home.eventsRegister')}
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="empty-state">No upcoming events at this time</p>
+              <p className="empty-state">{t('home.eventsEmpty')}</p>
             )}
           </div>
         </section>
@@ -280,7 +298,7 @@ const Home = () => {
           <section id="past-events" className="preview-section">
             <div className="container">
               <div className="section-header">
-                <h2 className="section-title">Past Events</h2>
+                <h2 className="section-title">{t('home.pastEventsTitle')}</h2>
               </div>
               <div className="events-preview-grid">
                 {pastEvents.map(event => (
@@ -295,7 +313,7 @@ const Home = () => {
                       <p className="event-preview-date">
                         {event.date ? (() => {
                           const d = event.date instanceof Date ? event.date : new Date(event.date)
-                          return d.toLocaleDateString('en-US', {
+                          return d.toLocaleDateString(locale, {
                             timeZone: 'Asia/Ho_Chi_Minh',
                             month: 'short',
                             day: 'numeric',
@@ -315,11 +333,14 @@ const Home = () => {
                       )}
                       {event.eventLink && (
                         <p className="event-preview-link">
-                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                          🔗{' '}
+                          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
+                            {t('home.eventsLink')}
+                          </a>
                         </p>
                       )}
                       {currentUser && event.attendees?.includes(currentUser.uid) && (
-                        <p className="event-attended">✅ You attended this event</p>
+                        <p className="event-attended">✅ {t('home.pastEventsAttended')}</p>
                       )}
                     </div>
                   </div>
@@ -346,12 +367,12 @@ const Home = () => {
           <section className="cta-section">
             <div className="container">
               <div className="cta-content glass">
-                <h2 className="cta-title">Ready to get started?</h2>
+                <h2 className="cta-title">{t('common.readyToGetStarted')}</h2>
                 <p className="cta-description">
-                  Sign up today to book amenities and register for events
+                  {t('common.signUpCta')}
                 </p>
                 <Link to="/login?signup=true" className="btn btn-primary btn-large">
-                  Create Account
+                  {t('common.ctaPrimary')}
                 </Link>
               </div>
             </div>

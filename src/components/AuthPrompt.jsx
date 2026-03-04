@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Modal from './Modal'
 import './AuthPrompt.css'
 
 const AuthPrompt = ({ isOpen, onClose, action = 'book', onLogin, onSignUp }) => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const handleLogin = () => {
     if (onLogin) {
@@ -23,38 +25,39 @@ const AuthPrompt = ({ isOpen, onClose, action = 'book', onLogin, onSignUp }) => 
     onClose()
   }
 
-  const actionText = {
-    book: 'book an amenity',
-    register: 'register for this event',
-    create: 'create an event',
-    default: 'perform this action'
-  }[action] || actionText.default
+  const actionKey = {
+    book: 'authPrompt.actions.book',
+    register: 'authPrompt.actions.register',
+    create: 'authPrompt.actions.create'
+  }[action] || 'authPrompt.actions.default'
+
+  const actionText = t(actionKey)
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Sign In Required"
+      title={t('authPrompt.title')}
     >
       <div className="auth-prompt-content">
         <p className="auth-prompt-message">
-          You need to sign in to {actionText}.
+          {t('authPrompt.message', { action: actionText })}
         </p>
         <p className="auth-prompt-submessage">
-          Don't have an account? Sign up now to get started!
+          {t('authPrompt.submessage')}
         </p>
         <div className="auth-prompt-actions">
           <button
             className="btn btn-primary"
             onClick={handleLogin}
           >
-            Sign In
+            {t('authPrompt.signIn')}
           </button>
           <button
             className="btn btn-secondary"
             onClick={handleSignUp}
           >
-            Sign Up
+            {t('authPrompt.signUp')}
           </button>
         </div>
       </div>

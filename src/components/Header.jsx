@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import Avatar from './Avatar'
@@ -12,6 +13,14 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('')
+  const { t, i18n } = useTranslation()
+
+  const currentLanguage = i18n.language && i18n.language.startsWith('vi') ? 'vi' : 'en'
+
+  const changeLanguage = (lng) => {
+    if (lng === currentLanguage) return
+    i18n.changeLanguage(lng)
+  }
 
   const handleLogout = async () => {
     try {
@@ -172,45 +181,99 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     <header className="header">
       <div className="header-container container">
         <Link to="/" className="logo" onClick={closeMobileMenu}>
-          <img src="/assets/logo.svg" alt="Hub Portal" className="logo-image" />
-          <h2 className="gradient-text">Hub Portal</h2>
+          <img src="/assets/logo.svg" alt={t('common.appNameShort')} className="logo-image" />
+          <h2 className="gradient-text">{t('common.appNameShort')}</h2>
         </Link>
         
         <nav className="nav">
           <ul className="nav-list">
             {isPublic ? (
               <>
-                <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
-                <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
-                <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+                <li>
+                  <Link
+                    to="/"
+                    onClick={(e) => {
+                      closeMobileMenu()
+                      if (location.pathname === '/') {
+                        e.preventDefault()
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }
+                    }}
+                    className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}
+                  >
+                    {t('nav.home')}
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    href="#amenities"
+                    onClick={closeMobileMenu}
+                    className={isSectionActive('#amenities') ? 'active' : ''}
+                  >
+                    {t('nav.amenities')}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#events"
+                    onClick={closeMobileMenu}
+                    className={isSectionActive('#events') ? 'active' : ''}
+                  >
+                    {t('nav.events')}
+                  </a>
+                </li>
                 {currentUser && checkAdmin() && (
-                  <li><Link to="/admin" onClick={closeMobileMenu} className={location.pathname.startsWith('/admin') ? 'active' : ''}>Admin</Link></li>
+                  <li>
+                    <Link
+                      to="/admin"
+                      onClick={closeMobileMenu}
+                      className={location.pathname.startsWith('/admin') ? 'active' : ''}
+                    >
+                      {t('nav.admin')}
+                    </Link>
+                  </li>
                 )}
               </>
             ) : isAdmin ? (
               <>
-                <NavLink to="/admin">Dashboard</NavLink>
-                <NavLink to="/admin/members">Members</NavLink>
-                <NavLink to="/admin/amenities">Amenities</NavLink>
-                <NavLink to="/admin/bookings">Bookings</NavLink>
-                <NavLink to="/admin/events">Events</NavLink>
+                <NavLink to="/admin">{t('nav.dashboard')}</NavLink>
+                <NavLink to="/admin/members">{t('nav.members')}</NavLink>
+                <NavLink to="/admin/amenities">{t('nav.amenities')}</NavLink>
+                <NavLink to="/admin/bookings">{t('nav.bookings')}</NavLink>
+                <NavLink to="/admin/events">{t('nav.events')}</NavLink>
               </>
             ) : (
               <>
-                <NavLink to="/member">Dashboard</NavLink>
-                <NavLink to="/member/bookings">My Bookings</NavLink>
-                <NavLink to="/member/events">Events</NavLink>
+                <NavLink to="/member">{t('nav.dashboard')}</NavLink>
+                <NavLink to="/member/bookings">{t('nav.myBookings')}</NavLink>
+                <NavLink to="/member/events">{t('nav.events')}</NavLink>
               </>
             )}
           </ul>
         </nav>
 
         <div className="header-user">
+          <div className="language-toggle" aria-label="Language selector">
+            <button
+              type="button"
+              className={`language-toggle-button ${currentLanguage === 'en' ? 'active' : ''}`}
+              onClick={() => changeLanguage('en')}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              className={`language-toggle-button ${currentLanguage === 'vi' ? 'active' : ''}`}
+              onClick={() => changeLanguage('vi')}
+            >
+              VI
+            </button>
+          </div>
           <button
             type="button"
             className="theme-toggle"
             onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
           >
             {theme === 'dark' ? (
               <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -233,12 +296,12 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           {isPublic ? (
             !currentUser ? (
               <Link to="/login" className="btn btn-primary">
-                Log In
+                {t('common.login')}
               </Link>
             ) : (
               <>
                 {userProfile && (
-                  <Link to={checkAdmin() ? '/admin/profile' : '/member/profile'} className="user-info user-info-link" aria-label="Go to profile">
+                  <Link to={checkAdmin() ? '/admin/profile' : '/member/profile'} className="user-info user-info-link" aria-label={t('nav.profile')}>
                     <Avatar 
                       src={userProfile.photoURL} 
                       name={userProfile.displayName}
@@ -248,14 +311,14 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                   </Link>
                 )}
                 <button className="btn btn-secondary" onClick={handleLogout}>
-                  Logout
+                  {t('common.logout')}
                 </button>
               </>
             )
           ) : (
             <>
               {userProfile && (
-                <Link to={profilePath} className="user-info user-info-link" aria-label="Go to profile">
+                <Link to={profilePath} className="user-info user-info-link" aria-label={t('nav.profile')}>
                   <Avatar 
                     src={userProfile.photoURL} 
                     name={userProfile.displayName}
@@ -265,7 +328,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 </Link>
               )}
               <button className="btn btn-secondary" onClick={handleLogout}>
-                Logout
+                {t('common.logout')}
               </button>
             </>
           )}
@@ -333,7 +396,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
             type="button"
             className="theme-toggle theme-toggle-mobile"
             onClick={() => { toggleTheme(); closeMobileMenu() }}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
           >
             {theme === 'dark' ? (
               <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -352,21 +415,21 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
-            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            <span>{theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}</span>
           </button>
           {isPublic ? (
             !currentUser ? (
               <Link to="/login" className="btn btn-primary btn-full-width" onClick={closeMobileMenu}>
-                Log In
+                {t('common.login')}
               </Link>
             ) : (
               <button className="btn btn-secondary btn-full-width" onClick={handleLogout}>
-                Logout
+                {t('common.logout')}
               </button>
             )
           ) : (
             <button className="btn btn-secondary btn-full-width" onClick={handleLogout}>
-              Logout
+              {t('common.logout')}
             </button>
           )}
         </div>
