@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
@@ -18,6 +19,7 @@ const DAYS_OF_WEEK = [
 ]
 
 const AdminAmenities = () => {
+  const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateMode, setIsCreateMode] = useState(true)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
@@ -323,9 +325,9 @@ const AdminAmenities = () => {
     <Layout isAdmin>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">Amenities</h1>
+          <h1 className="page-title">{t('adminAmenities.title')}</h1>
           <button className="btn btn-primary" onClick={handleCreate}>
-            + Add Amenity
+            + {t('adminAmenities.addButton')}
           </button>
         </div>
 
@@ -392,11 +394,11 @@ const AdminAmenities = () => {
             setIsModalOpen(false)
             resetForm()
           }}
-          title={isCreateMode ? 'Create Amenity' : 'Edit Amenity'}
+          title={isCreateMode ? t('adminAmenities.modal.createTitle') : t('adminAmenities.modal.editTitle')}
         >
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Name</label>
+              <label className="form-label">{t('adminAmenities.form.name')}</label>
               <input
                 type="text"
                 name="name"
@@ -406,17 +408,17 @@ const AdminAmenities = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Type</label>
+              <label className="form-label">{t('adminAmenities.form.type')}</label>
               <select name="type" className="form-field" defaultValue={selectedAmenity?.type || ''} onChange={handleTypeChange} required>
-                <option value="">Select type</option>
-                <option value="desk">Desk</option>
-                <option value="meeting-room">Meeting Room</option>
-                <option value="podcast-room">Podcast Room</option>
-                <option value="event-space">Event Space (Main Hall)</option>
+                <option value="">{t('adminAmenities.form.typePlaceholder')}</option>
+                <option value="desk">{t('adminAmenities.form.typeDesk')}</option>
+                <option value="meeting-room">{t('adminAmenities.form.typeMeetingRoom')}</option>
+                <option value="podcast-room">{t('adminAmenities.form.typePodcastRoom')}</option>
+                <option value="event-space">{t('adminAmenities.form.typeEventSpace')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Capacity</label>
+              <label className="form-label">{t('adminAmenities.form.capacity')}</label>
               <input
                 ref={capacityInputRef}
                 type="number"
@@ -426,10 +428,12 @@ const AdminAmenities = () => {
                 min="1"
                 required
               />
-              <small className="form-hint">Event Space (Main Hall) accommodates up to 80 people</small>
+              <small className="form-hint">
+                {t('adminAmenities.form.capacityHint')}
+              </small>
             </div>
             <div className="form-group">
-              <label className="form-label">Description</label>
+              <label className="form-label">{t('adminAmenities.form.description')}</label>
               <textarea
                 name="description"
                 className="form-field"
@@ -439,7 +443,7 @@ const AdminAmenities = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Photos</label>
+              <label className="form-label">{t('adminAmenities.form.photos')}</label>
               <div className="photo-upload-section">
                 <input
                   ref={fileInputRef}
@@ -456,11 +460,11 @@ const AdminAmenities = () => {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingPhotos}
                 >
-                  {uploadingPhotos ? 'Uploading...' : '+ Upload Photos'}
+                  {uploadingPhotos ? t('adminAmenities.form.uploading') : t('adminAmenities.form.uploadButton')}
                 </button>
                 {uploadingPhotos && Object.keys(uploadProgress).length > 0 && (
                   <div className="upload-progress">
-                    Uploading photos...
+                    {t('adminAmenities.form.uploading')}
                   </div>
                 )}
               </div>
@@ -469,13 +473,13 @@ const AdminAmenities = () => {
                 <div className="photo-preview-grid">
                   {photos.map((photoUrl, index) => (
                     <div key={index} className="photo-preview-item">
-                      <img src={photoUrl} alt={`Amenity ${index + 1}`} />
+                      <img src={photoUrl} alt={t('adminAmenities.form.photoAlt', { index: index + 1 })} />
                       <button
                         type="button"
                         className="photo-delete-btn"
                         onClick={() => handlePhotoDelete(photoUrl, index)}
                         disabled={uploadingPhotos}
-                        title="Delete photo"
+                        title={t('adminAmenities.form.deletePhoto')}
                       >
                         ×
                       </button>
@@ -486,11 +490,15 @@ const AdminAmenities = () => {
             </div>
 
             <div className="form-section">
-              <h4 className="form-section-title">Availability Settings</h4>
+              <h4 className="form-section-title">
+                {t('adminAmenities.form.availabilityTitle')}
+              </h4>
               
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Open From</label>
+                  <label className="form-label">
+                    {t('adminAmenities.form.openFrom')}
+                  </label>
                   <select 
                     name="startHour" 
                     className="form-field"
@@ -502,7 +510,9 @@ const AdminAmenities = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Close At</label>
+                  <label className="form-label">
+                    {t('adminAmenities.form.closeAt')}
+                  </label>
                   <select 
                     name="endHour" 
                     className="form-field"
@@ -516,20 +526,24 @@ const AdminAmenities = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Booking Slot Duration</label>
+                <label className="form-label">
+                  {t('adminAmenities.form.slotDuration')}
+                </label>
                 <select 
                   name="slotDuration" 
                   className="form-field"
                   defaultValue={selectedAmenity?.slotDuration || DEFAULT_AVAILABILITY.slotDuration}
                 >
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="60">1 hour</option>
+                  <option value="15">{t('adminAmenities.form.slot15')}</option>
+                  <option value="30">{t('adminAmenities.form.slot30')}</option>
+                  <option value="60">{t('adminAmenities.form.slot60')}</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Available Days</label>
+                <label className="form-label">
+                  {t('adminAmenities.form.availableDays')}
+                </label>
                 <div className="days-selector">
                   {DAYS_OF_WEEK.map(day => (
                     <label key={day.value} className={`day-checkbox ${availableDays.includes(day.value) ? 'selected' : ''}`}>

@@ -25,7 +25,8 @@
     "createAccount": "Create Account",
     "readyToGetStarted": "Ready to get started?",
     "signUpCta": "Sign up today to book amenities and register for events",
-    "ctaPrimary": "Create Account"
+    "ctaPrimary": "Create Account",
+    "close": "Close"
   },
   "home": {
     "heroTitle": "{{appName}}",
@@ -181,6 +182,39 @@
     "bookingCheckInFailed": "Failed to check in booking",
     "bookingCheckedOut": "Booking checked out successfully",
     "bookingCheckOutFailed": "Failed to check out booking"
+  },
+  "adminAmenities": {
+    "title": "Amenities",
+    "addButton": "Add Amenity",
+    "modal": {
+      "createTitle": "Create Amenity",
+      "editTitle": "Edit Amenity"
+    },
+    "form": {
+      "name": "Name",
+      "type": "Type",
+      "typePlaceholder": "Select type",
+      "typeDesk": "Desk",
+      "typeMeetingRoom": "Meeting Room",
+      "typePodcastRoom": "Podcast Room",
+      "typeEventSpace": "Event Space (Main Hall)",
+      "capacity": "Capacity",
+      "capacityHint": "Event Space (Main Hall) accommodates up to 80 people",
+      "description": "Description",
+      "photos": "Photos",
+      "uploadButton": "+ Upload Photos",
+      "uploading": "Uploading photos...",
+      "photoAlt": "Amenity {{index}}",
+      "deletePhoto": "Delete photo",
+      "availabilityTitle": "Availability Settings",
+      "openFrom": "Open From",
+      "closeAt": "Close At",
+      "slotDuration": "Booking Slot Duration",
+      "slot15": "15 minutes",
+      "slot30": "30 minutes",
+      "slot60": "1 hour",
+      "availableDays": "Available Days"
+    }
   }
 }
 

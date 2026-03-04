@@ -25,7 +25,8 @@
     "createAccount": "Tạo tài khoản",
     "readyToGetStarted": "Sẵn sàng bắt đầu?",
     "signUpCta": "Đăng ký ngay để đặt tiện ích và tham gia sự kiện",
-    "ctaPrimary": "Tạo tài khoản"
+    "ctaPrimary": "Tạo tài khoản",
+    "close": "Đóng"
   },
   "home": {
     "heroTitle": "{{appName}}",
@@ -181,6 +182,39 @@
     "bookingCheckInFailed": "Không thể check-in đặt chỗ",
     "bookingCheckedOut": "Check-out đặt chỗ thành công",
     "bookingCheckOutFailed": "Không thể check-out đặt chỗ"
+  },
+  "adminAmenities": {
+    "title": "Tiện ích",
+    "addButton": "Thêm tiện ích",
+    "modal": {
+      "createTitle": "Tạo tiện ích",
+      "editTitle": "Chỉnh sửa tiện ích"
+    },
+    "form": {
+      "name": "Tên",
+      "type": "Loại",
+      "typePlaceholder": "Chọn loại",
+      "typeDesk": "Bàn làm việc",
+      "typeMeetingRoom": "Phòng họp",
+      "typePodcastRoom": "Phòng thu podcast",
+      "typeEventSpace": "Không gian sự kiện (Main Hall)",
+      "capacity": "Sức chứa",
+      "capacityHint": "Không gian sự kiện (Main Hall) chứa tối đa 80 người",
+      "description": "Mô tả",
+      "photos": "Hình ảnh",
+      "uploadButton": "+ Tải ảnh lên",
+      "uploading": "Đang tải ảnh...",
+      "photoAlt": "Tiện ích {{index}}",
+      "deletePhoto": "Xóa ảnh",
+      "availabilityTitle": "Cài đặt thời gian hoạt động",
+      "openFrom": "Mở từ",
+      "closeAt": "Đóng lúc",
+      "slotDuration": "Thời lượng mỗi khung giờ đặt",
+      "slot15": "15 phút",
+      "slot30": "30 phút",
+      "slot60": "1 giờ",
+      "availableDays": "Ngày hoạt động"
+    }
   }
 }
 
