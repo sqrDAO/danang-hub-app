@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
@@ -13,17 +13,19 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('')
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
   const { t, i18n } = useTranslation()
 
   const currentLanguage = i18n.language && i18n.language.startsWith('vi') ? 'vi' : 'en'
 
-  const changeLanguage = (lng) => {
-    if (lng === currentLanguage) return
-    i18n.changeLanguage(lng)
+  const toggleLanguage = () => {
+    i18n.changeLanguage(currentLanguage === 'en' ? 'vi' : 'en')
   }
 
   const handleLogout = async () => {
     try {
+      setIsUserMenuOpen(false)
       await logout()
       navigate(isPublic ? '/' : '/login')
       setIsMobileMenuOpen(false)
@@ -43,14 +45,25 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     setIsMobileMenuOpen(false)
   }
 
-  // Track active section based on scroll position
+  // Close user menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isUserMenuOpen])
+
   useEffect(() => {
     if (!isPublic || location.pathname !== '/') {
       setActiveSection('')
       return
     }
 
-    // Update active section from hash on mount or hash change
     if (location.hash) {
       setActiveSection(location.hash)
     } else if (window.scrollY < 100) {
@@ -63,10 +76,9 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     const checkActiveSection = () => {
       clearTimeout(scrollTimeout)
       scrollTimeout = setTimeout(() => {
-        const scrollPosition = window.scrollY + 150 // Header height + margin
+        const scrollPosition = window.scrollY + 150
         let currentSection = ''
         
-        // Check sections from bottom to top to find the first one we've scrolled past
         for (let i = sections.length - 1; i >= 0; i--) {
           const element = document.getElementById(sections[i])
           if (element) {
@@ -78,7 +90,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           }
         }
         
-        // If we're at the very top, set to hero/home
         if (window.scrollY < 50) {
           currentSection = ''
         }
@@ -92,15 +103,13 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
       }, 10)
     }
 
-    // Intersection Observer for more accurate detection
     const observerOptions = {
       root: null,
-      rootMargin: '-120px 0px -60% 0px', // Trigger when section is in view near top
+      rootMargin: '-120px 0px -60% 0px',
       threshold: [0, 0.1, 0.5, 1]
     }
 
     const observerCallback = (entries) => {
-      // Find the section with the highest intersection ratio that's intersecting
       const intersectingEntries = entries.filter(e => e.isIntersecting)
       if (intersectingEntries.length > 0) {
         const mostVisible = intersectingEntries.reduce((prev, current) => 
@@ -122,7 +131,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
 
     const observer = new IntersectionObserver(observerCallback, observerOptions)
 
-    // Observe all sections
     sections.forEach(sectionId => {
       const element = document.getElementById(sectionId)
       if (element) {
@@ -131,8 +139,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     })
 
     window.addEventListener('scroll', checkActiveSection, { passive: true })
-    
-    // Initial check
     checkActiveSection()
 
     return () => {
@@ -153,12 +159,10 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     if (!isPublic) return false
     if (location.pathname !== '/') return false
     
-    // If we have an activeSection from scroll tracking, use it
     if (activeSection !== undefined && activeSection !== null) {
       return activeSection === hash
     }
     
-    // Fallback to location.hash
     return location.hash === hash || (!location.hash && hash === '')
   }
 
@@ -252,31 +256,27 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           </ul>
         </nav>
 
-        <div className="header-user">
-          <div className="language-toggle" aria-label="Language selector">
-            <button
-              type="button"
-              className={`language-toggle-button ${currentLanguage === 'en' ? 'active' : ''}`}
-              onClick={() => changeLanguage('en')}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              className={`language-toggle-button ${currentLanguage === 'vi' ? 'active' : ''}`}
-              onClick={() => changeLanguage('vi')}
-            >
-              VI
-            </button>
-          </div>
+        <div className="header-actions">
+          {/* Language toggle - single button that cycles */}
           <button
             type="button"
-            className="theme-toggle"
+            className="header-icon-btn"
+            onClick={toggleLanguage}
+            aria-label={currentLanguage === 'en' ? 'Switch to Vietnamese' : 'Switch to English'}
+            title={currentLanguage === 'en' ? 'Tiếng Việt' : 'English'}
+          >
+            <span className="lang-label">{currentLanguage === 'en' ? 'EN' : 'VI'}</span>
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            type="button"
+            className="header-icon-btn"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
           >
             {theme === 'dark' ? (
-              <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="12" r="5" />
                 <line x1="12" y1="1" x2="12" y2="3" />
                 <line x1="12" y1="21" x2="12" y2="23" />
@@ -288,49 +288,96 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                 <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
               </svg>
             ) : (
-              <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
           </button>
+
+          {/* User area */}
           {isPublic ? (
             !currentUser ? (
-              <Link to="/login" className="btn btn-primary">
+              <Link to="/login" className="btn btn-primary btn-header">
                 {t('common.login')}
               </Link>
             ) : (
-              <>
-                {userProfile && (
-                  <Link to={checkAdmin() ? '/admin/profile' : '/member/profile'} className="user-info user-info-link" aria-label={t('nav.profile')}>
-                    <Avatar 
-                      src={userProfile.photoURL} 
-                      name={userProfile.displayName}
-                      size="md"
-                    />
-                    <span className="user-name">{userProfile.displayName}</span>
-                  </Link>
-                )}
-                <button className="btn btn-secondary" onClick={handleLogout}>
-                  {t('common.logout')}
-                </button>
-              </>
-            )
-          ) : (
-            <>
-              {userProfile && (
-                <Link to={profilePath} className="user-info user-info-link" aria-label={t('nav.profile')}>
+              <div className="user-menu-wrap" ref={userMenuRef}>
+                <button
+                  type="button"
+                  className="user-menu-trigger"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  aria-label={t('nav.profile')}
+                >
                   <Avatar 
-                    src={userProfile.photoURL} 
-                    name={userProfile.displayName}
+                    src={userProfile?.photoURL} 
+                    name={userProfile?.displayName}
                     size="md"
                   />
-                  <span className="user-name">{userProfile.displayName}</span>
-                </Link>
-              )}
-              <button className="btn btn-secondary" onClick={handleLogout}>
-                {t('common.logout')}
+                </button>
+                {isUserMenuOpen && (
+                  <div className="user-dropdown">
+                    {userProfile && (
+                      <div className="user-dropdown-header">
+                        <span className="user-dropdown-name">{userProfile.displayName}</span>
+                        <span className="user-dropdown-email">{userProfile.email}</span>
+                      </div>
+                    )}
+                    <Link
+                      to={checkAdmin() ? '/admin/profile' : '/member/profile'}
+                      className="user-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      {t('nav.profile')}
+                    </Link>
+                    <Link
+                      to={checkAdmin() ? '/admin' : '/member'}
+                      className="user-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      {t('nav.dashboard')}
+                    </Link>
+                    <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
+                      {t('common.logout')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="user-menu-wrap" ref={userMenuRef}>
+              <button
+                type="button"
+                className="user-menu-trigger"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                aria-label={t('nav.profile')}
+              >
+                <Avatar 
+                  src={userProfile?.photoURL} 
+                  name={userProfile?.displayName}
+                  size="md"
+                />
               </button>
-            </>
+              {isUserMenuOpen && (
+                <div className="user-dropdown">
+                  {userProfile && (
+                    <div className="user-dropdown-header">
+                      <span className="user-dropdown-name">{userProfile.displayName}</span>
+                      <span className="user-dropdown-email">{userProfile.email}</span>
+                    </div>
+                  )}
+                  <Link
+                    to={profilePath}
+                    className="user-dropdown-item"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  >
+                    {t('nav.profile')}
+                  </Link>
+                  <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
+                    {t('common.logout')}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -351,8 +398,13 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
       
       <nav className={`mobile-nav ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="mobile-nav-header">
-          {!isPublic && userProfile && (
-            <Link to={profilePath} className="mobile-user-info mobile-user-info-link" onClick={closeMobileMenu} aria-label="Go to profile">
+          {userProfile && (
+            <Link
+              to={isPublic ? (checkAdmin() ? '/admin/profile' : '/member/profile') : profilePath}
+              className="mobile-user-info mobile-user-info-link"
+              onClick={closeMobileMenu}
+              aria-label={t('nav.profile')}
+            >
               <Avatar 
                 src={userProfile.photoURL} 
                 name={userProfile.displayName}
@@ -368,55 +420,67 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
         <ul className="mobile-nav-list">
           {isPublic ? (
             <>
-              <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>Home</Link></li>
-              <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>Amenities</a></li>
-              <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>Events</a></li>
+              <li><Link to="/" onClick={(e) => { closeMobileMenu(); if (location.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} className={isSectionActive('') && location.pathname === '/' ? 'active' : ''}>{t('nav.home')}</Link></li>
+              <li><a href="#amenities" onClick={closeMobileMenu} className={isSectionActive('#amenities') ? 'active' : ''}>{t('nav.amenities')}</a></li>
+              <li><a href="#events" onClick={closeMobileMenu} className={isSectionActive('#events') ? 'active' : ''}>{t('nav.events')}</a></li>
               {currentUser && checkAdmin() && (
-                <li><Link to="/admin" onClick={closeMobileMenu} className={location.pathname.startsWith('/admin') ? 'active' : ''}>Admin</Link></li>
+                <li><Link to="/admin" onClick={closeMobileMenu} className={location.pathname.startsWith('/admin') ? 'active' : ''}>{t('nav.admin')}</Link></li>
               )}
             </>
           ) : isAdmin ? (
             <>
-              <NavLink to="/admin">Dashboard</NavLink>
-              <NavLink to="/admin/members">Members</NavLink>
-              <NavLink to="/admin/amenities">Amenities</NavLink>
-              <NavLink to="/admin/bookings">Bookings</NavLink>
-              <NavLink to="/admin/events">Events</NavLink>
+              <NavLink to="/admin">{t('nav.dashboard')}</NavLink>
+              <NavLink to="/admin/members">{t('nav.members')}</NavLink>
+              <NavLink to="/admin/amenities">{t('nav.amenities')}</NavLink>
+              <NavLink to="/admin/bookings">{t('nav.bookings')}</NavLink>
+              <NavLink to="/admin/events">{t('nav.events')}</NavLink>
             </>
           ) : (
             <>
-              <NavLink to="/member">Dashboard</NavLink>
-              <NavLink to="/member/bookings">My Bookings</NavLink>
-              <NavLink to="/member/events">Events</NavLink>
+              <NavLink to="/member">{t('nav.dashboard')}</NavLink>
+              <NavLink to="/member/bookings">{t('nav.myBookings')}</NavLink>
+              <NavLink to="/member/events">{t('nav.events')}</NavLink>
             </>
           )}
         </ul>
         <div className="mobile-nav-footer">
-          <button
-            type="button"
-            className="theme-toggle theme-toggle-mobile"
-            onClick={() => { toggleTheme(); closeMobileMenu() }}
-            aria-label={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
-          >
-            {theme === 'dark' ? (
-              <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="5" />
-                <line x1="12" y1="1" x2="12" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" />
-                <line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          <div className="mobile-footer-row">
+            <button
+              type="button"
+              className="mobile-footer-btn"
+              onClick={() => { toggleLanguage(); closeMobileMenu() }}
+            >
+              <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
               </svg>
-            ) : (
-              <svg className="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-              </svg>
-            )}
-            <span>{theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}</span>
-          </button>
+              <span>{currentLanguage === 'en' ? 'English' : 'Tiếng Việt'}</span>
+            </button>
+            <button
+              type="button"
+              className="mobile-footer-btn"
+              onClick={() => { toggleTheme(); closeMobileMenu() }}
+            >
+              {theme === 'dark' ? (
+                <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              ) : (
+                <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              )}
+              <span>{theme === 'dark' ? t('common.darkMode') : t('common.lightMode')}</span>
+            </button>
+          </div>
           {isPublic ? (
             !currentUser ? (
               <Link to="/login" className="btn btn-primary btn-full-width" onClick={closeMobileMenu}>
