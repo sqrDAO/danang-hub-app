@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
 import UnifiedCalendar from '../../components/UnifiedCalendar'
@@ -14,7 +15,9 @@ import './Dashboard.css'
 const DESCRIPTION_MAX_LENGTH = 120
 
 const MemberDashboard = () => {
+  const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [showCalendar, setShowCalendar] = useState(false)
   
   const { data: myBookings = [] } = useQuery({
@@ -83,28 +86,28 @@ const MemberDashboard = () => {
   return (
     <Layout>
       <div className="container">
-        <h1 className="page-title">Welcome Back!</h1>
+        <h1 className="page-title">{t('memberDashboard.title')}</h1>
         
         <div className="stats-grid">
           <div className="stat-card glass">
             <h3 className="stat-value">{upcomingBookings.length}</h3>
-            <p className="stat-label">Upcoming Bookings</p>
+            <p className="stat-label">{t('memberDashboard.upcomingBookings')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{upcomingEvents.length}</h3>
-            <p className="stat-label">Upcoming Events</p>
+            <p className="stat-label">{t('memberDashboard.upcomingEvents')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{availableAmenities}</h3>
-            <p className="stat-label">Available Amenities</p>
+            <p className="stat-label">{t('memberDashboard.availableAmenities')}</p>
           </div>
         </div>
 
         <div className="dashboard-section glass" style={{ marginBottom: 'var(--spacing-xl)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-            <h2 className="section-title">Unified Calendar</h2>
+            <h2 className="section-title">{t('memberDashboard.unifiedCalendar')}</h2>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowCalendar(!showCalendar)}>
-              {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
+              {showCalendar ? t('memberDashboard.hideCalendar') : t('memberDashboard.showCalendar')}
             </button>
           </div>
           {showCalendar && <UnifiedCalendar />}
@@ -112,7 +115,7 @@ const MemberDashboard = () => {
 
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
-            <h2 className="section-title">My Upcoming Bookings</h2>
+            <h2 className="section-title">{t('memberDashboard.myUpcomingBookings')}</h2>
             {upcomingBookings.length > 0 ? (
               <ul className="booking-list">
                 {upcomingBookings.map(booking => {
@@ -133,18 +136,18 @@ const MemberDashboard = () => {
                       </div>
                       <div className="booking-right">
                         <span className={`status-badge ${booking.status}`}>
-                          {booking.status || 'pending'}
+                          {t(`status.${booking.status || 'pending'}`)}
                         </span>
                         <div className="booking-time-info">
                           <span className="booking-time">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString('en-US', {
+                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString(locale, {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric'
                             }) : 'N/A'}
                           </span>
                           <span className="booking-time-small">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString('en-US', {
+                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString(locale, {
                               hour: 'numeric',
                               minute: '2-digit'
                             }) : ''}
@@ -156,14 +159,14 @@ const MemberDashboard = () => {
                 })}
               </ul>
             ) : (
-              <p className="empty-state">No upcoming bookings</p>
+              <p className="empty-state">{t('memberDashboard.noUpcomingBookings')}</p>
             )}
           </div>
 
           <div className="dashboard-section glass">
             <div className="section-title-row">
-              <h2 className="section-title">Upcoming Events</h2>
-              <Link to="/member/events" className="btn btn-secondary btn-sm">View all</Link>
+              <h2 className="section-title">{t('memberDashboard.upcomingEvents')}</h2>
+              <Link to="/member/events" className="btn btn-secondary btn-sm">{t('common.viewAll')}</Link>
             </div>
             {upcomingEvents.length > 0 ? (
               <ul className="event-list event-list-detailed">
@@ -175,7 +178,7 @@ const MemberDashboard = () => {
                   const attendeeCount = event.attendees?.length ?? 0
                   const capacity = event.capacity ?? 0
                   const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
-                  const title = event.title || event.name || 'Untitled Event'
+                  const title = event.title || event.name || t('memberDashboard.untitledEvent')
                   const isExternal = Boolean(event.eventLink)
                   return (
                     <li key={event.id} className="event-item event-item-detailed">
@@ -192,11 +195,11 @@ const MemberDashboard = () => {
                           <span className="event-datetime">
                             {event.date ? formatEventDate(event.date) : 'N/A'}
                             {event.date && (
-                              <span className="event-time"> at {formatEventTime(event.date)}</span>
+                              <span className="event-time"> {t('memberDashboard.at')} {formatEventTime(event.date)}</span>
                             )}
                           </span>
                           <span className="event-organizer">
-                            Organizer: {getOrganizerName(event.organizerId)}
+                            {t('memberDashboard.organizer', { name: getOrganizerName(event.organizerId) })}
                           </span>
                         </div>
                         {event.description && (
@@ -206,17 +209,17 @@ const MemberDashboard = () => {
                         )}
                         <div className="event-capacity-row">
                           <span className="event-capacity">
-                            {attendeeCount} / {capacity || '∞'} attendees
+                            {t('memberDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
                           </span>
                           {capacity > 0 && (
                             <span className="event-spots">
-                              {full ? 'Full' : `${spotsLeft} spots left`}
+                              {full ? t('memberDashboard.full') : t('memberDashboard.spotsLeft', { count: spotsLeft })}
                             </span>
                           )}
                         </div>
                         {(registered || onWaitlist) && (
                           <span className="event-my-status">
-                            {registered ? '✓ Attending' : onWaitlist ? `On waitlist${waitlistPosition ? ` #${waitlistPosition}` : ''}` : ''}
+                            {registered ? t('memberDashboard.attending') : onWaitlist ? (waitlistPosition ? t('memberDashboard.onWaitlistPosition', { position: waitlistPosition }) : t('memberDashboard.onWaitlist')) : ''}
                           </span>
                         )}
                       </div>
@@ -226,7 +229,7 @@ const MemberDashboard = () => {
                           className="event-view-details"
                           aria-label={`View details for ${title}`}
                         >
-                          View details
+                          {t('common.viewDetails')}
                         </Link>
                         {isExternal && (
                           <a
@@ -236,7 +239,7 @@ const MemberDashboard = () => {
                             className="event-signup-link"
                             aria-label={`Sign up for ${title}`}
                           >
-                            Signup
+                            {t('common.signup')}
                           </a>
                         )}
                       </div>
@@ -245,7 +248,7 @@ const MemberDashboard = () => {
                 })}
               </ul>
             ) : (
-              <p className="empty-state">No upcoming events</p>
+              <p className="empty-state">{t('memberDashboard.noUpcomingEvents')}</p>
             )}
           </div>
         </div>

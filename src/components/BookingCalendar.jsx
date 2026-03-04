@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { getBookings } from '../services/bookings'
 import { getAmenity, DEFAULT_AVAILABILITY } from '../services/amenities'
 import { CalendarSkeleton } from './LoadingSkeleton'
@@ -14,6 +15,8 @@ const BookingCalendar = ({
   selectedEndTime = null,
   viewMode = 'week' // 'day' or 'week'
 }) => {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
   const [hoveredSlot, setHoveredSlot] = useState(null)
 
@@ -184,10 +187,10 @@ const BookingCalendar = ({
     
     return (
       <div className={`calendar-date-header ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}`}>
-        <div className="date-day-name">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+        <div className="date-day-name">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
         <div className="date-day-number">{date.getDate()}</div>
-        <div className="date-month">{date.toLocaleDateString('en-US', { month: 'short' })}</div>
-        {isWeekend && <div className="weekend-label">Closed</div>}
+        <div className="date-month">{date.toLocaleDateString(locale, { month: 'short' })}</div>
+        {isWeekend && <div className="weekend-label">{t('calendar.closed')}</div>}
       </div>
     )
   }
@@ -203,23 +206,23 @@ const BookingCalendar = ({
       <div className="calendar-header">
         <div className="calendar-nav">
           <button className="btn btn-secondary btn-sm" onClick={handlePrevWeek}>
-            ← Prev
+            {t('calendar.prev')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={handleToday}>
-            Today
+            {t('calendar.today')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={handleNextWeek}>
-            Next →
+            {t('calendar.next')}
           </button>
         </div>
         <div className="calendar-title">
           {viewMode === 'week' 
-            ? `${weekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
-            : currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            ? weekStart.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+            : currentDate.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' })
           }
         </div>
         <div className="calendar-hours-info">
-          Hours: {availability.startHour}:00 - {availability.endHour}:00 (Mon-Fri)
+          {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {t('calendar.monFri')}
         </div>
       </div>
 
@@ -253,11 +256,11 @@ const BookingCalendar = ({
                       onMouseEnter={() => setHoveredSlot({ date, slot })}
                       onMouseLeave={() => setHoveredSlot(null)}
                       title={
-                        status === 'unavailable' ? 'Closed' :
-                        status === 'past' ? 'Past' :
-                        status === 'booked' ? 'Booked' : 
-                        status === 'selected' ? 'Selected' : 
-                        `Available - ${slot.time}`
+                        status === 'unavailable' ? t('calendar.closed') :
+                        status === 'past' ? t('calendar.past') :
+                        status === 'booked' ? t('calendar.booked') :
+                        status === 'selected' ? t('calendar.selected') :
+                        t('calendar.availableAt', { time: slot.time })
                       }
                     />
                   )
@@ -271,19 +274,19 @@ const BookingCalendar = ({
       <div className="calendar-legend">
         <div className="legend-item">
           <div className="legend-color available"></div>
-          <span>Available</span>
+          <span>{t('calendar.legendAvailable')}</span>
         </div>
         <div className="legend-item">
           <div className="legend-color booked"></div>
-          <span>Booked</span>
+          <span>{t('calendar.legendBooked')}</span>
         </div>
         <div className="legend-item">
           <div className="legend-color selected"></div>
-          <span>Selected</span>
+          <span>{t('calendar.legendSelected')}</span>
         </div>
         <div className="legend-item">
           <div className="legend-color unavailable"></div>
-          <span>Closed/Past</span>
+          <span>{t('calendar.legendClosedPast')}</span>
         </div>
       </div>
     </div>

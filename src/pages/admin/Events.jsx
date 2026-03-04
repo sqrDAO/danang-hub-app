@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
@@ -22,6 +23,7 @@ import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime 
 import './Events.css'
 
 const AdminEvents = () => {
+  const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateMode, setIsCreateMode] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -72,7 +74,7 @@ const AdminEvents = () => {
           })
         } catch (error) {
           console.error('Failed to create linked amenity booking:', error)
-          showToast('Event created but failed to link amenity booking.', 'warning')
+          showToast(t('toast.eventCreatedWithLinkError'), 'warning')
         }
       }
       
@@ -87,10 +89,10 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setIsModalOpen(false)
       resetForm()
-      showToast('Event created successfully!', 'success')
+      showToast(t('toast.eventCreated'), 'success')
     },
     onError: () => {
-      showToast('Failed to create event. Please try again.', 'error')
+      showToast(t('toast.eventCreateFailed'), 'error')
     }
   })
 
@@ -103,10 +105,10 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       setIsModalOpen(false)
       resetForm()
-      showToast('Event updated successfully!', 'success')
+      showToast(t('toast.eventUpdated'), 'success')
     },
     onError: () => {
-      showToast('Failed to update event. Please try again.', 'error')
+      showToast(t('toast.eventUpdateFailed'), 'error')
     }
   })
 
@@ -151,10 +153,10 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['myEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      showToast('Event approved! It will now appear on the calendar.', 'success')
+      showToast(t('toast.eventApproved'), 'success')
     },
     onError: () => {
-      showToast('Failed to approve event. Please try again.', 'error')
+      showToast(t('toast.eventApproveFailed'), 'error')
     }
   })
 
@@ -165,10 +167,10 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['myEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
-      showToast('Event rejected.', 'info')
+      showToast(t('toast.eventRejected'), 'info')
     },
     onError: () => {
-      showToast('Failed to reject event. Please try again.', 'error')
+      showToast(t('toast.eventRejectFailed'), 'error')
     }
   })
 
@@ -178,10 +180,10 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      showToast(`Promoted ${result.promoted} member(s) from waitlist!`, 'success')
+      showToast(t('toast.waitlistPromoted', { count: result.promoted }), 'success')
     },
     onError: () => {
-      showToast('Failed to promote from waitlist. Please try again.', 'error')
+      showToast(t('toast.waitlistPromoteFailed'), 'error')
     }
   })
 
@@ -192,7 +194,7 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      showToast('Event deleted successfully!', 'success')
+      showToast(t('toast.eventDeleted'), 'success')
     }
   })
 
@@ -220,26 +222,26 @@ const AdminEvents = () => {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this event?')) {
+    if (window.confirm(t('adminEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
 
   const handleApprove = async (eventId) => {
-    if (window.confirm('Approve this event? It will appear on the calendar for all members.')) {
+    if (window.confirm(t('adminEvents.confirmApprove'))) {
       await approveMutation.mutateAsync(eventId)
     }
   }
 
   const handleReject = async (eventId) => {
-    const reason = prompt('Reason for rejection (optional):')
+    const reason = prompt(t('adminEvents.rejectReason'))
     if (reason !== null) { // User clicked OK (even if empty)
       await rejectMutation.mutateAsync({ eventId, reason })
     }
   }
 
   const handlePromoteWaitlist = async (eventId) => {
-    const count = prompt('How many members to promote from waitlist?', '1')
+    const count = prompt(t('adminEvents.promoteCount'), '1')
     if (count && !isNaN(count)) {
       await promoteWaitlistMutation.mutateAsync({ eventId, count: parseInt(count) })
     }
@@ -294,13 +296,13 @@ const AdminEvents = () => {
     if (isCreateMode) {
       const bannerFile = bannerInputRef.current?.files?.[0]
       if (!bannerFile) {
-        showToast('Please add an Event Banner image.', 'error')
+        showToast(t('toast.eventBannerRequired'), 'error')
         return
       }
       try {
         data.bannerUrl = await uploadEventBanner(bannerFile)
       } catch (err) {
-        showToast(err.message || 'Failed to upload banner image.', 'error')
+        showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
         return
       }
       createMutation.mutate(data)
@@ -310,7 +312,7 @@ const AdminEvents = () => {
         try {
           data.bannerUrl = await uploadEventBanner(bannerFile)
         } catch (err) {
-          showToast(err.message || 'Failed to upload banner image.', 'error')
+          showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
           return
         }
       } else if (selectedEvent?.bannerUrl) {
@@ -357,9 +359,9 @@ const AdminEvents = () => {
     <Layout isAdmin>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">Events Management</h1>
+          <h1 className="page-title">{t('adminEvents.title')}</h1>
           <button className="btn btn-primary" onClick={handleCreate}>
-            + Create Event
+            {t('adminEvents.createEvent')}
           </button>
         </div>
 
@@ -367,7 +369,7 @@ const AdminEvents = () => {
         {pendingEvents.length > 0 && (
           <div className="pending-alert glass">
             <span className="alert-icon">⏳</span>
-            <span>{pendingEvents.length} event(s) awaiting approval</span>
+            <span>{t('adminEvents.pendingAlert', { count: pendingEvents.length })}</span>
           </div>
         )}
 
@@ -377,19 +379,19 @@ const AdminEvents = () => {
             className={`tab ${activeTab === 'pending' ? 'active' : ''}`}
             onClick={() => setActiveTab('pending')}
           >
-            Pending ({pendingEvents.length})
+            {t('adminEvents.tabPending')} ({pendingEvents.length})
           </button>
           <button
             className={`tab ${activeTab === 'approved' ? 'active' : ''}`}
             onClick={() => setActiveTab('approved')}
           >
-            Approved ({allEvents.filter(e => e.status === 'approved').length})
+            {t('adminEvents.tabApproved')} ({allEvents.filter(e => e.status === 'approved').length})
           </button>
           <button
             className={`tab ${activeTab === 'all' ? 'active' : ''}`}
             onClick={() => setActiveTab('all')}
           >
-            All Events ({allEvents.length})
+            {t('adminEvents.tabAll')} ({allEvents.length})
           </button>
         </div>
 
@@ -405,7 +407,7 @@ const AdminEvents = () => {
                 <div className="event-header">
                   <h3 className="event-title">{event.title}</h3>
                   <span className={getStatusBadge(event.status || 'approved')}>
-                    {event.status || 'approved'}
+                    {t(`status.${event.status || 'approved'}`)}
                   </span>
                 </div>
                 <div className="event-info">
@@ -413,43 +415,43 @@ const AdminEvents = () => {
                     📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
                   </p>
                   <p className="event-organizer">
-                    👤 Organizer: {getOrganizerName(event.organizerId)}
+                    👤 {t('adminEvents.organizer', { name: getOrganizerName(event.organizerId) })}
                   </p>
                   {event.duration && (
-                    <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                    <p className="event-duration">⏱️ {t('adminEvents.duration', { minutes: event.duration })}</p>
                   )}
                   <p className="event-capacity">
                     👥 {event.attendees?.length || 0} / {event.capacity || 80}
                   </p>
                   {event.hostingProjects && (
                     <p className="event-projects">
-                      🏢 Hosted by: {typeof event.hostingProjects === 'string' 
-                        ? event.hostingProjects 
+                      🏢 {t('adminEvents.hosted', { hosts: typeof event.hostingProjects === 'string' 
+? event.hostingProjects
                         : event.hostingProjects.map(projectId => {
                             const project = projects.find(p => p.id === projectId)
                             return project?.name || projectId
-                          }).join(', ')}
+                          }).join(', ') })}
                     </p>
                   )}
                   {event.waitlist && event.waitlist.length > 0 && (
                     <p className="event-waitlist">
-                      ⏳ Waitlist: {event.waitlist.length}
+                      ⏳ {t('adminEvents.waitlist', { count: event.waitlist.length })}
                     </p>
                   )}
                   {event.requestedAmenityId && (
                     <p className="event-amenity-request">
-                      🏢 Requested: {amenities.find(a => a.id === event.requestedAmenityId)?.name}
-                      {event.amenityNote && <span> - "{event.amenityNote}"</span>}
+                      🏢 {t('adminEvents.requested', { name: amenities.find(a => a.id === event.requestedAmenityId)?.name })}
+                      {event.amenityNote && <span> - &ldquo;{event.amenityNote}&rdquo;</span>}
                     </p>
                   )}
                   {event.linkedAmenityId && (
                     <p className="event-linked-amenity">
-                      ✅ Linked: {amenities.find(a => a.id === event.linkedAmenityId)?.name}
+                      ✅ {t('adminEvents.linked', { name: amenities.find(a => a.id === event.linkedAmenityId)?.name })}
                     </p>
                   )}
                   {event.eventLink && (
                     <p className="event-link">
-                      🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                      🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('adminEvents.eventLink')}</a>
                     </p>
                   )}
                   {event.description && (
@@ -466,7 +468,7 @@ const AdminEvents = () => {
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span>✓</span>
-                          <span>Approve</span>
+                          <span>{t('common.approve')}</span>
                         </span>
                       </button>
                       <button
@@ -476,7 +478,7 @@ const AdminEvents = () => {
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span>✗</span>
-                          <span>Reject</span>
+                          <span>{t('common.reject')}</span>
                         </span>
                       </button>
                     </>
@@ -486,26 +488,26 @@ const AdminEvents = () => {
                       className="btn btn-primary btn-sm"
                       onClick={() => handlePromoteWaitlist(event.id)}
                     >
-                      Promote Waitlist
+                      {t('adminEvents.promoteWaitlist')}
                     </button>
                   )}
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleEdit(event)}
                   >
-                    Edit
+                    {t('common.edit')}
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(event.id)}
                   >
-                    Delete
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>
             ))
           ) : (
-            <p className="empty-state">No events in this category</p>
+            <p className="empty-state">{t('adminEvents.noEventsInCategory')}</p>
           )}
         </div>
 
@@ -515,11 +517,11 @@ const AdminEvents = () => {
             setIsModalOpen(false)
             resetForm()
           }}
-          title={isCreateMode ? 'Create Event' : 'Edit Event'}
+          title={isCreateMode ? t('adminEvents.modal.createTitle') : t('adminEvents.modal.editTitle')}
         >
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Title</label>
+              <label className="form-label">{t('adminEvents.modal.titleLabel')}</label>
               <input
                 type="text"
                 name="title"
@@ -529,7 +531,7 @@ const AdminEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description <span className="form-required">*</span></label>
+              <label className="form-label">{t('adminEvents.modal.descriptionLabel')} <span className="form-required">*</span></label>
               <textarea
                 name="description"
                 className="form-field"
@@ -541,7 +543,7 @@ const AdminEvents = () => {
             </div>
             <div className="form-group">
               <label className="form-label">
-                Event Banner {isCreateMode && <span className="form-required">*</span>}
+                {t('adminEvents.modal.bannerLabel')} {isCreateMode && <span className="form-required">*</span>}
               </label>
               <div className="event-banner-upload">
                 <input
@@ -555,22 +557,22 @@ const AdminEvents = () => {
                   aria-required={isCreateMode}
                 />
                 <span className="event-banner-upload-label">
-                  {isCreateMode ? 'Choose banner image (required)' : 'Choose image to replace banner'}
+                  {isCreateMode ? t('adminEvents.modal.bannerUploadCreate') : t('adminEvents.modal.bannerUploadEdit')}
                 </span>
               </div>
               {isCreateMode ? (
-                <small className="form-hint">Required. JPG, PNG or WebP. Max 5MB.</small>
+                <small className="form-hint">{t('adminEvents.modal.bannerHintRequired')}</small>
               ) : selectedEvent?.bannerUrl ? (
                 <div className="event-banner-preview">
-                  <img src={selectedEvent.bannerUrl} alt="Current banner" />
-                  <small className="form-hint">Upload a new image to replace the current banner.</small>
+                  <img src={selectedEvent.bannerUrl} alt={t('adminEvents.modal.currentBanner')} />
+                  <small className="form-hint">{t('adminEvents.modal.bannerHintReplace')}</small>
                 </div>
               ) : (
-                <small className="form-hint">Optional. Upload an image to set or replace the banner.</small>
+                <small className="form-hint">{t('adminEvents.modal.bannerHintOptional')}</small>
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">Date & Time</label>
+              <label className="form-label">{t('adminEvents.modal.dateTimeLabel')}</label>
               <input
                 type="datetime-local"
                 name="date"
@@ -579,16 +581,16 @@ const AdminEvents = () => {
                 required
               />
               {linkAmenity && (
-                <small className="form-hint">$50 deposit required.</small>
+                <small className="form-hint">{t('adminEvents.modal.depositRequired')}</small>
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">Duration (minutes) *</label>
+              <label className="form-label">{t('adminEvents.modal.durationLabel')}</label>
               <input
                 type="number"
                 name="duration"
                 className="form-field"
-                placeholder="e.g., 60"
+                placeholder={t('adminEvents.modal.durationPlaceholder')}
                 defaultValue={selectedEvent?.duration || 60}
                 min="15"
                 step="15"
@@ -596,7 +598,7 @@ const AdminEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Capacity *</label>
+              <label className="form-label">{t('adminEvents.modal.capacityLabel')}</label>
               <input
                 type="number"
                 name="capacity"
@@ -606,15 +608,15 @@ const AdminEvents = () => {
                 max="80"
                 required
               />
-              <small className="form-hint">Maximum capacity is 80 (Main Hall)</small>
+              <small className="form-hint">{t('adminEvents.modal.capacityHint')}</small>
             </div>
             <div className="form-group">
-              <label className="form-label">Hosting Project(s)</label>
+              <label className="form-label">{t('adminEvents.modal.hostingLabel')}</label>
               <input
                 type="text"
                 name="hostingProjects"
                 className="form-field"
-                placeholder="e.g., Project Alpha, Project Beta"
+                placeholder={t('adminEvents.modal.hostingPlaceholder')}
                 defaultValue={typeof selectedEvent?.hostingProjects === 'string' 
                   ? selectedEvent.hostingProjects 
                   : selectedEvent?.hostingProjects?.map(projectId => {
@@ -622,23 +624,23 @@ const AdminEvents = () => {
                       return project?.name || projectId
                     }).join(', ') || ''}
               />
-              <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
+              <small className="form-hint">{t('adminEvents.modal.hostingHint')}</small>
             </div>
             <div className="form-group">
-              <label className="form-label">Event Link</label>
+              <label className="form-label">{t('adminEvents.modal.eventLinkLabel')}</label>
               <input
                 type="url"
                 name="eventLink"
                 className="form-field"
-                placeholder="e.g., https://lu.ma/your-event"
+                placeholder={t('adminEvents.modal.eventLinkPlaceholder')}
                 defaultValue={selectedEvent?.eventLink || ''}
               />
-              <small className="form-hint">Optional. Link to event page (e.g. Lu.ma, Eventbrite)</small>
+              <small className="form-hint">{t('adminEvents.modal.eventLinkHint')}</small>
             </div>
             <div className="form-group">
-              <label className="form-label">Organizer</label>
+              <label className="form-label">{t('adminEvents.modal.organizerLabel')}</label>
               <select name="organizerId" className="form-field" defaultValue={selectedEvent?.organizerId || ''} required>
-                <option value="">Select organizer</option>
+                <option value="">{t('adminEvents.modal.organizerPlaceholder')}</option>
                 {members.map(member => (
                   <option key={member.id} value={member.id}>
                     {member.displayName || member.email}
@@ -655,7 +657,7 @@ const AdminEvents = () => {
                   readOnly={isCreateMode}
                   onChange={(e) => !isCreateMode && setLinkAmenity(e.target.checked)}
                 />
-                <span>Link to amenity booking</span>
+                <span>{t('adminEvents.modal.linkAmenity')}</span>
               </label>
             </div>
             {(linkAmenity || isCreateMode) && (() => {
@@ -665,26 +667,26 @@ const AdminEvents = () => {
               return (
               <>
                 <div className="event-hall-notice">
-                  <p><strong>Event Hall:</strong> $50 deposit required for cleaning and support.</p>
+                  <p><strong>{t('adminEvents.modal.eventHallNotice')}</strong> {t('adminEvents.modal.eventHallDeposit')}</p>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Amenity</label>
+                  <label className="form-label">{t('adminEvents.modal.amenityLabel')}</label>
                   <select name="linkedAmenityId" className="form-field" defaultValue={selectDefaultValue}>
-                    <option value="">Select amenity</option>
+                    <option value="">{t('adminEvents.modal.amenityPlaceholder')}</option>
                     {eventSpaceAmenities.map(amenity => (
                       <option key={amenity.id} value={amenity.id}>
                         {amenity.name}
                       </option>
                     ))}
                   </select>
-                  <small className="form-hint">Amenity will be booked 1 hour before and 2 hours after event</small>
+                  <small className="form-hint">{t('adminEvents.modal.amenityHint')}</small>
                 </div>
               </>
               )
             })()}
             <div className="form-actions">
               <button type="submit" className="btn btn-primary">
-                {isCreateMode ? 'Create' : 'Save Changes'}
+                {isCreateMode ? t('common.create') : t('common.save')}
               </button>
               <button
                 type="button"
@@ -694,7 +696,7 @@ const AdminEvents = () => {
                   resetForm()
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>

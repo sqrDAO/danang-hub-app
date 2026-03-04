@@ -72,11 +72,11 @@ const MemberBookings = () => {
     mutationFn: createBooking,
     onSuccess: () => {
       queryClient.invalidateQueries(['bookings'])
-      showToast('Booking created successfully!', 'success')
+      showToast(t('toast.bookingCreated'), 'success')
       resetBookingForm()
     },
     onError: (error) => {
-      showToast('Failed to create booking. Please try again.', 'error')
+      showToast(t('toast.bookingCreateFailed'), 'error')
       console.error('Booking creation error:', error)
     }
   })
@@ -85,11 +85,11 @@ const MemberBookings = () => {
     mutationFn: ({ baseBooking, recurrence }) => createRecurringBooking(baseBooking, recurrence, checkBookingConflicts),
     onSuccess: (result) => {
       queryClient.invalidateQueries(['bookings'])
-      showToast(`Created ${result.totalCreated} recurring booking(s)!`, 'success')
+      showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       resetBookingForm()
     },
     onError: (error) => {
-      showToast('Failed to create recurring bookings. Please try again.', 'error')
+      showToast(t('toast.recurringBookingsFailed'), 'error')
       console.error('Recurring booking error:', error)
     }
   })
@@ -98,7 +98,7 @@ const MemberBookings = () => {
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['bookings'])
-      showToast('Booking updated successfully!', 'success')
+      showToast(t('toast.bookingUpdated'), 'success')
     }
   })
 
@@ -106,7 +106,7 @@ const MemberBookings = () => {
     mutationFn: deleteBooking,
     onSuccess: () => {
       queryClient.invalidateQueries(['bookings'])
-      showToast('Booking deleted successfully!', 'success')
+      showToast(t('toast.bookingDeleted'), 'success')
     }
   })
 
@@ -165,7 +165,7 @@ const MemberBookings = () => {
       )
 
       if (conflictCheck.hasConflicts) {
-        setConflictError('This time slot conflicts with an existing booking.')
+        setConflictError(t('memberBookings.conflictError'))
         
         // Suggest alternatives (same day, different times)
         const suggestions = generateAlternativeSlots(startTime, endTime, duration)
@@ -214,13 +214,13 @@ const MemberBookings = () => {
   }
 
   const handleCancel = async (id) => {
-    if (window.confirm('Are you sure you want to cancel this booking?')) {
+    if (window.confirm(t('memberBookings.confirmCancel'))) {
       await updateMutation.mutateAsync({ id, data: { status: 'cancelled' } })
     }
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this booking?')) {
+    if (window.confirm(t('memberBookings.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
@@ -237,7 +237,7 @@ const MemberBookings = () => {
       )
 
       if (conflictCheck.hasConflicts) {
-        showToast('This time slot is no longer available. Please select another time.', 'error')
+        showToast(t('toast.slotNoLongerAvailable'), 'error')
         setBookingStep(1)
         return
       }
@@ -288,13 +288,13 @@ const MemberBookings = () => {
     <Layout>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">My Bookings</h1>
+          <h1 className="page-title">{t('memberBookings.title')}</h1>
         </div>
 
         <div className="bookings-section glass">
           <div className="section-header">
-            <h2 className="section-title">Available Amenities</h2>
-            <p className="section-description">Select an amenity and click "Book Now" to make a reservation</p>
+            <h2 className="section-title">{t('memberBookings.availableAmenities')}</h2>
+            <p className="section-description">{t('memberBookings.availableAmenitiesDesc')}</p>
           </div>
           {amenitiesLoading ? (
             <CardSkeleton count={3} />
@@ -311,7 +311,7 @@ const MemberBookings = () => {
                   </div>
                 ) : (
                   <div className="amenity-photo-placeholder">
-                    <span>No photo</span>
+                    <span>{t('memberBookings.noPhoto')}</span>
                   </div>
                 )}
                 <div className="amenity-header">
@@ -319,7 +319,7 @@ const MemberBookings = () => {
                   <span className="amenity-type">{amenity.type}</span>
                 </div>
                 <div className="amenity-info">
-                  <p>Capacity: {amenity.capacity || 'N/A'}</p>
+                  <p>{t('memberBookings.capacity', { count: amenity.capacity || t('common.na') })}</p>
                   {amenity.description && (
                     <p className="amenity-description">{amenity.description}</p>
                   )}
@@ -328,19 +328,19 @@ const MemberBookings = () => {
                   className="btn btn-primary btn-book"
                   onClick={() => handleBookAmenity(amenity)}
                 >
-                  📅 Book Now
+                  {t('memberBookings.bookNow')}
                 </button>
               </div>
               ))}
             </div>
           ) : (
-            <p className="empty-state">No amenities available. Please contact admin.</p>
+            <p className="empty-state">{t('memberBookings.noAmenities')}</p>
           )}
         </div>
 
         <div className="bookings-section glass">
           <div className="section-header">
-            <h2 className="section-title">Upcoming Bookings</h2>
+            <h2 className="section-title">{t('memberBookings.upcomingBookings')}</h2>
           </div>
           {upcomingBookings.length > 0 ? (
             <div className="bookings-list">
@@ -365,8 +365,8 @@ const MemberBookings = () => {
                         })() : null}
                       </div>
                       <div className="booking-time-section">
-                        <p className="booking-time">Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
-                        <p className="booking-time">End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                        <p className="booking-time">{t('memberBookings.start')} {booking.startTime ? new Date(booking.startTime).toLocaleString(locale) : t('common.na')}</p>
+                        <p className="booking-time">{t('memberBookings.end')} {booking.endTime ? new Date(booking.endTime).toLocaleString(locale) : t('common.na')}</p>
                       </div>
                     </div>
                     <div className="booking-actions">
@@ -376,13 +376,13 @@ const MemberBookings = () => {
                             className="btn btn-danger btn-sm"
                             onClick={() => handleCancel(booking.id)}
                           >
-                            Cancel
+                            {t('common.cancel')}
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => handleDelete(booking.id)}
                           >
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </>
                       )}
@@ -392,13 +392,13 @@ const MemberBookings = () => {
               })}
             </div>
           ) : (
-            <p className="empty-state">No upcoming bookings</p>
+            <p className="empty-state">{t('memberBookings.noUpcomingBookings')}</p>
           )}
         </div>
 
         <div className="bookings-section glass">
           <div className="section-header">
-            <h2 className="section-title">Past Bookings</h2>
+            <h2 className="section-title">{t('memberBookings.pastBookings')}</h2>
           </div>
           {pastBookings.length > 0 ? (
             <div className="bookings-list">
@@ -423,8 +423,8 @@ const MemberBookings = () => {
                         })() : null}
                       </div>
                       <div className="booking-time-section">
-                        <p className="booking-time">Start: {booking.startTime?.toLocaleString() || 'N/A'}</p>
-                        <p className="booking-time">End: {booking.endTime?.toLocaleString() || 'N/A'}</p>
+                        <p className="booking-time">{t('memberBookings.start')} {booking.startTime ? new Date(booking.startTime).toLocaleString(locale) : t('common.na')}</p>
+                        <p className="booking-time">{t('memberBookings.end')} {booking.endTime ? new Date(booking.endTime).toLocaleString(locale) : t('common.na')}</p>
                       </div>
                     </div>
                   </div>
@@ -432,7 +432,7 @@ const MemberBookings = () => {
               })}
             </div>
           ) : (
-            <p className="empty-state">No past bookings</p>
+            <p className="empty-state">{t('memberBookings.noPastBookings')}</p>
           )}
         </div>
 

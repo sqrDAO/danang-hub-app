@@ -305,9 +305,9 @@ const AdminAmenities = () => {
   }
 
   const formatAvailableDays = (days) => {
-    if (!days || days.length === 0) return 'None'
-    if (days.length === 7) return 'Every day'
-    if (JSON.stringify(days.sort()) === JSON.stringify([1, 2, 3, 4, 5])) return 'Mon-Fri'
+    if (!days || days.length === 0) return t('adminAmenities.daysNone')
+    if (days.length === 7) return t('adminAmenities.daysEveryDay')
+    if (JSON.stringify([...days].sort()) === JSON.stringify([1, 2, 3, 4, 5])) return t('adminAmenities.daysMonFri')
     return days.map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label.slice(0, 3)).join(', ')
   }
 
@@ -338,27 +338,30 @@ const AdminAmenities = () => {
                 <div className="amenity-photo-preview">
                   <img src={amenity.photos[0]} alt={amenity.name} />
                   {amenity.photos.length > 1 && (
-                    <span className="photo-count-badge">{amenity.photos.length} photos</span>
+                    <span className="photo-count-badge">{t('adminAmenities.photos', { count: amenity.photos.length })}</span>
                   )}
                 </div>
               )}
               <div className="amenity-header">
                 <h3 className="amenity-name">{amenity.name}</h3>
                 <span className={`availability-badge ${amenity.isAvailable !== false ? 'available' : 'unavailable'}`}>
-                  {amenity.isAvailable !== false ? 'Available' : 'Unavailable'}
+                  {amenity.isAvailable !== false ? t('status.available') : t('status.unavailable')}
                 </span>
               </div>
               <div className="amenity-info">
-                <p className="amenity-type">Type: {amenity.type || 'N/A'}</p>
-                <p className="amenity-capacity">Capacity: {amenity.capacity || 'N/A'}</p>
+                <p className="amenity-type">{t('adminAmenities.type', { type: amenity.type || t('common.na') })}</p>
+                <p className="amenity-capacity">{t('adminAmenities.capacity', { count: amenity.capacity ?? t('common.na') })}</p>
                 <p className="amenity-hours">
-                  Hours: {amenity.startHour || DEFAULT_AVAILABILITY.startHour}:00 - {amenity.endHour || DEFAULT_AVAILABILITY.endHour}:00
+                  {t('adminAmenities.hours', {
+                    start: amenity.startHour ?? DEFAULT_AVAILABILITY.startHour,
+                    end: amenity.endHour ?? DEFAULT_AVAILABILITY.endHour
+                  })}
                 </p>
                 <p className="amenity-days">
-                  Days: {formatAvailableDays(amenity.availableDays || DEFAULT_AVAILABILITY.availableDays)}
+                  {t('adminAmenities.days', { days: formatAvailableDays(amenity.availableDays || DEFAULT_AVAILABILITY.availableDays) })}
                 </p>
                 <p className="amenity-slot">
-                  Slot: {amenity.slotDuration || DEFAULT_AVAILABILITY.slotDuration} min
+                  {t('adminAmenities.slot', { duration: amenity.slotDuration ?? DEFAULT_AVAILABILITY.slotDuration })}
                 </p>
                 {amenity.description && (
                   <p className="amenity-description">{amenity.description}</p>
@@ -369,19 +372,19 @@ const AdminAmenities = () => {
                   className={`btn ${amenity.isAvailable !== false ? 'btn-secondary' : 'btn-primary'}`}
                   onClick={() => handleToggleAvailability(amenity.id, amenity.isAvailable !== false)}
                 >
-                  {amenity.isAvailable !== false ? 'Mark Unavailable' : 'Mark Available'}
+                  {amenity.isAvailable !== false ? t('adminAmenities.markUnavailable') : t('adminAmenities.markAvailable')}
                 </button>
                 <button
                   className="btn btn-secondary"
                   onClick={() => handleEdit(amenity)}
                 >
-                  Edit
+                  {t('common.edit')}
                 </button>
                 <button
                   className="btn btn-danger"
                   onClick={() => handleDelete(amenity.id)}
                 >
-                  Delete
+                  {t('common.delete')}
                 </button>
               </div>
             </div>
@@ -560,16 +563,16 @@ const AdminAmenities = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Status</label>
+              <label className="form-label">{t('adminAmenities.statusLabel')}</label>
               <select name="isAvailable" className="form-field" defaultValue={selectedAmenity?.isAvailable !== false ? 'true' : 'false'}>
-                <option value="true">Available</option>
-                <option value="false">Unavailable</option>
+                <option value="true">{t('status.available')}</option>
+                <option value="false">{t('status.unavailable')}</option>
               </select>
             </div>
 
             <div className="form-actions">
               <button type="submit" className="btn btn-primary">
-                {isCreateMode ? 'Create' : 'Save Changes'}
+                {isCreateMode ? t('common.create') : t('common.save')}
               </button>
               <button
                 type="button"
@@ -579,7 +582,7 @@ const AdminAmenities = () => {
                   resetForm()
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>

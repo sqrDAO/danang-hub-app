@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/walletAuth'
 import './Login.css'
@@ -59,6 +60,7 @@ const Login = () => {
     loading,
     isAdmin
   } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   
@@ -121,7 +123,7 @@ const Login = () => {
     
     // Enforce maximum password length
     if ((name === 'password' || name === 'confirmPassword') && value.length > MAX_PASSWORD_LENGTH) {
-      setError(`Password cannot exceed ${MAX_PASSWORD_LENGTH} characters`)
+      setError(t('auth.errors.passwordMaxLength', { max: MAX_PASSWORD_LENGTH }))
       return
     }
     
@@ -142,36 +144,36 @@ const Login = () => {
 
   const validateForm = () => {
     if (!formData.email || !formData.password) {
-      setError('Email and password are required')
+      setError(t('auth.errors.emailAndPasswordRequired'))
       return false
     }
 
     if (!formData.email.includes('@')) {
-      setError('Please enter a valid email address')
+      setError(t('auth.errors.invalidEmail'))
       return false
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+      setError(t('auth.errors.passwordMinLength'))
       return false
     }
 
     if (formData.password.length > MAX_PASSWORD_LENGTH) {
-      setError(`Password cannot exceed ${MAX_PASSWORD_LENGTH} characters`)
+      setError(t('auth.errors.passwordMaxLength', { max: MAX_PASSWORD_LENGTH }))
       return false
     }
 
     if (isSignUp) {
       if (formData.confirmPassword.length > MAX_PASSWORD_LENGTH) {
-        setError(`Password cannot exceed ${MAX_PASSWORD_LENGTH} characters`)
+        setError(t('auth.errors.passwordMaxLength', { max: MAX_PASSWORD_LENGTH }))
         return false
       }
       if (!formData.displayName.trim()) {
-        setError('Full name is required')
+        setError(t('auth.errors.displayNameRequired'))
         return false
       }
       if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match')
+        setError(t('auth.errors.passwordMismatch'))
         return false
       }
     }
@@ -198,17 +200,17 @@ const Login = () => {
       }
     } catch (error) {
       const errorMessages = {
-        'auth/email-already-in-use': 'This email is already registered. Please sign in instead.',
-        'auth/invalid-email': 'Invalid email address.',
-        'auth/operation-not-allowed': 'Email/password sign-in is not enabled.',
-        'auth/weak-password': 'Password is too weak. Please use a stronger password.',
-        'auth/user-disabled': 'This account has been disabled.',
-        'auth/user-not-found': 'No account found with this email. Please sign up.',
-        'auth/wrong-password': 'Incorrect password. Please try again.',
-        'auth/invalid-credential': 'Invalid email or password. Please try again.',
-        'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+        'auth/email-already-in-use': t('auth.errors.emailAlreadyInUse'),
+        'auth/invalid-email': t('auth.errors.invalidEmailAddress'),
+        'auth/operation-not-allowed': t('auth.errors.operationNotAllowed'),
+        'auth/weak-password': t('auth.errors.weakPassword'),
+        'auth/user-disabled': t('auth.errors.userDisabled'),
+        'auth/user-not-found': t('auth.errors.userNotFound'),
+        'auth/wrong-password': t('auth.errors.wrongPassword'),
+        'auth/invalid-credential': t('auth.errors.invalidCredential'),
+        'auth/too-many-requests': t('auth.errors.tooManyRequests'),
       }
-      setError(errorMessages[error.code] || 'An error occurred. Please try again.')
+      setError(errorMessages[error.code] || t('auth.errors.generic'))
     } finally {
       setSubmitting(false)
     }
@@ -225,7 +227,7 @@ const Login = () => {
       await signInWithGoogle()
     } catch (error) {
       console.error('Sign in error:', error)
-      setError('Failed to sign in with Google. Please try again.')
+      setError(t('auth.errors.googleSignInFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -241,12 +243,12 @@ const Login = () => {
     try {
       wallets = await discoverEIP6963Wallets()
     } catch {
-      setError('Failed to detect EVM wallets. Please try again.')
+      setError(t('auth.errors.evmDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError('No EVM wallet found. Install MetaMask, Rabby, or another EVM wallet.')
+      setError(t('auth.errors.noEvmWallet'))
       return
     }
 
@@ -271,9 +273,9 @@ const Login = () => {
       await signInWithEVMWallet(wallet.provider, address)
     } catch (error) {
       if (error.code === 4001) {
-        setError('Connection rejected. Please approve in your wallet.')
+        setError(t('auth.errors.walletRejected'))
       } else {
-        setError('Failed to connect wallet. Please try again.')
+        setError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -290,12 +292,12 @@ const Login = () => {
     try {
       wallets = await discoverSolanaWallets()
     } catch {
-      setError('Failed to detect Solana wallets. Please try again.')
+      setError(t('auth.errors.solanaDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError('No Solana wallet found. Install Phantom, Solflare, or another Solana wallet.')
+      setError(t('auth.errors.noSolanaWallet'))
       return
     }
 
@@ -318,9 +320,9 @@ const Login = () => {
       await signInWithSolana(wallet)
     } catch (error) {
       if (error.code === 4001) {
-        setError('Connection rejected. Please approve in your wallet.')
+        setError(t('auth.errors.walletRejected'))
       } else {
-        setError('Failed to connect wallet. Please try again.')
+        setError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -334,12 +336,12 @@ const Login = () => {
     if (submitting) return
     
     if (!formData.email) {
-      setError('Please enter your email address')
+      setError(t('auth.errors.passwordResetEmailRequired'))
       return
     }
 
     if (!formData.email.includes('@')) {
-      setError('Please enter a valid email address')
+      setError(t('auth.errors.passwordResetInvalidEmail'))
       return
     }
 
@@ -348,14 +350,14 @@ const Login = () => {
 
     try {
       await resetPassword(formData.email)
-      setMessage('Password reset email sent! Check your inbox.')
+      setMessage(t('auth.resetEmailSent'))
     } catch (error) {
       const errorMessages = {
-        'auth/user-not-found': 'No account found with this email.',
-        'auth/invalid-email': 'Invalid email address.',
-        'auth/too-many-requests': 'Too many requests. Please try again later.',
+        'auth/user-not-found': t('auth.errors.resetUserNotFound'),
+        'auth/invalid-email': t('auth.errors.resetInvalidEmail'),
+        'auth/too-many-requests': t('auth.errors.resetTooManyRequests'),
       }
-      setError(errorMessages[error.code] || 'Failed to send reset email. Please try again.')
+      setError(errorMessages[error.code] || t('auth.errors.resetGeneric'))
     } finally {
       setSubmitting(false)
     }
@@ -390,8 +392,8 @@ const Login = () => {
           <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub Portal" />
         </div>
         <div className="login-header">
-          <h1 className="gradient-text">Reset Password</h1>
-            <p className="login-subtitle">Enter your email to receive a reset link</p>
+          <h1 className="gradient-text">{t('auth.resetPasswordTitle')}</h1>
+            <p className="login-subtitle">{t('auth.resetPasswordSubtitle')}</p>
           </div>
           
           <form className="login-form" onSubmit={handleForgotPassword}>
@@ -399,7 +401,7 @@ const Login = () => {
             {message && <div className="auth-success">{message}</div>}
             
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">{t('auth.email')}</label>
               <div className="input-wrapper">
                 <input
                   type="email"
@@ -408,7 +410,7 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   autoComplete="email"
                 />
                 <MailIcon />
@@ -420,7 +422,7 @@ const Login = () => {
               className="btn btn-primary login-button"
               disabled={submitting}
             >
-              {submitting ? 'Sending...' : 'Send Reset Link'}
+              {submitting ? t('auth.sending') : t('auth.sendResetLink')}
             </button>
           </form>
 
@@ -433,7 +435,7 @@ const Login = () => {
                 setMessage('')
               }}
             >
-              ← Back to Sign In
+              {t('auth.backToSignIn')}
             </button>
           </div>
         </div>
@@ -449,12 +451,10 @@ const Login = () => {
         </div>
         <div className="login-header">
           <h1 className="gradient-text">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
+            {isSignUp ? t('auth.createAccountTitle') : t('auth.welcomeBack')}
           </h1>
           <p className="login-subtitle">
-            {isSignUp
-              ? 'Create an account to access the Da Nang Blockchain Hub portal'
-              : 'Sign in to access the Hub portal'}
+            {isSignUp ? t('auth.signupSubtitle') : t('auth.loginSubtitle')}
           </p>
         </div>
 
@@ -472,11 +472,11 @@ const Login = () => {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Continue with Google
+          {t('auth.continueWithGoogle')}
         </button>
 
         <div className="auth-divider">
-          <span>or sign in with wallet</span>
+          <span>{t('auth.orSignInWithWallet')}</span>
         </div>
 
         <button
@@ -485,7 +485,7 @@ const Login = () => {
           disabled={loading || submitting}
         >
           <EthereumIcon />
-          Ethereum Wallet
+          {t('auth.ethereumWallet')}
         </button>
 
         <button
@@ -494,7 +494,7 @@ const Login = () => {
           disabled={loading || submitting}
         >
           <SolanaIcon />
-          Solana Wallet
+          {t('auth.solanaWallet')}
         </button>
 
         {showWalletPicker && (
@@ -531,13 +531,13 @@ const Login = () => {
         )}
 
         <div className="auth-divider">
-          <span>or continue with email</span>
+          <span>{t('auth.orContinueWithEmail')}</span>
         </div>
 
         <form className="login-form" onSubmit={handleEmailAuth}>
           {isSignUp && (
             <div className="form-group">
-              <label htmlFor="displayName">Full Name</label>
+              <label htmlFor="displayName">{t('auth.fullName')}</label>
               <div className="input-wrapper">
                 <input
                   type="text"
@@ -545,7 +545,7 @@ const Login = () => {
                   name="displayName"
                   value={formData.displayName}
                   onChange={handleInputChange}
-                  placeholder="John Doe"
+                  placeholder={t('auth.fullNamePlaceholder')}
                   autoComplete="name"
                 />
                 <UserIcon />
@@ -554,7 +554,7 @@ const Login = () => {
           )}
 
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">{t('auth.email')}</label>
             <div className="input-wrapper">
               <input
                 type="email"
@@ -563,7 +563,7 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 autoComplete="email"
               />
               <MailIcon />
@@ -571,7 +571,7 @@ const Login = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t('auth.password')}</label>
             <div className="input-wrapper">
               <input
                 type="password"
@@ -590,7 +590,7 @@ const Login = () => {
 
           {isSignUp && (
             <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+              <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
               <div className="input-wrapper">
                 <input
                   type="password"
@@ -615,7 +615,7 @@ const Login = () => {
                 className="auth-link"
                 onClick={() => setShowForgotPassword(true)}
               >
-                Forgot password?
+                {t('auth.forgotPassword')}
               </button>
             </div>
           )}
@@ -625,16 +625,16 @@ const Login = () => {
             className="btn btn-primary login-button"
             disabled={submitting}
           >
-            {submitting ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+            {submitting ? t('auth.pleaseWait') : (isSignUp ? t('auth.createAccountTitle') : t('auth.signIn'))}
           </button>
         </form>
 
         <div className="auth-footer">
           <p>
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+            {isSignUp ? t('auth.alreadyHaveAccount') : t('auth.dontHaveAccount')}
             {' '}
             <button className="auth-link" onClick={toggleMode}>
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+              {isSignUp ? t('auth.signIn') : t('auth.signUp')}
             </button>
           </p>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
 import { showToast } from '../../components/Toast'
@@ -8,6 +9,8 @@ import { getAmenities } from '../../services/amenities'
 import './Bookings.css'
 
 const AdminBookings = () => {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [statusFilter, setStatusFilter] = useState('all')
   const queryClient = useQueryClient()
 
@@ -78,23 +81,23 @@ const AdminBookings = () => {
   const handleCheckIn = async (id) => {
     try {
       await checkInMutation.mutateAsync(id)
-      showToast('Booking checked in successfully', 'success')
+      showToast(t('toast.bookingCheckedIn'), 'success')
     } catch (err) {
-      showToast(err.message || 'Failed to check in booking', 'error')
+      showToast(err.message || t('toast.bookingCheckInFailed'), 'error')
     }
   }
 
   const handleCheckOut = async (id) => {
     try {
       await checkOutMutation.mutateAsync(id)
-      showToast('Booking checked out successfully', 'success')
+      showToast(t('toast.bookingCheckedOut'), 'success')
     } catch (err) {
-      showToast(err.message || 'Failed to check out booking', 'error')
+      showToast(err.message || t('toast.bookingCheckOutFailed'), 'error')
     }
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this booking?')) {
+    if (window.confirm(t('adminBookings.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
@@ -117,18 +120,18 @@ const AdminBookings = () => {
     <Layout isAdmin>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">Bookings</h1>
+          <h1 className="page-title">{t('adminBookings.title')}</h1>
           <select 
             className="form-field filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="checked-in">Checked In</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{t('adminBookings.allStatus')}</option>
+            <option value="pending">{t('adminBookings.pending')}</option>
+            <option value="approved">{t('adminBookings.approved')}</option>
+            <option value="checked-in">{t('adminBookings.checkedIn')}</option>
+            <option value="completed">{t('adminBookings.completed')}</option>
+            <option value="cancelled">{t('adminBookings.cancelled')}</option>
           </select>
         </div>
 
@@ -136,12 +139,12 @@ const AdminBookings = () => {
           <table className="bookings-table">
             <thead>
               <tr>
-                <th>Member</th>
-                <th>Amenity</th>
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{t('adminBookings.member')}</th>
+                <th>{t('adminBookings.amenity')}</th>
+                <th>{t('adminBookings.startTime')}</th>
+                <th>{t('adminBookings.endTime')}</th>
+                <th>{t('adminBookings.status')}</th>
+                <th>{t('adminBookings.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,11 +152,11 @@ const AdminBookings = () => {
                 <tr key={booking.id}>
                   <td>{getMemberName(booking.memberId)}</td>
                   <td>{getAmenityName(booking.amenityId)}</td>
-                  <td>{booking.startTime?.toLocaleString() || 'N/A'}</td>
-                  <td>{booking.endTime?.toLocaleString() || 'N/A'}</td>
+                  <td>{booking.startTime?.toLocaleString(locale) || t('common.na')}</td>
+                  <td>{booking.endTime?.toLocaleString(locale) || t('common.na')}</td>
                   <td>
                     <span className={`status-badge ${booking.status}`}>
-                      {booking.status || 'pending'}
+                      {t(`status.${booking.status || 'pending'}`)}
                     </span>
                   </td>
                   <td>
@@ -164,13 +167,13 @@ const AdminBookings = () => {
                             className="btn btn-primary btn-sm"
                             onClick={() => handleStatusChange(booking.id, 'approved')}
                           >
-                            Approve
+                            {t('common.approve')}
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => handleStatusChange(booking.id, 'cancelled')}
                           >
-                            Reject
+                            {t('common.reject')}
                           </button>
                         </>
                       )}
@@ -179,9 +182,9 @@ const AdminBookings = () => {
                           className="btn btn-primary btn-sm"
                           onClick={() => handleCheckIn(booking.id)}
                           disabled={!isSameDayAsBooking(booking)}
-                          title={!isSameDayAsBooking(booking) ? 'Check In is only allowed on the same day as the booking' : undefined}
+                          title={!isSameDayAsBooking(booking) ? t('adminBookings.checkInSameDay') : undefined}
                         >
-                          Check In
+                          {t('adminBookings.checkIn')}
                         </button>
                       )}
                       {booking.status === 'checked-in' && (
@@ -189,16 +192,16 @@ const AdminBookings = () => {
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleCheckOut(booking.id)}
                           disabled={!isSameDayAsBooking(booking)}
-                          title={!isSameDayAsBooking(booking) ? 'Check Out is only allowed on the same day as the booking' : undefined}
+                          title={!isSameDayAsBooking(booking) ? t('adminBookings.checkOutSameDay') : undefined}
                         >
-                          Check Out
+                          {t('adminBookings.checkOut')}
                         </button>
                       )}
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDelete(booking.id)}
                       >
-                        Delete
+                        {t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -216,20 +219,20 @@ const AdminBookings = () => {
                     {getAmenityName(booking.amenityId)}
                   </div>
                   <span className={`status-badge ${booking.status}`}>
-                    {booking.status || 'pending'}
+                    {t(`status.${booking.status || 'pending'}`)}
                   </span>
                 </div>
                 <div className="booking-card-mobile-field">
-                  <div className="booking-card-mobile-label">Member</div>
+                  <div className="booking-card-mobile-label">{t('adminBookings.member')}</div>
                   <div className="booking-card-mobile-value">{getMemberName(booking.memberId)}</div>
                 </div>
                 <div className="booking-card-mobile-field">
-                  <div className="booking-card-mobile-label">Start Time</div>
-                  <div className="booking-card-mobile-value">{booking.startTime?.toLocaleString() || 'N/A'}</div>
+                  <div className="booking-card-mobile-label">{t('adminBookings.startTime')}</div>
+                  <div className="booking-card-mobile-value">{booking.startTime?.toLocaleString(locale) || t('common.na')}</div>
                 </div>
                 <div className="booking-card-mobile-field">
-                  <div className="booking-card-mobile-label">End Time</div>
-                  <div className="booking-card-mobile-value">{booking.endTime?.toLocaleString() || 'N/A'}</div>
+                  <div className="booking-card-mobile-label">{t('adminBookings.endTime')}</div>
+                  <div className="booking-card-mobile-value">{booking.endTime?.toLocaleString(locale) || t('common.na')}</div>
                 </div>
                 <div className="booking-card-mobile-actions">
                   {booking.status === 'pending' && (
@@ -238,13 +241,13 @@ const AdminBookings = () => {
                         className="btn btn-primary btn-sm"
                         onClick={() => handleStatusChange(booking.id, 'approved')}
                       >
-                        Approve
+                        {t('common.approve')}
                       </button>
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleStatusChange(booking.id, 'cancelled')}
                       >
-                        Reject
+                        {t('common.reject')}
                       </button>
                     </>
                   )}
@@ -253,9 +256,9 @@ const AdminBookings = () => {
                       className="btn btn-primary btn-sm"
                       onClick={() => handleCheckIn(booking.id)}
                       disabled={!isSameDayAsBooking(booking)}
-                      title={!isSameDayAsBooking(booking) ? 'Check In is only allowed on the same day as the booking' : undefined}
+                      title={!isSameDayAsBooking(booking) ? t('adminBookings.checkInSameDay') : undefined}
                     >
-                      Check In
+                      {t('adminBookings.checkIn')}
                     </button>
                   )}
                   {booking.status === 'checked-in' && (
@@ -263,16 +266,16 @@ const AdminBookings = () => {
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleCheckOut(booking.id)}
                       disabled={!isSameDayAsBooking(booking)}
-                      title={!isSameDayAsBooking(booking) ? 'Check Out is only allowed on the same day as the booking' : undefined}
+                      title={!isSameDayAsBooking(booking) ? t('adminBookings.checkOutSameDay') : undefined}
                     >
-                      Check Out
+                      {t('adminBookings.checkOut')}
                     </button>
                   )}
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(booking.id)}
                   >
-                    Delete
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>

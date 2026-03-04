@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
@@ -12,7 +13,7 @@ import './Profile.css'
 const URL_PATTERN = /^https?:\/\/.+\..+/
 
 const walletChainLabel = (address) =>
-  address?.startsWith('0x') ? 'Ethereum Wallet' : 'Solana Wallet'
+  address?.startsWith('0x') ? 'auth.ethereumWallet' : 'auth.solanaWallet'
 const PHONE_PATTERN = /^[\d\s\-+()]+$/
 
 const CopyIcon = () => (
@@ -22,39 +23,41 @@ const CopyIcon = () => (
   </svg>
 )
 
-const validateProfileForm = (data, requireFields = false) => {
+const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
-    if (!data.displayName?.trim()) return 'Name is required'
-    if (!data.email?.trim()) return 'Email is required'
-    if (!data.company?.trim()) return 'Company is required'
-    if (!data.jobTitle?.trim()) return 'Role (job title) is required'
+    if (!data.displayName?.trim()) return t('profile.validation.nameRequired')
+    if (!data.email?.trim()) return t('profile.validation.emailRequired')
+    if (!data.company?.trim()) return t('profile.validation.companyRequired')
+    if (!data.jobTitle?.trim()) return t('profile.validation.jobTitleRequired')
   }
   if (data.linkedIn && data.linkedIn.trim() && !URL_PATTERN.test(data.linkedIn.trim())) {
-    return 'LinkedIn must be a valid URL'
+    return t('profile.validation.invalidLinkedIn')
   }
   if (data.website && data.website.trim() && !URL_PATTERN.test(data.website.trim())) {
-    return 'Website must be a valid URL'
+    return t('profile.validation.invalidWebsite')
   }
   if (data.phone && data.phone.trim() && !PHONE_PATTERN.test(data.phone.trim())) {
-    return 'Phone can only contain digits, spaces, dashes, plus sign, and parentheses'
+    return t('profile.validation.invalidPhone')
   }
   return null
 }
 
-const formatMemberSince = (createdAt) => {
+const formatMemberSince = (createdAt, t) => {
   if (!createdAt) return null
   const date = new Date(createdAt)
   const now = new Date()
   const months = Math.floor((now - date) / (1000 * 60 * 60 * 24 * 30))
-  if (months < 1) return 'Less than a month'
-  if (months === 1) return '1 month'
-  if (months < 12) return `${months} months`
+  if (months < 1) return t('profile.memberSinceRelative.lessThanMonth')
+  if (months === 1) return t('profile.memberSinceRelative.oneMonth')
+  if (months < 12) return t('profile.memberSinceRelative.months', { count: months })
   const years = Math.floor(months / 12)
-  return years === 1 ? '1 year' : `${years} years`
+  return years === 1 ? t('profile.memberSinceRelative.oneYear') : t('profile.memberSinceRelative.years', { count: years })
 }
 
 const MemberProfile = () => {
+  const { t, i18n } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const location = useLocation()
   const queryClient = useQueryClient()
   const profileComplete = isProfileComplete()
@@ -70,7 +73,7 @@ const MemberProfile = () => {
       setCopiedAddress(true)
       setTimeout(() => setCopiedAddress(false), 2000)
     } catch {
-      alert('Failed to copy address to clipboard.')
+      showToast(t('profile.copyFailed'), 'error')
     }
   }
 
@@ -90,10 +93,10 @@ const MemberProfile = () => {
       queryClient.invalidateQueries(['memberStats', currentUser?.uid])
       setIsEditing(false)
       setHasUnsavedChanges(false)
-      showToast('Profile updated successfully', 'success')
+      showToast(t('toast.profileUpdated'), 'success')
     },
     onError: (error) => {
-      showToast(error.message || 'Failed to update profile', 'error')
+      showToast(error.message || t('toast.profileUpdateFailed'), 'error')
     }
   })
 
@@ -108,10 +111,10 @@ const MemberProfile = () => {
         await refreshUserProfile()
       }
       queryClient.invalidateQueries(['members'])
-      showToast('Photo updated successfully', 'success')
+      showToast(t('toast.photoUpdated'), 'success')
     },
     onError: (error) => {
-      showToast(error.message || 'Failed to update photo', 'error')
+      showToast(error.message || t('toast.photoUpdateFailed'), 'error')
     }
   })
 
@@ -149,7 +152,7 @@ const MemberProfile = () => {
       website: formData.get('website')?.trim() || '',
       preferences
     }
-    const validationError = validateProfileForm(data, !profileComplete)
+    const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
       return
@@ -186,13 +189,11 @@ const MemberProfile = () => {
   return (
     <Layout isAdmin={isAdminRoute}>
       <div className="container">
-        <h1 className="page-title">My Profile</h1>
+        <h1 className="page-title">{t('profile.title')}</h1>
 
         {!profileComplete && (
           <div className="profile-complete-banner glass" role="alert">
-            <p className="profile-complete-banner-text">
-              Please add your <strong>Name</strong>, <strong>Email</strong>, <strong>Company</strong>, and <strong>Role</strong> below to continue using the hub.
-            </p>
+            <p className="profile-complete-banner-text" dangerouslySetInnerHTML={{ __html: t('profile.completeBanner') }} />
           </div>
         )}
 
@@ -213,9 +214,9 @@ const MemberProfile = () => {
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleAvatarChange}
                   disabled={isAvatarUploading}
-                  aria-label="Change profile photo"
+                  aria-label={t('profile.changePhoto')}
                 />
-                <span>Change photo</span>
+                <span>{t('profile.changePhoto')}</span>
               </label>
             </div>
             <div className="profile-info">
@@ -230,9 +231,9 @@ const MemberProfile = () => {
           {isEditing ? (
             <form onSubmit={handleSubmit} className="profile-form" onChange={handleFormChange}>
               <section className="profile-section">
-                <h3 className="profile-section-title">Basic Info</h3>
+                <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
                 <div className="form-group">
-                  <label className="form-label">Name {!profileComplete && <span className="form-required">*</span>}</label>
+                  <label className="form-label">{t('profile.name')} {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="displayName"
@@ -243,7 +244,7 @@ const MemberProfile = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email {!profileComplete && <span className="form-required">*</span>}</label>
+                  <label className="form-label">{t('profile.email')} {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="email"
                     name="email"
@@ -254,18 +255,18 @@ const MemberProfile = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Phone</label>
+                  <label className="form-label">{t('profile.phone')}</label>
                   <input
                     type="tel"
                     name="phone"
                     className="form-field"
                     defaultValue={userProfile.phone}
-                    placeholder="Optional"
+                    placeholder={t('profile.optional')}
                   />
                 </div>
                 {userProfile.walletAddress && (
                   <div className="form-group">
-                    <label className="form-label">{walletChainLabel(userProfile.walletAddress)}</label>
+                    <label className="form-label">{t(walletChainLabel(userProfile.walletAddress))}</label>
                     <div className="wallet-address-field">
                       <input
                         type="text"
@@ -277,9 +278,9 @@ const MemberProfile = () => {
                         type="button"
                         className="wallet-copy-btn"
                         onClick={() => copyAddress(userProfile.walletAddress)}
-                        title="Copy address"
+                        title={t('profile.copyAddress')}
                       >
-                        {copiedAddress ? 'Copied!' : <CopyIcon />}
+                        {copiedAddress ? t('profile.copied') : <CopyIcon />}
                       </button>
                     </div>
                   </div>
@@ -287,31 +288,31 @@ const MemberProfile = () => {
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">Professional</h3>
+                <h3 className="profile-section-title">{t('profile.professional')}</h3>
                 <div className="form-group">
-                  <label className="form-label">Company {!profileComplete && <span className="form-required">*</span>}</label>
+                  <label className="form-label">{t('profile.company')} {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="company"
                     className="form-field"
                     defaultValue={userProfile.company}
-                    placeholder={profileComplete ? 'Optional' : 'Your company or organization'}
+                    placeholder={profileComplete ? t('profile.optional') : 'Your company or organization'}
                     required={!profileComplete}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Role {!profileComplete && <span className="form-required">*</span>}</label>
+                  <label className="form-label">{t('profile.role')} {!profileComplete && <span className="form-required">*</span>}</label>
                   <input
                     type="text"
                     name="jobTitle"
                     className="form-field"
                     defaultValue={userProfile.jobTitle}
-                    placeholder={profileComplete ? 'Optional' : 'Your job title or role'}
+                    placeholder={profileComplete ? t('profile.optional') : 'Your job title or role'}
                     required={!profileComplete}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">LinkedIn</label>
+                  <label className="form-label">{t('profile.linkedIn')}</label>
                   <input
                     type="url"
                     name="linkedIn"
@@ -321,7 +322,7 @@ const MemberProfile = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Website</label>
+                  <label className="form-label">{t('profile.website')}</label>
                   <input
                     type="url"
                     name="website"
@@ -333,9 +334,9 @@ const MemberProfile = () => {
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">About</h3>
+                <h3 className="profile-section-title">{t('profile.about')}</h3>
                 <div className="form-group">
-                  <label className="form-label">Bio</label>
+                  <label className="form-label">{t('profile.bio')}</label>
                   <textarea
                     name="bio"
                     className="form-field form-field-textarea"
@@ -347,7 +348,7 @@ const MemberProfile = () => {
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">Preferences</h3>
+                <h3 className="profile-section-title">{t('profile.preferences')}</h3>
                 <div className="form-group form-group-checkbox">
                   <label className="form-label form-label-checkbox">
                     <input
@@ -355,7 +356,7 @@ const MemberProfile = () => {
                       name="emailNotifications"
                       defaultChecked={preferences.emailNotifications !== false}
                     />
-                    <span>Email notifications</span>
+                    <span>{t('profile.emailNotifications')}</span>
                   </label>
                 </div>
                 <div className="form-group form-group-checkbox">
@@ -365,14 +366,14 @@ const MemberProfile = () => {
                       name="eventReminders"
                       defaultChecked={preferences.eventReminders !== false}
                     />
-                    <span>Event reminders</span>
+                    <span>{t('profile.eventReminders')}</span>
                   </label>
                 </div>
               </section>
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary" disabled={isUpdating}>
-                  {isUpdating ? 'Saving…' : 'Save Changes'}
+                  {isUpdating ? t('profile.saving') : t('common.save')}
                 </button>
                 <button
                   type="button"
@@ -383,37 +384,37 @@ const MemberProfile = () => {
                   }}
                   disabled={isUpdating}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
           ) : (
             <>
               <section className="profile-section">
-                <h3 className="profile-section-title">Basic Info</h3>
+                <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Display Name</span>
+                  <span className="detail-label">{t('profile.displayName')}</span>
                   <span className="detail-value">{userProfile.displayName || '—'}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Email</span>
+                  <span className="detail-label">{t('profile.email')}</span>
                   <span className="detail-value">{userProfile.email || '—'}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Phone</span>
+                  <span className="detail-label">{t('profile.phone')}</span>
                   <span className="detail-value">{userProfile.phone || '—'}</span>
                 </div>
                 {userProfile.walletAddress && (
                   <div className="profile-detail-item profile-detail-wallet">
-                    <span className="detail-label">{walletChainLabel(userProfile.walletAddress)}</span>
+                    <span className="detail-label">{t(walletChainLabel(userProfile.walletAddress))}</span>
                     <span className="detail-value wallet-address-display">
                       <span className="wallet-address-text">{userProfile.walletAddress}</span>
                       <button
                         className="wallet-copy-btn"
                         onClick={() => copyAddress(userProfile.walletAddress)}
-                        title="Copy address"
+                        title={t('profile.copyAddress')}
                       >
-                        {copiedAddress ? 'Copied!' : <CopyIcon />}
+                        {copiedAddress ? t('profile.copied') : <CopyIcon />}
                       </button>
                     </span>
                   </div>
@@ -421,17 +422,17 @@ const MemberProfile = () => {
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">Professional</h3>
+                <h3 className="profile-section-title">{t('profile.professional')}</h3>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Company</span>
+                  <span className="detail-label">{t('profile.company')}</span>
                   <span className="detail-value">{userProfile.company || '—'}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Role</span>
+                  <span className="detail-label">{t('profile.role')}</span>
                   <span className="detail-value">{userProfile.jobTitle || '—'}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">LinkedIn</span>
+                  <span className="detail-label">{t('profile.linkedIn')}</span>
                   <span className="detail-value">
                     {userProfile.linkedIn ? (
                       <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
@@ -441,7 +442,7 @@ const MemberProfile = () => {
                   </span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Website</span>
+                  <span className="detail-label">{t('profile.website')}</span>
                   <span className="detail-value">
                     {userProfile.website ? (
                       <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="profile-link">
@@ -453,58 +454,58 @@ const MemberProfile = () => {
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">About</h3>
+                <h3 className="profile-section-title">{t('profile.about')}</h3>
                 <div className="profile-detail-item profile-detail-bio">
-                  <span className="detail-label">Bio</span>
+                  <span className="detail-label">{t('profile.bio')}</span>
                   <span className="detail-value">{userProfile.bio || '—'}</span>
                 </div>
               </section>
 
               <section className="profile-section">
-                <h3 className="profile-section-title">Preferences</h3>
+                <h3 className="profile-section-title">{t('profile.preferences')}</h3>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Email notifications</span>
-                  <span className="detail-value">{preferences.emailNotifications !== false ? 'On' : 'Off'}</span>
+                  <span className="detail-label">{t('profile.emailNotifications')}</span>
+                  <span className="detail-value">{preferences.emailNotifications !== false ? t('common.on') : t('common.off')}</span>
                 </div>
                 <div className="profile-detail-item">
-                  <span className="detail-label">Event reminders</span>
-                  <span className="detail-value">{preferences.eventReminders !== false ? 'On' : 'Off'}</span>
+                  <span className="detail-label">{t('profile.eventReminders')}</span>
+                  <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
                 </div>
               </section>
 
               <section className="profile-section profile-section-activity">
-                <h3 className="profile-section-title">Activity</h3>
+                <h3 className="profile-section-title">{t('profile.activity')}</h3>
                 {statsLoading ? (
-                  <div className="profile-stats-loading">Loading…</div>
+                  <div className="profile-stats-loading">{t('common.loading')}</div>
                 ) : stats ? (
                   <div className="profile-stats">
                     <div className="profile-stat">
                       <span className="profile-stat-value">{stats.totalBookings}</span>
-                      <span className="profile-stat-label">Bookings</span>
+                      <span className="profile-stat-label">{t('profile.bookings')}</span>
                     </div>
                     <div className="profile-stat">
                       <span className="profile-stat-value">{stats.eventsAttended}</span>
-                      <span className="profile-stat-label">Events attended</span>
+                      <span className="profile-stat-label">{t('profile.eventsAttended')}</span>
                     </div>
                     <div className="profile-stat">
                       <span className="profile-stat-value">{stats.eventsOrganized}</span>
-                      <span className="profile-stat-label">Events organized</span>
+                      <span className="profile-stat-label">{t('profile.eventsOrganized')}</span>
                     </div>
                   </div>
                 ) : null}
                 <div className="profile-detail-item">
-                  <span className="detail-label">Member since</span>
+                  <span className="detail-label">{t('profile.memberSince')}</span>
                   <span className="detail-value">
                     {userProfile.createdAt
-                      ? `${new Date(userProfile.createdAt).toLocaleDateString()} (${formatMemberSince(userProfile.createdAt)})`
-                      : 'N/A'}
+                      ? `${new Date(userProfile.createdAt).toLocaleDateString(locale)} (${formatMemberSince(userProfile.createdAt, t)})`
+                      : t('common.na')}
                   </span>
                 </div>
               </section>
 
               <div className="profile-actions">
                 <button className="btn btn-primary" onClick={() => setIsEditing(true)}>
-                  Edit Profile
+                  {t('profile.editProfile')}
                 </button>
               </div>
             </>

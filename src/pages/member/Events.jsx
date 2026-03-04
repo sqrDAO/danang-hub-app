@@ -98,10 +98,10 @@ const MemberEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       setIsModalOpen(false)
-      showToast('Event submitted for approval! You will be notified when approved.', 'success')
+      showToast(t('toast.eventSubmittedForApproval'), 'success')
     },
     onError: () => {
-      showToast('Failed to create event. Please try again.', 'error')
+      showToast(t('toast.eventCreateFailed'), 'error')
     }
   })
 
@@ -109,10 +109,10 @@ const MemberEvents = () => {
     mutationFn: deleteEvent,
     onSuccess: () => {
       queryClient.invalidateQueries(['myEvents'])
-      showToast('Event request deleted.', 'success')
+      showToast(t('toast.eventRequestDeleted'), 'success')
     },
     onError: () => {
-      showToast('Failed to delete event. Please try again.', 'error')
+      showToast(t('toast.eventCreateFailed'), 'error')
     }
   })
 
@@ -122,7 +122,7 @@ const MemberEvents = () => {
       queryClient.invalidateQueries(['approvedEvents'])
       queryClient.invalidateQueries(['upcomingEvents'])
       queryClient.invalidateQueries(['myEvents'])
-      showToast('Successfully registered for event!', 'success')
+      showToast(t('toast.eventRegisterSuccess'), 'success')
       
       // Reset ref and clean up query params after successful registration
       processedActionRef.current = null
@@ -133,7 +133,7 @@ const MemberEvents = () => {
     },
     onError: (error) => {
       console.error('Registration error:', error)
-      showToast('Failed to register. Please try again.', 'error')
+      showToast(t('toast.eventRegisterFailed'), 'error')
       
       // Reset ref and clean up query params even on error
       processedActionRef.current = null
@@ -150,7 +150,7 @@ const MemberEvents = () => {
       queryClient.invalidateQueries(['approvedEvents'])
       queryClient.invalidateQueries(['upcomingEvents'])
       queryClient.invalidateQueries(['myEvents'])
-      showToast('Successfully unregistered from event.', 'success')
+      showToast(t('toast.eventUnregisterSuccess'), 'success')
       
       // Reset ref and clean up query params
       processedActionRef.current = null
@@ -160,7 +160,7 @@ const MemberEvents = () => {
       setSearchParams(newParams, { replace: true })
     },
     onError: () => {
-      showToast('Failed to unregister. Please try again.', 'error')
+      showToast(t('toast.eventUnregisterFailed'), 'error')
       processedActionRef.current = null
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('action')
@@ -174,7 +174,7 @@ const MemberEvents = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['approvedEvents'])
       queryClient.invalidateQueries(['upcomingEvents'])
-      showToast('Added to waitlist! You will be notified if a spot becomes available.', 'info')
+      showToast(t('toast.waitlistJoined'), 'info')
       
       // Reset ref and clean up query params
       processedActionRef.current = null
@@ -184,7 +184,7 @@ const MemberEvents = () => {
       setSearchParams(newParams, { replace: true })
     },
     onError: () => {
-      showToast('Failed to join waitlist. Please try again.', 'error')
+      showToast(t('toast.waitlistJoinFailed'), 'error')
       processedActionRef.current = null
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('action')
@@ -198,7 +198,7 @@ const MemberEvents = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['approvedEvents'])
       queryClient.invalidateQueries(['upcomingEvents'])
-      showToast('Removed from waitlist.', 'info')
+      showToast(t('toast.waitlistRemoved'), 'info')
       
       // Reset ref and clean up query params
       processedActionRef.current = null
@@ -208,7 +208,7 @@ const MemberEvents = () => {
       setSearchParams(newParams, { replace: true })
     },
     onError: () => {
-      showToast('Failed to remove from waitlist. Please try again.', 'error')
+      showToast(t('toast.waitlistRemoveFailed'), 'error')
       processedActionRef.current = null
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('action')
@@ -226,14 +226,14 @@ const MemberEvents = () => {
 
     const bannerFile = bannerInputRef.current?.files?.[0]
     if (!bannerFile) {
-      showToast('Please add an Event Banner image.', 'error')
+      showToast(t('toast.eventBannerRequired'), 'error')
       return
     }
     let bannerUrl
     try {
       bannerUrl = await uploadEventBanner(bannerFile)
     } catch (err) {
-      showToast(err.message || 'Failed to upload banner image.', 'error')
+      showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
       return
     }
 
@@ -279,7 +279,7 @@ const MemberEvents = () => {
   }
 
   const handleDeleteMyEvent = async (eventId) => {
-    if (window.confirm('Are you sure you want to delete this event request?')) {
+    if (window.confirm(t('memberEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(eventId)
     }
   }
@@ -311,7 +311,7 @@ const MemberEvents = () => {
   }
 
   const handleUnregister = async (eventId) => {
-    if (window.confirm('Are you sure you want to unregister from this event?')) {
+    if (window.confirm(t('memberEvents.confirmUnregister'))) {
       await unregisterMutation.mutateAsync({ eventId, memberId: currentUser.uid })
     }
   }
@@ -365,7 +365,7 @@ const MemberEvents = () => {
     // If event not found and we have data loaded, event doesn't exist
     if (!event && (upcomingEventsData.length > 0 || approvedEvents.length > 0)) {
       processedActionRef.current = actionKey
-      showToast('Event not found', 'error')
+      showToast(t('toast.eventNotFound'), 'error')
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('action')
       newParams.delete('eventId')
@@ -385,14 +385,14 @@ const MemberEvents = () => {
       if (!event.attendees?.includes(currentUser.uid)) {
         registerMutation.mutate({ eventId, memberId: currentUser.uid })
       } else {
-        showToast('You are already registered for this event', 'info')
+        showToast(t('toast.alreadyRegistered'), 'info')
         const newParams = new URLSearchParams(searchParams)
         newParams.delete('action')
         newParams.delete('eventId')
         setSearchParams(newParams, { replace: true })
       }
     } else if (action === 'unregister') {
-      if (window.confirm('Are you sure you want to unregister from this event?')) {
+      if (window.confirm(t('memberEvents.confirmUnregister'))) {
         unregisterMutation.mutate({ eventId, memberId: currentUser.uid })
       } else {
         // User cancelled, reset ref and remove params
@@ -406,7 +406,7 @@ const MemberEvents = () => {
       if (!event.waitlist?.includes(currentUser.uid)) {
         waitlistMutation.mutate({ eventId, memberId: currentUser.uid })
       } else {
-        showToast('You are already on the waitlist for this event', 'info')
+        showToast(t('toast.alreadyOnWaitlist'), 'info')
         const newParams = new URLSearchParams(searchParams)
         newParams.delete('action')
         newParams.delete('eventId')
@@ -454,11 +454,11 @@ const MemberEvents = () => {
       <div className="container">
         <div className="page-header">
           <div className="page-header-content">
-            <h1 className="page-title">Events</h1>
-            <p className="page-subtitle">Browse, register, or create your own events</p>
+            <h1 className="page-title">{t('memberEvents.title')}</h1>
+            <p className="page-subtitle">{t('memberEvents.subtitle')}</p>
           </div>
           <button className="btn btn-primary" onClick={handleOpenCreateModal}>
-            + Create Event
+            {t('memberEvents.createEvent')}
           </button>
         </div>
 
@@ -466,8 +466,8 @@ const MemberEvents = () => {
         {myEvents.length > 0 && (
           <div className="events-section glass">
             <div className="section-header">
-              <h2 className="section-title">My Event Requests</h2>
-              <p className="section-description">Events you've created. Pending events await admin approval.</p>
+              <h2 className="section-title">{t('memberEvents.myEventRequests')}</h2>
+              <p className="section-description">{t('memberEvents.myEventRequestsDesc')}</p>
             </div>
             <div className="events-grid">
               {myEvents.map(event => (
@@ -488,29 +488,29 @@ const MemberEvents = () => {
                       📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
                     </p>
                     {event.duration && (
-                      <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                      <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
                     )}
                     <p className="event-capacity">
-                      👥 Capacity: {event.capacity || 80}
+                      👥 {t('memberEvents.capacity', { count: event.capacity || 80 })}
                     </p>
                     {event.hostingProjects && (
                       <p className="event-projects">
-                        🏢 Hosted by: {typeof event.hostingProjects === 'string' 
+                        🏢 {t('memberEvents.hosted', { hosts: typeof event.hostingProjects === 'string' 
                           ? event.hostingProjects 
                           : event.hostingProjects.map(projectId => {
                               const project = projects.find(p => p.id === projectId)
                               return project?.name || projectId
-                            }).join(', ')}
+                            }).join(', ') })}
                       </p>
                     )}
                     {event.eventLink && (
                       <p className="event-link">
-                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
                       </p>
                     )}
                     {event.status === 'rejected' && event.rejectionReason && (
                       <p className="event-rejection-reason">
-                        ❌ Reason: {event.rejectionReason}
+                        ❌ {t('memberEvents.reason', { reason: event.rejectionReason })}
                       </p>
                     )}
                     {event.description && (
@@ -523,11 +523,11 @@ const MemberEvents = () => {
                         className="btn btn-danger btn-full-width"
                         onClick={() => handleDeleteMyEvent(event.id)}
                       >
-                        Cancel Request
+                        {t('memberEvents.cancelRequest')}
                       </button>
                     )}
                     {event.status === 'approved' && (
-                      <p className="event-approved-note">✅ Your event is live!</p>
+                      <p className="event-approved-note">{t('memberEvents.eventLive')}</p>
                     )}
                   </div>
                 </div>
@@ -539,16 +539,16 @@ const MemberEvents = () => {
         {/* Upcoming Events (Approved) */}
         <div className="events-section glass">
           <div className="section-header">
-            <h2 className="section-title">Upcoming Events</h2>
+            <h2 className="section-title">{t('memberEvents.upcomingEvents')}</h2>
             {upcomingEvents.length > 0 && (
-              <p className="section-description">Click "Register" to join an event. If full, join the waitlist!</p>
+              <p className="section-description">{t('memberEvents.upcomingEventsDesc')}</p>
             )}
           </div>
           {isLoadingEvents ? (
-            <p className="empty-state">Loading events...</p>
+            <p className="empty-state">{t('memberEvents.loadingEvents')}</p>
           ) : eventsError ? (
             <p className="empty-state" style={{ color: '#ef4444' }}>
-              Error loading events. Please refresh the page.
+              {t('memberEvents.errorLoadingEvents')}
               {process.env.NODE_ENV === 'development' && (
                 <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
                   {eventsError.message}
@@ -578,38 +578,38 @@ const MemberEvents = () => {
                     </div>
                     <div className="event-info">
                       <p className="event-organizer">
-                        Organizer: {getOrganizerName(event.organizerId)}
-                        {isMyEvent && <span className="my-event-tag"> (You)</span>}
+                        {t('memberEvents.organizer', { name: getOrganizerName(event.organizerId) })}
+                        {isMyEvent && <span className="my-event-tag"> {t('memberEvents.organizerYou')}</span>}
                       </p>
                       {event.duration && (
-                        <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                        <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
                       )}
                       <p className="event-capacity">
-                        👥 {event.attendees?.length || 0} / {event.capacity || 80} attendees
+                        👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || 80 })}
                       </p>
                       {event.hostingProjects && (
                         <p className="event-projects">
-                          🏢 Hosted by: {typeof event.hostingProjects === 'string' 
+                          🏢 {t('memberEvents.hosted', { hosts: typeof event.hostingProjects === 'string' 
                             ? event.hostingProjects 
                             : event.hostingProjects.map(projectId => {
                                 const project = projects.find(p => p.id === projectId)
                                 return project?.name || projectId
-                              }).join(', ')}
+                              }).join(', ') })}
                         </p>
                       )}
                       {event.eventLink && (
                         <p className="event-link">
-                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
                         </p>
                       )}
                       {event.waitlist && event.waitlist.length > 0 && (
                         <p className="event-waitlist">
-                          {event.waitlist.length} on waitlist
+                          {t('memberEvents.onWaitlist', { count: event.waitlist.length })}
                         </p>
                       )}
                       {waitlistPosition && (
                         <p className="event-waitlist-position">
-                          Your position: #{waitlistPosition}
+                          {t('memberEvents.yourPosition', { position: waitlistPosition })}
                         </p>
                       )}
                       {event.description && (
@@ -622,14 +622,14 @@ const MemberEvents = () => {
                           className="btn btn-secondary btn-full-width"
                           onClick={() => handleUnregister(event.id)}
                         >
-                          ✓ Registered - Click to Unregister
+                          {t('memberEvents.registeredUnregister')}
                         </button>
                       ) : onWaitlist ? (
                         <button
                           className="btn btn-secondary btn-full-width"
                           onClick={() => handleLeaveWaitlist(event.id)}
                         >
-                          On Waitlist - Click to Leave
+                          {t('memberEvents.onWaitlistLeave')}
                         </button>
                       ) : (
                         <>
@@ -638,7 +638,7 @@ const MemberEvents = () => {
                             onClick={() => handleRegister(event.id)}
                             disabled={full}
                           >
-                            {full ? 'Event Full' : '✓ Register for Event'}
+                            {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}
                           </button>
                           {full && (
                             <button
@@ -646,7 +646,7 @@ const MemberEvents = () => {
                               onClick={() => handleJoinWaitlist(event.id)}
                               style={{ marginTop: '0.5rem' }}
                             >
-                              Join Waitlist
+                              {t('memberEvents.joinWaitlist')}
                             </button>
                           )}
                         </>
@@ -658,10 +658,10 @@ const MemberEvents = () => {
             </div>
           ) : (
             <div>
-              <p className="empty-state">No upcoming events. Why not create one?</p>
+              <p className="empty-state">{t('memberEvents.noUpcomingEvents')}</p>
               {approvedEvents.length > 0 && (
                 <p className="empty-state" style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: '#a1a1aa' }}>
-                  ({approvedEvents.length} approved event(s) found, but none are upcoming)
+                  {t('memberEvents.approvedButNoneUpcoming', { count: approvedEvents.length })}
                 </p>
               )}
             </div>
@@ -671,7 +671,7 @@ const MemberEvents = () => {
         {/* Past Events */}
         <div className="events-section glass">
           <div className="section-header">
-            <h2 className="section-title">Past Events</h2>
+            <h2 className="section-title">{t('memberEvents.pastEvents')}</h2>
           </div>
           {pastEvents.length > 0 ? (
             <div className="events-grid">
@@ -692,28 +692,28 @@ const MemberEvents = () => {
                     </div>
                     <div className="event-info">
                       <p className="event-organizer">
-                        Organizer: {getOrganizerName(event.organizerId)}
+                        {t('memberEvents.organizer', { name: getOrganizerName(event.organizerId) })}
                       </p>
                       {event.duration && (
-                        <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                        <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
                       )}
                       {event.hostingProjects && (
                         <p className="event-projects">
-                          🏢 Hosted by: {typeof event.hostingProjects === 'string'
+                          🏢 {t('memberEvents.hosted', { hosts: typeof event.hostingProjects === 'string'
                             ? event.hostingProjects
                             : event.hostingProjects.map(projectId => {
                               const project = projects.find(p => p.id === projectId)
                               return project?.name || projectId
-                            }).join(', ')}
+                            }).join(', ') })}
                         </p>
                       )}
                       {event.eventLink && (
                         <p className="event-link">
-                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
                         </p>
                       )}
                       {registered && (
-                        <p className="event-attended">✅ You attended this event</p>
+                        <p className="event-attended">{t('memberEvents.attended')}</p>
                       )}
                     </div>
                   </div>
@@ -721,7 +721,7 @@ const MemberEvents = () => {
               })}
             </div>
           ) : (
-            <p className="empty-state">No past events</p>
+            <p className="empty-state">{t('memberEvents.noPastEvents')}</p>
           )}
         </div>
 
@@ -774,7 +774,7 @@ const MemberEvents = () => {
                 type="text"
                 name="title"
                 className="form-field"
-                placeholder="e.g., Web3 Workshop"
+                placeholder={t('memberEvents.modal.titlePlaceholder')}
                 required
               />
             </div>
@@ -785,7 +785,7 @@ const MemberEvents = () => {
               <textarea
                 name="description"
                 className="form-field"
-                placeholder="What's your event about?"
+                placeholder={t('memberEvents.modal.descriptionPlaceholder')}
                 rows="3"
                 required
                 aria-required
@@ -837,7 +837,7 @@ const MemberEvents = () => {
                 type="number"
                 name="duration"
                 className="form-field"
-                placeholder="e.g., 60"
+                placeholder={t('memberEvents.modal.durationPlaceholder')}
                 defaultValue="60"
                 min="15"
                 step="15"

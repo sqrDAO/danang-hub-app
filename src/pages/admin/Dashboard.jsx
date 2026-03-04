@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Layout from '../../components/Layout'
 import { getMembers } from '../../services/members'
@@ -11,6 +12,9 @@ import './Dashboard.css'
 const DESCRIPTION_MAX_LENGTH = 120
 
 const AdminDashboard = () => {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
     queryFn: getMembers
@@ -61,34 +65,34 @@ const AdminDashboard = () => {
   return (
     <Layout isAdmin>
       <div className="container">
-        <h1 className="page-title">Admin Dashboard</h1>
+        <h1 className="page-title">{t('adminDashboard.title')}</h1>
         
         <div className="stats-grid">
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.totalMembers}</h3>
-            <p className="stat-label">Total Members</p>
+            <p className="stat-label">{t('adminDashboard.totalMembers')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.activeBookings}</h3>
-            <p className="stat-label">Active Bookings</p>
+            <p className="stat-label">{t('adminDashboard.activeBookings')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.upcomingBookings}</h3>
-            <p className="stat-label">Upcoming Bookings</p>
+            <p className="stat-label">{t('adminDashboard.upcomingBookings')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.upcomingEvents}</h3>
-            <p className="stat-label">Upcoming Events</p>
+            <p className="stat-label">{t('adminDashboard.upcomingEvents')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.availableAmenities}</h3>
-            <p className="stat-label">Available Amenities</p>
+            <p className="stat-label">{t('adminDashboard.availableAmenities')}</p>
           </div>
         </div>
 
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
-            <h2 className="section-title">Recent Bookings</h2>
+            <h2 className="section-title">{t('adminDashboard.recentBookings')}</h2>
             {recentBookings.length > 0 ? (
               <ul className="booking-list">
                 {recentBookings.map(booking => {
@@ -102,18 +106,18 @@ const AdminDashboard = () => {
                       </div>
                       <div className="booking-right">
                         <span className={`status-badge ${booking.status}`}>
-                          {booking.status || 'pending'}
+                          {t(`status.${booking.status || 'pending'}`)}
                         </span>
                         <div className="booking-time-info">
                           <span className="booking-time">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString('en-US', {
+                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString(locale, {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric'
                             }) : 'N/A'}
                           </span>
                           <span className="booking-time-small">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString('en-US', {
+                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString(locale, {
                               hour: 'numeric',
                               minute: '2-digit'
                             }) : ''}
@@ -125,14 +129,14 @@ const AdminDashboard = () => {
                 })}
               </ul>
             ) : (
-              <p className="empty-state">No recent bookings</p>
+              <p className="empty-state">{t('adminDashboard.noRecentBookings')}</p>
             )}
           </div>
 
           <div className="dashboard-section glass">
             <div className="section-title-row">
-              <h2 className="section-title">Upcoming Events</h2>
-              <Link to="/admin/events" className="btn btn-secondary btn-sm">View all</Link>
+              <h2 className="section-title">{t('adminDashboard.upcomingEvents')}</h2>
+              <Link to="/admin/events" className="btn btn-secondary btn-sm">{t('common.viewAll')}</Link>
             </div>
             {upcomingEvents.length > 0 ? (
               <ul className="event-list event-list-detailed">
@@ -141,7 +145,7 @@ const AdminDashboard = () => {
                   const capacity = event.capacity ?? 0
                   const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
                   const full = capacity > 0 && attendeeCount >= capacity
-                  const title = event.title || event.name || 'Untitled Event'
+                  const title = event.title || event.name || t('adminDashboard.untitledEvent')
                   return (
                     <li key={event.id} className="event-item event-item-detailed">
                       {event.bannerUrl && (
@@ -157,11 +161,11 @@ const AdminDashboard = () => {
                           <span className="event-datetime">
                             {event.date ? formatEventDate(event.date) : 'N/A'}
                             {event.date && (
-                              <span className="event-time"> at {formatEventTime(event.date)}</span>
+                              <span className="event-time"> {t('adminDashboard.at')} {formatEventTime(event.date)}</span>
                             )}
                           </span>
                           <span className="event-organizer">
-                            Organizer: {getOrganizerName(event.organizerId)}
+                            {t('adminDashboard.organizer', { name: getOrganizerName(event.organizerId) })}
                           </span>
                         </div>
                         {event.description && (
@@ -171,11 +175,11 @@ const AdminDashboard = () => {
                         )}
                         <div className="event-capacity-row">
                           <span className="event-capacity">
-                            {attendeeCount} / {capacity || '∞'} attendees
+                            {t('adminDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
                           </span>
                           {capacity > 0 && (
                             <span className="event-spots">
-                              {full ? 'Full' : `${spotsLeft} spots left`}
+                              {full ? t('adminDashboard.full') : t('adminDashboard.spotsLeft', { count: spotsLeft })}
                             </span>
                           )}
                         </div>
@@ -186,7 +190,7 @@ const AdminDashboard = () => {
                           className="event-view-details"
                           aria-label={`Manage event: ${title}`}
                         >
-                          Manage
+                          {t('common.manage')}
                         </Link>
                       </div>
                     </li>
@@ -194,7 +198,7 @@ const AdminDashboard = () => {
                 })}
               </ul>
             ) : (
-              <p className="empty-state">No upcoming events</p>
+              <p className="empty-state">{t('adminDashboard.noUpcomingEvents')}</p>
             )}
           </div>
         </div>
