@@ -21,9 +21,11 @@ import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { useTranslation } from 'react-i18next'
 import './Events.css'
 
 const MemberEvents = () => {
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
@@ -734,10 +736,10 @@ const MemberEvents = () => {
             setDateError(null)
             if (bannerInputRef.current) bannerInputRef.current.value = ''
           }}
-          title="Create Event Request"
+          title={t('memberEvents.modal.title')}
         >
           <p className="modal-description">
-            Submit your event for approval. Once approved by an admin, it will appear on the calendar.
+            {t('memberEvents.modal.description')}
           </p>
           <form onSubmit={handleSubmit}>
             <div className="form-group event-guidelines-ack">
@@ -748,22 +750,26 @@ const MemberEvents = () => {
                   onChange={(e) => setHasAcceptedGuidelines(e.target.checked)}
                 />
                 <span>
-                  I have read and understood the{' '}
+                  {t('memberEvents.modal.guidelinesPrefix')}{' '}
                   <a
                     href="https://www.danangblockchainhub.com/event-guidelines.html"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Event Guidelines
+                    {t('memberEvents.modal.guidelinesLink')}
                   </a>
                   .
                 </span>
               </label>
-              <small className="form-hint">You must accept the Event Guidelines before filling out the form.</small>
+              <small className="form-hint">
+                {t('memberEvents.modal.guidelinesHint')}
+              </small>
             </div>
             <fieldset className="event-create-fieldset" disabled={!hasAcceptedGuidelines}>
               <div className="form-group">
-                <label className="form-label">Event Title *</label>
+                <label className="form-label">
+                  {t('memberEvents.modal.titleLabel')}
+                </label>
               <input
                 type="text"
                 name="title"
@@ -773,7 +779,9 @@ const MemberEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description *</label>
+                <label className="form-label">
+                  {t('memberEvents.modal.descriptionLabel')}
+                </label>
               <textarea
                 name="description"
                 className="form-field"
@@ -784,7 +792,9 @@ const MemberEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Event Banner *</label>
+                <label className="form-label">
+                  {t('memberEvents.modal.bannerLabel')}
+                </label>
               <div className="event-banner-upload">
                 <input
                   ref={bannerInputRef}
@@ -796,12 +806,18 @@ const MemberEvents = () => {
                   required
                   aria-required
                 />
-                <span className="event-banner-upload-label">Choose banner image (required)</span>
+                <span className="event-banner-upload-label">
+                  {t('memberEvents.modal.bannerUploadLabel')}
+                </span>
               </div>
-              <small className="form-hint">Required. JPG, PNG or WebP. Max 5MB.</small>
+              <small className="form-hint">
+                {t('memberEvents.modal.bannerHint')}
+              </small>
             </div>
             <div className="form-group">
-              <label className="form-label">Date & Time *</label>
+              <label className="form-label">
+                {t('memberEvents.modal.dateTimeLabel')}
+              </label>
               <input
                 type="datetime-local"
                 name="date"
@@ -814,7 +830,9 @@ const MemberEvents = () => {
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">Duration (minutes) *</label>
+              <label className="form-label">
+                {t('memberEvents.modal.durationLabel')}
+              </label>
               <input
                 type="number"
                 name="duration"
@@ -827,7 +845,9 @@ const MemberEvents = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Capacity *</label>
+              <label className="form-label">
+                {t('memberEvents.modal.capacityLabel')}
+              </label>
               <input
                 type="number"
                 name="capacity"
@@ -837,27 +857,37 @@ const MemberEvents = () => {
                 max="80"
                 required
               />
-              <small className="form-hint">Maximum capacity is 80 (Main Hall)</small>
+              <small className="form-hint">
+                {t('memberEvents.modal.capacityHint')}
+              </small>
             </div>
             <div className="form-group">
-              <label className="form-label">Hosting Project(s)</label>
+              <label className="form-label">
+                {t('memberEvents.modal.hostingProjectsLabel')}
+              </label>
               <input
                 type="text"
                 name="hostingProjects"
                 className="form-field"
-                placeholder="e.g., Project Alpha, Project Beta"
+                placeholder={t('memberEvents.modal.hostingProjectsPlaceholder')}
               />
-              <small className="form-hint">Enter the name(s) of the project(s) hosting this event</small>
+              <small className="form-hint">
+                {t('memberEvents.modal.hostingProjectsHint')}
+              </small>
             </div>
             <div className="form-group">
-              <label className="form-label">Event Link</label>
+              <label className="form-label">
+                {t('memberEvents.modal.eventLinkLabel')}
+              </label>
               <input
                 type="url"
                 name="eventLink"
                 className="form-field"
-                placeholder="e.g., https://lu.ma/your-event"
+                placeholder={t('memberEvents.modal.eventLinkPlaceholder')}
               />
-              <small className="form-hint">Optional. Add a link to your event page (e.g. Lu.ma, Eventbrite)</small>
+              <small className="form-hint">
+                {t('memberEvents.modal.eventLinkHint')}
+              </small>
             </div>
             <div className="form-group">
               <label className="form-checkbox">
@@ -867,7 +897,7 @@ const MemberEvents = () => {
                   disabled
                   readOnly
                 />
-                <span>Request Event Space (Main Hall) booking</span>
+                <span>{t('memberEvents.modal.requestHallLabel')}</span>
               </label>
             </div>
             {linkAmenity && (() => {
@@ -878,15 +908,19 @@ const MemberEvents = () => {
               return (
               <>
                 <div className="event-hall-notice">
-                  <p><strong>Event Hall requirements:</strong></p>
+                  <p>
+                    <strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong>
+                  </p>
                   <ul>
-                    <li>$50 deposit required for cleaning and support</li>
+                    <li>{t('memberEvents.modal.hallRequirementsItem')}</li>
                   </ul>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Preferred Amenity</label>
+                  <label className="form-label">
+                    {t('memberEvents.modal.preferredAmenityLabel')}
+                  </label>
                   <select name="linkedAmenityId" className="form-field" defaultValue={defaultAmenity?.id ?? ''}>
-                    <option value="">Select amenity</option>
+                    <option value="">{t('memberEvents.modal.preferredAmenityPlaceholder')}</option>
                     {eventSpaceAmenities.map(amenity => (
                       <option key={amenity.id} value={amenity.id}>
                         {amenity.name} ({amenity.type})
@@ -895,12 +929,14 @@ const MemberEvents = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Additional Notes for Admin</label>
+                  <label className="form-label">
+                    {t('memberEvents.modal.additionalNotesLabel')}
+                  </label>
                   <input
                     type="text"
                     name="amenityNote"
                     className="form-field"
-                    placeholder="e.g., Need projector, extra chairs"
+                    placeholder={t('memberEvents.modal.additionalNotesPlaceholder')}
                   />
                 </div>
               </>
@@ -912,7 +948,9 @@ const MemberEvents = () => {
                 className="btn btn-primary"
                 disabled={createMutation.isPending || !!dateError}
               >
-                {createMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
+                {createMutation.isPending
+                  ? t('memberEvents.modal.submitting')
+                  : t('memberEvents.modal.submit')}
               </button>
             </div>
             </fieldset>
@@ -924,7 +962,7 @@ const MemberEvents = () => {
                   setIsModalOpen(false)
                 }}
               >
-                Cancel
+                {t('common.close')}
               </button>
             </div>
           </form>

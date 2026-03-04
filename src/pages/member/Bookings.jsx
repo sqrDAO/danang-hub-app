@@ -10,6 +10,7 @@ import { getBookings, createBooking, updateBooking, deleteBooking, createRecurri
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../components/Toast'
+import { useTranslation } from 'react-i18next'
 import './Bookings.css'
 
 const DEFAULT_DURATION_HOURS = {
@@ -20,6 +21,7 @@ const DEFAULT_DURATION_HOURS = {
 }
 
 const MemberBookings = () => {
+  const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -33,6 +35,7 @@ const MemberBookings = () => {
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
   const [alternativeSlots, setAlternativeSlots] = useState([])
+  const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
   const queryClient = useQueryClient()
 
   const { data: myBookings = [] } = useQuery({
@@ -436,29 +439,35 @@ const MemberBookings = () => {
         <Modal
           isOpen={isModalOpen}
           onClose={resetBookingForm}
-          title={`Book ${selectedAmenity?.name || 'Amenity'}`}
+          title={
+            selectedAmenity
+              ? t('memberBookings.modal.titleWithAmenity', { name: selectedAmenity.name })
+              : t('memberBookings.modal.titleFallback')
+          }
         >
           {selectedAmenity && (
             <>
               {bookingStep === 1 && (
                 <div className="booking-step">
                   <div className="form-group">
-                    <label className="form-label">Duration</label>
+                    <label className="form-label">
+                      {t('memberBookings.modal.duration')}
+                    </label>
                     <select
                       className="form-field"
                       value={duration}
                       onChange={(e) => setDuration(parseFloat(e.target.value))}
                     >
-                      <option value="0.5">30 minutes</option>
-                      <option value="1">1 hour</option>
-                      <option value="1.5">1.5 hours</option>
-                      <option value="2">2 hours</option>
-                      <option value="2.5">2.5 hours</option>
-                      <option value="3">3 hours</option>
-                      <option value="4">4 hours</option>
-                      <option value="5">5 hours</option>
-                      <option value="6">6 hours</option>
-                      <option value="8">Full day (8 hours)</option>
+                      <option value="0.5">{t('memberBookings.modal.duration30')}</option>
+                      <option value="1">{t('memberBookings.modal.duration1h')}</option>
+                      <option value="1.5">{t('memberBookings.modal.duration1h30')}</option>
+                      <option value="2">{t('memberBookings.modal.duration2h')}</option>
+                      <option value="2.5">{t('memberBookings.modal.duration2h30')}</option>
+                      <option value="3">{t('memberBookings.modal.duration3h')}</option>
+                      <option value="4">{t('memberBookings.modal.duration4h')}</option>
+                      <option value="5">{t('memberBookings.modal.duration5h')}</option>
+                      <option value="6">{t('memberBookings.modal.duration6h')}</option>
+                      <option value="8">{t('memberBookings.modal.durationFullDay')}</option>
                     </select>
                   </div>
                   
@@ -477,14 +486,15 @@ const MemberBookings = () => {
                       <p className="error-message">{conflictError}</p>
                       {alternativeSlots.length > 0 && (
                         <div className="alternative-slots">
-                          <p>Suggested alternative times:</p>
+                          <p>{t('memberBookings.modal.alternativesLabel')}</p>
                           {alternativeSlots.map((alt, index) => (
                             <button
                               key={index}
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleUseAlternative(alt)}
                             >
-                              {alt.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {alt.end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              {alt.start.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })} -{' '}
+                              {alt.end.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
                             </button>
                           ))}
                         </div>
@@ -494,12 +504,17 @@ const MemberBookings = () => {
 
                   {selectedStartTime && !conflictError && (
                     <div className="selected-time-info">
-                      <p>Selected: {selectedStartTime.toLocaleString()} - {selectedEndTime.toLocaleString()}</p>
+                      <p>
+                        {t('memberBookings.modal.selectedRange', {
+                          start: selectedStartTime.toLocaleString(locale),
+                          end: selectedEndTime.toLocaleString(locale)
+                        })}
+                      </p>
                       <button
                         className="btn btn-primary"
                         onClick={() => setBookingStep(2)}
                       >
-                        Continue to Confirm
+                        {t('memberBookings.modal.continue')}
                       </button>
                     </div>
                   )}
@@ -509,18 +524,23 @@ const MemberBookings = () => {
               {bookingStep === 2 && (
                 <div className="booking-step">
                   <div className="booking-summary">
-                    <h3>Booking Summary</h3>
+                    <h3>{t('memberBookings.modal.summaryTitle')}</h3>
                     <div className="summary-item">
-                      <strong>Amenity:</strong> {selectedAmenity.name}
+                      <strong>{t('memberBookings.modal.summaryAmenity')}</strong> {selectedAmenity.name}
                     </div>
                     <div className="summary-item">
-                      <strong>Start:</strong> {selectedStartTime?.toLocaleString()}
+                      <strong>{t('memberBookings.modal.summaryStart')}</strong>{' '}
+                      {selectedStartTime?.toLocaleString(locale)}
                     </div>
                     <div className="summary-item">
-                      <strong>End:</strong> {selectedEndTime?.toLocaleString()}
+                      <strong>{t('memberBookings.modal.summaryEnd')}</strong>{' '}
+                      {selectedEndTime?.toLocaleString(locale)}
                     </div>
                     <div className="summary-item">
-                      <strong>Duration:</strong> {duration >= 1 ? `${duration} hour${duration > 1 ? 's' : ''}` : `${duration * 60} minutes`}
+                      <strong>{t('memberBookings.modal.summaryDuration')}</strong>{' '}
+                      {duration >= 1
+                        ? t('memberBookings.modal.durationHours', { count: duration })
+                        : t('memberBookings.modal.durationMinutes', { count: duration * 60 })}
                     </div>
                   </div>
 
@@ -531,13 +551,29 @@ const MemberBookings = () => {
                         checked={!!recurrence}
                         onChange={handleRecurringToggle}
                       />
-                      <span>Make this a recurring booking</span>
+                      <span>{t('memberBookings.modal.recurringLabel')}</span>
                     </label>
                     {recurrence && (
                       <div className="recurrence-info">
-                        <p>Recurring: {recurrence.frequency}</p>
-                        {recurrence.endDate && <p>Until: {new Date(recurrence.endDate).toLocaleDateString()}</p>}
-                        {recurrence.occurrences && <p>Occurrences: {recurrence.occurrences}</p>}
+                        <p>
+                          {t('memberBookings.modal.recurringSummary', {
+                            frequency: recurrence.frequency
+                          })}
+                        </p>
+                        {recurrence.endDate && (
+                          <p>
+                            {t('memberBookings.modal.recurringUntil', {
+                              date: new Date(recurrence.endDate).toLocaleDateString(locale)
+                            })}
+                          </p>
+                        )}
+                        {recurrence.occurrences && (
+                          <p>
+                            {t('memberBookings.modal.recurringOccurrences', {
+                              count: recurrence.occurrences
+                            })}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -548,7 +584,7 @@ const MemberBookings = () => {
                       className="btn btn-secondary"
                       onClick={() => setBookingStep(1)}
                     >
-                      Back
+                      {t('memberBookings.modal.back')}
                     </button>
                     <button
                       type="button"
@@ -556,14 +592,16 @@ const MemberBookings = () => {
                       onClick={handleConfirmBooking}
                       disabled={createMutation.isPending || recurringMutation.isPending}
                     >
-                      {createMutation.isPending || recurringMutation.isPending ? 'Creating...' : 'Confirm Booking'}
+                      {createMutation.isPending || recurringMutation.isPending
+                        ? t('memberBookings.modal.creating')
+                        : t('memberBookings.modal.confirm')}
                     </button>
                     <button
                       type="button"
                       className="btn btn-secondary"
                       onClick={resetBookingForm}
                     >
-                      Cancel
+                      {t('common.close')}
                     </button>
                   </div>
                 </div>
@@ -571,19 +609,23 @@ const MemberBookings = () => {
 
               {bookingStep === 3 && (
                 <div className="booking-step">
-                  <h3>Recurring Booking Options</h3>
+                  <h3>{t('memberBookings.modal.recurringOptionsTitle')}</h3>
                   <form onSubmit={handleRecurringSubmit}>
                     <div className="form-group">
-                      <label className="form-label">Frequency</label>
+                      <label className="form-label">
+                        {t('memberBookings.modal.frequency')}
+                      </label>
                       <select name="frequency" className="form-field" required>
-                        <option value="">Select frequency</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
+                        <option value="">{t('memberBookings.modal.frequencyPlaceholder')}</option>
+                        <option value="daily">{t('memberBookings.modal.frequencyDaily')}</option>
+                        <option value="weekly">{t('memberBookings.modal.frequencyWeekly')}</option>
+                        <option value="monthly">{t('memberBookings.modal.frequencyMonthly')}</option>
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">End Date (optional)</label>
+                      <label className="form-label">
+                        {t('memberBookings.modal.endDateOptional')}
+                      </label>
                       <input
                         type="date"
                         name="endDate"
@@ -592,7 +634,9 @@ const MemberBookings = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Number of Occurrences (optional)</label>
+                      <label className="form-label">
+                        {t('memberBookings.modal.occurrencesOptional')}
+                      </label>
                       <input
                         type="number"
                         name="occurrences"
@@ -600,7 +644,9 @@ const MemberBookings = () => {
                         min="2"
                         max="52"
                       />
-                      <small className="form-hint">Leave empty if using end date</small>
+                      <small className="form-hint">
+                        {t('memberBookings.modal.occurrencesHint')}
+                      </small>
                     </div>
                     <div className="form-actions">
                       <button
@@ -608,10 +654,10 @@ const MemberBookings = () => {
                         className="btn btn-secondary"
                         onClick={() => setBookingStep(2)}
                       >
-                        Back
+                        {t('memberBookings.modal.back')}
                       </button>
                       <button type="submit" className="btn btn-primary">
-                        Set Recurrence
+                        {t('memberBookings.modal.setRecurrence')}
                       </button>
                     </div>
                   </form>
