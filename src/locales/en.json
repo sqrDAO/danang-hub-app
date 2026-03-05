@@ -216,8 +216,8 @@
     "upcomingBookings": "Upcoming Bookings",
     "upcomingEvents": "Upcoming Events",
     "availableAmenities": "Available Amenities",
-    "recentBookings": "Recent Bookings",
-    "noRecentBookings": "No recent bookings",
+    "recentBookings": "Upcoming Bookings",
+    "noRecentBookings": "No upcoming bookings",
     "noUpcomingEvents": "No upcoming events",
     "untitledEvent": "Untitled Event",
     "organizer": "Organizer: {{name}}",
@@ -245,7 +245,11 @@
     "attending": "✓ Attending",
     "onWaitlist": "On waitlist",
     "onWaitlistPosition": "On waitlist #{{position}}",
-    "at": "at"
+    "at": "at",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageOf": "Page {{current}} of {{total}}",
+    "showingRange": "Showing {{from}}–{{to}} of {{total}} bookings"
   },
   "adminMembers": {
     "title": "Members",

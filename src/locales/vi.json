@@ -215,8 +215,8 @@
     "upcomingBookings": "Đặt chỗ sắp tới",
     "upcomingEvents": "Sự kiện sắp tới",
     "availableAmenities": "Tiện ích khả dụng",
-    "recentBookings": "Đặt chỗ gần đây",
-    "noRecentBookings": "Chưa có đặt chỗ gần đây",
+    "recentBookings": "Đặt chỗ sắp tới",
+    "noRecentBookings": "Chưa có đặt chỗ sắp tới",
     "noUpcomingEvents": "Chưa có sự kiện sắp tới",
     "untitledEvent": "Sự kiện chưa đặt tên",
     "organizer": "Người tổ chức: {{name}}",
@@ -244,7 +244,11 @@
     "attending": "✓ Đang tham gia",
     "onWaitlist": "Trong danh sách chờ",
     "onWaitlistPosition": "Trong danh sách chờ #{{position}}",
-    "at": "lúc"
+    "at": "lúc",
+    "prevPage": "Trước",
+    "nextPage": "Sau",
+    "pageOf": "Trang {{current}} / {{total}}",
+    "showingRange": "Hiển thị {{from}}–{{to}} trên tổng {{total}} đặt chỗ"
   },
   "adminMembers": {
     "title": "Thành viên",

@@ -19,6 +19,8 @@ const MemberDashboard = () => {
   const { currentUser } = useAuth()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [showCalendar, setShowCalendar] = useState(false)
+  const [bookingsPage, setBookingsPage] = useState(1)
+  const BOOKINGS_PAGE_SIZE = 10
   
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
@@ -41,10 +43,39 @@ const MemberDashboard = () => {
     queryFn: getMembers
   })
 
-  const upcomingBookings = myBookings
-    .filter(b => b.status === 'pending' || b.status === 'approved' || b.status === 'checked-in')
-    .filter(b => new Date(b.startTime) > new Date())
-    .slice(0, 5)
+  const todayStart = (() => {
+    const now = new Date()
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    return start
+  })()
+
+  const upcomingBookingsAll = myBookings
+    .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))
+    .filter(b => {
+      if (!b.startTime) return false
+      const start = b.startTime instanceof Date ? b.startTime : new Date(b.startTime)
+      const dayStart = new Date(start)
+      dayStart.setHours(0, 0, 0, 0)
+      return dayStart >= todayStart
+    })
+
+  const sortedUpcomingBookings = [...upcomingBookingsAll].sort((a, b) => {
+    const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
+    const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
+
+    if (!aStart && !bStart) return 0
+    if (!aStart) return 1
+    if (!bStart) return -1
+    return aStart - bStart
+  })
+
+  const totalUpcomingBookings = sortedUpcomingBookings.length
+  const totalBookingsPages = Math.max(1, Math.ceil(totalUpcomingBookings / BOOKINGS_PAGE_SIZE))
+  const safeBookingsPage = Math.min(bookingsPage, totalBookingsPages)
+  const bookingsStartIndex = (safeBookingsPage - 1) * BOOKINGS_PAGE_SIZE
+  const bookingsEndIndex = bookingsStartIndex + BOOKINGS_PAGE_SIZE
+  const paginatedUpcomingBookings = sortedUpcomingBookings.slice(bookingsStartIndex, bookingsEndIndex)
 
   const upcomingEvents = events
     .filter(e => {
@@ -90,7 +121,7 @@ const MemberDashboard = () => {
         
         <div className="stats-grid">
           <div className="stat-card glass">
-            <h3 className="stat-value">{upcomingBookings.length}</h3>
+            <h3 className="stat-value">{totalUpcomingBookings}</h3>
             <p className="stat-label">{t('memberDashboard.upcomingBookings')}</p>
           </div>
           <div className="stat-card glass">
@@ -116,9 +147,9 @@ const MemberDashboard = () => {
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
             <h2 className="section-title">{t('memberDashboard.myUpcomingBookings')}</h2>
-            {upcomingBookings.length > 0 ? (
+            {paginatedUpcomingBookings.length > 0 ? (
               <ul className="booking-list">
-                {upcomingBookings.map(booking => {
+                {paginatedUpcomingBookings.map(booking => {
                   const amenity = amenities.find(a => a.id === booking.amenityId)
                   return (
                     <li key={booking.id} className="booking-item">
@@ -160,6 +191,39 @@ const MemberDashboard = () => {
               </ul>
             ) : (
               <p className="empty-state">{t('memberDashboard.noUpcomingBookings')}</p>
+            )}
+
+            {totalUpcomingBookings > BOOKINGS_PAGE_SIZE && (
+              <div className="dashboard-bookings-pagination">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setBookingsPage(prev => Math.max(1, prev - 1))}
+                  disabled={safeBookingsPage === 1}
+                >
+                  {t('memberDashboard.prevPage')}
+                </button>
+                <div className="dashboard-bookings-pagination-info">
+                  <span className="dashboard-bookings-page">
+                    {t('memberDashboard.pageOf', { current: safeBookingsPage, total: totalBookingsPages })}
+                  </span>
+                  <span className="dashboard-bookings-range">
+                    {t('memberDashboard.showingRange', {
+                      from: totalUpcomingBookings === 0 ? 0 : bookingsStartIndex + 1,
+                      to: Math.min(bookingsEndIndex, totalUpcomingBookings),
+                      total: totalUpcomingBookings
+                    })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setBookingsPage(prev => Math.min(totalBookingsPages, prev + 1))}
+                  disabled={safeBookingsPage === totalBookingsPages}
+                >
+                  {t('memberDashboard.nextPage')}
+                </button>
+              </div>
             )}
           </div>
 

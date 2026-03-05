@@ -353,6 +353,37 @@
   padding: var(--spacing-lg);
 }
 
+.dashboard-bookings-pagination {
+  margin-top: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.dashboard-bookings-pagination-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.dashboard-bookings-page {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .dashboard-bookings-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;

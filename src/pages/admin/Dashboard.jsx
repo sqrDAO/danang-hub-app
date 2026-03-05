@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -14,6 +15,8 @@ const DESCRIPTION_MAX_LENGTH = 120
 const AdminDashboard = () => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const [recentBookingsPage, setRecentBookingsPage] = useState(1)
+  const RECENT_BOOKINGS_PAGE_SIZE = 5
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
@@ -36,18 +39,47 @@ const AdminDashboard = () => {
   })
 
   const now = new Date()
+  const todayStart = new Date(now)
+  todayStart.setHours(0, 0, 0, 0)
+
   const stats = {
     totalMembers: members.length,
     activeBookings: bookings.filter(b => b.status === 'checked-in' || b.status === 'pending').length,
     upcomingBookings: bookings.filter(b => {
       const startTime = b.startTime ? new Date(b.startTime) : null
-      return (b.status === 'approved' || b.status === 'pending') && startTime && startTime > now
+      if (!startTime) return false
+      const bookingDayStart = new Date(startTime)
+      bookingDayStart.setHours(0, 0, 0, 0)
+      return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
     upcomingEvents: events.filter(e => new Date(e.date) > new Date()).length,
     availableAmenities: amenities.filter(a => a.isAvailable !== false).length
   }
 
-  const recentBookings = bookings.slice(0, 5)
+  const upcomingBookingsForList = bookings.filter(booking => {
+    if (!booking.startTime) return false
+    const start = booking.startTime instanceof Date ? booking.startTime : new Date(booking.startTime)
+    const bookingDayStart = new Date(start)
+    bookingDayStart.setHours(0, 0, 0, 0)
+    return bookingDayStart >= todayStart
+  })
+
+  const recentBookingsSorted = [...upcomingBookingsForList].sort((a, b) => {
+    const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
+    const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
+
+    if (!aStart && !bStart) return 0
+    if (!aStart) return 1
+    if (!bStart) return -1
+    return aStart - bStart
+  })
+
+  const totalRecentBookings = recentBookingsSorted.length
+  const totalRecentBookingsPages = Math.max(1, Math.ceil(totalRecentBookings / RECENT_BOOKINGS_PAGE_SIZE))
+  const safeRecentBookingsPage = Math.min(recentBookingsPage, totalRecentBookingsPages)
+  const recentStartIndex = (safeRecentBookingsPage - 1) * RECENT_BOOKINGS_PAGE_SIZE
+  const recentEndIndex = recentStartIndex + RECENT_BOOKINGS_PAGE_SIZE
+  const recentBookingsPageItems = recentBookingsSorted.slice(recentStartIndex, recentEndIndex)
   const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).slice(0, 5)
 
   const getOrganizerName = (organizerId) => {
@@ -93,9 +125,9 @@ const AdminDashboard = () => {
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
             <h2 className="section-title">{t('adminDashboard.recentBookings')}</h2>
-            {recentBookings.length > 0 ? (
+            {recentBookingsPageItems.length > 0 ? (
               <ul className="booking-list">
-                {recentBookings.map(booking => {
+                {recentBookingsPageItems.map(booking => {
                   const member = members.find(m => m.id === booking.memberId)
                   const amenity = amenities.find(a => a.id === booking.amenityId)
                   return (
@@ -130,6 +162,39 @@ const AdminDashboard = () => {
               </ul>
             ) : (
               <p className="empty-state">{t('adminDashboard.noRecentBookings')}</p>
+            )}
+
+            {totalRecentBookings > RECENT_BOOKINGS_PAGE_SIZE && (
+              <div className="dashboard-recent-pagination">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setRecentBookingsPage(prev => Math.max(1, prev - 1))}
+                  disabled={safeRecentBookingsPage === 1}
+                >
+                  {t('adminBookings.prevPage')}
+                </button>
+                <div className="dashboard-recent-pagination-info">
+                  <span className="dashboard-recent-page">
+                    {t('adminBookings.pageOf', { current: safeRecentBookingsPage, total: totalRecentBookingsPages })}
+                  </span>
+                  <span className="dashboard-recent-range">
+                    {t('adminBookings.showingRange', {
+                      from: totalRecentBookings === 0 ? 0 : recentStartIndex + 1,
+                      to: Math.min(recentEndIndex, totalRecentBookings),
+                      total: totalRecentBookings
+                    })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setRecentBookingsPage(prev => Math.min(totalRecentBookingsPages, prev + 1))}
+                  disabled={safeRecentBookingsPage === totalRecentBookingsPages}
+                >
+                  {t('adminBookings.nextPage')}
+                </button>
+              </div>
             )}
           </div>
 
