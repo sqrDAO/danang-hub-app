@@ -436,7 +436,7 @@
       "summaryStart": "Start:",
       "summaryEnd": "End:",
       "summaryDuration": "Duration:",
-      "durationHours": "{{count}} hour{{count, plural, one {} other {s}}}",
+      "durationHours": "{{count}} hours",
       "durationMinutes": "{{count}} minutes",
       "recurringLabel": "Make this a recurring booking",
       "recurringSummary": "Recurring: {{frequency}}",

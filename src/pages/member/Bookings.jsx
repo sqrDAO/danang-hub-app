@@ -35,6 +35,7 @@ const MemberBookings = () => {
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
   const [alternativeSlots, setAlternativeSlots] = useState([])
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
   const queryClient = useQueryClient()
 
@@ -227,6 +228,7 @@ const MemberBookings = () => {
 
   const handleConfirmBooking = async () => {
     if (!selectedStartTime || !selectedEndTime || !selectedAmenity) return
+    if (isSubmittingBooking) return
 
     // Final conflict check
     try {
@@ -252,12 +254,20 @@ const MemberBookings = () => {
       endTime: selectedEndTime.toISOString()
     }
 
-    if (recurrence) {
-      // Create recurring bookings
-      recurringMutation.mutate({ baseBooking, recurrence })
-    } else {
-      // Create single booking
-      createMutation.mutate(baseBooking)
+    setIsSubmittingBooking(true)
+    try {
+      if (recurrence) {
+        // Create recurring bookings
+        await recurringMutation.mutateAsync({ baseBooking, recurrence })
+      } else {
+        // Create single booking
+        await createMutation.mutateAsync(baseBooking)
+      }
+    } catch (error) {
+      // Errors are already surfaced via mutation onError/toast
+      console.error('Booking submission error:', error)
+    } finally {
+      setIsSubmittingBooking(false)
     }
   }
 
@@ -283,6 +293,13 @@ const MemberBookings = () => {
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)
   const upcomingBookings = myBookings.filter(b => new Date(b.startTime) > new Date())
   const pastBookings = myBookings.filter(b => new Date(b.startTime) <= new Date())
+
+  const getMinRecurringEndDate = () => {
+    const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
+    base.setMonth(base.getMonth() + 1)
+    base.setHours(0, 0, 0, 0)
+    return base.toISOString().split('T')[0]
+  }
 
   return (
     <Layout>
@@ -590,9 +607,9 @@ const MemberBookings = () => {
                       type="button"
                       className="btn btn-primary"
                       onClick={handleConfirmBooking}
-                      disabled={createMutation.isPending || recurringMutation.isPending}
+                      disabled={isSubmittingBooking || createMutation.isPending || recurringMutation.isPending}
                     >
-                      {createMutation.isPending || recurringMutation.isPending
+                      {isSubmittingBooking || createMutation.isPending || recurringMutation.isPending
                         ? t('memberBookings.modal.creating')
                         : t('memberBookings.modal.confirm')}
                     </button>
@@ -615,12 +632,33 @@ const MemberBookings = () => {
                       <label className="form-label">
                         {t('memberBookings.modal.frequency')}
                       </label>
-                      <select name="frequency" className="form-field" required>
-                        <option value="">{t('memberBookings.modal.frequencyPlaceholder')}</option>
-                        <option value="daily">{t('memberBookings.modal.frequencyDaily')}</option>
-                        <option value="weekly">{t('memberBookings.modal.frequencyWeekly')}</option>
-                        <option value="monthly">{t('memberBookings.modal.frequencyMonthly')}</option>
-                      </select>
+                      <div className="recurring-frequency-options">
+                        <label className="form-checkbox">
+                          <input
+                            type="radio"
+                            name="frequency"
+                            value="daily"
+                            required
+                          />
+                          <span>{t('memberBookings.modal.frequencyDaily')}</span>
+                        </label>
+                        <label className="form-checkbox">
+                          <input
+                            type="radio"
+                            name="frequency"
+                            value="weekly"
+                          />
+                          <span>{t('memberBookings.modal.frequencyWeekly')}</span>
+                        </label>
+                        <label className="form-checkbox">
+                          <input
+                            type="radio"
+                            name="frequency"
+                            value="monthly"
+                          />
+                          <span>{t('memberBookings.modal.frequencyMonthly')}</span>
+                        </label>
+                      </div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">
@@ -630,7 +668,8 @@ const MemberBookings = () => {
                         type="date"
                         name="endDate"
                         className="form-field"
-                        min={selectedDate.toISOString().split('T')[0]}
+                        min={getMinRecurringEndDate()}
+                        defaultValue={getMinRecurringEndDate()}
                       />
                     </div>
                     <div className="form-group">
