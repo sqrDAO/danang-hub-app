@@ -263,6 +263,13 @@
   "adminBookings": {
     "title": "Đặt chỗ",
     "allStatus": "Tất cả trạng thái",
+    "allCategories": "Tất cả loại tiện ích",
+    "searchByMember": "Tìm theo tên thành viên",
+    "showPast": "Hiện đặt chỗ đã qua",
+    "prevPage": "Trước",
+    "nextPage": "Sau",
+    "pageOf": "Trang {{current}} / {{total}}",
+    "showingRange": "Hiển thị {{from}}–{{to}} trên tổng {{total}} đặt chỗ",
     "pending": "Chờ duyệt",
     "approved": "Đã duyệt",
     "checkedIn": "Đã Check In",
@@ -279,6 +286,12 @@
     "checkInSameDay": "Chỉ được Check In trong cùng ngày với lịch đặt chỗ",
     "checkOutSameDay": "Chỉ được Check Out trong cùng ngày với lịch đặt chỗ",
     "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?"
+  },
+  "amenityTypes": {
+    "desk": "Bàn làm việc",
+    "meeting-room": "Phòng họp",
+    "podcast-room": "Phòng thu podcast",
+    "event-space": "Không gian sự kiện"
   },
   "adminEvents": {
     "title": "Quản lý sự kiện",

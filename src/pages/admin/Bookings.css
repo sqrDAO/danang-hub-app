@@ -3,6 +3,51 @@
   overflow-x: auto;
 }
 
+.page-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0.25rem;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.12), transparent 55%);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+}
+
+.page-filters .form-field {
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding-inline: 1rem;
+}
+
+.filter-input {
+  min-width: 220px;
+}
+
+.show-past-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-inline: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.show-past-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 768px) {
+  .page-filters {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: var(--border-radius);
+  }
+}
+
 .bookings-table {
   width: 100%;
   border-collapse: collapse;
@@ -120,6 +165,37 @@
 
 .booking-card-mobile-actions .btn {
   width: 100%;
+}
+
+.bookings-pagination {
+  margin-top: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.bookings-pagination .pagination-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.bookings-pagination .pagination-page {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .bookings-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 768px) {

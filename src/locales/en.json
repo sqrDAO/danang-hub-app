@@ -264,6 +264,13 @@
   "adminBookings": {
     "title": "Bookings",
     "allStatus": "All Status",
+    "allCategories": "All Categories",
+    "searchByMember": "Search by member name",
+    "showPast": "Show past bookings",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageOf": "Page {{current}} of {{total}}",
+    "showingRange": "Showing {{from}}–{{to}} of {{total}} bookings",
     "pending": "Pending",
     "approved": "Approved",
     "checkedIn": "Checked In",
@@ -280,6 +287,12 @@
     "checkInSameDay": "Check In is only allowed on the same day as the booking",
     "checkOutSameDay": "Check Out is only allowed on the same day as the booking",
     "confirmDelete": "Are you sure you want to delete this booking?"
+  },
+  "amenityTypes": {
+    "desk": "Desk",
+    "meeting-room": "Meeting Room",
+    "podcast-room": "Podcast Room",
+    "event-space": "Event Space"
   },
   "adminEvents": {
     "title": "Events Management",

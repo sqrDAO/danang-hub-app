@@ -12,6 +12,11 @@ const AdminBookings = () => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [statusFilter, setStatusFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [memberSearch, setMemberSearch] = useState('')
+  const [showPastBookings, setShowPastBookings] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const queryClient = useQueryClient()
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -67,6 +72,11 @@ const AdminBookings = () => {
     return amenity?.name || amenityId
   }
 
+  const getAmenityCategory = (amenityId) => {
+    const amenity = amenities.find(a => a.id === amenityId)
+    return amenity?.type || null
+  }
+
   const isSameDayAsBooking = (booking) => {
     if (!booking?.startTime) return false
     const bookingDate = new Date(booking.startTime)
@@ -102,9 +112,93 @@ const AdminBookings = () => {
     }
   }
 
-  const filteredBookings = statusFilter === 'all' 
-    ? bookings 
-    : bookings.filter(b => b.status === statusFilter)
+  const normalizedMemberSearch = memberSearch.trim().toLowerCase()
+  const now = new Date()
+  const todayStart = new Date(now)
+  todayStart.setHours(0, 0, 0, 0)
+
+  const filteredBookings = bookings.filter((booking) => {
+    if (statusFilter !== 'all' && booking.status !== statusFilter) {
+      return false
+    }
+
+    if (categoryFilter !== 'all') {
+      const category = getAmenityCategory(booking.amenityId)
+      if (category !== categoryFilter) {
+        return false
+      }
+    }
+
+    if (normalizedMemberSearch) {
+      const memberName = getMemberName(booking.memberId).toLowerCase()
+      if (!memberName.includes(normalizedMemberSearch)) {
+        return false
+      }
+    }
+
+    if (!showPastBookings && booking.startTime) {
+      const bookingStart = booking.startTime instanceof Date
+        ? booking.startTime
+        : new Date(booking.startTime)
+      const bookingDayStart = new Date(bookingStart)
+      bookingDayStart.setHours(0, 0, 0, 0)
+
+      if (bookingDayStart < todayStart) {
+        return false
+      }
+    }
+
+    return true
+  })
+
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
+    const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
+    const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
+
+    if (!aStart && !bStart) return 0
+    if (!aStart) return 1
+    if (!bStart) return -1
+    return aStart - bStart
+  })
+
+  const totalBookings = sortedBookings.length
+  const totalPages = Math.max(1, Math.ceil(totalBookings / pageSize))
+  const safePage = Math.min(currentPage, totalPages)
+  const startIndex = (safePage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedBookings = sortedBookings.slice(startIndex, endIndex)
+
+  const handlePageChange = (direction) => {
+    setCurrentPage((prev) => {
+      if (direction === 'prev') {
+        return Math.max(1, prev - 1)
+      }
+      if (direction === 'next') {
+        return Math.min(totalPages, prev + 1)
+      }
+      return prev
+    })
+  }
+
+  const handleFilterChangeWrapper = (setter) => (value) => {
+    setter(value)
+    setCurrentPage(1)
+  }
+
+  const handleStatusFilterChange = handleFilterChangeWrapper(setStatusFilter)
+  const handleCategoryFilterChange = handleFilterChangeWrapper(setCategoryFilter)
+  const handleSearchChange = (value) => {
+    setMemberSearch(value)
+    setCurrentPage(1)
+  }
+  const handleShowPastChange = (checked) => {
+    setShowPastBookings(checked)
+    setCurrentPage(1)
+  }
+
+  const amenityCategories = Array.from(
+    new Set(amenities.map((amenity) => amenity.type).filter(Boolean))
+  )
 
   if (isLoading) {
     return (
@@ -121,18 +215,49 @@ const AdminBookings = () => {
       <div className="container">
         <div className="page-header">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
-          <select 
-            className="form-field filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">{t('adminBookings.allStatus')}</option>
-            <option value="pending">{t('adminBookings.pending')}</option>
-            <option value="approved">{t('adminBookings.approved')}</option>
-            <option value="checked-in">{t('adminBookings.checkedIn')}</option>
-            <option value="completed">{t('adminBookings.completed')}</option>
-            <option value="cancelled">{t('adminBookings.cancelled')}</option>
-          </select>
+          <div className="page-filters">
+            <select 
+              className="form-field filter-select"
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+            >
+              <option value="all">{t('adminBookings.allStatus')}</option>
+              <option value="pending">{t('adminBookings.pending')}</option>
+              <option value="approved">{t('adminBookings.approved')}</option>
+              <option value="checked-in">{t('adminBookings.checkedIn')}</option>
+              <option value="completed">{t('adminBookings.completed')}</option>
+              <option value="cancelled">{t('adminBookings.cancelled')}</option>
+            </select>
+
+            <select
+              className="form-field filter-select"
+              value={categoryFilter}
+              onChange={(e) => handleCategoryFilterChange(e.target.value)}
+            >
+              <option value="all">{t('adminBookings.allCategories')}</option>
+              {amenityCategories.map((category) => (
+                <option key={category} value={category}>
+                  {t(`amenityTypes.${category}`)}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              className="form-field filter-input"
+              placeholder={t('adminBookings.searchByMember')}
+              value={memberSearch}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+            <label className="form-checkbox show-past-toggle">
+              <input
+                type="checkbox"
+                checked={showPastBookings}
+                onChange={(e) => handleShowPastChange(e.target.checked)}
+              />
+              <span>{t('adminBookings.showPast')}</span>
+            </label>
+          </div>
         </div>
 
         <div className="bookings-table-container glass">
@@ -148,7 +273,7 @@ const AdminBookings = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredBookings.map(booking => (
+              {paginatedBookings.map(booking => (
                 <tr key={booking.id}>
                   <td>{getMemberName(booking.memberId)}</td>
                   <td>{getAmenityName(booking.amenityId)}</td>
@@ -212,7 +337,7 @@ const AdminBookings = () => {
 
           {/* Mobile Card Layout */}
           <div className="bookings-mobile-list">
-            {filteredBookings.map(booking => (
+            {paginatedBookings.map(booking => (
               <div key={booking.id} className="booking-card-mobile">
                 <div className="booking-card-mobile-header">
                   <div className="booking-card-mobile-title">
@@ -280,6 +405,37 @@ const AdminBookings = () => {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="bookings-pagination">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handlePageChange('prev')}
+              disabled={safePage === 1}
+            >
+              {t('adminBookings.prevPage')}
+            </button>
+            <div className="pagination-info">
+              <span className="pagination-page">
+                {t('adminBookings.pageOf', { current: safePage, total: totalPages })}
+              </span>
+              <span className="pagination-range">
+                {t('adminBookings.showingRange', {
+                  from: totalBookings === 0 ? 0 : startIndex + 1,
+                  to: Math.min(endIndex, totalBookings),
+                  total: totalBookings
+                })}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handlePageChange('next')}
+              disabled={safePage === totalPages}
+            >
+              {t('adminBookings.nextPage')}
+            </button>
           </div>
         </div>
       </div>
