@@ -83,7 +83,13 @@ const MemberBookings = () => {
   })
 
   const recurringMutation = useMutation({
-    mutationFn: ({ baseBooking, recurrence }) => createRecurringBooking(baseBooking, recurrence, checkBookingConflicts),
+    mutationFn: ({ baseBooking, recurrence }) =>
+      createRecurringBooking(
+        baseBooking,
+        recurrence,
+        checkBookingConflicts,
+        { allowedWeekdays: selectedAmenity?.availableDays }
+      ),
     onSuccess: (result) => {
       queryClient.invalidateQueries(['bookings'])
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
