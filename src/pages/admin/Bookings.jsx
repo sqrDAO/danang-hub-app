@@ -7,6 +7,7 @@ import { getBookings, updateBooking, deleteBooking, checkIn, checkOut } from '..
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import './Bookings.css'
+import { formatDateDDMMYYYY } from '../../utils/timezone'
 
 const AdminBookings = () => {
   const { t, i18n } = useTranslation()
@@ -277,8 +278,8 @@ const AdminBookings = () => {
                 <tr key={booking.id}>
                   <td>{getMemberName(booking.memberId)}</td>
                   <td>{getAmenityName(booking.amenityId)}</td>
-                  <td>{booking.startTime?.toLocaleString(locale) || t('common.na')}</td>
-                  <td>{booking.endTime?.toLocaleString(locale) || t('common.na')}</td>
+                  <td>{booking.startTime ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
+                  <td>{booking.endTime ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
                   <td>
                     <span className={`status-badge ${booking.status}`}>
                       {t(`status.${booking.status || 'pending'}`)}
@@ -353,11 +354,19 @@ const AdminBookings = () => {
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.startTime')}</div>
-                  <div className="booking-card-mobile-value">{booking.startTime?.toLocaleString(locale) || t('common.na')}</div>
+                  <div className="booking-card-mobile-value">
+                    {booking.startTime
+                      ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
+                      : t('common.na')}
+                  </div>
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.endTime')}</div>
-                  <div className="booking-card-mobile-value">{booking.endTime?.toLocaleString(locale) || t('common.na')}</div>
+                  <div className="booking-card-mobile-value">
+                    {booking.endTime
+                      ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
+                      : t('common.na')}
+                  </div>
                 </div>
                 <div className="booking-card-mobile-actions">
                   {booking.status === 'pending' && (

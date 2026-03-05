@@ -9,7 +9,7 @@ import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { getMembers } from '../../services/members'
-import { formatEventDate, formatEventTime } from '../../utils/timezone'
+import { formatEventDate, formatEventTime, formatDateDDMMYYYY } from '../../utils/timezone'
 import './Dashboard.css'
 
 const DESCRIPTION_MAX_LENGTH = 120
@@ -171,11 +171,7 @@ const MemberDashboard = () => {
                         </span>
                         <div className="booking-time-info">
                           <span className="booking-time">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleDateString(locale, {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            }) : 'N/A'}
+                            {booking.startTime ? formatDateDDMMYYYY(booking.startTime) : 'N/A'}
                           </span>
                           <span className="booking-time-small">
                             {booking.startTime ? new Date(booking.startTime).toLocaleTimeString(locale, {

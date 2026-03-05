@@ -44,12 +44,24 @@ export function formatEventDateTime(date, options = {}) {
 }
 
 /**
+ * Format a date as dd/mm/yyyy in hub timezone.
+ */
+export function formatDateDDMMYYYY(date) {
+  if (!date) return 'N/A'
+  const d = date instanceof Date ? date : new Date(date)
+  return d.toLocaleDateString('en-GB', {
+    timeZone: HUB_TIMEZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+/**
  * Format date only for display in hub timezone.
  */
 export function formatEventDate(date) {
-  if (!date) return 'N/A'
-  const d = date instanceof Date ? date : new Date(date)
-  return d.toLocaleDateString('en-US', { timeZone: HUB_TIMEZONE })
+  return formatDateDDMMYYYY(date)
 }
 
 /**

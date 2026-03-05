@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
+import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
@@ -497,7 +498,7 @@ const MemberProfile = () => {
                   <span className="detail-label">{t('profile.memberSince')}</span>
                   <span className="detail-value">
                     {userProfile.createdAt
-                      ? `${new Date(userProfile.createdAt).toLocaleDateString(locale)} (${formatMemberSince(userProfile.createdAt, t)})`
+                      ? `${formatDateDDMMYYYY(userProfile.createdAt)} (${formatMemberSince(userProfile.createdAt, t)})`
                       : t('common.na')}
                   </span>
                 </div>

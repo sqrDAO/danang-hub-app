@@ -11,6 +11,7 @@ import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../components/Toast'
 import { useTranslation } from 'react-i18next'
+import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
 
 const DEFAULT_DURATION_HOURS = {
@@ -297,6 +298,14 @@ const MemberBookings = () => {
   }
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)
+
+  const formatDateTimeForDisplay = (value) => {
+    if (!value) return t('common.na')
+    const d = value instanceof Date ? value : new Date(value)
+    const datePart = formatDateDDMMYYYY(d)
+    const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    return `${datePart} ${timePart}`
+  }
   const upcomingBookings = myBookings.filter(b => new Date(b.startTime) > new Date())
   const pastBookings = myBookings.filter(b => new Date(b.startTime) <= new Date())
 
@@ -388,8 +397,12 @@ const MemberBookings = () => {
                         })() : null}
                       </div>
                       <div className="booking-time-section">
-                        <p className="booking-time">{t('memberBookings.start')} {booking.startTime ? new Date(booking.startTime).toLocaleString(locale) : t('common.na')}</p>
-                        <p className="booking-time">{t('memberBookings.end')} {booking.endTime ? new Date(booking.endTime).toLocaleString(locale) : t('common.na')}</p>
+                        <p className="booking-time">
+                          {t('memberBookings.start')} {formatDateTimeForDisplay(booking.startTime)}
+                        </p>
+                        <p className="booking-time">
+                          {t('memberBookings.end')} {formatDateTimeForDisplay(booking.endTime)}
+                        </p>
                       </div>
                     </div>
                     <div className="booking-actions">
@@ -446,8 +459,12 @@ const MemberBookings = () => {
                         })() : null}
                       </div>
                       <div className="booking-time-section">
-                        <p className="booking-time">{t('memberBookings.start')} {booking.startTime ? new Date(booking.startTime).toLocaleString(locale) : t('common.na')}</p>
-                        <p className="booking-time">{t('memberBookings.end')} {booking.endTime ? new Date(booking.endTime).toLocaleString(locale) : t('common.na')}</p>
+                        <p className="booking-time">
+                          {t('memberBookings.start')} {formatDateTimeForDisplay(booking.startTime)}
+                        </p>
+                        <p className="booking-time">
+                          {t('memberBookings.end')} {formatDateTimeForDisplay(booking.endTime)}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -529,8 +546,8 @@ const MemberBookings = () => {
                     <div className="selected-time-info">
                       <p>
                         {t('memberBookings.modal.selectedRange', {
-                          start: selectedStartTime.toLocaleString(locale),
-                          end: selectedEndTime.toLocaleString(locale)
+                          start: formatDateTimeForDisplay(selectedStartTime),
+                          end: formatDateTimeForDisplay(selectedEndTime)
                         })}
                       </p>
                       <button
@@ -553,11 +570,11 @@ const MemberBookings = () => {
                     </div>
                     <div className="summary-item">
                       <strong>{t('memberBookings.modal.summaryStart')}</strong>{' '}
-                      {selectedStartTime?.toLocaleString(locale)}
+                      {selectedStartTime ? formatDateTimeForDisplay(selectedStartTime) : t('common.na')}
                     </div>
                     <div className="summary-item">
                       <strong>{t('memberBookings.modal.summaryEnd')}</strong>{' '}
-                      {selectedEndTime?.toLocaleString(locale)}
+                      {selectedEndTime ? formatDateTimeForDisplay(selectedEndTime) : t('common.na')}
                     </div>
                     <div className="summary-item">
                       <strong>{t('memberBookings.modal.summaryDuration')}</strong>{' '}
@@ -586,7 +603,7 @@ const MemberBookings = () => {
                         {recurrence.endDate && (
                           <p>
                             {t('memberBookings.modal.recurringUntil', {
-                              date: new Date(recurrence.endDate).toLocaleDateString(locale)
+                              date: formatDateDDMMYYYY(recurrence.endDate)
                             })}
                           </p>
                         )}

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
+import { formatEventDate } from '../utils/timezone'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import { getAmenities } from '../services/amenities'
@@ -227,15 +228,7 @@ const Home = () => {
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">
-                        {event.date ? (() => {
-                          const d = event.date instanceof Date ? event.date : new Date(event.date)
-                          return d.toLocaleDateString(locale, {
-                            timeZone: 'Asia/Ho_Chi_Minh',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })
-                        })() : null}
+                        {event.date ? formatEventDate(event.date) : null}
                       </p>
                       {event.duration && (
                         <p className="event-preview-duration">
@@ -311,15 +304,7 @@ const Home = () => {
                     <div>
                       <h4 className="event-preview-title">{event.title}</h4>
                       <p className="event-preview-date">
-                        {event.date ? (() => {
-                          const d = event.date instanceof Date ? event.date : new Date(event.date)
-                          return d.toLocaleDateString(locale, {
-                            timeZone: 'Asia/Ho_Chi_Minh',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })
-                        })() : null}
+                        {event.date ? formatEventDate(event.date) : null}
                       </p>
                       {event.hostingProjects && (
                         <p className="event-preview-projects">

@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import { getMembers, getMemberStats, updateMember, deleteMember } from '../../services/members'
 import './Members.css'
+import { formatDateDDMMYYYY } from '../../utils/timezone'
 import '../member/Profile.css'
 
 const walletChainLabel = (address) =>
@@ -145,7 +146,7 @@ const AdminMembers = () => {
                       {t(`status.${member.membershipType || 'member'}`)}
                     </span>
                   </td>
-                  <td>{member.createdAt ? new Date(member.createdAt).toLocaleDateString(locale) : t('common.na')}</td>
+                  <td>{member.createdAt ? formatDateDDMMYYYY(member.createdAt) : t('common.na')}</td>
                   <td>
                     <div className="action-buttons">
                       <button 
@@ -197,7 +198,7 @@ const AdminMembers = () => {
                 <div className="member-card-mobile-field">
                   <div className="member-card-mobile-label">{t('adminMembers.created')}</div>
                   <div className="member-card-mobile-value">
-                    {member.createdAt ? new Date(member.createdAt).toLocaleDateString(locale) : t('common.na')}
+                    {member.createdAt ? formatDateDDMMYYYY(member.createdAt) : t('common.na')}
                   </div>
                 </div>
                 <div className="member-card-mobile-actions">
@@ -410,7 +411,7 @@ const AdminMembers = () => {
                   <span className="detail-label">{t('profile.memberSince')}</span>
                   <span className="detail-value">
                     {profileModalMember.createdAt
-                      ? `${new Date(profileModalMember.createdAt).toLocaleDateString(locale)} (${formatMemberSince(profileModalMember.createdAt, t)})`
+                      ? `${formatDateDDMMYYYY(profileModalMember.createdAt)} (${formatMemberSince(profileModalMember.createdAt, t)})`
                       : t('common.na')}
                   </span>
                 </div>
