@@ -123,7 +123,7 @@
 .amenities-preview-grid,
 .events-preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing-lg);
   padding-top: var(--spacing-sm);
   align-items: start;
@@ -134,7 +134,6 @@
 @media (min-width: 1200px) {
   .amenities-preview-grid,
   .events-preview-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--spacing-xl);
   }
 }
