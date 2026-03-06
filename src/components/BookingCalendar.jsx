@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getBookings } from '../services/bookings'
@@ -19,6 +19,19 @@ const BookingCalendar = ({
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
   const [hoveredSlot, setHoveredSlot] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Fetch amenity to get its availability settings
   const { data: amenity } = useQuery({
@@ -160,16 +173,20 @@ const BookingCalendar = ({
     onTimeSlotSelect?.(slotDateTime)
   }
 
+  const effectiveViewMode = isMobile ? 'day' : viewMode
+
   const handlePrevWeek = () => {
     const newDate = new Date(currentDate)
-    newDate.setDate(newDate.getDate() - 7)
+    const step = effectiveViewMode === 'week' ? -7 : -1
+    newDate.setDate(newDate.getDate() + step)
     setCurrentDate(newDate)
     onDateChange?.(newDate)
   }
 
   const handleNextWeek = () => {
     const newDate = new Date(currentDate)
-    newDate.setDate(newDate.getDate() + 7)
+    const step = effectiveViewMode === 'week' ? 7 : 1
+    newDate.setDate(newDate.getDate() + step)
     setCurrentDate(newDate)
     onDateChange?.(newDate)
   }
@@ -195,7 +212,7 @@ const BookingCalendar = ({
     )
   }
 
-  const displayDates = viewMode === 'week' ? weekDates : [currentDate]
+  const displayDates = effectiveViewMode === 'week' ? weekDates : [currentDate]
 
   if (isLoading && !amenityId) {
     return <CalendarSkeleton />
@@ -216,7 +233,7 @@ const BookingCalendar = ({
           </button>
         </div>
         <div className="calendar-title">
-          {viewMode === 'week' 
+          {effectiveViewMode === 'week' 
             ? weekStart.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
             : currentDate.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' })
           }
