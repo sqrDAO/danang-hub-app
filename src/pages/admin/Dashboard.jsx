@@ -44,7 +44,7 @@ const AdminDashboard = () => {
 
   const stats = {
     totalMembers: members.length,
-    activeBookings: bookings.filter(b => b.status === 'checked-in' || b.status === 'pending').length,
+    activeBookings: bookings.filter(b => b.status === 'checked-in').length,
     upcomingBookings: bookings.filter(b => {
       const startTime = b.startTime ? new Date(b.startTime) : null
       if (!startTime) return false
