@@ -24,6 +24,8 @@ import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime 
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 
+const MAX_EVENT_CAPACITY = 50
+
 const MemberEvents = () => {
   const { t } = useTranslation()
   const { currentUser } = useAuth()
@@ -237,16 +239,32 @@ const MemberEvents = () => {
       return
     }
 
+    const rawCapacity = parseInt(formData.get('capacity'), 10)
+    const capacity = Number.isNaN(rawCapacity)
+      ? MAX_EVENT_CAPACITY
+      : Math.min(Math.max(rawCapacity, 1), MAX_EVENT_CAPACITY)
+
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
       date: eventDate.toISOString(),
-      capacity: parseInt(formData.get('capacity')) || 80,
+      capacity,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: currentUser.uid,
       status: 'pending',
       waitlist: [],
       bannerUrl
+    }
+
+    const depositTxHash = formData.get('depositTxHash')?.trim()
+
+    if (capacity > 30 && !depositTxHash) {
+      showToast(t('toast.eventDepositRequired'), 'error')
+      return
+    }
+
+    if (depositTxHash) {
+      data.depositTxHash = depositTxHash
     }
 
     // Handle hosting projects (text input)
@@ -852,13 +870,33 @@ const MemberEvents = () => {
                 type="number"
                 name="capacity"
                 className="form-field"
-                defaultValue="80"
+                defaultValue={String(MAX_EVENT_CAPACITY)}
                 min="1"
-                max="80"
+                max={MAX_EVENT_CAPACITY}
                 required
               />
               <small className="form-hint">
-                {t('memberEvents.modal.capacityHint')}
+                {t('memberEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
+              </small>
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                {t('memberEvents.modal.depositSectionTitle')}
+              </label>
+              <p className="form-hint">
+                {t('memberEvents.modal.depositSectionDescription')}
+              </p>
+              <p className="form-hint">
+                {t('memberEvents.modal.depositWallets')}
+              </p>
+              <input
+                type="text"
+                name="depositTxHash"
+                className="form-field"
+                placeholder={t('memberEvents.modal.depositTxHashPlaceholder')}
+              />
+              <small className="form-hint">
+                {t('memberEvents.modal.depositTxHashHint')}
               </small>
             </div>
             <div className="form-group">

@@ -22,6 +22,8 @@ import { showToast } from '../../components/Toast'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 
+const MAX_EVENT_CAPACITY = 50
+
 const AdminEvents = () => {
   const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -258,14 +260,30 @@ const AdminEvents = () => {
     const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = parseHubDateTime(formData.get('date'))
 
+    const rawCapacity = parseInt(formData.get('capacity'), 10)
+    const capacity = Number.isNaN(rawCapacity)
+      ? MAX_EVENT_CAPACITY
+      : Math.min(Math.max(rawCapacity, 1), MAX_EVENT_CAPACITY)
+
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
       date: eventDate.toISOString(),
-      capacity: parseInt(formData.get('capacity')) || 80,
+      capacity,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: formData.get('organizerId'),
       waitlist: []
+    }
+
+    const depositTxHash = formData.get('depositTxHash')?.trim()
+
+    if (capacity > 30 && !depositTxHash) {
+      showToast(t('toast.eventDepositRequired'), 'error')
+      return
+    }
+
+    if (depositTxHash) {
+      data.depositTxHash = depositTxHash
     }
 
     // Handle hosting projects (text input)
@@ -421,7 +439,7 @@ const AdminEvents = () => {
                     <p className="event-duration">⏱️ {t('adminEvents.duration', { minutes: event.duration })}</p>
                   )}
                   <p className="event-capacity">
-                    👥 {event.attendees?.length || 0} / {event.capacity || 80}
+                    👥 {event.attendees?.length || 0} / {event.capacity || MAX_EVENT_CAPACITY}
                   </p>
                   {event.hostingProjects && (
                     <p className="event-projects">
@@ -452,6 +470,11 @@ const AdminEvents = () => {
                   {event.eventLink && (
                     <p className="event-link">
                       🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('adminEvents.eventLink')}</a>
+                    </p>
+                  )}
+                  {event.depositTxHash && (
+                    <p className="event-deposit">
+                      💰 {t('adminEvents.depositTxLabel')} <span className="event-deposit-hash">{event.depositTxHash}</span>
                     </p>
                   )}
                   {event.description && (
@@ -603,12 +626,33 @@ const AdminEvents = () => {
                 type="number"
                 name="capacity"
                 className="form-field"
-                defaultValue={selectedEvent?.capacity || 80}
+                defaultValue={selectedEvent?.capacity || MAX_EVENT_CAPACITY}
                 min="1"
-                max="80"
+                max={MAX_EVENT_CAPACITY}
                 required
               />
-              <small className="form-hint">{t('adminEvents.modal.capacityHint')}</small>
+              <small className="form-hint">
+                {t('adminEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
+              </small>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('adminEvents.modal.depositSectionTitle')}</label>
+              <p className="form-hint">
+                {t('adminEvents.modal.depositSectionDescription')}
+              </p>
+              <p className="form-hint">
+                {t('adminEvents.modal.depositWallets')}
+              </p>
+              <input
+                type="text"
+                name="depositTxHash"
+                className="form-field"
+                defaultValue={selectedEvent?.depositTxHash || ''}
+                placeholder={t('adminEvents.modal.depositTxHashPlaceholder')}
+              />
+              <small className="form-hint">
+                {t('adminEvents.modal.depositTxHashHint')}
+              </small>
             </div>
             <div className="form-group">
               <label className="form-label">{t('adminEvents.modal.hostingLabel')}</label>

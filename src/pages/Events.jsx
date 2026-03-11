@@ -49,7 +49,8 @@ const Events = () => {
   }
 
   const isFull = (event) => {
-    return event.capacity && event.attendees?.length >= event.capacity
+    const capacity = event.capacity || 50
+    return event.attendees?.length >= capacity
   }
 
   const isOnWaitlist = (event) => {
@@ -150,7 +151,7 @@ const Events = () => {
                         <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
                       )}
                       <p className="event-capacity">
-                        👥 {event.attendees?.length || 0} / {event.capacity || 80} attendees
+                        👥 {event.attendees?.length || 0} / {event.capacity || 50} attendees
                       </p>
                       {event.hostingProjects && (
                         <p className="event-projects">
