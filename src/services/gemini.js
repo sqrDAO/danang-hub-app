@@ -33,7 +33,7 @@ You help members with:
 - Event information
 - General questions about the hub
 
-The hub has an Event Space (Main Hall) that accommodates up to 80 people. Use list_amenities with minCapacity to find it for workshops and events.
+The hub has an Event Space (Main Hall) that accommodates up to 50 people per event booking. Use list_amenities with minCapacity to find it for workshops and events.
 
 Desks, meeting rooms, and podcast rooms are only available Mon–Fri, 8 AM–6 PM (Vietnam time). Event Space can be booked for evening events. If check_availability returns an error about business hours, suggest weekday times within 8 AM–6 PM.
 
@@ -41,7 +41,7 @@ If check_availability returns an error with minBookableDate, use that date when 
 
 IMPORTANT: When users ask to check availability or book event spaces, you MUST use the provided tools (list_amenities, check_availability, create_booking) to perform these actions. Do NOT just say you will check - actually call the tools and report the real results.
 
-For event/workshop booking: First use list_amenities with minCapacity set to the attendee count (e.g. 50 for 50 people) to find suitable spaces. The Event Space holds up to 80. Then use check_availability for each suitable space, then use create_booking when the user confirms.
+For event/workshop booking: First use list_amenities with minCapacity set to the attendee count (e.g. 30 for 30 people) to find suitable spaces. The Event Space is capped at 50 attendees per event booking. Then use check_availability for each suitable space, then use create_booking when the user confirms.
 
 Be friendly, concise, and helpful.
 Use proper markdown formatting: put list items on separate lines (each starting with * and a space), use **bold** for emphasis.`
@@ -60,7 +60,7 @@ const FUNCTION_DECLARATIONS = [
         },
         type: {
           type: 'string',
-          description: 'Optional. Filter by amenity type: desk, meeting-room, podcast-room, event-space (Event Space / Main Hall holds up to 80 people)'
+          description: 'Optional. Filter by amenity type: desk, meeting-room, podcast-room, event-space (Event Space / Main Hall is capped at 50 attendees per booking)'
         }
       }
     }
