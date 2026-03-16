@@ -360,7 +360,12 @@
       "eventHallDeposit": "Deposit is required for larger events (see details below).",
       "amenityLabel": "Amenity",
       "amenityPlaceholder": "Select amenity",
-      "amenityHint": "Amenity will be booked 1 hour before and 2 hours after event"
+      "amenityHint": "Amenity will be booked 1 hour before and 2 hours after event",
+      "depositSectionTitle": "Deposit for larger events",
+      "depositSectionDescription": "Events with more than 30 attendees require a deposit. Please send the deposit on-chain, then paste the transaction hash below.",
+      "depositWallets": "Deposit wallets: sqrdao.eth (EVM) or sqrdao.sol (Solana). Use the appropriate network for your wallet.",
+      "depositTxHashPlaceholder": "Paste your deposit transaction hash (required if capacity > 30)",
+      "depositTxHashHint": "We only use this hash to verify your deposit; it will not be shared publicly."
     }
   },
   "adminAmenities": {

@@ -359,7 +359,12 @@
       "eventHallDeposit": "Cần đặt cọc cho các sự kiện lớn (xem chi tiết bên dưới).",
       "amenityLabel": "Tiện ích",
       "amenityPlaceholder": "Chọn tiện ích",
-      "amenityHint": "Tiện ích sẽ được đặt 1 giờ trước và 2 giờ sau sự kiện"
+      "amenityHint": "Tiện ích sẽ được đặt 1 giờ trước và 2 giờ sau sự kiện",
+      "depositSectionTitle": "Đặt cọc cho sự kiện lớn",
+      "depositSectionDescription": "Các sự kiện có hơn 30 người tham dự cần đặt cọc. Vui lòng chuyển khoản on-chain, sau đó dán transaction hash bên dưới.",
+      "depositWallets": "Ví nhận đặt cọc: sqrdao.eth (EVM) hoặc sqrdao.sol (Solana). Hãy dùng đúng mạng lưới tương ứng với ví của bạn.",
+      "depositTxHashPlaceholder": "Dán transaction hash cho khoản đặt cọc (bắt buộc nếu sức chứa > 30)",
+      "depositTxHashHint": "Chúng tôi chỉ dùng hash này để xác minh khoản đặt cọc; sẽ không hiển thị công khai."
     }
   },
   "adminAmenities": {
