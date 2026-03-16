@@ -31,6 +31,7 @@ const AdminEvents = () => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [linkAmenity, setLinkAmenity] = useState(false)
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const bannerInputRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -91,9 +92,11 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setIsModalOpen(false)
       resetForm()
+      setIsSubmitting(false)
       showToast(t('toast.eventCreated'), 'success')
     },
     onError: () => {
+      setIsSubmitting(false)
       showToast(t('toast.eventCreateFailed'), 'error')
     }
   })
@@ -107,9 +110,11 @@ const AdminEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       setIsModalOpen(false)
       resetForm()
+      setIsSubmitting(false)
       showToast(t('toast.eventUpdated'), 'success')
     },
     onError: () => {
+      setIsSubmitting(false)
       showToast(t('toast.eventUpdateFailed'), 'error')
     }
   })
@@ -256,6 +261,8 @@ const AdminEvents = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
     const formData = new FormData(e.target)
     const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = parseHubDateTime(formData.get('date'))
@@ -279,6 +286,7 @@ const AdminEvents = () => {
 
     if (capacity > 30 && !depositTxHash) {
       showToast(t('toast.eventDepositRequired'), 'error')
+      setIsSubmitting(false)
       return
     }
 
@@ -305,7 +313,7 @@ const AdminEvents = () => {
       startTime.setHours(startTime.getHours() - 1) // 1 hour before event
       const endTime = new Date(eventDate)
       endTime.setMinutes(endTime.getMinutes() + duration + 60) // Duration + 1 hour buffer after event
-      
+
       data.linkedAmenityId = linkedAmenityId
       data.linkedAmenityStartTime = startTime.toISOString()
       data.linkedAmenityEndTime = endTime.toISOString()
@@ -315,12 +323,14 @@ const AdminEvents = () => {
       const bannerFile = bannerInputRef.current?.files?.[0]
       if (!bannerFile) {
         showToast(t('toast.eventBannerRequired'), 'error')
+        setIsSubmitting(false)
         return
       }
       try {
         data.bannerUrl = await uploadEventBanner(bannerFile)
       } catch (err) {
         showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
+        setIsSubmitting(false)
         return
       }
       createMutation.mutate(data)
@@ -331,6 +341,7 @@ const AdminEvents = () => {
           data.bannerUrl = await uploadEventBanner(bannerFile)
         } catch (err) {
           showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
+          setIsSubmitting(false)
           return
         }
       } else if (selectedEvent?.bannerUrl) {
@@ -729,12 +740,13 @@ const AdminEvents = () => {
               )
             })()}
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">
-                {isCreateMode ? t('common.create') : t('common.save')}
+              <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? t('common.saving') : isCreateMode ? t('common.create') : t('common.save')}
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
+                disabled={isSubmitting}
                 onClick={() => {
                   setIsModalOpen(false)
                   resetForm()

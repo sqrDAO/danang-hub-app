@@ -36,6 +36,7 @@ const MemberEvents = () => {
   const [linkAmenity, setLinkAmenity] = useState(true)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const processedActionRef = useRef(null)
   const bannerInputRef = useRef(null)
 
@@ -100,9 +101,11 @@ const MemberEvents = () => {
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       setIsModalOpen(false)
+      setIsSubmitting(false)
       showToast(t('toast.eventSubmittedForApproval'), 'success')
     },
     onError: () => {
+      setIsSubmitting(false)
       showToast(t('toast.eventCreateFailed'), 'error')
     }
   })
@@ -221,14 +224,16 @@ const MemberEvents = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
     const formData = new FormData(e.target)
     const eventDate = parseHubDateTime(formData.get('date'))
     const linkedAmenityId = formData.get('linkedAmenityId')
 
-
     const bannerFile = bannerInputRef.current?.files?.[0]
     if (!bannerFile) {
       showToast(t('toast.eventBannerRequired'), 'error')
+      setIsSubmitting(false)
       return
     }
     let bannerUrl
@@ -236,6 +241,7 @@ const MemberEvents = () => {
       bannerUrl = await uploadEventBanner(bannerFile)
     } catch (err) {
       showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
+      setIsSubmitting(false)
       return
     }
 
@@ -260,6 +266,7 @@ const MemberEvents = () => {
 
     if (capacity > 30 && !depositTxHash) {
       showToast(t('toast.eventDepositRequired'), 'error')
+      setIsSubmitting(false)
       return
     }
 
@@ -981,12 +988,12 @@ const MemberEvents = () => {
               )
             })()}
             <div className="form-actions">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
-                disabled={createMutation.isPending || !!dateError}
+                disabled={isSubmitting || !!dateError}
               >
-                {createMutation.isPending
+                {isSubmitting
                   ? t('memberEvents.modal.submitting')
                   : t('memberEvents.modal.submit')}
               </button>
