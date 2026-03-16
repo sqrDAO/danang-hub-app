@@ -82,6 +82,17 @@
     "pastEventsAttended": "You attended this event"
   },
   "footer": {
+    "tagline": "Accelerating the Decentralized Future in Central Vietnam.",
+    "resources": "Resources",
+    "sops": "SOPs",
+    "brandKit": "Brand Kit",
+    "eventGuidelines": "Event Guidelines",
+    "hub": "Hub",
+    "about": "About",
+    "leadership": "Leadership",
+    "activities": "Activities",
+    "location": "Location",
+    "calendar": "Calendar",
     "copyright": "© {{year}} sqrDAO. All rights reserved."
   },
   "auth": {
