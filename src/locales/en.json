@@ -12,7 +12,7 @@
     "profile": "Profile"
   },
   "common": {
-    "appNameShort": "Hub Portal",
+    "appNameShort": "Portal",
     "appNameFull": "Da Nang Blockchain Hub Portal",
     "login": "Log In",
     "logout": "Logout",
@@ -48,7 +48,6 @@
     "approved": "approved",
     "checked-in": "checked-in",
     "checkedIn": "checked-in",
-    "checked-in": "checked-in",
     "completed": "completed",
     "cancelled": "cancelled",
     "rejected": "rejected",
@@ -98,8 +97,8 @@
   "auth": {
     "welcomeBack": "Welcome Back",
     "createAccountTitle": "Create Account",
-    "loginSubtitle": "Sign in to access the Hub portal",
-    "signupSubtitle": "Create an account to access the Da Nang Blockchain Hub portal",
+    "loginSubtitle": "Sign in to access the Hub Portal",
+    "signupSubtitle": "Create an account to access the Da Nang Blockchain Hub Portal",
     "continueWithGoogle": "Continue with Google",
     "orSignInWithWallet": "or sign in with wallet",
     "ethereumWallet": "Ethereum Wallet",
