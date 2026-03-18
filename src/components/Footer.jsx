@@ -1,10 +1,12 @@
 import './Footer.css'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '../contexts/ThemeContext'
 
 const MARKETING_BASE = 'https://www.danangblockchainhub.com'
 
 const Footer = () => {
   const { t } = useTranslation()
+  const { theme } = useTheme()
   const currentYear = new Date().getFullYear()
 
   return (
@@ -12,7 +14,7 @@ const Footer = () => {
       <div className="footer-container container">
         <div className="footer-top">
           <div className="footer-brand">
-            <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub" className="footer-logo" />
+            <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt="Da Nang Blockchain Hub" className="footer-logo" />
             <p className="footer-tagline">{t('footer.tagline')}</p>
             <div className="footer-social">
               <a

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
 import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/walletAuth'
 import './Login.css'
 
@@ -48,6 +49,7 @@ const SolanaIcon = () => (
 const MAX_PASSWORD_LENGTH = 128
 
 const Login = () => {
+  const { theme } = useTheme()
   const {
     currentUser,
     userProfile,
@@ -389,7 +391,7 @@ const Login = () => {
       <div className="login-container">
         <div className="login-card">
         <div className="login-logo">
-          <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub Portal" />
+          <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt="Da Nang Blockchain Hub Portal" />
         </div>
         <div className="login-header">
           <h1 className="gradient-text">{t('auth.resetPasswordTitle')}</h1>
@@ -447,7 +449,7 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/assets/logo.svg" alt="Da Nang Blockchain Hub Portal" />
+          <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt="Da Nang Blockchain Hub Portal" />
         </div>
         <div className="login-header">
           <h1 className="gradient-text">
