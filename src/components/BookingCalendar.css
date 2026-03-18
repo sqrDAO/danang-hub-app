@@ -38,7 +38,7 @@
 .calendar-hours-info {
   font-size: 0.85rem;
   color: var(--text-secondary);
-  background: rgba(124, 58, 237, 0.1);
+  background: rgba(255, 164, 6, 0.1);
   padding: 0.5rem 1rem;
   border-radius: var(--border-radius);
 }
@@ -91,7 +91,7 @@
 }
 
 .calendar-date-header.today {
-  background: rgba(124, 58, 237, 0.14);
+  background: rgba(255, 164, 6, 0.14);
   border: 1px solid var(--accent-primary);
 }
 
@@ -181,15 +181,15 @@
 }
 
 .time-slot.selected {
-  background: rgba(34, 211, 238, 0.3);
-  border-color: rgba(34, 211, 238, 0.5);
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
+  background: rgba(255, 230, 187, 0.3);
+  border-color: rgba(255, 230, 187, 0.5);
+  box-shadow: 0 0 8px rgba(255, 230, 187, 0.3);
 }
 
 [data-theme="light"] .time-slot.selected {
-  background: rgba(34, 211, 238, 0.22);
-  border-color: rgba(34, 211, 238, 0.6);
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.25);
+  background: rgba(255, 230, 187, 0.22);
+  border-color: rgba(255, 230, 187, 0.6);
+  box-shadow: 0 0 8px rgba(255, 230, 187, 0.25);
 }
 
 .time-slot.unavailable,
@@ -247,8 +247,8 @@
 }
 
 .legend-color.selected {
-  background: rgba(34, 211, 238, 0.3);
-  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(255, 230, 187, 0.3);
+  border-color: rgba(255, 230, 187, 0.5);
 }
 
 .legend-color.unavailable {

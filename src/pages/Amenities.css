@@ -218,7 +218,7 @@
 
 .photo-thumbnail.active {
   border-color: var(--accent-secondary);
-  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 230, 187, 0.3);
 }
 
 .amenity-photo-placeholder {

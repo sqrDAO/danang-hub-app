@@ -1,6 +1,6 @@
 .home-container {
   min-height: 100vh;
-  background: var(--bg-color, #0d0d12);
+  background: var(--bg-color, #231F20);
   width: 100%;
 }
 
@@ -213,8 +213,8 @@
 .amenity-preview-card:hover,
 .event-preview-card:hover {
   transform: translate3d(0, -4px, 0);
-  box-shadow: var(--card-shadow, none), 0 8px 24px rgba(124, 58, 237, 0.2);
-  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: var(--card-shadow, none), 0 8px 24px rgba(255, 164, 6, 0.2);
+  border-color: rgba(255, 164, 6, 0.3);
   z-index: 10;
   will-change: transform;
 }
