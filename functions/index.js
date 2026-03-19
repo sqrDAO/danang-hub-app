@@ -54,6 +54,45 @@ function isWeekday(date) {
 /**
  * @param {string} startTime ISO start time
  * @param {string} endTime ISO end time
+ * @param {Object} amenity Amenity data with optional availability config
+ * @return {boolean} True if within the amenity's configured hours and days
+ */
+function isWithinAmenityHours(startTime, endTime, amenity) {
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+  const avail = amenity && amenity.availability ? amenity.availability : {};
+  const startHour = typeof avail.startHour === "number" ?
+    avail.startHour : BUSINESS_START_HOUR;
+  const endHour = typeof avail.endHour === "number" ?
+    avail.endHour : BUSINESS_END_HOUR;
+
+  // Check available days (array of 0–6, where 0=Sun). Default: Mon–Fri (1–5).
+  const availableDays = Array.isArray(avail.availableDays) ?
+    avail.availableDays : [1, 2, 3, 4, 5];
+  const weekdayShort = new Intl.DateTimeFormat("en-US", {
+    timeZone: HUB_TIMEZONE, weekday: "short",
+  }).format(startDate);
+  const DAY_INDEX = {Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6};
+  const dayNum = DAY_INDEX[weekdayShort] ?? -1;
+  if (!availableDays.includes(dayNum)) return false;
+
+  const fmt = (d) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: HUB_TIMEZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+  if (fmt(startDate) !== fmt(endDate)) return false;
+
+  const startMins = getMinutesSinceMidnight(startDate, HUB_TIMEZONE);
+  const endMins = getMinutesSinceMidnight(endDate, HUB_TIMEZONE);
+  const openMins = startHour * 60;
+  const closeMins = endHour * 60;
+  if (endMins <= startMins) return false;
+  return startMins >= openMins && endMins <= closeMins;
+}
+
+/**
+ * @param {string} startTime ISO start time
+ * @param {string} endTime ISO end time
  * @return {boolean} True if within 8am-6pm Mon–Fri Vietnam time, same day
  */
 function isWithinBusinessHours(startTime, endTime) {
@@ -98,6 +137,17 @@ exports.checkBookingConflicts = functions.https.onCall(
 
         const amenityCapacity =
           amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+
+        const amenityNeedsHoursCheck =
+          amenity && AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenityType);
+        if (amenityNeedsHoursCheck) {
+          if (!isWithinAmenityHours(startTime, endTime, amenity)) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Booking time is outside the amenity's available hours.",
+            );
+          }
+        }
 
         const bookingsQuery = db.collection("bookings")
             .where("amenityId", "==", amenityId)
