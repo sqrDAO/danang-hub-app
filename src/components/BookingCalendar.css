@@ -102,7 +102,7 @@
 
 .weekend-label {
   font-size: 0.65rem;
-  color: #f87171;
+  color: var(--color-error);
   margin-top: 0.25rem;
   font-weight: 600;
   text-transform: uppercase;

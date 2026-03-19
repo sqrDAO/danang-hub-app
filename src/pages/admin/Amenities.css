@@ -51,9 +51,9 @@
 }
 
 .availability-badge.unavailable {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  color: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
 }
 
 .amenity-info {

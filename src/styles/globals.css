@@ -53,6 +53,30 @@
   --spinner-track: rgba(255, 255, 255, 0.1);
   --form-field-spinner-bg: rgba(255, 255, 255, 0.12);
 
+  /* Semantic / status colors */
+  --color-success: #4ade80;
+  --color-success-dark: #22c55e;
+  --color-success-bg: rgba(34, 197, 94, 0.2);
+  --color-success-border: rgba(34, 197, 94, 0.4);
+  --color-error: #f87171;
+  --color-error-light: #fca5a5;
+  --color-error-dark: #ef4444;
+  --color-error-darker: #dc2626;
+  --color-error-bg: rgba(239, 68, 68, 0.2);
+  --color-error-border: rgba(239, 68, 68, 0.3);
+  --color-warning: #fbbf24;
+  --color-warning-dark: #f59e0b;
+  --color-warning-darker: #d97706;
+  --color-warning-bg: rgba(251, 191, 36, 0.2);
+  --color-warning-border: rgba(251, 191, 36, 0.3);
+  --color-info: var(--accent-primary);
+  --color-info-bg: rgba(255, 164, 6, 0.15);
+  --color-info-border: rgba(255, 164, 6, 0.35);
+
+  /* Wallet brand colors (external brands — intentional exceptions to warm palette) */
+  --wallet-evm-color: #627eea;
+  --wallet-solana-color: #9945ff;
+
   /* Typography */
   --font-heading: 'Wolgen', 'Arial Black', Impact, sans-serif;
   --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -103,6 +127,27 @@
   --form-field-spinner-bg: rgba(0, 0, 0, 0.1);
   --header-bg: rgba(255, 242, 221, 0.95);
   --header-border: rgba(255, 164, 6, 0.25);
+
+  /* Semantic / status colors (light theme) */
+  --color-success: #16a34a;
+  --color-success-dark: #15803d;
+  --color-success-bg: rgba(34, 197, 94, 0.15);
+  --color-success-border: rgba(34, 197, 94, 0.3);
+  --color-error: #dc2626;
+  --color-error-light: #ef4444;
+  --color-error-dark: #b91c1c;
+  --color-error-darker: #991b1b;
+  --color-error-bg: rgba(239, 68, 68, 0.1);
+  --color-error-border: rgba(239, 68, 68, 0.25);
+  --color-warning: #d97706;
+  --color-warning-dark: #b45309;
+  --color-warning-darker: #92400e;
+  --color-warning-bg: rgba(251, 191, 36, 0.15);
+  --color-warning-border: rgba(251, 191, 36, 0.3);
+  --color-info: var(--accent-primary);
+  --color-info-bg: rgba(255, 164, 6, 0.1);
+  --color-info-border: rgba(255, 164, 6, 0.3);
+
   color-scheme: light;
 }
 
@@ -216,14 +261,14 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error-light);
 }
 
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.3);
-  border-color: #ef4444;
+  border-color: var(--color-error-dark);
 }
 
 .btn-sm {
@@ -278,6 +323,54 @@ h1, h2, h3, h4, h5, h6,
   color: var(--text-secondary);
 }
 
+/* Status Badges — single source of truth for all status indicators */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+
+.status-badge.approved {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-border);
+}
+
+.status-badge.checked-in {
+  background: rgba(255, 230, 187, 0.3);
+  color: var(--accent-secondary);
+  border: 1px solid rgba(255, 230, 187, 0.5);
+}
+
+.status-badge.completed,
+.status-badge.available {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.status-badge.cancelled,
+.status-badge.unavailable {
+  background: var(--color-error-bg);
+  color: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+}
+
+.status-badge.rejected {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border: 1px solid var(--color-error-border);
+}
+
 /* Form Styles */
 .form-group {
   margin-bottom: var(--spacing-md);
@@ -303,12 +396,12 @@ h1, h2, h3, h4, h5, h6,
 }
 
 [data-theme="light"] .form-field {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
 }
 
 [data-theme="light"] .form-field:focus {
-  background: #e5e7eb;
+  background: var(--form-field-focus-bg);
   border-color: var(--accent-primary);
 }
 

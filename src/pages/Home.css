@@ -5,14 +5,36 @@
 }
 
 .hero-section {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  background: var(--bg-color);
+  background-image: radial-gradient(ellipse at 50% 60%, rgba(255, 164, 6, 0.10) 0%, transparent 65%);
   padding: var(--spacing-xl) var(--spacing-lg);
   text-align: center;
-  color: var(--hero-text);
+  color: var(--text-primary);
   min-height: calc(100vh - var(--header-height));
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle amber glow orb behind hero content */
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 164, 6, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-section > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-content {
@@ -25,16 +47,15 @@
   font-weight: 700;
   margin-bottom: var(--spacing-md);
   line-height: 1.2;
-  color: var(--hero-text);
+  color: var(--text-primary);
 }
 
-/* Hero title brand: white with shadow so it reads on the gradient (gradient-text is overridden here) */
+/* Hero brand name uses the amber→peach gradient text per DESIGN.md */
 .hero-section .hero-title .gradient-text {
-  background: none;
-  -webkit-background-clip: unset;
-  -webkit-text-fill-color: var(--hero-text);
-  color: var(--hero-text);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 0 20px rgba(0, 0, 0, 0.15);
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero-subtitle {
@@ -42,7 +63,7 @@
   margin-bottom: var(--spacing-xl);
   opacity: 0.9;
   line-height: 1.6;
-  color: var(--hero-text);
+  color: var(--text-secondary);
 }
 
 .hero-cta {
@@ -50,6 +71,17 @@
   gap: var(--spacing-md);
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* Secondary button on dark hero needs stronger amber border for visibility */
+.hero-cta .btn-secondary {
+  border-color: rgba(255, 164, 6, 0.5);
+  color: var(--text-primary);
+}
+
+.hero-cta .btn-secondary:hover {
+  border-color: var(--accent-primary);
+  background: rgba(255, 164, 6, 0.1);
 }
 
 .features-section {
@@ -300,7 +332,7 @@
 }
 
 .event-attended {
-  color: #4ade80;
+  color: var(--color-success);
   font-weight: 500;
   margin-top: var(--spacing-sm);
   font-size: 0.9rem;
