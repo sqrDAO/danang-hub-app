@@ -123,7 +123,7 @@
 }
 
 .event-attended {
-  color: #4ade80;
+  color: var(--color-success);
   font-weight: 500;
   margin-top: var(--spacing-sm);
 }

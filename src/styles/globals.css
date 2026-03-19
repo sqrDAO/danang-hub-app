@@ -1,37 +1,86 @@
+/* Wolgen — brand display font (Da Nang Blockchain Hub) */
+@font-face {
+  font-family: 'Wolgen';
+  src: url('/fonts/Wolgen/wolgen-regular.woff2') format('woff2'),
+       url('/fonts/Wolgen/wolgen-regular.otf') format('opentype'),
+       url('/fonts/Wolgen/wolgen-regular.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Wolgen';
+  src: url('/fonts/Wolgen/wolgen-italic.woff2') format('woff2'),
+       url('/fonts/Wolgen/wolgen-italic.otf') format('opentype'),
+       url('/fonts/Wolgen/wolgen-italic.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
-  --bg-color: #0d0d12;
-  --bg-secondary: #16161e;
-  --surface-color: #16161e;
+  /* Brand palette — Da Nang Blockchain Hub */
+  --bg-color: #231F20;
+  --bg-secondary: #2F2B2C;
+  --surface-color: #2F2B2C;
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --accent-primary: #7c3aed;
-  --accent-secondary: #22d3ee;
-  --color-primary: #7c3aed;
-  --color-secondary: #22d3ee;
+  --text-primary-light: #231F20;
+  --text-secondary: #DCDCDC;
+  --accent-primary: #FFA406;
+  --accent-secondary: #FFE6BB;
+  --color-primary: #FFA406;
+  --color-secondary: #FFE6BB;
   --hero-text: #ffffff;
-  --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  --accent-gradient: linear-gradient(135deg, #FFA406, #FFE6BB);
 
   --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 164, 6, 0.12);
   --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border: rgba(255, 164, 6, 0.12);
   --card-hover-bg: rgba(255, 255, 255, 0.05);
-  --card-hover-border: rgba(255, 255, 255, 0.2);
+  --card-hover-border: rgba(255, 164, 6, 0.35);
   --card-shadow: none;
   --btn-secondary-bg: rgba(255, 255, 255, 0.05);
-  --btn-secondary-border: rgba(255, 255, 255, 0.3);
-  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.15);
+  --btn-secondary-border: rgba(255, 164, 6, 0.3);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
   --form-field-bg: rgba(255, 255, 255, 0.05);
   --form-field-border: rgba(255, 255, 255, 0.1);
   --form-field-focus-bg: rgba(255, 255, 255, 0.08);
   --form-section-bg: rgba(255, 255, 255, 0.03);
-  --form-section-border: rgba(255, 255, 255, 0.1);
+  --form-section-border: rgba(255, 164, 6, 0.12);
   --form-divider: rgba(255, 255, 255, 0.1);
   --spinner-track: rgba(255, 255, 255, 0.1);
   --form-field-spinner-bg: rgba(255, 255, 255, 0.12);
 
-  --font-main: 'Outfit', sans-serif;
-  --font-main-vi: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Semantic / status colors */
+  --color-success: #4ade80;
+  --color-success-dark: #22c55e;
+  --color-success-bg: rgba(34, 197, 94, 0.2);
+  --color-success-border: rgba(34, 197, 94, 0.4);
+  --color-error: #f87171;
+  --color-error-light: #fca5a5;
+  --color-error-dark: #ef4444;
+  --color-error-darker: #dc2626;
+  --color-error-bg: rgba(239, 68, 68, 0.2);
+  --color-error-border: rgba(239, 68, 68, 0.3);
+  --color-warning: #fbbf24;
+  --color-warning-dark: #f59e0b;
+  --color-warning-darker: #d97706;
+  --color-warning-bg: rgba(251, 191, 36, 0.2);
+  --color-warning-border: rgba(251, 191, 36, 0.3);
+  --color-info: var(--accent-primary);
+  --color-info-bg: rgba(255, 164, 6, 0.15);
+  --color-info-border: rgba(255, 164, 6, 0.35);
+
+  /* Wallet brand colors (external brands — intentional exceptions to warm palette) */
+  --wallet-evm-color: #627eea;
+  --wallet-solana-color: #9945ff;
+
+  /* Typography */
+  --font-heading: 'Wolgen', 'Arial Black', Impact, sans-serif;
+  --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-main-vi: 'Be Vietnam Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
@@ -41,43 +90,64 @@
   --border-radius: 12px;
   --transition: all 0.3s ease;
   --header-height: 80px;
-  --header-bg: rgba(13, 13, 18, 0.95);
-  --header-border: rgba(255, 255, 255, 0.1);
+  --header-bg: rgba(35, 31, 32, 0.95);
+  --header-border: rgba(255, 164, 6, 0.15);
 }
 
 [data-theme="light"] {
-  --bg-color: #f8f9fa;
-  --bg-secondary: #ffffff;
+  --bg-color: #FFF2DD;
+  --bg-secondary: #FFE6BB;
   --surface-color: #ffffff;
-  --text-primary: #1a1a2e;
+  --text-primary: #231F20;
   --text-secondary: #4b5563;
-  --accent-primary: #6d28d9;
-  --accent-secondary: #0891b2;
-  --color-primary: #6d28d9;
-  --color-secondary: #0891b2;
-  --hero-text: #ffffff;
-  --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  --accent-primary: #FFA406;
+  --accent-secondary: #FFE6BB;
+  --color-primary: #FFA406;
+  --color-secondary: #FFE6BB;
+  --hero-text: #231F20;
+  --accent-gradient: linear-gradient(135deg, #FFA406, #FFE6BB);
 
   --glass-bg: rgba(0, 0, 0, 0.03);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(255, 164, 6, 0.2);
   --card-bg: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.18);
+  --card-border: rgba(255, 164, 6, 0.2);
   --card-hover-bg: #ffffff;
-  --card-hover-border: rgba(0, 0, 0, 0.25);
+  --card-hover-border: rgba(255, 164, 6, 0.5);
   --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
   --btn-secondary-bg: rgba(0, 0, 0, 0.05);
-  --btn-secondary-border: rgba(0, 0, 0, 0.2);
-  --btn-secondary-hover-bg: rgba(0, 0, 0, 0.08);
+  --btn-secondary-border: rgba(255, 164, 6, 0.4);
+  --btn-secondary-hover-bg: rgba(255, 164, 6, 0.08);
   --form-field-bg: #f3f4f6;
   --form-field-border: #d1d5db;
   --form-field-focus-bg: #e5e7eb;
   --form-section-bg: rgba(0, 0, 0, 0.03);
-  --form-section-border: rgba(0, 0, 0, 0.1);
+  --form-section-border: rgba(255, 164, 6, 0.2);
   --form-divider: rgba(0, 0, 0, 0.1);
   --spinner-track: rgba(0, 0, 0, 0.1);
   --form-field-spinner-bg: rgba(0, 0, 0, 0.1);
-  --header-bg: rgba(248, 249, 250, 0.95);
-  --header-border: rgba(0, 0, 0, 0.08);
+  --header-bg: rgba(255, 242, 221, 0.95);
+  --header-border: rgba(255, 164, 6, 0.25);
+
+  /* Semantic / status colors (light theme) */
+  --color-success: #16a34a;
+  --color-success-dark: #15803d;
+  --color-success-bg: rgba(34, 197, 94, 0.15);
+  --color-success-border: rgba(34, 197, 94, 0.3);
+  --color-error: #dc2626;
+  --color-error-light: #ef4444;
+  --color-error-dark: #b91c1c;
+  --color-error-darker: #991b1b;
+  --color-error-bg: rgba(239, 68, 68, 0.1);
+  --color-error-border: rgba(239, 68, 68, 0.25);
+  --color-warning: #d97706;
+  --color-warning-dark: #b45309;
+  --color-warning-darker: #92400e;
+  --color-warning-bg: rgba(251, 191, 36, 0.15);
+  --color-warning-border: rgba(251, 191, 36, 0.3);
+  --color-info: var(--accent-primary);
+  --color-info-bg: rgba(255, 164, 6, 0.1);
+  --color-info-border: rgba(255, 164, 6, 0.3);
+
   color-scheme: light;
 }
 
@@ -144,6 +214,15 @@ button {
   display: inline-block;
 }
 
+/* Headings use brand display font */
+h1, h2, h3, h4, h5, h6,
+.page-title,
+.card-title,
+.section-title {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
 .btn {
   padding: 0.75rem 1.5rem;
   border-radius: 999px;
@@ -158,13 +237,13 @@ button {
 
 .btn-primary {
   background: var(--accent-gradient);
-  color: white;
+  color: #231F20;
 }
 
 .btn-primary:hover {
   opacity: 0.9;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 164, 6, 0.4);
 }
 
 .btn-secondary {
@@ -176,20 +255,20 @@ button {
 
 .btn-secondary:hover {
   background: var(--btn-secondary-hover-bg);
-  border-color: var(--text-primary);
+  border-color: var(--accent-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+  box-shadow: 0 4px 12px rgba(255, 164, 6, 0.2);
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error-light);
 }
 
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.3);
-  border-color: #ef4444;
+  border-color: var(--color-error-dark);
 }
 
 .btn-sm {
@@ -244,6 +323,54 @@ button {
   color: var(--text-secondary);
 }
 
+/* Status Badges — single source of truth for all status indicators */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+
+.status-badge.approved {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-border);
+}
+
+.status-badge.checked-in {
+  background: rgba(255, 230, 187, 0.3);
+  color: var(--accent-secondary);
+  border: 1px solid rgba(255, 230, 187, 0.5);
+}
+
+.status-badge.completed,
+.status-badge.available {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.status-badge.cancelled,
+.status-badge.unavailable {
+  background: var(--color-error-bg);
+  color: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+}
+
+.status-badge.rejected {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border: 1px solid var(--color-error-border);
+}
+
 /* Form Styles */
 .form-group {
   margin-bottom: var(--spacing-md);
@@ -269,12 +396,12 @@ button {
 }
 
 [data-theme="light"] .form-field {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
 }
 
 [data-theme="light"] .form-field:focus {
-  background: #e5e7eb;
+  background: var(--form-field-focus-bg);
   border-color: var(--accent-primary);
 }
 
@@ -319,7 +446,7 @@ select.form-field {
   appearance: none;
   padding-right: 2.5rem;
   background-color: var(--form-field-bg);
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23a1a1aa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23DCDCDC' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat !important;
   background-position: right 1rem center;
   background-size: 12px 12px !important;
@@ -333,7 +460,7 @@ select.form-field {
 
 select.form-field:focus {
   background-color: var(--form-field-focus-bg);
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%237c3aed' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23FFA406' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat !important;
   background-position: right 1rem center;
   background-size: 12px 12px !important;
@@ -362,7 +489,7 @@ select.form-field:focus {
 }
 
 [data-theme="light"] .filter-select {
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%231a1a2e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23231F20' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat !important;
   background-size: 12px 12px !important;
 }
@@ -378,7 +505,7 @@ select.form-field:focus {
   outline: none;
   border-color: var(--accent-primary);
   background-color: var(--form-field-focus-bg);
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%237c3aed' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%23FFA406' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat !important;
   background-position: right 0.75rem center;
   background-size: 12px 12px !important;
@@ -460,7 +587,7 @@ select.form-field:focus {
 .form-section-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--accent-secondary);
+  color: var(--accent-primary);
   margin-bottom: var(--spacing-md);
 }
 

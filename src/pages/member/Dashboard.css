@@ -313,33 +313,33 @@
 }
 
 .status-badge.pending {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
 }
 
 .status-badge.approved {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-border);
 }
 
 .status-badge.checked-in {
-  background: rgba(34, 211, 238, 0.3);
+  background: rgba(255, 230, 187, 0.3);
   color: var(--accent-secondary);
-  border: 1px solid rgba(34, 211, 238, 0.5);
+  border: 1px solid rgba(255, 230, 187, 0.5);
 }
 
 .status-badge.completed {
-  background: rgba(34, 197, 94, 0.25);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
 }
 
 .status-badge.cancelled {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  color: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
 }
 
 .event-capacity {
@@ -360,7 +360,7 @@
   justify-content: space-between;
   gap: var(--spacing-md);
   padding-top: var(--spacing-md);
-  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  border-top: 1px solid var(--form-divider);
 }
 
 .dashboard-bookings-pagination-info {

@@ -19,9 +19,9 @@
   width: 200%;
   height: 200%;
   background: 
-    radial-gradient(circle at 20% 80%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 80%, rgba(255, 164, 6, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(255, 230, 187, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255, 164, 6, 0.05) 0%, transparent 50%);
   animation: bgPulse 15s ease-in-out infinite;
   z-index: -1;
 }
@@ -39,7 +39,7 @@
   right: 10%;
   width: 300px;
   height: 300px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(34, 211, 238, 0.1));
+  background: linear-gradient(135deg, rgba(255, 164, 6, 0.2), rgba(255, 230, 187, 0.1));
   border-radius: 50%;
   filter: blur(80px);
   animation: float 8s ease-in-out infinite;
@@ -86,8 +86,8 @@
 
 /* Logo */
 .login-logo {
-  width: 100px;
-  height: 100px;
+  width: 220px;
+  height: auto;
   margin: 0 auto var(--spacing-lg);
   display: flex;
   align-items: center;
@@ -104,7 +104,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 4px 20px rgba(124, 58, 237, 0.3));
+  filter: drop-shadow(0 4px 20px rgba(255, 164, 6, 0.3));
 }
 
 .login-header {
@@ -175,8 +175,8 @@
 }
 
 [data-theme="light"] .login-card .form-group input {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: var(--form-field-bg);
+  border: 1px solid var(--form-field-border);
 }
 
 .form-group input::placeholder {
@@ -185,18 +185,18 @@
 }
 
 [data-theme="light"] .login-card .form-group input::placeholder {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .form-group input:focus {
   outline: none;
   border-color: var(--accent-primary);
   background: var(--form-field-focus-bg);
-  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 4px rgba(255, 164, 6, 0.1);
 }
 
 [data-theme="light"] .login-card .form-group input:focus {
-  background: #e5e7eb;
+  background: var(--form-field-focus-bg);
 }
 
 .form-group input:focus + .input-icon,
@@ -206,9 +206,9 @@
 
 /* Error and Success Messages */
 .auth-error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
   padding: 0.75rem 1rem;
   border-radius: 10px;
   font-size: 0.85rem;
@@ -224,9 +224,9 @@
 }
 
 .auth-success {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
   padding: 0.75rem 1rem;
   border-radius: 10px;
   font-size: 0.85rem;
@@ -374,8 +374,8 @@
 }
 
 [data-theme="light"] .signup-features {
-  background: rgba(124, 58, 237, 0.06);
-  border-color: rgba(124, 58, 237, 0.15);
+  background: rgba(255, 164, 6, 0.06);
+  border-color: rgba(255, 164, 6, 0.15);
 }
 
 .signup-features li {
@@ -411,25 +411,26 @@
   background: rgba(0, 0, 0, 0.12);
 }
 
-.password-strength-bar.weak { background: #ef4444; }
-.password-strength-bar.medium { background: #eab308; }
-.password-strength-bar.strong { background: #22c55e; }
+.password-strength-bar.weak { background: var(--color-error-dark); }
+.password-strength-bar.medium { background: var(--color-warning); }
+.password-strength-bar.strong { background: var(--color-success-dark); }
 
 /* Wallet Buttons */
+/* Wallet brand colors — intentional exceptions to warm palette (external brand identity) */
 .evm-wallet-button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   background: var(--btn-secondary-bg);
-  border: 1px solid #627eea;
+  border: 1px solid var(--wallet-evm-color);
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .evm-wallet-button:hover {
   background: rgba(98, 126, 234, 0.1);
-  border-color: #627eea;
+  border-color: var(--wallet-evm-color);
   transform: translateY(-1px);
 }
 
@@ -439,14 +440,14 @@
   justify-content: center;
   gap: 10px;
   background: var(--btn-secondary-bg);
-  border: 1px solid #9945ff;
+  border: 1px solid var(--wallet-solana-color);
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .solana-button:hover {
   background: rgba(153, 69, 255, 0.1);
-  border-color: #9945ff;
+  border-color: var(--wallet-solana-color);
   transform: translateY(-1px);
 }
 
@@ -485,8 +486,8 @@
 }
 
 .wallet-option:hover {
-  background: rgba(124, 58, 237, 0.1);
-  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(255, 164, 6, 0.1);
+  border-color: rgba(255, 164, 6, 0.3);
 }
 
 .wallet-option img {
@@ -503,9 +504,8 @@
   }
 
   .login-logo {
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
+    width: 180px;
+    height: auto;
   }
 
   .login-header h1 {

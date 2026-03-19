@@ -184,9 +184,14 @@ const MemberBookings = () => {
         setBookingStep(2) // Move to confirmation step
       }
     } catch (error) {
-      console.warn('Could not check conflicts:', error)
-      setConflictError(null)
-      setBookingStep(2)
+      if (error?.code === 'functions/invalid-argument') {
+        setConflictError(error.message || t('memberBookings.outsideHoursError'))
+        setAlternativeSlots([])
+      } else {
+        console.warn('Could not check conflicts:', error)
+        setConflictError(null)
+        setBookingStep(2)
+      }
     }
   }
 
