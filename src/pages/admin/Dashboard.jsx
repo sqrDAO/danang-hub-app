@@ -41,22 +41,27 @@ const AdminDashboard = () => {
   const now = new Date()
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
+  const visibleBookingStatuses = ['pending', 'approved', 'checked-in']
+  const visibleEventStatuses = ['pending', 'approved']
+
+  const dashboardBookings = bookings.filter((b) => visibleBookingStatuses.includes(b.status))
+  const dashboardEvents = events.filter((e) => visibleEventStatuses.includes(e.status))
 
   const stats = {
     totalMembers: members.length,
-    activeBookings: bookings.filter(b => b.status === 'checked-in').length,
-    upcomingBookings: bookings.filter(b => {
+    activeBookings: dashboardBookings.filter(b => b.status === 'checked-in').length,
+    upcomingBookings: dashboardBookings.filter(b => {
       const startTime = b.startTime ? new Date(b.startTime) : null
       if (!startTime) return false
       const bookingDayStart = new Date(startTime)
       bookingDayStart.setHours(0, 0, 0, 0)
       return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
-    upcomingEvents: events.filter(e => new Date(e.date) > new Date()).length,
+    upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
     availableAmenities: amenities.filter(a => a.isAvailable !== false).length
   }
 
-  const upcomingBookingsForList = bookings.filter(booking => {
+  const upcomingBookingsForList = dashboardBookings.filter(booking => {
     if (!booking.startTime) return false
     const start = booking.startTime instanceof Date ? booking.startTime : new Date(booking.startTime)
     const bookingDayStart = new Date(start)
@@ -80,7 +85,7 @@ const AdminDashboard = () => {
   const recentStartIndex = (safeRecentBookingsPage - 1) * RECENT_BOOKINGS_PAGE_SIZE
   const recentEndIndex = recentStartIndex + RECENT_BOOKINGS_PAGE_SIZE
   const recentBookingsPageItems = recentBookingsSorted.slice(recentStartIndex, recentEndIndex)
-  const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).slice(0, 5)
+  const upcomingEvents = dashboardEvents.filter(e => new Date(e.date) > new Date()).slice(0, 5)
 
   const getOrganizerName = (organizerId) => {
     const organizer = members.find(m => m.id === organizerId)
