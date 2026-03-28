@@ -160,7 +160,8 @@ exports.checkBookingConflicts = functions.https.onCall(
         const amenityCapacity =
           amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
 
-        // Always enforce available days for every amenity type (including event-space)
+        // Always enforce available days for every amenity type
+        // (including event-space)
         if (amenity && !isOnAvailableDay(startTime, amenity)) {
           throw new functions.https.HttpsError(
               "invalid-argument",
@@ -397,8 +398,8 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
           });
         });
 
-        // 2. Any pending/approved booking whose end time has passed: auto-complete
-        //    Covers past days AND same-day slots that already ended
+        // 2. Any pending/approved booking whose end time has passed:
+        //    auto-complete. Covers past days AND same-day expired slots.
         const pendingApprovedStatuses = ["pending", "approved"];
         for (const status of pendingApprovedStatuses) {
           const expiredQuery = await db.collection("bookings")
@@ -415,8 +416,8 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
           });
         }
 
-        // 3. Past-day checked-in bookings not caught by step 1 (e.g. endTime
-        //    was within last hour but startTime was before today): auto-complete
+        // 3. Past-day checked-in bookings not caught by step 1
+        //    (endTime within last hour but startTime before today)
         const pastDayCheckedIn = await db.collection("bookings")
             .where("status", "==", "checked-in")
             .where("startTime", "<", startOfToday)
