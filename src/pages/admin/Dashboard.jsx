@@ -60,7 +60,11 @@ const AdminDashboard = () => {
       const bookingDayStart = new Date(`${bookingVnDateStr}T00:00:00+07:00`)
       return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
-    completedBookings: bookings.filter(b => b.status === 'completed').length,
+    completedBookings: bookings.filter(b => {
+      const bookingEnd = b.endTime ? new Date(b.endTime) : (b.startTime ? new Date(b.startTime) : null)
+      if (!bookingEnd) return false
+      return bookingEnd < now && b.status !== 'cancelled'
+    }).length,
     upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
     completedEvents: events.filter(e => {
       const eventDate = e.date ? new Date(e.date) : null
