@@ -262,18 +262,6 @@ const MemberEvents = () => {
       bannerUrl
     }
 
-    const depositTxHash = formData.get('depositTxHash')?.trim()
-
-    if (capacity > 30 && !depositTxHash) {
-      showToast(t('toast.eventDepositRequired'), 'error')
-      setIsSubmitting(false)
-      return
-    }
-
-    if (depositTxHash) {
-      data.depositTxHash = depositTxHash
-    }
-
     // Handle hosting projects (text input)
     const hostingProjects = formData.get('hostingProjects')
     if (hostingProjects && hostingProjects.trim()) {
@@ -888,26 +876,6 @@ const MemberEvents = () => {
             </div>
             <div className="form-group">
               <label className="form-label">
-                {t('memberEvents.modal.depositSectionTitle')}
-              </label>
-              <p className="form-hint">
-                {t('memberEvents.modal.depositSectionDescription')}
-              </p>
-              <p className="form-hint">
-                {t('memberEvents.modal.depositWallets')}
-              </p>
-              <input
-                type="text"
-                name="depositTxHash"
-                className="form-field"
-                placeholder={t('memberEvents.modal.depositTxHashPlaceholder')}
-              />
-              <small className="form-hint">
-                {t('memberEvents.modal.depositTxHashHint')}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
                 {t('memberEvents.modal.hostingProjectsLabel')}
               </label>
               <input
@@ -957,7 +925,7 @@ const MemberEvents = () => {
                     <strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong>
                   </p>
                   <ul>
-                    <li>{t('memberEvents.modal.hallRequirementsItem')}</li>
+                    <li>{t('memberEvents.modal.parkingFeeRequirement')}</li>
                   </ul>
                 </div>
                 <div className="form-group">

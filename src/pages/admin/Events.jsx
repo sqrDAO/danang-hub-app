@@ -282,18 +282,6 @@ const AdminEvents = () => {
       waitlist: []
     }
 
-    const depositTxHash = formData.get('depositTxHash')?.trim()
-
-    if (capacity > 30 && !depositTxHash) {
-      showToast(t('toast.eventDepositRequired'), 'error')
-      setIsSubmitting(false)
-      return
-    }
-
-    if (depositTxHash) {
-      data.depositTxHash = depositTxHash
-    }
-
     // Handle hosting projects (text input)
     const hostingProjects = formData.get('hostingProjects')
     if (hostingProjects && hostingProjects.trim()) {
@@ -483,11 +471,6 @@ const AdminEvents = () => {
                       🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('adminEvents.eventLink')}</a>
                     </p>
                   )}
-                  {event.depositTxHash && (
-                    <p className="event-deposit">
-                      💰 {t('adminEvents.depositTxLabel')} <span className="event-deposit-hash">{event.depositTxHash}</span>
-                    </p>
-                  )}
                   {event.description && (
                     <p className="event-description">{event.description}</p>
                   )}
@@ -614,9 +597,6 @@ const AdminEvents = () => {
                 defaultValue={selectedEvent?.date ? toDatetimeLocalHub(selectedEvent.date) : ''}
                 required
               />
-              {linkAmenity && (
-                <small className="form-hint">{t('adminEvents.modal.depositRequired')}</small>
-              )}
             </div>
             <div className="form-group">
               <label className="form-label">{t('adminEvents.modal.durationLabel')}</label>
@@ -644,25 +624,6 @@ const AdminEvents = () => {
               />
               <small className="form-hint">
                 {t('adminEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('adminEvents.modal.depositSectionTitle')}</label>
-              <p className="form-hint">
-                {t('adminEvents.modal.depositSectionDescription')}
-              </p>
-              <p className="form-hint">
-                {t('adminEvents.modal.depositWallets')}
-              </p>
-              <input
-                type="text"
-                name="depositTxHash"
-                className="form-field"
-                defaultValue={selectedEvent?.depositTxHash || ''}
-                placeholder={t('adminEvents.modal.depositTxHashPlaceholder')}
-              />
-              <small className="form-hint">
-                {t('adminEvents.modal.depositTxHashHint')}
               </small>
             </div>
             <div className="form-group">
@@ -722,7 +683,7 @@ const AdminEvents = () => {
               return (
               <>
                 <div className="event-hall-notice">
-                  <p><strong>{t('adminEvents.modal.eventHallNotice')}</strong> {t('adminEvents.modal.eventHallDeposit')}</p>
+                  <p><strong>{t('adminEvents.modal.eventHallNotice')}</strong> {t('adminEvents.modal.parkingFeeRequirement')}</p>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('adminEvents.modal.amenityLabel')}</label>
