@@ -57,6 +57,11 @@ const AdminDashboard = () => {
       bookingDayStart.setHours(0, 0, 0, 0)
       return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
+    completedBookings: bookings.filter(b => {
+      const bookingEnd = b.endTime ? new Date(b.endTime) : (b.startTime ? new Date(b.startTime) : null)
+      if (!bookingEnd) return false
+      return bookingEnd < now && b.status !== 'cancelled'
+    }).length,
     upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
     availableAmenities: amenities.filter(a => a.isAvailable !== false).length
   }
@@ -116,6 +121,10 @@ const AdminDashboard = () => {
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.upcomingBookings}</h3>
             <p className="stat-label">{t('adminDashboard.upcomingBookings')}</p>
+          </div>
+          <div className="stat-card glass">
+            <h3 className="stat-value">{stats.completedBookings}</h3>
+            <p className="stat-label">{t('adminDashboard.completedBookings')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.upcomingEvents}</h3>
