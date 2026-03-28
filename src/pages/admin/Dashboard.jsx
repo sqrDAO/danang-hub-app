@@ -63,6 +63,11 @@ const AdminDashboard = () => {
       return bookingEnd < now && b.status !== 'cancelled'
     }).length,
     upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
+    completedEvents: events.filter(e => {
+      const eventDate = e.date ? new Date(e.date) : null
+      if (!eventDate) return false
+      return eventDate < now && e.status !== 'rejected'
+    }).length,
     availableAmenities: amenities.filter(a => a.isAvailable !== false).length
   }
 
@@ -129,6 +134,10 @@ const AdminDashboard = () => {
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.upcomingEvents}</h3>
             <p className="stat-label">{t('adminDashboard.upcomingEvents')}</p>
+          </div>
+          <div className="stat-card glass">
+            <h3 className="stat-value">{stats.completedEvents}</h3>
+            <p className="stat-label">{t('adminDashboard.completedEvents')}</p>
           </div>
           <div className="stat-card glass">
             <h3 className="stat-value">{stats.availableAmenities}</h3>
