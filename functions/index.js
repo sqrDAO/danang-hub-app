@@ -52,6 +52,34 @@ function isWeekday(date) {
 }
 
 /**
+ * Returns the day-of-week index (0=Sun … 6=Sat) for a given date in the hub
+ * timezone.
+ * @param {Date|string} date
+ * @return {number}
+ */
+function getDayNumber(date) {
+  const weekdayShort = new Intl.DateTimeFormat("en-US", {
+    timeZone: HUB_TIMEZONE, weekday: "short",
+  }).format(new Date(date));
+  const DAY_INDEX = {Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6};
+  return DAY_INDEX[weekdayShort] ?? -1;
+}
+
+/**
+ * Returns true if the booking start time falls on one of the amenity's
+ * configured available days.  Reads top-level fields (availableDays) from the
+ * amenity document.  Defaults to Mon–Fri when not set.
+ * @param {string} startTime ISO start time
+ * @param {Object} amenity Amenity Firestore document data
+ * @return {boolean}
+ */
+function isOnAvailableDay(startTime, amenity) {
+  const availableDays = Array.isArray(amenity && amenity.availableDays) ?
+    amenity.availableDays : [1, 2, 3, 4, 5];
+  return availableDays.includes(getDayNumber(startTime));
+}
+
+/**
  * @param {string} startTime ISO start time
  * @param {string} endTime ISO end time
  * @param {Object} amenity Amenity data with optional availability config
@@ -60,21 +88,15 @@ function isWeekday(date) {
 function isWithinAmenityHours(startTime, endTime, amenity) {
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);
-  const avail = amenity && amenity.availability ? amenity.availability : {};
+  // Read top-level amenity fields (not nested under amenity.availability)
+  const avail = amenity || {};
   const startHour = typeof avail.startHour === "number" ?
     avail.startHour : BUSINESS_START_HOUR;
   const endHour = typeof avail.endHour === "number" ?
     avail.endHour : BUSINESS_END_HOUR;
 
-  // Check available days (array of 0–6, where 0=Sun). Default: Mon–Fri (1–5).
-  const availableDays = Array.isArray(avail.availableDays) ?
-    avail.availableDays : [1, 2, 3, 4, 5];
-  const weekdayShort = new Intl.DateTimeFormat("en-US", {
-    timeZone: HUB_TIMEZONE, weekday: "short",
-  }).format(startDate);
-  const DAY_INDEX = {Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6};
-  const dayNum = DAY_INDEX[weekdayShort] ?? -1;
-  if (!availableDays.includes(dayNum)) return false;
+  // Day check is handled by isOnAvailableDay; skip it here.
+  if (!isOnAvailableDay(startTime, amenity)) return false;
 
   const fmt = (d) => new Intl.DateTimeFormat("en-CA", {
     timeZone: HUB_TIMEZONE,
@@ -138,6 +160,15 @@ exports.checkBookingConflicts = functions.https.onCall(
         const amenityCapacity =
           amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
 
+        // Always enforce available days for every amenity type (including event-space)
+        if (amenity && !isOnAvailableDay(startTime, amenity)) {
+          throw new functions.https.HttpsError(
+              "invalid-argument",
+              "Booking date is outside the amenity's available days.",
+          );
+        }
+
+        // Enforce business hours only for desk/meeting-room/podcast-room
         const amenityNeedsHoursCheck =
           amenity && AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenityType);
         if (amenityNeedsHoursCheck) {
@@ -239,6 +270,14 @@ exports.checkSlotAvailability = functions.https.onCall(
 
           amenityCapacity =
             amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+
+          // Always enforce available days for every amenity type
+          if (!isOnAvailableDay(startTime, amenity)) {
+            return {
+              available: false,
+              error: "This amenity is not available on that day.",
+            };
+          }
 
           if (AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenity.type)) {
             if (!isWithinBusinessHours(startTime, endTime)) {
@@ -358,16 +397,16 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
           });
         });
 
-        // 2. Past-day bookings (pending/approved/checked-in): auto-complete
-        //    Covers staff forgetting to check in or check out
-        const pastDayStatuses = ["pending", "approved", "checked-in"];
-        for (const status of pastDayStatuses) {
-          const pastDayQuery = await db.collection("bookings")
+        // 2. Any pending/approved booking whose end time has passed: auto-complete
+        //    Covers past days AND same-day slots that already ended
+        const pendingApprovedStatuses = ["pending", "approved"];
+        for (const status of pendingApprovedStatuses) {
+          const expiredQuery = await db.collection("bookings")
               .where("status", "==", status)
-              .where("startTime", "<", startOfToday)
+              .where("endTime", "<=", now)
               .get();
 
-          pastDayQuery.forEach((doc) => {
+          expiredQuery.forEach((doc) => {
             toComplete.set(doc.ref.path, {
               status: "completed",
               checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -375,6 +414,21 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
             });
           });
         }
+
+        // 3. Past-day checked-in bookings not caught by step 1 (e.g. endTime
+        //    was within last hour but startTime was before today): auto-complete
+        const pastDayCheckedIn = await db.collection("bookings")
+            .where("status", "==", "checked-in")
+            .where("startTime", "<", startOfToday)
+            .get();
+
+        pastDayCheckedIn.forEach((doc) => {
+          toComplete.set(doc.ref.path, {
+            status: "completed",
+            checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: new Date().toISOString(),
+          });
+        });
 
         const refs = Array.from(toComplete.keys()).map((path) =>
           db.doc(path),

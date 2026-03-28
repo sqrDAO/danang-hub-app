@@ -39,8 +39,10 @@ const AdminDashboard = () => {
   })
 
   const now = new Date()
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
+  // Compute midnight in Vietnam time so the "upcoming" cutoff is correct
+  // regardless of the admin's browser timezone.
+  const vnTodayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+  const todayStart = new Date(`${vnTodayStr}T00:00:00+07:00`)
   const visibleBookingStatuses = ['pending', 'approved', 'checked-in']
   const visibleEventStatuses = ['pending', 'approved']
 
@@ -53,15 +55,12 @@ const AdminDashboard = () => {
     upcomingBookings: dashboardBookings.filter(b => {
       const startTime = b.startTime ? new Date(b.startTime) : null
       if (!startTime) return false
-      const bookingDayStart = new Date(startTime)
-      bookingDayStart.setHours(0, 0, 0, 0)
+      // Use Vietnam date string for a timezone-safe day comparison
+      const bookingVnDateStr = startTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+      const bookingDayStart = new Date(`${bookingVnDateStr}T00:00:00+07:00`)
       return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
-    completedBookings: bookings.filter(b => {
-      const bookingEnd = b.endTime ? new Date(b.endTime) : (b.startTime ? new Date(b.startTime) : null)
-      if (!bookingEnd) return false
-      return bookingEnd < now && b.status !== 'cancelled'
-    }).length,
+    completedBookings: bookings.filter(b => b.status === 'completed').length,
     upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
     completedEvents: events.filter(e => {
       const eventDate = e.date ? new Date(e.date) : null
@@ -74,8 +73,8 @@ const AdminDashboard = () => {
   const upcomingBookingsForList = dashboardBookings.filter(booking => {
     if (!booking.startTime) return false
     const start = booking.startTime instanceof Date ? booking.startTime : new Date(booking.startTime)
-    const bookingDayStart = new Date(start)
-    bookingDayStart.setHours(0, 0, 0, 0)
+    const bookingVnDateStr = start.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+    const bookingDayStart = new Date(`${bookingVnDateStr}T00:00:00+07:00`)
     return bookingDayStart >= todayStart
   })
 
