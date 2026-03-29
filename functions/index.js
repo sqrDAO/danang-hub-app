@@ -11,15 +11,19 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Transporter is created fresh each call so Secret Manager values
-// (injected into process.env at runtime, not at module load) are always current.
+// (injected into process.env at runtime) are always current.
+/**
+ * Creates a Nodemailer SMTP transporter from environment config.
+ * @return {object} Nodemailer transporter instance
+ */
 function getTransporter() {
   return nodemailer.createTransport({
     host: process.env.EMAIL_SMTP_HOST,
     port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
-    secure: process.env.EMAIL_SMTP_SECURE !== "false", // true for 465, false for 587
+    secure: process.env.EMAIL_SMTP_SECURE !== "false",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // injected from Secret Manager at runtime
+      pass: process.env.EMAIL_PASS,
     },
   });
 }
@@ -664,20 +668,40 @@ exports.notifyEventStatusChange = functions
 
         if (member && member.email && sendEmail && process.env.EMAIL_USER) {
           const displayName = member.displayName || member.email;
-          const fromName = process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
-          const appUrl = process.env.APP_URL || "https://app.danangblockchainhub.com";
+          const fromName =
+            process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
+          const appUrl =
+            process.env.APP_URL || "https://app.danangblockchainhub.com";
 
-          const subject = isApproved
-            ? `✅ Your event "${eventTitle}" has been approved`
-            : `❌ Your event "${eventTitle}" was not approved`;
+          const subject = isApproved ?
+            `✅ Your event "${eventTitle}" has been approved` :
+            `❌ Your event "${eventTitle}" was not approved`;
 
-          const reasonHtml = !isApproved ? `
-            <div style="margin:20px 0;padding:16px;background:#fff1f2;border-left:4px solid #ef4444;border-radius:6px;">
-              <p style="margin:0;font-size:14px;color:#991b1b;">
-                <strong>Reason:</strong> ${rejectionReason || "No reason was provided."}
-              </p>
-            </div>` : "";
+          const eventTitleHtml =
+            `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
+          const statusHtml = isApproved ?
+            `${eventTitleHtml} has been ` +
+            `<strong style="color:#22c55e;">approved</strong>` +
+            ` and is now live on the events calendar.` :
+            `We're sorry, ${eventTitleHtml} was ` +
+            `<strong style="color:#ef4444;">not approved</strong>` +
+            ` at this time.`;
+          const followUpHtml = isApproved ?
+            `Members can now see and register for your event.` +
+            ` You'll receive reminders as the date approaches.` :
+            `You're welcome to submit a new event request` +
+            ` after addressing the feedback above.`;
 
+          // eslint-disable-next-line max-len
+          const reasonText = rejectionReason || "No reason was provided.";
+          const reasonHtml = isApproved ? "" :
+            `<div style="margin:20px 0;padding:16px;` +
+            `background:#fff1f2;border-left:4px solid #ef4444;` +
+            `border-radius:6px;">` +
+            `<p style="margin:0;font-size:14px;color:#991b1b;">` +
+            `<strong>Reason:</strong> ${reasonText}</p></div>`;
+
+          /* eslint-disable max-len */
           const bodyHtml = `
 <!DOCTYPE html>
 <html>
@@ -687,7 +711,6 @@ exports.notifyEventStatusChange = functions
     <tr><td align="center" style="padding:40px 16px;">
       <table width="600" cellpadding="0" cellspacing="0"
              style="background:#1e293b;border-radius:16px;overflow:hidden;max-width:600px;">
-        <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#0ea5e9,#6366f1);padding:32px;text-align:center;">
             <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">
@@ -695,36 +718,26 @@ exports.notifyEventStatusChange = functions
             </h1>
           </td>
         </tr>
-        <!-- Body -->
         <tr>
           <td style="padding:32px;">
             <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;">
               Hi ${displayName},
             </p>
             <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;line-height:1.6;">
-              ${isApproved
-                ? `Your event <strong style="color:#38bdf8;">"${eventTitle}"</strong> has been <strong style="color:#22c55e;">approved</strong> and is now live on the events calendar.`
-                : `We're sorry, your event <strong style="color:#38bdf8;">"${eventTitle}"</strong> was <strong style="color:#ef4444;">not approved</strong> at this time.`
-              }
+              ${statusHtml}
             </p>
             ${reasonHtml}
-            ${isApproved ? `
             <p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">
-              Members can now see and register for your event. You'll receive reminders as the date approaches.
-            </p>` : `
-            <p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">
-              You're welcome to submit a new event request after addressing the feedback above.
-            </p>`}
+              ${followUpHtml}
+            </p>
             <div style="margin:32px 0;text-align:center;">
               <a href="${appUrl}/member/events"
-                 style="display:inline-block;padding:12px 28px;background:#0ea5e9;color:#fff;
-                        text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
+                 style="display:inline-block;padding:12px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
                 View My Events
               </a>
             </div>
           </td>
         </tr>
-        <!-- Footer -->
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #334155;text-align:center;">
             <p style="margin:0;color:#475569;font-size:12px;">
@@ -737,6 +750,7 @@ exports.notifyEventStatusChange = functions
   </table>
 </body>
 </html>`;
+          /* eslint-enable max-len */
 
           await getTransporter().sendMail({
             from: `"${fromName}" <${process.env.EMAIL_USER}>`,
