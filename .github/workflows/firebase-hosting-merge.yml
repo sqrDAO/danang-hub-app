@@ -50,5 +50,8 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
 
+      - name: Show authenticated identity
+        run: gcloud auth list
+
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
