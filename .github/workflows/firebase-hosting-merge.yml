@@ -51,7 +51,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
 
       - name: Show authenticated identity
-        run: gcloud auth list
+        run: cat $GOOGLE_APPLICATION_CREDENTIALS | python3 -c "import sys,json; print(json.load(sys.stdin).get('client_email','not found'))"
 
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
