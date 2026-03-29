@@ -10,21 +10,18 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
-// Lazily created so the transporter is only built when an email function runs
-let _transporter = null;
+// Transporter is created fresh each call so Secret Manager values
+// (injected into process.env at runtime, not at module load) are always current.
 function getTransporter() {
-  if (!_transporter) {
-    _transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SMTP_HOST,
-      port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
-      secure: process.env.EMAIL_SMTP_SECURE !== "false", // true for 465, false for 587
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-  }
-  return _transporter;
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_SMTP_HOST,
+    port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
+    secure: process.env.EMAIL_SMTP_SECURE !== "false", // true for 465, false for 587
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS, // injected from Secret Manager at runtime
+    },
+  });
 }
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -628,7 +625,9 @@ exports.sendEventReminders = functions.pubsub
     });
 
 // Notify event organizer when event status changes to approved or rejected
-exports.notifyEventStatusChange = functions.firestore
+exports.notifyEventStatusChange = functions
+    .runWith({secrets: ["EMAIL_PASS"]})
+    .firestore
     .document("events/{eventId}")
     .onUpdate(async (change, context) => {
       const before = change.before.data();
