@@ -329,6 +329,8 @@
     "confirmDelete": "Bạn có chắc chắn muốn xóa sự kiện này?",
     "confirmApprove": "Duyệt sự kiện này? Sự kiện sẽ xuất hiện trên lịch cho tất cả thành viên.",
     "rejectReason": "Lý do từ chối (tuỳ chọn):",
+    "rejectionReason": "Lý do từ chối: {{reason}}",
+    "noReasonProvided": "Không có lý do từ chối",
     "promoteCount": "Chuyển bao nhiêu thành viên từ danh sách chờ?",
     "modal": {
       "createTitle": "Tạo sự kiện",

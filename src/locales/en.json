@@ -329,6 +329,8 @@
     "confirmDelete": "Are you sure you want to delete this event?",
     "confirmApprove": "Approve this event? It will appear on the calendar for all members.",
     "rejectReason": "Reason for rejection (optional):",
+    "rejectionReason": "Rejection reason: {{reason}}",
+    "noReasonProvided": "No rejection reason provided",
     "promoteCount": "How many members to promote from waitlist?",
     "modal": {
       "createTitle": "Create Event",

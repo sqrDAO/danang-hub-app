@@ -121,6 +121,15 @@
   opacity: 0.7;
 }
 
+.event-rejection-reason {
+  color: var(--color-error);
+  font-size: 0.85rem;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-error-bg);
+  border-radius: var(--border-radius);
+}
+
 .event-header {
   display: flex;
   justify-content: space-between;

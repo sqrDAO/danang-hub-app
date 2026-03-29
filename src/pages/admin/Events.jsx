@@ -474,6 +474,13 @@ const AdminEvents = () => {
                   {event.description && (
                     <p className="event-description">{event.description}</p>
                   )}
+                  {event.status === 'rejected' && (
+                    <p className="event-rejection-reason">
+                      ❌ {event.rejectionReason
+                        ? t('adminEvents.rejectionReason', { reason: event.rejectionReason })
+                        : t('adminEvents.noReasonProvided')}
+                    </p>
+                  )}
                 </div>
                 <div className="event-actions">
                   {event.status === 'pending' && (
