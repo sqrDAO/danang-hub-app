@@ -91,5 +91,15 @@ service cloud.firestore {
       // Only admins can create, update, or delete projects
       allow write: if isAdmin();
     }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      // Users can mark their own notifications as read (update only the read field)
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      // Only Cloud Functions (admin SDK) create notifications — no client-side create/delete
+    }
   }
 }

@@ -609,6 +609,42 @@ exports.sendEventReminders = functions.pubsub
       }
     });
 
+// Notify event organizer when event status changes to approved or rejected
+exports.notifyEventStatusChange = functions.firestore
+    .document("events/{eventId}")
+    .onUpdate(async (change, context) => {
+      const before = change.before.data();
+      const after = change.after.data();
+
+      // Only act on status transitions
+      if (before.status === after.status) return null;
+      if (!["approved", "rejected"].includes(after.status)) return null;
+
+      try {
+        const notification = {
+          userId: after.organizerId,
+          type: "event_status",
+          eventId: context.params.eventId,
+          eventTitle: after.title || after.name || "",
+          status: after.status,
+          rejectionReason: after.rejectionReason || "",
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        await db.collection("notifications").add(notification);
+        console.log("Event status notification created:", {
+          organizerId: after.organizerId,
+          eventId: context.params.eventId,
+          status: after.status,
+        });
+        return null;
+      } catch (error) {
+        console.error("Error creating event status notification:", error);
+        return null;
+      }
+    });
+
 // Generate a one-time nonce for wallet authentication
 exports.generateWalletNonce = functions.https.onCall(
     async (data, context) => {

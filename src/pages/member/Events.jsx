@@ -4,17 +4,18 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
-import { 
+import {
   getApprovedEvents,
   getUpcomingEvents,
   getMyEvents,
   createEvent,
   deleteEvent,
-  registerForEvent, 
-  unregisterFromEvent, 
-  addToWaitlist, 
-  removeFromWaitlist 
+  registerForEvent,
+  unregisterFromEvent,
+  addToWaitlist,
+  removeFromWaitlist
 } from '../../services/events'
+import { getUnreadNotifications, markNotificationRead } from '../../services/notifications'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
@@ -77,6 +78,30 @@ const MemberEvents = () => {
     queryFn: () => getMyEvents(currentUser?.uid),
     enabled: !!currentUser?.uid
   })
+
+  // Fetch unread event-status notifications
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications', currentUser?.uid],
+    queryFn: () => getUnreadNotifications(currentUser?.uid),
+    enabled: !!currentUser?.uid
+  })
+
+  useEffect(() => {
+    if (notifications.length === 0) return
+    notifications.forEach(n => {
+      if (n.status === 'rejected') {
+        const msg = n.rejectionReason
+          ? t('memberEvents.eventRejectedWithReason', { title: n.eventTitle, reason: n.rejectionReason })
+          : t('memberEvents.eventRejected', { title: n.eventTitle })
+        showToast(msg, 'error')
+      } else if (n.status === 'approved') {
+        showToast(t('memberEvents.eventApproved', { title: n.eventTitle }), 'success')
+      }
+      markNotificationRead(n.id)
+    })
+    queryClient.invalidateQueries({ queryKey: ['notifications'] })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications.length])
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
@@ -521,9 +546,11 @@ const MemberEvents = () => {
                         🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
                       </p>
                     )}
-                    {event.status === 'rejected' && event.rejectionReason && (
+                    {event.status === 'rejected' && (
                       <p className="event-rejection-reason">
-                        ❌ {t('memberEvents.reason', { reason: event.rejectionReason })}
+                        ❌ {event.rejectionReason
+                          ? t('memberEvents.reason', { reason: event.rejectionReason })
+                          : t('memberEvents.noReasonProvided')}
                       </p>
                     )}
                     {event.description && (

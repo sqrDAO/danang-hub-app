@@ -507,6 +507,10 @@
     "noPastEvents": "Chưa có sự kiện đã qua",
     "attended": "✅ Bạn đã tham gia sự kiện này",
     "reason": "Lý do: {{reason}}",
+    "noReasonProvided": "Không có lý do được cung cấp",
+    "eventRejected": "Sự kiện \"{{title}}\" của bạn đã bị từ chối",
+    "eventRejectedWithReason": "Sự kiện \"{{title}}\" của bạn đã bị từ chối: {{reason}}",
+    "eventApproved": "Sự kiện \"{{title}}\" của bạn đã được duyệt!",
     "confirmDelete": "Bạn có chắc chắn muốn xóa yêu cầu sự kiện này?",
     "confirmUnregister": "Bạn có chắc chắn muốn hủy đăng ký sự kiện này?",
     "modal": {
