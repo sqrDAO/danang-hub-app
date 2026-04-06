@@ -302,7 +302,10 @@
     "checkOut": "Check Out",
     "checkInSameDay": "Check In is only allowed on the same day as the booking",
     "checkOutSameDay": "Check Out is only allowed on the same day as the booking",
-    "confirmDelete": "Are you sure you want to delete this booking?"
+    "confirmDelete": "Are you sure you want to delete this booking?",
+    "approveAll": "Approve All ({{count}})",
+    "approvingAll": "Approving...",
+    "confirmApproveAll": "Approve all {{count}} pending booking(s)?"
   },
   "amenityTypes": {
     "desk": "Desk",
@@ -588,6 +591,8 @@
     "photoUploadInProgress": "Please wait for photos to finish uploading",
     "bookingCreated": "Booking created successfully!",
     "bookingCreateFailed": "Failed to create booking. Please try again.",
+    "bookingsApprovedAll": "Approved {{count}} booking(s) successfully!",
+    "bookingsApprovedPartial": "Approved {{succeeded}} booking(s). {{failed}} failed — please retry.",
     "recurringBookingsCreated": "Created {{count}} recurring booking(s)!",
     "recurringBookingsFailed": "Failed to create recurring bookings. Please try again.",
     "bookingUpdated": "Booking updated successfully!",

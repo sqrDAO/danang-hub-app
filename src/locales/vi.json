@@ -302,7 +302,10 @@
     "checkOut": "Check Out",
     "checkInSameDay": "Chỉ được Check In trong cùng ngày với lịch đặt chỗ",
     "checkOutSameDay": "Chỉ được Check Out trong cùng ngày với lịch đặt chỗ",
-    "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?"
+    "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
+    "approveAll": "Duyệt tất cả ({{count}})",
+    "approvingAll": "Đang duyệt...",
+    "confirmApproveAll": "Duyệt tất cả {{count}} đặt chỗ đang chờ xử lý?"
   },
   "amenityTypes": {
     "desk": "Bàn làm việc",
@@ -588,6 +591,8 @@
     "photoUploadInProgress": "Vui lòng đợi tải ảnh hoàn tất",
     "bookingCreated": "Tạo đặt chỗ thành công!",
     "bookingCreateFailed": "Không thể tạo đặt chỗ. Vui lòng thử lại.",
+    "bookingsApprovedAll": "Đã duyệt {{count}} đặt chỗ thành công!",
+    "bookingsApprovedPartial": "Đã duyệt {{succeeded}} đặt chỗ. {{failed}} thất bại — vui lòng thử lại.",
     "recurringBookingsCreated": "Đã tạo {{count}} lần đặt chỗ định kỳ!",
     "recurringBookingsFailed": "Không thể tạo đặt chỗ định kỳ. Vui lòng thử lại.",
     "bookingUpdated": "Cập nhật đặt chỗ thành công!",

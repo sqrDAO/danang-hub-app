@@ -197,6 +197,31 @@ const AdminBookings = () => {
     setCurrentPage(1)
   }
 
+  const [isApprovingAll, setIsApprovingAll] = useState(false)
+
+  const handleApproveAll = async () => {
+    const pendingBookings = filteredBookings.filter(b => b.status === 'pending')
+    if (pendingBookings.length === 0) return
+    if (!window.confirm(t('adminBookings.confirmApproveAll', { count: pendingBookings.length }))) return
+
+    setIsApprovingAll(true)
+    try {
+      const results = await Promise.allSettled(
+        pendingBookings.map(b => updateBooking(b.id, { status: 'approved' }))
+      )
+      const succeeded = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.length - succeeded
+      queryClient.invalidateQueries(['bookings'])
+      if (failed === 0) {
+        showToast(t('toast.bookingsApprovedAll', { count: succeeded }), 'success')
+      } else {
+        showToast(t('toast.bookingsApprovedPartial', { succeeded, failed }), 'error')
+      }
+    } finally {
+      setIsApprovingAll(false)
+    }
+  }
+
   const amenityCategories = Array.from(
     new Set(amenities.map((amenity) => amenity.type).filter(Boolean))
   )
@@ -216,6 +241,17 @@ const AdminBookings = () => {
       <div className="container">
         <div className="page-header">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
+          <div className="page-actions">
+            {filteredBookings.some(b => b.status === 'pending') && (
+              <button
+                className="btn btn-primary"
+                onClick={handleApproveAll}
+                disabled={isApprovingAll}
+              >
+                {isApprovingAll ? t('adminBookings.approvingAll') : t('adminBookings.approveAll', { count: filteredBookings.filter(b => b.status === 'pending').length })}
+              </button>
+            )}
+          </div>
           <div className="page-filters">
             <select 
               className="form-field filter-select"
