@@ -7,7 +7,7 @@ import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking } from '../../services/bookings'
-import { getAmenities } from '../../services/amenities'
+import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../components/Toast'
 import { useTranslation } from 'react-i18next'
@@ -161,6 +161,19 @@ const MemberBookings = () => {
     // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
     endTime.setTime(startTime.getTime() + duration * 60 * 60 * 1000)
 
+    // Client-side check: end time must not exceed the amenity's closing hour
+    const amenityEndHour = typeof selectedAmenity.endHour === 'number'
+      ? selectedAmenity.endHour
+      : DEFAULT_AVAILABILITY.endHour
+    const endHours = endTime.getHours() + endTime.getMinutes() / 60
+    if (endHours > amenityEndHour) {
+      setConflictError(t('memberBookings.outsideHoursError'))
+      setAlternativeSlots([])
+      setSelectedStartTime(startTime)
+      setSelectedEndTime(endTime)
+      return
+    }
+
     setSelectedStartTime(startTime)
     setSelectedEndTime(endTime)
 
@@ -189,8 +202,8 @@ const MemberBookings = () => {
         setAlternativeSlots([])
       } else {
         console.warn('Could not check conflicts:', error)
-        setConflictError(null)
-        setBookingStep(2)
+        setConflictError(t('memberBookings.conflictCheckFailed'))
+        setAlternativeSlots([])
       }
     }
   }
@@ -257,6 +270,8 @@ const MemberBookings = () => {
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
+      showToast(t('memberBookings.conflictCheckFailed'), 'error')
+      return
     }
 
     const baseBooking = {

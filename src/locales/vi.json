@@ -434,6 +434,8 @@
     "confirmCancel": "Bạn có chắc chắn muốn hủy đặt chỗ này?",
     "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
     "conflictError": "Khung giờ này trùng với một đặt chỗ hiện có.",
+    "outsideHoursError": "Thời gian đã chọn vượt quá giờ đóng cửa của tiện ích. Vui lòng chọn thời lượng ngắn hơn hoặc giờ bắt đầu sớm hơn.",
+    "conflictCheckFailed": "Không thể xác minh khả năng đặt chỗ. Vui lòng thử lại.",
     "modal": {
       "titleWithAmenity": "Đặt chỗ {{name}}",
       "titleFallback": "Đặt tiện ích",

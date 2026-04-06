@@ -434,6 +434,8 @@
     "confirmCancel": "Are you sure you want to cancel this booking?",
     "confirmDelete": "Are you sure you want to delete this booking?",
     "conflictError": "This time slot conflicts with an existing booking.",
+    "outsideHoursError": "The selected time extends past this amenity's closing time. Please choose a shorter duration or an earlier start time.",
+    "conflictCheckFailed": "Could not verify availability. Please try again.",
     "modal": {
       "titleWithAmenity": "Book {{name}}",
       "titleFallback": "Book amenity",
