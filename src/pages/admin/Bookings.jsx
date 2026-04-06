@@ -12,7 +12,7 @@ import { formatDateDDMMYYYY } from '../../utils/timezone'
 const AdminBookings = () => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [memberSearch, setMemberSearch] = useState('')
   const [showPastBookings, setShowPastBookings] = useState(false)
