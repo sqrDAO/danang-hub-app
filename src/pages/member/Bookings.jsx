@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -37,6 +37,7 @@ const MemberBookings = () => {
   const [conflictError, setConflictError] = useState(null)
   const [alternativeSlots, setAlternativeSlots] = useState([])
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
+  const isSubmittingRef = useRef(false)
   const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
   const queryClient = useQueryClient()
 
@@ -253,7 +254,9 @@ const MemberBookings = () => {
 
   const handleConfirmBooking = async () => {
     if (!selectedStartTime || !selectedEndTime || !selectedAmenity) return
-    if (isSubmittingBooking) return
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+    setIsSubmittingBooking(true)
 
     // Final conflict check
     try {
@@ -266,11 +269,15 @@ const MemberBookings = () => {
       if (conflictCheck.hasConflicts) {
         showToast(t('toast.slotNoLongerAvailable'), 'error')
         setBookingStep(1)
+        isSubmittingRef.current = false
+        setIsSubmittingBooking(false)
         return
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
       showToast(t('memberBookings.conflictCheckFailed'), 'error')
+      isSubmittingRef.current = false
+      setIsSubmittingBooking(false)
       return
     }
 
@@ -281,7 +288,6 @@ const MemberBookings = () => {
       endTime: selectedEndTime.toISOString()
     }
 
-    setIsSubmittingBooking(true)
     try {
       if (recurrence) {
         // Create recurring bookings
@@ -294,6 +300,7 @@ const MemberBookings = () => {
       // Errors are already surfaced via mutation onError/toast
       console.error('Booking submission error:', error)
     } finally {
+      isSubmittingRef.current = false
       setIsSubmittingBooking(false)
     }
   }
