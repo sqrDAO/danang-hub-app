@@ -333,8 +333,15 @@ const MemberBookings = () => {
     const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
     return `${datePart} ${timePart}`
   }
-  const upcomingBookings = myBookings.filter(b => new Date(b.startTime) > new Date())
-  const pastBookings = myBookings.filter(b => new Date(b.startTime) <= new Date())
+  const deduplicatedBookings = myBookings.filter((booking, index, arr) =>
+    index === arr.findIndex(b =>
+      b.amenityId === booking.amenityId &&
+      String(b.startTime) === String(booking.startTime) &&
+      String(b.endTime) === String(booking.endTime)
+    )
+  )
+  const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
+  const pastBookings = deduplicatedBookings.filter(b => new Date(b.startTime) <= new Date())
 
   const getMinRecurringEndDate = () => {
     const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
