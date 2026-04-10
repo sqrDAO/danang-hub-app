@@ -9,7 +9,9 @@
     "members": "Thành viên",
     "bookings": "Đặt chỗ",
     "myBookings": "Đặt chỗ của tôi",
-    "profile": "Hồ sơ"
+    "profile": "Hồ sơ",
+    "memberView": "Chế độ thành viên",
+    "adminView": "Chế độ quản trị"
   },
   "common": {
     "appNameShort": "Portal",

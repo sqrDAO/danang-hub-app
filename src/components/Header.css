@@ -122,6 +122,41 @@
   min-height: 36px;
 }
 
+/* ── View Switch Button (admin ↔ member) ── */
+
+.view-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 1px solid var(--accent-primary);
+  text-decoration: none;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.view-switch-btn:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.view-switch-btn .header-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .view-switch-btn {
+    display: none;
+  }
+}
+
 /* ── Avatar dropdown ── */
 
 .user-menu-wrap {

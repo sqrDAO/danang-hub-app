@@ -9,7 +9,9 @@
     "members": "Members",
     "bookings": "Bookings",
     "myBookings": "My Bookings",
-    "profile": "Profile"
+    "profile": "Profile",
+    "memberView": "Member View",
+    "adminView": "Admin View"
   },
   "common": {
     "appNameShort": "Portal",
