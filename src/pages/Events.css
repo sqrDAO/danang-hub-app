@@ -122,6 +122,22 @@
   margin-top: var(--spacing-sm);
 }
 
+.organizer-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.organizer-link:hover {
+  opacity: 0.8;
+}
+
 .event-attended {
   color: var(--color-success);
   font-weight: 500;

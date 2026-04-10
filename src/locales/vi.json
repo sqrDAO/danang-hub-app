@@ -496,6 +496,7 @@
     "errorLoadingEvents": "Lỗi khi tải sự kiện. Vui lòng làm mới trang.",
     "organizer": "Người tổ chức: {{name}}",
     "organizerYou": "(Bạn)",
+    "host": "Người tổ chức",
     "duration": "Thời lượng: {{minutes}} phút",
     "capacity": "Sức chứa: {{count}}",
     "attendees": "{{current}} / {{total}} người tham dự",

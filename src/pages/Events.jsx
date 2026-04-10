@@ -4,18 +4,22 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
+import Modal from '../components/Modal'
+import Avatar from '../components/Avatar'
 import { getApprovedEvents, getUpcomingEvents, registerForEvent, unregisterFromEvent, addToWaitlist, removeFromWaitlist } from '../services/events'
 import { getMembers } from '../services/members'
 import { getProjects } from '../services/projects'
 import { showToast } from '../components/Toast'
 import { formatEventDate } from '../utils/timezone'
 import './Events.css'
+import './member/Profile.css'
 
 const Events = () => {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [hostModalMember, setHostModalMember] = useState(null)
 
   const { data: upcomingEvents = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: ['upcomingEvents'],
@@ -39,8 +43,10 @@ const Events = () => {
     queryFn: getProjects
   })
 
+  const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
+
   const getOrganizerName = (organizerId) => {
-    const organizer = members.find(m => m.id === organizerId)
+    const organizer = getOrganizer(organizerId)
     return organizer?.displayName || organizerId
   }
 
@@ -145,7 +151,13 @@ const Events = () => {
                     </div>
                     <div className="event-info">
                       <p className="event-organizer">
-                        Organizer: {getOrganizerName(event.organizerId)}
+                        Organizer:{' '}
+                        <button
+                          className="organizer-link"
+                          onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                        >
+                          {getOrganizerName(event.organizerId)}
+                        </button>
                       </p>
                       {event.duration && (
                         <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
@@ -266,7 +278,13 @@ const Events = () => {
                   </div>
                   <div className="event-info">
                     <p className="event-organizer">
-                      Organizer: {getOrganizerName(event.organizerId)}
+                      Organizer:{' '}
+                      <button
+                        className="organizer-link"
+                        onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                      >
+                        {getOrganizerName(event.organizerId)}
+                      </button>
                     </p>
                     {event.duration && (
                       <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
@@ -306,6 +324,72 @@ const Events = () => {
           onLogin={handleLogin}
           onSignUp={handleSignUp}
         />
+
+        <Modal
+          isOpen={!!hostModalMember}
+          onClose={() => setHostModalMember(null)}
+          title={hostModalMember?.displayName || 'Host'}
+        >
+          {hostModalMember && (
+            <div className="profile-modal-content">
+              <div className="profile-header">
+                <div className="profile-avatar-wrap">
+                  <Avatar src={hostModalMember.photoURL} name={hostModalMember.displayName} size="xl" />
+                </div>
+                <div className="profile-info">
+                  <h2 className="profile-name">{hostModalMember.displayName || '—'}</h2>
+                  {(hostModalMember.jobTitle || hostModalMember.company) && (
+                    <p className="profile-email">
+                      {[hostModalMember.jobTitle, hostModalMember.company].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <span className={`membership-badge ${hostModalMember.membershipType || 'member'}`}>
+                    {hostModalMember.membershipType === 'admin' ? 'Admin' : 'Member'}
+                  </span>
+                </div>
+              </div>
+
+              <section className="profile-section">
+                <h3 className="profile-section-title">Professional</h3>
+                <div className="profile-detail-item">
+                  <span className="detail-label">Company</span>
+                  <span className="detail-value">{hostModalMember.company || '—'}</span>
+                </div>
+                <div className="profile-detail-item">
+                  <span className="detail-label">Role</span>
+                  <span className="detail-value">{hostModalMember.jobTitle || '—'}</span>
+                </div>
+                {hostModalMember.linkedIn && (
+                  <div className="profile-detail-item">
+                    <span className="detail-label">LinkedIn</span>
+                    <span className="detail-value">
+                      <a href={hostModalMember.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+                        {hostModalMember.linkedIn}
+                      </a>
+                    </span>
+                  </div>
+                )}
+                {hostModalMember.website && (
+                  <div className="profile-detail-item">
+                    <span className="detail-label">Website</span>
+                    <span className="detail-value">
+                      <a href={hostModalMember.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+                        {hostModalMember.website}
+                      </a>
+                    </span>
+                  </div>
+                )}
+              </section>
+
+              <section className="profile-section">
+                <h3 className="profile-section-title">About</h3>
+                <div className="profile-detail-item profile-detail-bio">
+                  <span className="detail-value">{hostModalMember.bio || '—'}</span>
+                </div>
+              </section>
+            </div>
+          )}
+        </Modal>
       </div>
     </Layout>
   )

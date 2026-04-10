@@ -496,6 +496,7 @@
     "errorLoadingEvents": "Error loading events. Please refresh the page.",
     "organizer": "Organizer: {{name}}",
     "organizerYou": "(You)",
+    "host": "Host",
     "duration": "Duration: {{minutes}} minutes",
     "capacity": "Capacity: {{count}}",
     "attendees": "{{current}} / {{total}} attendees",
