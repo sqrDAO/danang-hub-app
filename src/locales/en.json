@@ -456,6 +456,7 @@
       "alternativesLabel": "Suggested alternative times:",
       "selectedRange": "Selected: {{start}} - {{end}}",
       "continue": "Continue to Confirm",
+      "checking": "Checking...",
       "summaryTitle": "Booking Summary",
       "summaryAmenity": "Amenity:",
       "summaryStart": "Start:",

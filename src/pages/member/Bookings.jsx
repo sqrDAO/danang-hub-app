@@ -15,10 +15,10 @@ import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
 
 const DEFAULT_DURATION_HOURS = {
-  'desk': 4,
+  'desk': 2,
   'meeting-room': 2,
-  'podcast-room': 3,
-  'event-space': 3
+  'podcast-room': 2,
+  'event-space': 2
 }
 
 const MemberBookings = () => {
@@ -36,6 +36,7 @@ const MemberBookings = () => {
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
   const [alternativeSlots, setAlternativeSlots] = useState([])
+  const [isCheckingConflict, setIsCheckingConflict] = useState(false)
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const isSubmittingRef = useRef(false)
   const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
@@ -154,7 +155,7 @@ const MemberBookings = () => {
     setBookingStep(1)
   }
 
-  const handleTimeSlotSelect = async (slotTime) => {
+  const handleTimeSlotSelect = async (slotTime, advance = false) => {
     if (!selectedAmenity) return
 
     const startTime = new Date(slotTime)
@@ -177,6 +178,7 @@ const MemberBookings = () => {
 
     setSelectedStartTime(startTime)
     setSelectedEndTime(endTime)
+    setIsCheckingConflict(true)
 
     // Check for conflicts
     try {
@@ -188,14 +190,14 @@ const MemberBookings = () => {
 
       if (conflictCheck.hasConflicts) {
         setConflictError(t('memberBookings.conflictError'))
-        
+
         // Suggest alternatives (same day, different times)
         const suggestions = generateAlternativeSlots(startTime, endTime, duration)
         setAlternativeSlots(suggestions)
       } else {
         setConflictError(null)
         setAlternativeSlots([])
-        setBookingStep(2) // Move to confirmation step
+        if (advance) setBookingStep(2)
       }
     } catch (error) {
       if (error?.code === 'functions/invalid-argument') {
@@ -206,6 +208,8 @@ const MemberBookings = () => {
         setConflictError(t('memberBookings.conflictCheckFailed'))
         setAlternativeSlots([])
       }
+    } finally {
+      setIsCheckingConflict(false)
     }
   }
 
@@ -233,11 +237,7 @@ const MemberBookings = () => {
   }
 
   const handleUseAlternative = (altSlot) => {
-    setSelectedStartTime(altSlot.start)
-    setSelectedEndTime(altSlot.end)
-    setConflictError(null)
-    setAlternativeSlots([])
-    setBookingStep(2)
+    handleTimeSlotSelect(altSlot.start, true)
   }
 
   const handleCancel = async (id) => {
@@ -546,6 +546,7 @@ const MemberBookings = () => {
                     selectedStartTime={selectedStartTime}
                     selectedEndTime={selectedEndTime}
                     viewMode="week"
+                    disabled={isCheckingConflict}
                   />
 
                   {conflictError && (
@@ -579,9 +580,12 @@ const MemberBookings = () => {
                       </p>
                       <button
                         className="btn btn-primary"
-                        onClick={() => setBookingStep(2)}
+                        onClick={() => handleTimeSlotSelect(selectedStartTime, true)}
+                        disabled={isCheckingConflict}
                       >
-                        {t('memberBookings.modal.continue')}
+                        {isCheckingConflict
+                          ? t('memberBookings.modal.checking')
+                          : t('memberBookings.modal.continue')}
                       </button>
                     </div>
                   )}

@@ -6,14 +6,15 @@ import { getAmenity, DEFAULT_AVAILABILITY } from '../services/amenities'
 import { CalendarSkeleton } from './LoadingSkeleton'
 import './BookingCalendar.css'
 
-const BookingCalendar = ({ 
-  amenityId, 
-  selectedDate, 
-  onDateChange, 
+const BookingCalendar = ({
+  amenityId,
+  selectedDate,
+  onDateChange,
   onTimeSlotSelect,
   selectedStartTime = null,
   selectedEndTime = null,
-  viewMode = 'week' // 'day' or 'week'
+  viewMode = 'week', // 'day' or 'week'
+  disabled = false
 }) => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
@@ -163,13 +164,14 @@ const BookingCalendar = ({
   }
 
   const handleSlotClick = (date, timeSlot) => {
+    if (disabled) return
     const status = getSlotStatus(date, timeSlot)
     if (status !== 'available') return
-    
+
     const slotDateTime = new Date(date)
     const [hours, minutes] = timeSlot.time.split(':').map(Number)
     slotDateTime.setHours(hours, minutes, 0, 0)
-    
+
     onTimeSlotSelect?.(slotDateTime)
   }
 
@@ -243,7 +245,7 @@ const BookingCalendar = ({
         </div>
       </div>
 
-      <div className="calendar-grid">
+      <div className={`calendar-grid${disabled ? ' calendar-grid--disabled' : ''}`}>
         <div className="time-column">
           <div className="time-labels">
             {timeSlots.map((slot, index) => (

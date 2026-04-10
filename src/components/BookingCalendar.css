@@ -51,6 +51,11 @@
   padding-bottom: var(--spacing-md);
 }
 
+.calendar-grid--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .time-column {
   min-width: 60px;
   flex-shrink: 0;
