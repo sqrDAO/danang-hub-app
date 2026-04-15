@@ -1,13 +1,11 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  updateDoc,
   deleteDoc,
   query,
-  where,
   orderBy
 } from 'firebase/firestore'
 import { db } from './firebase'

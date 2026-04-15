@@ -29,8 +29,7 @@ export function parseHubDateTime(localStr) {
 export function formatEventDateTime(date, options = {}) {
   if (!date) return 'N/A'
   const d = date instanceof Date ? date : new Date(date)
-  const locale = options.locale || 'en-US'
-  const { locale: _ignoredLocale, ...restOptions } = options
+  const { locale = 'en-US', ...restOptions } = options
   return d.toLocaleString(locale, {
     timeZone: HUB_TIMEZONE,
     month: 'short',

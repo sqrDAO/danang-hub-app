@@ -41,7 +41,7 @@ const validateImageFile = (file, maxSize = MAX_FILE_SIZE) => {
  * @param {Function} onProgress - Optional progress callback (progress: number) => void
  * @returns {Promise<string>} - The download URL of the uploaded photo
  */
-export const uploadAmenityPhoto = async (amenityId, file, onProgress) => {
+export const uploadAmenityPhoto = async (amenityId, file) => {
   const validation = validateImageFile(file)
   if (!validation.valid) {
     throw new Error(validation.error)

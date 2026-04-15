@@ -67,12 +67,8 @@ const MemberEvents = () => {
     queryFn: getApprovedEvents
   })
 
-  // Debug logging
   if (eventsError) {
     console.error('Error loading upcoming events:', eventsError)
-  }
-  if (upcomingEventsData.length > 0) {
-    console.log('Upcoming events loaded:', upcomingEventsData.length, upcomingEventsData)
   }
 
   // Fetch my created events (all statuses)
