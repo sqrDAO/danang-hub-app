@@ -58,6 +58,7 @@ const Footer = () => {
                 <li><a href={`${MARKETING_BASE}/sops.html`} target="_blank" rel="noopener noreferrer">{t('footer.sops')}</a></li>
                 <li><a href={`${MARKETING_BASE}/brand-kit.html`} target="_blank" rel="noopener noreferrer">{t('footer.brandKit')}</a></li>
                 <li><a href={`${MARKETING_BASE}/event-guidelines.html`} target="_blank" rel="noopener noreferrer">{t('footer.eventGuidelines')}</a></li>
+                <li><a href={`${MARKETING_BASE}/community-space-guidelines.html`} target="_blank" rel="noopener noreferrer">{t('footer.communitySpaceGuidelines')}</a></li>
               </ul>
             </div>
 

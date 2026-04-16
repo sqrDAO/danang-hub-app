@@ -691,6 +691,17 @@ exports.notifyEventStatusChange = functions
             ` You'll receive reminders as the date approaches.` :
             `You're welcome to submit a new event request` +
             ` after addressing the feedback above.`;
+          /* eslint-disable max-len */
+          const guidelinesHtml = isApproved ?
+            `<p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">` +
+            `Please review our ` +
+            `<a href="https://www.danangblockchainhub.com/event-guidelines.html" ` +
+            `style="color:#38bdf8;text-decoration:none;">Event Guidelines</a>` +
+            ` and ` +
+            `<a href="https://www.danangblockchainhub.com/community-space-guidelines.html" ` +
+            `style="color:#38bdf8;text-decoration:none;">Community Space Guidelines</a>` +
+            ` before your event to ensure a smooth experience for all attendees.</p>` : "";
+          /* eslint-enable max-len */
 
           // eslint-disable-next-line max-len
           const reasonText = rejectionReason || "No reason was provided.";
@@ -730,6 +741,7 @@ exports.notifyEventStatusChange = functions
             <p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">
               ${followUpHtml}
             </p>
+            ${guidelinesHtml}
             <div style="margin:32px 0;text-align:center;">
               <a href="${appUrl}/member/events"
                  style="display:inline-block;padding:12px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
