@@ -810,6 +810,35 @@ const AdminEvents = () => {
               </section>
 
               <section className="profile-section">
+                <h3 className="profile-section-title">Contact</h3>
+                {hostModalMember.email && (
+                  <div className="profile-detail-item">
+                    <span className="detail-label">Email</span>
+                    <span className="detail-value">
+                      <a href={`mailto:${hostModalMember.email}`} className="profile-link">
+                        {hostModalMember.email}
+                      </a>
+                    </span>
+                  </div>
+                )}
+                {hostModalMember.phone && (
+                  <div className="profile-detail-item">
+                    <span className="detail-label">Phone</span>
+                    <span className="detail-value">
+                      <a href={`tel:${hostModalMember.phone}`} className="profile-link">
+                        {hostModalMember.phone}
+                      </a>
+                    </span>
+                  </div>
+                )}
+                {!hostModalMember.email && !hostModalMember.phone && (
+                  <div className="profile-detail-item">
+                    <span className="detail-value">—</span>
+                  </div>
+                )}
+              </section>
+
+              <section className="profile-section">
                 <h3 className="profile-section-title">About</h3>
                 <div className="profile-detail-item profile-detail-bio">
                   <span className="detail-value">{hostModalMember.bio || '—'}</span>
