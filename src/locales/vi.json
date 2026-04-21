@@ -334,6 +334,7 @@
     "noEventsInCategory": "Chưa có sự kiện trong danh mục này",
     "confirmDelete": "Bạn có chắc chắn muốn xóa sự kiện này?",
     "confirmApprove": "Duyệt sự kiện này? Sự kiện sẽ xuất hiện trên lịch cho tất cả thành viên.",
+    "confirmRejectApproved": "Thu hồi duyệt và từ chối sự kiện này? Sự kiện sẽ bị xóa khỏi lịch.",
     "rejectReason": "Lý do từ chối (tuỳ chọn):",
     "rejectionReason": "Lý do từ chối: {{reason}}",
     "noReasonProvided": "Không có lý do từ chối",

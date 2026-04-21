@@ -242,9 +242,10 @@ const AdminEvents = () => {
     }
   }
 
-  const handleReject = async (eventId) => {
+  const handleReject = async (eventId, isApproved = false) => {
+    if (isApproved && !window.confirm(t('adminEvents.confirmRejectApproved'))) return
     const reason = prompt(t('adminEvents.rejectReason'))
-    if (reason !== null) { // User clicked OK (even if empty)
+    if (reason !== null) {
       await rejectMutation.mutateAsync({ eventId, reason })
     }
   }
@@ -519,13 +520,27 @@ const AdminEvents = () => {
                       </button>
                     </>
                   )}
-                  {event.status === 'approved' && event.waitlist && event.waitlist.length > 0 && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handlePromoteWaitlist(event.id)}
-                    >
-                      {t('adminEvents.promoteWaitlist')}
-                    </button>
+                  {event.status === 'approved' && new Date(event.date) > new Date() && (
+                    <>
+                      {event.waitlist && event.waitlist.length > 0 && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handlePromoteWaitlist(event.id)}
+                        >
+                          {t('adminEvents.promoteWaitlist')}
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleReject(event.id, true)}
+                        disabled={rejectMutation.isPending}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span>✗</span>
+                          <span>{t('common.reject')}</span>
+                        </span>
+                      </button>
+                    </>
                   )}
                   <button
                     className="btn btn-secondary btn-sm"
