@@ -170,11 +170,6 @@
       "default": "thực hiện thao tác này"
     }
   },
-  "chatbot": {
-    "greeting": "Xin chào! Mình là trợ lý AI. Mình có thể hỗ trợ bạn về đặt chỗ hoặc sự kiện như thế nào hôm nay?",
-    "error": "Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại.",
-    "loginCta": "Bạn cần đăng nhập để hoàn tất thao tác này."
-  },
   "profile": {
     "title": "Hồ sơ của tôi",
     "editProfile": "Chỉnh sửa hồ sơ",

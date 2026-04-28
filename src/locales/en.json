@@ -170,11 +170,6 @@
       "default": "perform this action"
     }
   },
-  "chatbot": {
-    "greeting": "Hello! I'm your AI assistant. How can I help you with bookings or events today?",
-    "error": "Sorry, I encountered an error. Please try again.",
-    "loginCta": "You need to sign in to complete this action."
-  },
   "profile": {
     "title": "My Profile",
     "editProfile": "Edit Profile",

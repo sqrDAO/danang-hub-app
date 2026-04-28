@@ -101,43 +101,6 @@ export const createBooking = async (data) => {
   return docRef.id
 }
 
-// Create booking and a linked event when amenity is event-space (for AI chatbot)
-export const createBookingWithEventIfEventSpace = async (
-  { amenityId, memberId, startTime, endTime },
-  { getAmenities, createEvent }
-) => {
-  const amenities = await getAmenities()
-  const amenity = amenities.find((a) => a.id === amenityId)
-
-  const bookingId = await createBooking({
-    amenityId,
-    memberId,
-    startTime,
-    endTime
-  })
-
-  if (amenity?.type === 'event-space') {
-    const start = new Date(startTime)
-    const end = new Date(endTime)
-    const durationMinutes = Math.round((end - start) / (60 * 1000))
-
-    await createEvent({
-      title: `${amenity.name} Booking`,
-      description: 'Booking made via AI assistant',
-      date: startTime,
-      duration: durationMinutes,
-      organizerId: memberId,
-      status: 'pending',
-      requestedAmenityId: amenityId,
-      bookingId,
-      capacity: amenity.capacity || 80,
-      waitlist: []
-    })
-  }
-
-  return bookingId
-}
-
 export const updateBooking = async (id, data) => {
   const bookingRef = doc(db, BOOKINGS_COLLECTION, id)
   const updateData = { ...data }
@@ -194,33 +157,6 @@ export const checkOut = async (id) => {
     status: 'completed',
     checkOutTime: new Date()
   })
-}
-
-// Check if a specific time slot is available for an amenity
-export const checkSlotAvailability = async (amenityId, startTime, endTime) => {
-  const start = new Date(startTime)
-  const end = new Date(endTime)
-  const bookings = await getBookings({ amenityId })
-  const activeBookings = bookings.filter(b =>
-    ['pending', 'approved', 'checked-in'].includes(b.status)
-  )
-  const conflicts = activeBookings.filter(booking => {
-    const bookingStart = new Date(booking.startTime)
-    const bookingEnd = new Date(booking.endTime)
-    return (
-      (start >= bookingStart && start < bookingEnd) ||
-      (end > bookingStart && end <= bookingEnd) ||
-      (start <= bookingStart && end >= bookingEnd)
-    )
-  })
-  return {
-    available: conflicts.length === 0,
-    conflicts: conflicts.map(c => ({
-      id: c.id,
-      startTime: c.startTime,
-      endTime: c.endTime
-    }))
-  }
 }
 
 // Get availability for a specific date

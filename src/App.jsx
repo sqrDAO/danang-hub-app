@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import Chatbot from './components/Chatbot'
 import ToastContainer from './components/Toast'
 import Home from './pages/Home'
 import Login from './pages/auth/Login'
@@ -111,7 +110,6 @@ function App() {
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-        <Chatbot />
         <ToastContainer />
       </AuthProvider>
     </ThemeProvider>
