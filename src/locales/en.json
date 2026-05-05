@@ -41,6 +41,7 @@
     "viewProfile": "View profile",
     "manage": "Manage",
     "na": "N/A",
+    "continue": "Continue",
     "on": "On",
     "off": "Off",
     "signup": "Signup"
@@ -303,7 +304,20 @@
     "confirmDelete": "Are you sure you want to delete this booking?",
     "approveAll": "Approve All ({{count}})",
     "approvingAll": "Approving...",
-    "confirmApproveAll": "Approve all {{count}} pending booking(s)?"
+    "confirmApproveAll": "Approve all {{count}} pending booking(s)?",
+    "assignBooking": "Assign Booking",
+    "assignMember": "Member",
+    "selectMember": "Select member...",
+    "searchMember": "Search by name or email...",
+    "assignAmenity": "Amenity",
+    "selectAmenity": "Select amenity...",
+    "bookingType": "Booking Type",
+    "typeStandard": "Standard",
+    "typeFixedDesk": "Fixed Desk",
+    "assignDate": "Date",
+    "assignStartTime": "Start Time",
+    "assignEndTime": "End Time",
+    "assignAndApprove": "Assign & Approve"
   },
   "amenityTypes": {
     "desk": "Desk",
@@ -421,6 +435,8 @@
   },
   "memberBookings": {
     "title": "My Bookings",
+    "tabBookings": "Bookings",
+    "tabFixedDesk": "Fixed Desk",
     "availableAmenities": "Available Amenities",
     "availableAmenitiesDesc": "Select an amenity and click \"Book Now\" to make a reservation",
     "noPhoto": "No photo",
@@ -578,6 +594,32 @@
     "legendSelected": "Selected",
     "legendClosedPast": "Closed/Past"
   },
+  "fixedDesk": {
+    "title": "Fixed Desk Plans",
+    "description": "Register for a dedicated desk for all working hours across a week or month (Mon–Fri, 8am–6pm).",
+    "register": "Register Fixed Desk",
+    "registerShort": "📅 Fixed Desk",
+    "badge": "Fixed Desk",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "workingDays": "{{count}} working day(s)",
+    "workingHours": "Mon–Fri, 08:00–18:00",
+    "noPlans": "No active fixed desk plans",
+    "cancelPlan": "Cancel Plan",
+    "confirmCancel": "Cancel this fixed desk plan? All pending/approved bookings in this plan will be cancelled.",
+    "modalTitle": "Register Fixed Desk",
+    "selectDesk": "Select a Desk",
+    "period": "Plan Duration",
+    "startDate": "Start Date",
+    "summaryTitle": "Plan Summary",
+    "summaryDesk": "Desk:",
+    "summaryPeriod": "Period:",
+    "summaryStart": "Starting:",
+    "summaryHours": "Hours:",
+    "summaryNote": "Bookings will be created for all Mon–Fri working days. Days where the desk is already fully booked will be skipped.",
+    "confirm": "Confirm Registration",
+    "adminAssignNote": "Admin-assigned fixed desk plans are auto-approved."
+  },
   "toast": {
     "amenityCreatedWithUploadErrors": "Amenity created but some photos failed to upload: {{message}}",
     "amenityCreated": "Amenity created successfully!",
@@ -637,6 +679,11 @@
     "bookingCheckedOut": "Booking checked out successfully",
     "bookingCheckOutFailed": "Failed to check out booking",
     "bookingCancelConfirm": "Are you sure you want to cancel this booking?",
-    "bookingDeleteConfirm": "Are you sure you want to delete this booking?"
+    "bookingDeleteConfirm": "Are you sure you want to delete this booking?",
+    "fixedDeskCreated": "Fixed desk plan created — {{count}} booking(s) registered!",
+    "fixedDeskFailed": "Failed to create fixed desk plan. Please try again.",
+    "fixedDeskCancelled": "Fixed desk plan cancelled.",
+    "bookingAssigned": "Booking assigned and approved!",
+    "bookingAssignFailed": "Failed to assign booking. Please try again."
   }
 }

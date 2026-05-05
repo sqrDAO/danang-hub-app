@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../../components/Layout'
+import Modal from '../../components/Modal'
 import { showToast } from '../../components/Toast'
-import { getBookings, updateBooking, deleteBooking, checkIn, checkOut } from '../../services/bookings'
+import { getBookings, updateBooking, deleteBooking, checkIn, checkOut, createBooking, createFixedDeskPlan } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import './Bookings.css'
@@ -199,6 +201,62 @@ const AdminBookings = () => {
 
   const [isApprovingAll, setIsApprovingAll] = useState(false)
 
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [assignMemberQuery, setAssignMemberQuery] = useState('')
+  const [assignMemberOpen, setAssignMemberOpen] = useState(false)
+  const [memberDropdownRect, setMemberDropdownRect] = useState(null)
+  const memberInputRef = useRef(null)
+
+  useEffect(() => {
+    if (assignMemberOpen && memberInputRef.current) {
+      setMemberDropdownRect(memberInputRef.current.getBoundingClientRect())
+    }
+  }, [assignMemberOpen])
+  const [assignForm, setAssignForm] = useState({
+    memberId: '',
+    amenityId: '',
+    bookingType: 'standard',
+    date: '',
+    startTime: '',
+    endTime: '',
+    fdPeriod: 'weekly',
+    fdStartDate: '',
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: async (form) => {
+      if (form.bookingType === 'fixed-desk') {
+        return createFixedDeskPlan({
+          memberId: form.memberId,
+          amenityId: form.amenityId,
+          period: form.fdPeriod,
+          startDate: form.fdStartDate,
+          createdByAdmin: true,
+        })
+      }
+      return createBooking({
+        memberId: form.memberId,
+        amenityId: form.amenityId,
+        startTime: new Date(`${form.date}T${form.startTime}`).toISOString(),
+        endTime: new Date(`${form.date}T${form.endTime}`).toISOString(),
+        status: 'approved',
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['bookings'])
+      setIsAssignModalOpen(false)
+      setAssignForm({ memberId: '', amenityId: '', bookingType: 'standard', date: '', startTime: '', endTime: '', fdPeriod: 'weekly', fdStartDate: '' })
+      setAssignMemberQuery('')
+      setAssignMemberOpen(false)
+      setStatusFilter('all')
+      setCurrentPage(1)
+      showToast(t('toast.bookingAssigned'), 'success')
+    },
+    onError: () => {
+      showToast(t('toast.bookingAssignFailed'), 'error')
+    }
+  })
+
   const handleApproveAll = async () => {
     const pendingBookings = filteredBookings.filter(b => b.status === 'pending')
     if (pendingBookings.length === 0) return
@@ -242,6 +300,12 @@ const AdminBookings = () => {
         <div className="page-header">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
           <div className="page-actions">
+            <button
+              className="btn btn-primary"
+              onClick={() => setIsAssignModalOpen(true)}
+            >
+              {t('adminBookings.assignBooking')}
+            </button>
             {filteredBookings.some(b => b.status === 'pending') && (
               <button
                 className="btn btn-primary"
@@ -313,7 +377,12 @@ const AdminBookings = () => {
               {paginatedBookings.map(booking => (
                 <tr key={booking.id}>
                   <td>{getMemberName(booking.memberId)}</td>
-                  <td>{getAmenityName(booking.amenityId)}</td>
+                  <td>
+                    {getAmenityName(booking.amenityId)}
+                    {booking.planType === 'fixed-desk' && (
+                      <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
+                    )}
+                  </td>
                   <td>{booking.startTime ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
                   <td>{booking.endTime ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
                   <td>
@@ -379,6 +448,9 @@ const AdminBookings = () => {
                 <div className="booking-card-mobile-header">
                   <div className="booking-card-mobile-title">
                     {getAmenityName(booking.amenityId)}
+                    {booking.planType === 'fixed-desk' && (
+                      <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
+                    )}
                   </div>
                   <span className={`status-badge ${booking.status}`}>
                     {t(`status.${booking.status || 'pending'}`)}
@@ -484,6 +556,198 @@ const AdminBookings = () => {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={isAssignModalOpen}
+        onClose={() => { setIsAssignModalOpen(false); setAssignMemberQuery(''); setAssignMemberOpen(false) }}
+        title={t('adminBookings.assignBooking')}
+      >
+        <div className="booking-step">
+          <div className="form-group">
+            <label className="form-label">{t('adminBookings.assignMember')}</label>
+            <div className="member-combobox">
+              <input
+                ref={memberInputRef}
+                type="text"
+                className="form-field"
+                placeholder={t('adminBookings.searchMember')}
+                value={assignMemberQuery || (assignForm.memberId ? (members.find(m => m.id === assignForm.memberId)?.displayName || members.find(m => m.id === assignForm.memberId)?.email || '') : '')}
+                onChange={e => {
+                  setAssignMemberQuery(e.target.value)
+                  setAssignForm(f => ({ ...f, memberId: '' }))
+                  setAssignMemberOpen(e.target.value.length > 0)
+                }}
+                onBlur={() => setTimeout(() => setAssignMemberOpen(false), 150)}
+                autoComplete="off"
+              />
+              {assignMemberOpen && memberDropdownRect && createPortal(
+                <ul
+                  className="member-combobox-list"
+                  style={{
+                    position: 'fixed',
+                    top: memberDropdownRect.bottom + 4,
+                    left: memberDropdownRect.left,
+                    width: memberDropdownRect.width,
+                  }}
+                >
+                  {members
+                    .filter(m => {
+                      const q = assignMemberQuery.toLowerCase()
+                      return !q ||
+                        (m.displayName || '').toLowerCase().includes(q) ||
+                        (m.email || '').toLowerCase().includes(q)
+                    })
+                    .map(m => (
+                      <li
+                        key={m.id}
+                        className={`member-combobox-option${assignForm.memberId === m.id ? ' selected' : ''}`}
+                        onMouseDown={() => {
+                          setAssignForm(f => ({ ...f, memberId: m.id }))
+                          setAssignMemberQuery('')
+                          setAssignMemberOpen(false)
+                        }}
+                      >
+                        <span className="member-combobox-name">{m.displayName || m.email}</span>
+                        {m.displayName && m.email && (
+                          <span className="member-combobox-email">{m.email}</span>
+                        )}
+                      </li>
+                    ))}
+                </ul>,
+                document.body
+              )}
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">{t('adminBookings.assignAmenity')}</label>
+            <select
+              className="form-field"
+              value={assignForm.amenityId}
+              onChange={e => setAssignForm(f => ({ ...f, amenityId: e.target.value }))}
+            >
+              <option value="">{t('adminBookings.selectAmenity')}</option>
+              {amenities.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">{t('adminBookings.bookingType')}</label>
+            <div className="recurring-frequency-options">
+              <label className="form-checkbox">
+                <input
+                  type="radio"
+                  checked={assignForm.bookingType === 'standard'}
+                  onChange={() => setAssignForm(f => ({ ...f, bookingType: 'standard' }))}
+                />
+                <span>{t('adminBookings.typeStandard')}</span>
+              </label>
+              <label className="form-checkbox">
+                <input
+                  type="radio"
+                  checked={assignForm.bookingType === 'fixed-desk'}
+                  onChange={() => setAssignForm(f => ({ ...f, bookingType: 'fixed-desk' }))}
+                />
+                <span>{t('adminBookings.typeFixedDesk')}</span>
+              </label>
+            </div>
+          </div>
+
+          {assignForm.bookingType === 'standard' && (
+            <>
+              <div className="form-group">
+                <label className="form-label">{t('adminBookings.assignDate')}</label>
+                <input
+                  type="date"
+                  className="form-field"
+                  value={assignForm.date}
+                  onChange={e => setAssignForm(f => ({ ...f, date: e.target.value }))}
+                />
+              </div>
+              <div className="assign-time-row">
+                <div className="form-group">
+                  <label className="form-label">{t('adminBookings.assignStartTime')}</label>
+                  <input
+                    type="time"
+                    className="form-field"
+                    value={assignForm.startTime}
+                    onChange={e => setAssignForm(f => ({ ...f, startTime: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('adminBookings.assignEndTime')}</label>
+                  <input
+                    type="time"
+                    className="form-field"
+                    value={assignForm.endTime}
+                    onChange={e => setAssignForm(f => ({ ...f, endTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {assignForm.bookingType === 'fixed-desk' && (
+            <>
+              <div className="form-group">
+                <label className="form-label">{t('fixedDesk.period')}</label>
+                <div className="recurring-frequency-options">
+                  <label className="form-checkbox">
+                    <input
+                      type="radio"
+                      checked={assignForm.fdPeriod === 'weekly'}
+                      onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'weekly' }))}
+                    />
+                    <span>{t('fixedDesk.weekly')}</span>
+                  </label>
+                  <label className="form-checkbox">
+                    <input
+                      type="radio"
+                      checked={assignForm.fdPeriod === 'monthly'}
+                      onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'monthly' }))}
+                    />
+                    <span>{t('fixedDesk.monthly')}</span>
+                  </label>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('fixedDesk.startDate')}</label>
+                <input
+                  type="date"
+                  className="form-field"
+                  value={assignForm.fdStartDate}
+                  onChange={e => setAssignForm(f => ({ ...f, fdStartDate: e.target.value }))}
+                />
+              </div>
+              <p className="form-hint">{t('fixedDesk.adminAssignNote')}</p>
+            </>
+          )}
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => { setIsAssignModalOpen(false); setAssignMemberQuery(''); setAssignMemberOpen(false) }}
+            >
+              {t('common.close')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={
+                assignMutation.isPending ||
+                !assignForm.memberId ||
+                !assignForm.amenityId ||
+                (assignForm.bookingType === 'standard' && (!assignForm.date || !assignForm.startTime || !assignForm.endTime)) ||
+                (assignForm.bookingType === 'fixed-desk' && !assignForm.fdStartDate)
+              }
+              onClick={() => assignMutation.mutate(assignForm)}
+            >
+              {assignMutation.isPending ? t('memberBookings.modal.creating') : t('adminBookings.assignAndApprove')}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Layout>
   )
 }

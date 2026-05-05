@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -7,7 +7,7 @@ import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking } from '../../services/bookings'
+import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan } from '../../services/bookings'
 import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../components/Toast'
@@ -43,6 +43,12 @@ const MemberBookings = () => {
   const isSubmittingRef = useRef(false)
   const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
   const queryClient = useQueryClient()
+
+  const [fdModalOpen, setFdModalOpen] = useState(false)
+  const [fdStep, setFdStep] = useState(1)
+  const [fdAmenity, setFdAmenity] = useState(null)
+  const [fdPeriod, setFdPeriod] = useState('weekly')
+  const [fdStartDate, setFdStartDate] = useState('')
 
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
@@ -122,6 +128,27 @@ const MemberBookings = () => {
     }
   })
 
+  const fixedDeskMutation = useMutation({
+    mutationFn: ({ memberId, amenityId, period, startDate }) =>
+      createFixedDeskPlan({ memberId, amenityId, period, startDate, checkConflictsFn: checkBookingConflicts }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries(['bookings'])
+      showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
+      resetFdForm()
+    },
+    onError: () => {
+      showToast(t('toast.fixedDeskFailed'), 'error')
+    }
+  })
+
+  const cancelPlanMutation = useMutation({
+    mutationFn: cancelFixedDeskPlan,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['bookings'])
+      showToast(t('toast.fixedDeskCancelled'), 'success')
+    }
+  })
+
   const resetBookingForm = () => {
     setIsModalOpen(false)
     setSelectedAmenity(null)
@@ -133,6 +160,30 @@ const MemberBookings = () => {
     setRecurrence(null)
     setConflictError(null)
     setAlternativeSlots([])
+  }
+
+  const resetFdForm = () => {
+    setFdModalOpen(false)
+    setFdStep(1)
+    setFdAmenity(null)
+    setFdPeriod('weekly')
+    setFdStartDate('')
+  }
+
+  const handleFdConfirm = () => {
+    if (!fdAmenity || !fdStartDate) return
+    fixedDeskMutation.mutate({
+      memberId: currentUser.uid,
+      amenityId: fdAmenity.id,
+      period: fdPeriod,
+      startDate: fdStartDate,
+    })
+  }
+
+  const handleCancelPlan = async (planGroupId) => {
+    if (window.confirm(t('fixedDesk.confirmCancel'))) {
+      await cancelPlanMutation.mutateAsync(planGroupId)
+    }
   }
 
   // Recalculate end time when duration changes and start time is already selected
@@ -327,6 +378,7 @@ const MemberBookings = () => {
   }
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)
+  const deskAmenities = availableAmenities.filter(a => a.type === 'desk')
 
   const formatDateTimeForDisplay = (value) => {
     if (!value) return t('common.na')
@@ -335,6 +387,7 @@ const MemberBookings = () => {
     const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
     return `${datePart} ${timePart}`
   }
+
   const deduplicatedBookings = myBookings.filter((booking, index, arr) =>
     index === arr.findIndex(b =>
       b.amenityId === booking.amenityId &&
@@ -344,6 +397,33 @@ const MemberBookings = () => {
   )
   const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
   const pastBookings = deduplicatedBookings.filter(b => new Date(b.startTime) <= new Date())
+
+  const fixedDeskPlans = useMemo(() => {
+    const grouped = {}
+    deduplicatedBookings
+      .filter(b => b.planType === 'fixed-desk' && new Date(b.startTime) > new Date())
+      .forEach(b => {
+        if (!grouped[b.planGroupId]) grouped[b.planGroupId] = []
+        grouped[b.planGroupId].push(b)
+      })
+    return Object.entries(grouped).map(([id, bks]) => {
+      const sorted = [...bks].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+      return {
+        planGroupId: id,
+        amenityId: sorted[0].amenityId,
+        planPeriod: sorted[0].planPeriod,
+        startDate: sorted[0].startTime,
+        endDate: sorted[sorted.length - 1].endTime,
+        status: sorted[0].status,
+        count: sorted.length,
+      }
+    })
+  }, [deduplicatedBookings])
+
+  const getTodayString = () => {
+    const d = new Date()
+    return d.toISOString().split('T')[0]
+  }
 
   const getMinRecurringEndDate = () => {
     const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
@@ -397,12 +477,28 @@ const MemberBookings = () => {
                     <p className="amenity-description">{amenity.description}</p>
                   )}
                 </div>
-                <button
-                  className="btn btn-primary btn-book"
-                  onClick={() => handleBookAmenity(amenity)}
-                >
-                  {t('memberBookings.bookNow')}
-                </button>
+                <div className="amenity-card-actions">
+                  <button
+                    className="btn btn-primary btn-book"
+                    onClick={() => handleBookAmenity(amenity)}
+                  >
+                    {t('memberBookings.bookNow')}
+                  </button>
+                  {amenity.type === 'desk' && (
+                    <button
+                      className="btn btn-secondary btn-book"
+                      onClick={() => {
+                        setFdAmenity(amenity)
+                        setFdPeriod('weekly')
+                        setFdStartDate('')
+                        setFdStep(1)
+                        setFdModalOpen(true)
+                      }}
+                    >
+                      {t('fixedDesk.registerShort')}
+                    </button>
+                  )}
+                </div>
               </div>
               ))}
             </div>
@@ -472,6 +568,52 @@ const MemberBookings = () => {
             <p className="empty-state">{t('memberBookings.noUpcomingBookings')}</p>
           )}
         </div>
+
+        {fixedDeskPlans.length > 0 && (
+          <div className="bookings-section glass">
+            <div className="section-header">
+              <h2 className="section-title">{t('fixedDesk.title')}</h2>
+              <p className="section-description">{t('fixedDesk.description')}</p>
+            </div>
+            <div className="fixed-desk-plans-list">
+              {fixedDeskPlans.map(plan => {
+                const amenity = amenities.find(a => a.id === plan.amenityId)
+                return (
+                  <div key={plan.planGroupId} className="fixed-desk-plan-card">
+                    <div className="fixed-desk-plan-band" />
+                    <div className="fixed-desk-plan-body">
+                      <div className="fixed-desk-plan-top">
+                        <span className="fixed-desk-plan-name">{amenity?.name || plan.amenityId}</span>
+                        <div className="fixed-desk-plan-badges">
+                          <span className="fixed-desk-badge">{t('fixedDesk.badge')}</span>
+                          <span className={`status-badge ${plan.status}`}>{plan.status}</span>
+                        </div>
+                      </div>
+                      <div className="fixed-desk-plan-meta">
+                        <span className="fixed-desk-plan-period">
+                          {plan.planPeriod === 'weekly' ? t('fixedDesk.weekly') : t('fixedDesk.monthly')}
+                        </span>
+                        <span className="fixed-desk-plan-dates">
+                          {formatDateDDMMYYYY(plan.startDate)} – {formatDateDDMMYYYY(plan.endDate)}
+                        </span>
+                        <span className="fixed-desk-plan-count">
+                          {t('fixedDesk.workingDays', { count: plan.count })}
+                        </span>
+                      </div>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleCancelPlan(plan.planGroupId)}
+                        disabled={cancelPlanMutation.isPending}
+                      >
+                        {t('fixedDesk.cancelPlan')}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="bookings-section glass">
           <div className="section-header">
@@ -771,6 +913,104 @@ const MemberBookings = () => {
                 </div>
               )}
             </>
+          )}
+        </Modal>
+
+        {/* Fixed Desk Registration Modal */}
+        <Modal
+          isOpen={fdModalOpen}
+          onClose={resetFdForm}
+          title={t('fixedDesk.modalTitle')}
+        >
+          {fdStep === 1 && (
+            <div className="booking-step">
+              <div className="form-group">
+                <label className="form-label">{t('fixedDesk.selectDesk')}</label>
+                <div className="fixed-desk-desk-grid">
+                  {deskAmenities.map(a => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={`fixed-desk-desk-option${fdAmenity?.id === a.id ? ' selected' : ''}`}
+                      onClick={() => setFdAmenity(a)}
+                    >
+                      {a.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('fixedDesk.period')}</label>
+                <div className="recurring-frequency-options">
+                  <label className="form-checkbox">
+                    <input type="radio" checked={fdPeriod === 'weekly'} onChange={() => setFdPeriod('weekly')} />
+                    <span>{t('fixedDesk.weekly')}</span>
+                  </label>
+                  <label className="form-checkbox">
+                    <input type="radio" checked={fdPeriod === 'monthly'} onChange={() => setFdPeriod('monthly')} />
+                    <span>{t('fixedDesk.monthly')}</span>
+                  </label>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('fixedDesk.startDate')}</label>
+                <input
+                  type="date"
+                  className="form-field"
+                  min={getTodayString()}
+                  value={fdStartDate}
+                  onChange={e => setFdStartDate(e.target.value)}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={resetFdForm}>
+                  {t('common.close')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setFdStep(2)}
+                  disabled={!fdAmenity || !fdStartDate}
+                >
+                  {t('common.continue')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {fdStep === 2 && fdAmenity && (
+            <div className="booking-step">
+              <div className="booking-summary">
+                <h3>{t('fixedDesk.summaryTitle')}</h3>
+                <div className="summary-item">
+                  <strong>{t('fixedDesk.summaryDesk')}</strong> {fdAmenity.name}
+                </div>
+                <div className="summary-item">
+                  <strong>{t('fixedDesk.summaryPeriod')}</strong>{' '}
+                  {fdPeriod === 'weekly' ? t('fixedDesk.weekly') : t('fixedDesk.monthly')}
+                </div>
+                <div className="summary-item">
+                  <strong>{t('fixedDesk.summaryStart')}</strong> {formatDateDDMMYYYY(fdStartDate)}
+                </div>
+                <div className="summary-item">
+                  <strong>{t('fixedDesk.summaryHours')}</strong> {t('fixedDesk.workingHours')}
+                </div>
+                <p className="form-hint">{t('fixedDesk.summaryNote')}</p>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setFdStep(1)}>
+                  {t('memberBookings.modal.back')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleFdConfirm}
+                  disabled={fixedDeskMutation.isPending}
+                >
+                  {fixedDeskMutation.isPending ? t('memberBookings.modal.creating') : t('fixedDesk.confirm')}
+                </button>
+              </div>
+            </div>
           )}
         </Modal>
 

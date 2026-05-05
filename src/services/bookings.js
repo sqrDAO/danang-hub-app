@@ -95,7 +95,7 @@ export const createBooking = async (data) => {
     ...data,
     startTime: Timestamp.fromDate(new Date(data.startTime)),
     endTime: Timestamp.fromDate(new Date(data.endTime)),
-    status: 'pending',
+    status: data.status || 'pending',
     createdAt: new Date().toISOString()
   })
   return docRef.id
@@ -341,4 +341,64 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
   }
 
   return { createdIds, bookings, totalCreated: createdIds.length }
+}
+
+// Create a fixed desk plan: books a desk for all working days (Mon–Fri, 8am–6pm)
+// over a weekly (current week) or monthly (next 30 days) period.
+export const createFixedDeskPlan = async ({
+  memberId,
+  amenityId,
+  period,
+  startDate,
+  createdByAdmin = false,
+  checkConflictsFn = null,
+}) => {
+  const planGroupId = crypto.randomUUID()
+  const DESK_START_HOUR = 8
+  const DESK_END_HOUR = 18
+
+  const planStart = new Date(startDate)
+  planStart.setHours(DESK_START_HOUR, 0, 0, 0)
+
+  const planEnd = new Date(startDate)
+  if (period === 'weekly') {
+    const day = planStart.getDay()
+    const daysUntilFriday = day === 0 ? 5 : (5 - day + 7) % 7
+    planEnd.setDate(planEnd.getDate() + daysUntilFriday)
+  } else {
+    planEnd.setMonth(planEnd.getMonth() + 1)
+    planEnd.setDate(planEnd.getDate() - 1)
+  }
+  planEnd.setHours(DESK_END_HOUR, 0, 0, 0)
+
+  const durationMs = (DESK_END_HOUR - DESK_START_HOUR) * 60 * 60 * 1000
+  const firstDayEnd = new Date(planStart.getTime() + durationMs)
+
+  const baseBooking = {
+    memberId,
+    amenityId,
+    startTime: planStart.toISOString(),
+    endTime: firstDayEnd.toISOString(),
+    planType: 'fixed-desk',
+    planPeriod: period,
+    planGroupId,
+    ...(createdByAdmin && { status: 'approved' }),
+  }
+
+  return createRecurringBooking(
+    baseBooking,
+    { frequency: 'daily', endDate: planEnd.toISOString() },
+    checkConflictsFn,
+    { allowedWeekdays: [1, 2, 3, 4, 5] }
+  )
+}
+
+// Cancel all active bookings belonging to a fixed desk plan group
+export const cancelFixedDeskPlan = async (planGroupId) => {
+  const allBookings = await getBookings()
+  const planBookings = allBookings.filter(
+    b => b.planGroupId === planGroupId && ['pending', 'approved'].includes(b.status)
+  )
+  await Promise.all(planBookings.map(b => updateBooking(b.id, { status: 'cancelled' })))
+  return planBookings.length
 }

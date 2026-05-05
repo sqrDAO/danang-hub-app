@@ -41,6 +41,7 @@
     "viewProfile": "Xem hồ sơ",
     "manage": "Quản lý",
     "na": "N/A",
+    "continue": "Tiếp tục",
     "on": "Bật",
     "off": "Tắt",
     "signup": "Đăng ký"
@@ -303,7 +304,20 @@
     "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
     "approveAll": "Duyệt tất cả ({{count}})",
     "approvingAll": "Đang duyệt...",
-    "confirmApproveAll": "Duyệt tất cả {{count}} đặt chỗ đang chờ xử lý?"
+    "confirmApproveAll": "Duyệt tất cả {{count}} đặt chỗ đang chờ xử lý?",
+    "assignBooking": "Tạo đặt chỗ",
+    "assignMember": "Thành viên",
+    "selectMember": "Chọn thành viên...",
+    "searchMember": "Tìm theo tên hoặc email...",
+    "assignAmenity": "Tiện ích",
+    "selectAmenity": "Chọn tiện ích...",
+    "bookingType": "Loại đặt chỗ",
+    "typeStandard": "Tiêu chuẩn",
+    "typeFixedDesk": "Bàn cố định",
+    "assignDate": "Ngày",
+    "assignStartTime": "Giờ bắt đầu",
+    "assignEndTime": "Giờ kết thúc",
+    "assignAndApprove": "Tạo & Duyệt"
   },
   "amenityTypes": {
     "desk": "Bàn làm việc",
@@ -421,6 +435,8 @@
   },
   "memberBookings": {
     "title": "Đặt chỗ của tôi",
+    "tabBookings": "Đặt chỗ",
+    "tabFixedDesk": "Bàn cố định",
     "availableAmenities": "Tiện ích khả dụng",
     "availableAmenitiesDesc": "Chọn tiện ích và nhấn \"Đặt chỗ ngay\" để đặt lịch",
     "noPhoto": "Chưa có ảnh",
@@ -578,6 +594,32 @@
     "legendSelected": "Đã chọn",
     "legendClosedPast": "Đóng cửa/Đã qua"
   },
+  "fixedDesk": {
+    "title": "Gói Bàn Cố Định",
+    "description": "Đăng ký bàn cố định cho toàn bộ giờ làm việc theo tuần hoặc tháng (Thứ 2–6, 8h–18h).",
+    "register": "Đăng ký bàn cố định",
+    "registerShort": "📅 Bàn cố định",
+    "badge": "Bàn Cố Định",
+    "weekly": "Theo tuần",
+    "monthly": "Theo tháng",
+    "workingDays": "{{count}} ngày làm việc",
+    "workingHours": "Thứ 2–6, 08:00–18:00",
+    "noPlans": "Chưa có gói bàn cố định nào",
+    "cancelPlan": "Hủy gói",
+    "confirmCancel": "Hủy gói bàn cố định này? Tất cả đặt chỗ đang chờ/đã duyệt trong gói sẽ bị hủy.",
+    "modalTitle": "Đăng ký Bàn Cố Định",
+    "selectDesk": "Chọn bàn",
+    "period": "Thời hạn gói",
+    "startDate": "Ngày bắt đầu",
+    "summaryTitle": "Tóm tắt gói",
+    "summaryDesk": "Bàn:",
+    "summaryPeriod": "Thời hạn:",
+    "summaryStart": "Bắt đầu từ:",
+    "summaryHours": "Giờ:",
+    "summaryNote": "Đặt chỗ sẽ được tạo cho tất cả ngày làm việc (Thứ 2–6). Những ngày bàn đã đầy chỗ sẽ được bỏ qua.",
+    "confirm": "Xác nhận đăng ký",
+    "adminAssignNote": "Gói bàn cố định do quản trị viên tạo sẽ được tự động duyệt."
+  },
   "toast": {
     "amenityCreatedWithUploadErrors": "Đã tạo tiện ích nhưng một số ảnh tải lên thất bại: {{message}}",
     "amenityCreated": "Tạo tiện ích thành công!",
@@ -637,6 +679,11 @@
     "bookingCheckedOut": "Check-out đặt chỗ thành công",
     "bookingCheckOutFailed": "Không thể check-out đặt chỗ",
     "bookingCancelConfirm": "Bạn có chắc chắn muốn hủy đặt chỗ này?",
-    "bookingDeleteConfirm": "Bạn có chắc chắn muốn xóa đặt chỗ này?"
+    "bookingDeleteConfirm": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
+    "fixedDeskCreated": "Đã tạo gói bàn cố định — {{count}} lịch đặt chỗ!",
+    "fixedDeskFailed": "Không thể tạo gói bàn cố định. Vui lòng thử lại.",
+    "fixedDeskCancelled": "Đã hủy gói bàn cố định.",
+    "bookingAssigned": "Đã tạo và duyệt đặt chỗ!",
+    "bookingAssignFailed": "Không thể tạo đặt chỗ. Vui lòng thử lại."
   }
 }

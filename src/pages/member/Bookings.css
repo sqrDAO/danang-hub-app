@@ -145,6 +145,21 @@
   margin-top: var(--spacing-sm);
 }
 
+.amenity-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin: 0 var(--spacing-md) var(--spacing-md) var(--spacing-md);
+  margin-top: auto;
+}
+
+.amenity-card-actions .btn-book {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .amenity-card .btn-book {
   width: 100%;
   padding: 0.875rem 1rem;
@@ -426,4 +441,120 @@
   text-align: center;
   color: var(--text-secondary);
   padding: var(--spacing-xl);
+}
+
+/* ── Fixed Desk Section ── */
+.fixed-desk-plans-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.fixed-desk-plans-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.fixed-desk-plan-card {
+  display: flex;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--card-shadow, none);
+}
+
+.fixed-desk-plan-band {
+  width: 5px;
+  background: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.fixed-desk-plan-body {
+  flex: 1;
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.fixed-desk-plan-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
+.fixed-desk-plan-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.fixed-desk-plan-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fixed-desk-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(255, 164, 6, 0.2);
+  color: var(--accent-primary);
+  border: 1px solid rgba(255, 164, 6, 0.4);
+}
+
+.fixed-desk-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.fixed-desk-plan-period {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.fixed-desk-plan-dates,
+.fixed-desk-plan-count {
+  color: var(--text-secondary);
+}
+
+/* ── Fixed Desk Modal ── */
+.fixed-desk-desk-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: 0.5rem;
+}
+
+.fixed-desk-desk-option {
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.fixed-desk-desk-option.selected {
+  border-color: var(--accent-primary);
+  background: rgba(255, 164, 6, 0.15);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.fixed-desk-desk-option:hover:not(.selected) {
+  border-color: var(--accent-primary);
 }
