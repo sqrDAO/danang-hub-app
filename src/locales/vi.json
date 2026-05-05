@@ -274,7 +274,9 @@
     "editMember": "Chỉnh sửa thành viên",
     "memberProfile": "Hồ sơ thành viên",
     "memberProfileTitle": "Hồ sơ của {{name}}",
-    "confirmDelete": "Bạn có chắc chắn muốn xóa thành viên này?"
+    "confirmDelete": "Bạn có chắc chắn muốn xóa thành viên này?",
+    "searchPlaceholder": "Tìm theo tên hoặc công ty…",
+    "noResults": "Không có thành viên nào khớp với tìm kiếm."
   },
   "adminBookings": {
     "title": "Đặt chỗ",

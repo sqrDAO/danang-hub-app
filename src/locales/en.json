@@ -274,7 +274,9 @@
     "editMember": "Edit Member",
     "memberProfile": "Member profile",
     "memberProfileTitle": "{{name}}'s profile",
-    "confirmDelete": "Are you sure you want to delete this member?"
+    "confirmDelete": "Are you sure you want to delete this member?",
+    "searchPlaceholder": "Search by name or company…",
+    "noResults": "No members match your search."
   },
   "adminBookings": {
     "title": "Bookings",

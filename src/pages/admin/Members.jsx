@@ -31,6 +31,7 @@ const AdminMembers = () => {
   const [selectedMember, setSelectedMember] = useState(null)
   const [profileModalMember, setProfileModalMember] = useState(null)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const queryClient = useQueryClient()
 
   const { data: members = [], isLoading } = useQuery({
@@ -43,6 +44,16 @@ const AdminMembers = () => {
     queryFn: () => getMemberStats(profileModalMember.id),
     enabled: !!profileModalMember?.id && isProfileModalOpen
   })
+
+  const filteredMembers = searchQuery.trim()
+    ? members.filter(m => {
+        const q = searchQuery.toLowerCase()
+        return (
+          (m.displayName || '').toLowerCase().includes(q) ||
+          (m.company || '').toLowerCase().includes(q)
+        )
+      })
+    : members
 
   const updateMutation = useMutation({
     mutationFn: ({ uid, data }) => updateMember(uid, data),
@@ -114,6 +125,24 @@ const AdminMembers = () => {
       <div className="container">
         <div className="page-header">
           <h1 className="page-title">{t('adminMembers.title')}</h1>
+          <div className="members-search-pill">
+            <svg className="members-search-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.25" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M13.25 13.25L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="search"
+              className="members-search-input"
+              placeholder={t('adminMembers.searchPlaceholder')}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <span className="members-search-count">
+                {filteredMembers.length}/{members.length}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="members-table-container glass">
@@ -128,7 +157,12 @@ const AdminMembers = () => {
               </tr>
             </thead>
             <tbody>
-              {members.map(member => (
+              {filteredMembers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="members-no-results">{t('adminMembers.noResults')}</td>
+                </tr>
+              )}
+              {filteredMembers.map(member => (
                 <tr key={member.id}>
                   <td>
                     <div className="member-cell">
@@ -176,7 +210,10 @@ const AdminMembers = () => {
 
           {/* Mobile Card Layout */}
           <div className="members-mobile-list">
-            {members.map(member => (
+            {filteredMembers.length === 0 && (
+              <p className="members-no-results">{t('adminMembers.noResults')}</p>
+            )}
+            {filteredMembers.map(member => (
               <div key={member.id} className="member-card-mobile">
                 <div className="member-card-mobile-header">
                   <Avatar 
