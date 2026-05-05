@@ -260,17 +260,21 @@ const AdminAmenities = () => {
           setPhotos(newPhotos)
         }
       } else {
-        // In edit mode, delete from storage and remove from state
         const newPhotos = photos.filter((_, i) => i !== index)
         setPhotos(newPhotos)
-        
+
         if (selectedAmenity?.id) {
-          await deleteAmenityPhoto(photoUrl)
+          await updateAmenity(selectedAmenity.id, { photos: newPhotos })
+          try {
+            await deleteAmenityPhoto(photoUrl)
+          } catch (storageError) {
+            console.error('Photo removed from amenity but storage delete failed:', storageError)
+          }
+          queryClient.invalidateQueries(['amenities'])
         }
       }
     } catch (error) {
       showToast('Failed to delete photo. Please try again.', 'error')
-      // Restore photo on error
       setPhotos(photos)
     }
   }

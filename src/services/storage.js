@@ -79,19 +79,16 @@ export const deleteAmenityPhoto = async (photoUrl) => {
   }
 
   try {
-    // Extract the storage path from the URL
-    // Firebase Storage URLs format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
     const url = new URL(photoUrl)
-    const pathMatch = url.pathname.match(/\/o\/(.+)\?/)
-    
+    const pathMatch = url.pathname.match(/\/o\/(.+)$/)
+
     if (!pathMatch) {
       throw new Error('Invalid photo URL format')
     }
 
-    // Decode the path (Firebase encodes special characters)
     const storagePath = decodeURIComponent(pathMatch[1])
     const storageRef = ref(storage, storagePath)
-    
+
     await deleteObject(storageRef)
   } catch (error) {
     console.error('Error deleting amenity photo:', error)
@@ -139,7 +136,7 @@ export const deleteMemberAvatar = async (photoUrl) => {
 
   try {
     const url = new URL(photoUrl)
-    const pathMatch = url.pathname.match(/\/o\/(.+)\?/)
+    const pathMatch = url.pathname.match(/\/o\/(.+)$/)
 
     if (!pathMatch) {
       throw new Error('Invalid photo URL format')
