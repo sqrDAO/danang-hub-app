@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
+import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../components/Toast'
@@ -28,6 +29,7 @@ const AdminAmenities = () => {
   const [pendingFiles, setPendingFiles] = useState([]) // Files waiting to be uploaded (create mode)
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({})
+  const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const fileInputRef = useRef(null)
   const capacityInputRef = useRef(null)
   const queryClient = useQueryClient()
@@ -339,12 +341,17 @@ const AdminAmenities = () => {
           {amenities.map(amenity => (
             <div key={amenity.id} className="amenity-card glass">
               {amenity.photos && amenity.photos.length > 0 && (
-                <div className="amenity-photo-preview">
+                <button
+                  type="button"
+                  className="amenity-photo-preview amenity-photo-clickable"
+                  onClick={() => setLightboxAmenity(amenity)}
+                  aria-label={`View photos of ${amenity.name}`}
+                >
                   <img src={amenity.photos[0]} alt={amenity.name} />
                   {amenity.photos.length > 1 && (
                     <span className="photo-count-badge">{t('adminAmenities.photos', { count: amenity.photos.length })}</span>
                   )}
-                </div>
+                </button>
               )}
               <div className="amenity-header">
                 <h3 className="amenity-name">{amenity.name}</h3>
@@ -591,6 +598,13 @@ const AdminAmenities = () => {
             </div>
           </form>
         </Modal>
+
+        <AmenityPhotoLightbox
+          isOpen={!!lightboxAmenity}
+          onClose={() => setLightboxAmenity(null)}
+          photos={lightboxAmenity?.photos || []}
+          alt={lightboxAmenity?.name || ''}
+        />
       </div>
     </Layout>
   )

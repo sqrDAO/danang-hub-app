@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatEventDate } from '../utils/timezone'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
+import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
 import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getMembers } from '../services/members'
@@ -19,6 +20,7 @@ const Home = () => {
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [lightboxAmenity, setLightboxAmenity] = useState(null)
 
   const { data: amenities = [], isLoading: amenitiesLoading } = useQuery({
     queryKey: ['amenities'],
@@ -169,12 +171,17 @@ const Home = () => {
                 {availableAmenities.map(amenity => (
                   <div key={amenity.id} className="amenity-preview-card glass">
                     {amenity.photos && amenity.photos.length > 0 ? (
-                      <div className="amenity-preview-photo">
+                      <button
+                        type="button"
+                        className="amenity-preview-photo amenity-photo-clickable"
+                        onClick={() => setLightboxAmenity(amenity)}
+                        aria-label={`View photos of ${amenity.name}`}
+                      >
                         <img src={amenity.photos[0]} alt={amenity.name} />
                         {amenity.photos.length > 1 && (
                           <span className="amenity-photo-count-badge">{amenity.photos.length}</span>
                         )}
-                      </div>
+                      </button>
                     ) : (
                       <div className="amenity-preview-photo-placeholder">
                         <span>{t('home.amenitiesNoPhoto')}</span>
@@ -345,6 +352,13 @@ const Home = () => {
           action={selectedAmenity ? 'book' : 'register'}
           onLogin={handleLogin}
           onSignUp={handleSignUp}
+        />
+
+        <AmenityPhotoLightbox
+          isOpen={!!lightboxAmenity}
+          onClose={() => setLightboxAmenity(null)}
+          photos={lightboxAmenity?.photos || []}
+          alt={lightboxAmenity?.name || ''}
         />
 
         {/* CTA Section */}

@@ -6,6 +6,7 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
+import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking } from '../../services/bookings'
 import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
@@ -28,6 +29,7 @@ const MemberBookings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
+  const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const [bookingStep, setBookingStep] = useState(1) // 1: calendar, 2: confirm, 3: recurring
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedStartTime, setSelectedStartTime] = useState(null)
@@ -369,12 +371,17 @@ const MemberBookings = () => {
               {availableAmenities.map(amenity => (
               <div key={amenity.id} className="amenity-card">
                 {amenity.photos && amenity.photos.length > 0 ? (
-                  <div className="amenity-photo-preview">
+                  <button
+                    type="button"
+                    className="amenity-photo-preview amenity-photo-clickable"
+                    onClick={() => setLightboxAmenity(amenity)}
+                    aria-label={`View photos of ${amenity.name}`}
+                  >
                     <img src={amenity.photos[0]} alt={amenity.name} />
                     {amenity.photos.length > 1 && (
                       <span className="amenity-photo-count-badge">{amenity.photos.length}</span>
                     )}
-                  </div>
+                  </button>
                 ) : (
                   <div className="amenity-photo-placeholder">
                     <span>{t('memberBookings.noPhoto')}</span>
@@ -766,6 +773,13 @@ const MemberBookings = () => {
             </>
           )}
         </Modal>
+
+        <AmenityPhotoLightbox
+          isOpen={!!lightboxAmenity}
+          onClose={() => setLightboxAmenity(null)}
+          photos={lightboxAmenity?.photos || []}
+          alt={lightboxAmenity?.name || ''}
+        />
       </div>
     </Layout>
   )
