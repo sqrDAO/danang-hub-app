@@ -50,19 +50,54 @@ export const DEFAULT_AVAILABILITY = {
   timezone: 'Asia/Ho_Chi_Minh'
 }
 
+// Event spaces: after 6 PM on weekdays, 8 AM–10 PM on weekends
+export const EVENT_SPACE_AVAILABILITY = {
+  isAvailable: true,
+  startHour: 8,          // Weekend start: 8 AM
+  weekdayStartHour: 18,  // Weekday start: 6 PM (after office hours)
+  endHour: 22,           // All days end: 10 PM
+  availableDays: [0, 1, 2, 3, 4, 5, 6],
+  slotDuration: 60,
+  timezone: 'Asia/Ho_Chi_Minh'
+}
+
+export const getDefaultAvailability = (type) =>
+  type === 'event-space' ? EVENT_SPACE_AVAILABILITY : DEFAULT_AVAILABILITY
+
+// Returns a translation key if the date/duration violates event-space hours, null if valid.
+export const validateEventSpaceTime = (dateValue, durationMinutes = 60) => {
+  if (!dateValue) return null
+  const date = new Date(dateValue)
+  const dayOfWeek = date.getDay()
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+  const startHour = date.getHours() + date.getMinutes() / 60
+  const endHour = startHour + durationMinutes / 60
+
+  if (!isWeekend && startHour < EVENT_SPACE_AVAILABILITY.weekdayStartHour) {
+    return 'memberEvents.modal.weekdayHoursError'
+  }
+  if (isWeekend && startHour < EVENT_SPACE_AVAILABILITY.startHour) {
+    return 'memberEvents.modal.weekendHoursError'
+  }
+  if (endHour > EVENT_SPACE_AVAILABILITY.endHour) {
+    return 'memberEvents.modal.endTimeError'
+  }
+  return null
+}
+
 export const createAmenity = async (data) => {
   const amenitiesRef = collection(db, AMENITIES_COLLECTION)
   const defaultCapacity = DEFAULT_CAPACITY_BY_TYPE[data.type] ?? 1
+  const defaults = getDefaultAvailability(data.type)
   const docRef = await addDoc(amenitiesRef, {
     ...data,
     capacity: data.capacity ?? defaultCapacity,
-    // Apply default availability settings if not provided
-    isAvailable: data.isAvailable !== undefined ? data.isAvailable : DEFAULT_AVAILABILITY.isAvailable,
-    startHour: data.startHour || DEFAULT_AVAILABILITY.startHour,
-    endHour: data.endHour || DEFAULT_AVAILABILITY.endHour,
-    availableDays: data.availableDays || DEFAULT_AVAILABILITY.availableDays,
-    slotDuration: data.slotDuration || DEFAULT_AVAILABILITY.slotDuration,
-    photos: data.photos || [], // Initialize photos array
+    isAvailable: data.isAvailable !== undefined ? data.isAvailable : defaults.isAvailable,
+    startHour: data.startHour !== undefined ? data.startHour : defaults.startHour,
+    endHour: data.endHour !== undefined ? data.endHour : defaults.endHour,
+    availableDays: data.availableDays || defaults.availableDays,
+    slotDuration: data.slotDuration || defaults.slotDuration,
+    photos: data.photos || [],
     createdAt: new Date().toISOString()
   })
   return docRef.id

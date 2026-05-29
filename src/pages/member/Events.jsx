@@ -18,7 +18,7 @@ import {
 } from '../../services/events'
 import { getUnreadNotifications, markNotificationRead } from '../../services/notifications'
 import { getMembers } from '../../services/members'
-import { getAmenities } from '../../services/amenities'
+import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
@@ -40,14 +40,20 @@ const MemberEvents = () => {
   const [linkAmenity, setLinkAmenity] = useState(true)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
+  const [eventDuration, setEventDuration] = useState(60)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const processedActionRef = useRef(null)
   const bannerInputRef = useRef(null)
 
-  const validateEventHallDate = (dateValue) => {
+  const validateEventHallDate = (dateValue, durationMinutes = eventDuration) => {
     if (!linkAmenity || !dateValue) {
       setDateError(null)
       return true
+    }
+    const errorKey = validateEventSpaceTime(dateValue, durationMinutes)
+    if (errorKey) {
+      setDateError(t(errorKey))
+      return false
     }
     setDateError(null)
     return true
@@ -253,6 +259,14 @@ const MemberEvents = () => {
     const formData = new FormData(e.target)
     const eventDate = parseHubDateTime(formData.get('date'))
     const linkedAmenityId = formData.get('linkedAmenityId')
+
+    if (linkAmenity && linkedAmenityId) {
+      const duration = parseInt(formData.get('duration')) || 60
+      if (!validateEventHallDate(formData.get('date'), duration)) {
+        setIsSubmitting(false)
+        return
+      }
+    }
 
     const bannerFile = bannerInputRef.current?.files?.[0]
     if (!bannerFile) {
@@ -787,6 +801,7 @@ const MemberEvents = () => {
             setLinkAmenity(false)
             setPrefillAmenityId(null)
             setDateError(null)
+            setEventDuration(60)
             if (bannerInputRef.current) bannerInputRef.current.value = ''
           }}
           title={t('memberEvents.modal.title')}
@@ -878,6 +893,9 @@ const MemberEvents = () => {
                 onChange={(e) => validateEventHallDate(e.target.value)}
                 required
               />
+              {linkAmenity && (
+                <small className="form-hint">{t('memberEvents.modal.availabilityHint')}</small>
+              )}
               {dateError && (
                 <p className="form-error">{dateError}</p>
               )}
@@ -891,7 +909,11 @@ const MemberEvents = () => {
                 name="duration"
                 className="form-field"
                 placeholder={t('memberEvents.modal.durationPlaceholder')}
-                defaultValue="60"
+                value={eventDuration}
+                onChange={(e) => {
+                  const mins = parseInt(e.target.value) || 60
+                  setEventDuration(mins)
+                }}
                 min="15"
                 step="15"
                 required

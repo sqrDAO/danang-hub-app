@@ -577,7 +577,11 @@
       "depositTxHashPlaceholder": "Paste your deposit transaction hash (required if capacity > 30)",
       "depositTxHashHint": "We only use this hash to verify your deposit; it will not be shared publicly.",
       "submitting": "Submitting...",
-      "submit": "Submit for Approval"
+      "submit": "Submit for Approval",
+      "availabilityHint": "Weekdays: after 6:00 PM · Weekends: 8:00 AM – 10:00 PM",
+      "weekdayHoursError": "Events on weekdays must start after 6:00 PM.",
+      "weekendHoursError": "Events on weekends must start from 8:00 AM.",
+      "endTimeError": "Event must end by 10:00 PM."
     }
   },
   "calendar": {

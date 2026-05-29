@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
+import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, EVENT_SPACE_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../components/Toast'
 import './Amenities.css'
@@ -32,6 +32,8 @@ const AdminAmenities = () => {
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const fileInputRef = useRef(null)
   const capacityInputRef = useRef(null)
+  const startHourRef = useRef(null)
+  const endHourRef = useRef(null)
   const queryClient = useQueryClient()
 
   const handleTypeChange = (e) => {
@@ -40,6 +42,10 @@ const AdminAmenities = () => {
     if (capacityInputRef.current) {
       capacityInputRef.current.value = defaultCap
     }
+    const avail = getDefaultAvailability(type)
+    if (startHourRef.current) startHourRef.current.value = avail.startHour
+    if (endHourRef.current) endHourRef.current.value = avail.endHour
+    setAvailableDays(avail.availableDays)
   }
 
   const { data: amenities = [], isLoading } = useQuery({
@@ -156,7 +162,7 @@ const AdminAmenities = () => {
   const handleEdit = (amenity) => {
     setIsCreateMode(false)
     setSelectedAmenity(amenity)
-    setAvailableDays(amenity.availableDays || DEFAULT_AVAILABILITY.availableDays)
+    setAvailableDays(amenity.availableDays || getDefaultAvailability(amenity.type).availableDays)
     setPhotos(amenity.photos || [])
     setPendingFiles([])
     setUploadingPhotos(false)
@@ -513,10 +519,11 @@ const AdminAmenities = () => {
                   <label className="form-label">
                     {t('adminAmenities.form.openFrom')}
                   </label>
-                  <select 
-                    name="startHour" 
+                  <select
+                    ref={startHourRef}
+                    name="startHour"
                     className="form-field"
-                    defaultValue={selectedAmenity?.startHour || DEFAULT_AVAILABILITY.startHour}
+                    defaultValue={selectedAmenity?.startHour ?? getDefaultAvailability(selectedAmenity?.type).startHour}
                   >
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
@@ -527,10 +534,11 @@ const AdminAmenities = () => {
                   <label className="form-label">
                     {t('adminAmenities.form.closeAt')}
                   </label>
-                  <select 
-                    name="endHour" 
+                  <select
+                    ref={endHourRef}
+                    name="endHour"
                     className="form-field"
-                    defaultValue={selectedAmenity?.endHour || DEFAULT_AVAILABILITY.endHour}
+                    defaultValue={selectedAmenity?.endHour ?? getDefaultAvailability(selectedAmenity?.type).endHour}
                   >
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
@@ -543,10 +551,10 @@ const AdminAmenities = () => {
                 <label className="form-label">
                   {t('adminAmenities.form.slotDuration')}
                 </label>
-                <select 
-                  name="slotDuration" 
+                <select
+                  name="slotDuration"
                   className="form-field"
-                  defaultValue={selectedAmenity?.slotDuration || DEFAULT_AVAILABILITY.slotDuration}
+                  defaultValue={selectedAmenity?.slotDuration ?? getDefaultAvailability(selectedAmenity?.type).slotDuration}
                 >
                   <option value="15">{t('adminAmenities.form.slot15')}</option>
                   <option value="30">{t('adminAmenities.form.slot30')}</option>

@@ -15,7 +15,7 @@ import {
   promoteFromWaitlist 
 } from '../../services/events'
 import { getMembers } from '../../services/members'
-import { getAmenities } from '../../services/amenities'
+import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { uploadEventBanner } from '../../services/storage'
@@ -34,7 +34,23 @@ const AdminEvents = () => {
   const [linkAmenity, setLinkAmenity] = useState(false)
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [dateError, setDateError] = useState(null)
+  const [eventDuration, setEventDuration] = useState(60)
   const bannerInputRef = useRef(null)
+
+  const validateEventHallDate = (dateValue, durationMinutes = eventDuration) => {
+    if (!linkAmenity || !dateValue) {
+      setDateError(null)
+      return true
+    }
+    const errorKey = validateEventSpaceTime(dateValue, durationMinutes)
+    if (errorKey) {
+      setDateError(t(errorKey))
+      return false
+    }
+    setDateError(null)
+    return true
+  }
   const queryClient = useQueryClient()
 
   const { data: allEvents = [], isLoading } = useQuery({
@@ -211,6 +227,8 @@ const AdminEvents = () => {
     setSelectedEvent(null)
     setIsCreateMode(true)
     setLinkAmenity(false)
+    setDateError(null)
+    setEventDuration(60)
     if (bannerInputRef.current) {
       bannerInputRef.current.value = ''
     }
@@ -220,6 +238,8 @@ const AdminEvents = () => {
     setIsCreateMode(true)
     setSelectedEvent(null)
     setLinkAmenity(true)
+    setDateError(null)
+    setEventDuration(60)
     setIsModalOpen(true)
   }
 
@@ -227,6 +247,8 @@ const AdminEvents = () => {
     setIsCreateMode(false)
     setSelectedEvent(event)
     setLinkAmenity(!!event.linkedAmenityId)
+    setDateError(null)
+    setEventDuration(event.duration || 60)
     setIsModalOpen(true)
   }
 
@@ -273,6 +295,14 @@ const AdminEvents = () => {
     const formData = new FormData(e.target)
     const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = parseHubDateTime(formData.get('date'))
+
+    if (linkAmenity && linkedAmenityId) {
+      const duration = parseInt(formData.get('duration')) || 60
+      if (!validateEventHallDate(formData.get('date'), duration)) {
+        setIsSubmitting(false)
+        return
+      }
+    }
 
     const rawCapacity = parseInt(formData.get('capacity'), 10)
     const capacity = Number.isNaN(rawCapacity)
@@ -627,10 +657,17 @@ const AdminEvents = () => {
               <input
                 type="datetime-local"
                 name="date"
-                className="form-field"
+                className={`form-field ${dateError ? 'form-field-error' : ''}`}
                 defaultValue={selectedEvent?.date ? toDatetimeLocalHub(selectedEvent.date) : ''}
+                onChange={(e) => validateEventHallDate(e.target.value)}
                 required
               />
+              {linkAmenity && (
+                <small className="form-hint">{t('memberEvents.modal.availabilityHint')}</small>
+              )}
+              {dateError && (
+                <p className="form-error">{dateError}</p>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">{t('adminEvents.modal.durationLabel')}</label>
@@ -639,7 +676,11 @@ const AdminEvents = () => {
                 name="duration"
                 className="form-field"
                 placeholder={t('adminEvents.modal.durationPlaceholder')}
-                defaultValue={selectedEvent?.duration || 60}
+                value={eventDuration}
+                onChange={(e) => {
+                  const mins = parseInt(e.target.value) || 60
+                  setEventDuration(mins)
+                }}
                 min="15"
                 step="15"
                 required

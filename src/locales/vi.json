@@ -577,7 +577,11 @@
       "depositTxHashPlaceholder": "Dán transaction hash cho khoản đặt cọc (bắt buộc nếu sức chứa > 30)",
       "depositTxHashHint": "Chúng tôi chỉ dùng hash này để xác minh khoản đặt cọc; sẽ không hiển thị công khai.",
       "submitting": "Đang gửi...",
-      "submit": "Gửi để duyệt"
+      "submit": "Gửi để duyệt",
+      "availabilityHint": "Ngày thường: sau 18:00 · Cuối tuần: 8:00 – 22:00",
+      "weekdayHoursError": "Sự kiện vào ngày thường phải bắt đầu sau 18:00.",
+      "weekendHoursError": "Sự kiện vào cuối tuần phải bắt đầu từ 8:00 trở đi.",
+      "endTimeError": "Sự kiện phải kết thúc trước 22:00."
     }
   },
   "calendar": {
