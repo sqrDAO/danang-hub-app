@@ -1,155 +1,142 @@
-# Da Nang Blockchain Hub Management App
+# Da Nang Blockchain Hub — Member Portal
 
-A full-stack Firebase-powered React application for managing members, amenities, bookings, and events at Da Nang Blockchain Hub.
+A full-stack, Firebase-powered React application for managing members, amenities, bookings, and events at [Da Nang Blockchain Hub](https://www.danangblockchainhub.com). Installable as a PWA on mobile.
+
+Live app: **https://app.danangblockchainhub.com**
+
+---
 
 ## Features
 
-### 🔐 Authentication & User Management
-- **Firebase Authentication**: Google OAuth, Email/Password, and crypto wallet sign-in
-- **EVM Wallet Login**: Connect any EIP-6963 compatible wallet (MetaMask, Rabby, Coinbase Wallet, etc.) — auto-discovers all installed wallets
-- **Solana Wallet Login**: Connect any Wallet Standard compatible Solana wallet (Phantom, Solflare, Backpack, etc.)
-- **Wallet Auth Flow**: Sign a server-generated nonce → verify signature via Cloud Function → Firebase custom token
-- **Role-Based Access**: Admin and member roles with protected routes
-- **User Profiles**: Member profile management with avatar support and connected wallet address display
-- **Member Directory**: View and manage all hub members (admin)
+### Authentication & User Management
+- **Firebase Authentication** — Google OAuth and Email/Password sign-in
+- **EVM Wallet Login** — auto-discovers all EIP-6963 compatible wallets (MetaMask, Rabby, Coinbase Wallet, etc.)
+- **Solana Wallet Login** — any Wallet Standard compatible wallet (Phantom, Solflare, Backpack, etc.)
+- **Wallet Auth Flow** — sign a server-generated nonce → verify signature via Cloud Function → Firebase custom token
+- **Role-Based Access** — admin and member roles with protected routes
+- **User Profiles** — avatar upload, bio, LinkedIn, website, connected wallet address
 
-### 📅 Amenity Booking System
-- **Visual Calendar Interface**: Day and week view calendar for booking selection
-- **Flexible Time Slots**: 30-minute slot duration (configurable per amenity)
-- **Conflict Detection**: Real-time booking conflict checking via Cloud Functions
-- **Recurring Bookings**: Support for weekly recurring reservations
-- **Check-in/Check-out**: Manual and automatic checkout system
-- **Custom Availability**: Per-amenity availability settings (hours, days, slot duration)
-- **Booking Status**: Pending, approved, checked-in, completed status workflow
-- **Booking History**: View past and upcoming bookings
+### Amenity Booking System
+- **Visual Calendar** — day and week view for booking selection
+- **Fixed Desk Plans** — members subscribe to recurring fixed-desk allocations; admins assign desks
+- **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
+- **Recurring Bookings** — weekly recurring reservations
+- **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
+- **Bulk Approval** — admins can approve all pending bookings in one click
+- **Booking Status Workflow** — `pending → approved → checked-in → completed`
+- **Event-Space Restrictions** — event space requires bookings outside office hours (weekdays: after 6 PM; weekends: 8 AM – 10 PM, must end by 10 PM)
 
-### 🎉 Event Management
-- **Event Creation**: Create events with details, capacity, and hosting projects
-- **Approval Workflow**: Admin approval system for event submissions
-- **Waitlist System**: Automatic waitlist management when events reach capacity
-- **Auto-Promotion**: Automatic promotion from waitlist when spots open
-- **Event Registration**: Members can register for upcoming events
-- **Capacity Management**: Real-time tracking of event attendance
-- **Event History**: View past events and attendance records
+### Event Management
+- **Event Creation** — title, description, date, capacity, hosting project, banner image
+- **Approval Workflow** — admin review with rejection reasons surfaced to the organizer
+- **Waitlist System** — automatic waitlist + promotion when spots open
+- **Organizer Profile Modal** — view host details inline on any event card
+- **Event Reminders** — scheduled email reminders sent 24 hours before events
 
-### 🤖 AI-Powered Features
-- **AI Chatbot**: Gemini AI-powered assistant for booking help and general questions
-- **Conversational Interface**: Context-aware chatbot with conversation history
+### Admin Dashboard
+- **Overview Stats** — members, active bookings, upcoming events, available amenities
+- **Member Management** — search by name or company, edit profiles and membership types
+- **Amenity Management** — create/edit amenities, configure availability hours, days, slot duration, and photo gallery
+- **Booking Management** — filter by status, bulk-approve pending bookings, assign fixed desks
+- **Event Management** — approve/reject events with reason, manage attendees and waitlists
 
-### 📊 Admin Dashboard
-- **Overview Statistics**: Total members, active bookings, upcoming events, available amenities
-- **Member Management**: View, edit, and manage member profiles and membership types
-- **Amenity Management**: Create, edit, and configure amenities with custom availability
-- **Booking Management**: View all bookings, approve/reject, and manage check-ins
-- **Event Management**: Create, approve, and manage events with capacity control
+### Member Portal
+- **Personal Dashboard** — upcoming bookings and events at a glance
+- **Booking Interface** — calendar picker with live conflict checking
+- **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
+- **Event Registration** — browse, register, and manage waitlist position
+- **Profile Management** — edit personal info, upload avatar, display wallet address
 
-### 👤 Member Portal
-- **Personal Dashboard**: Overview of upcoming bookings and events
-- **Booking Interface**: Easy-to-use calendar for booking amenities
-- **Event Registration**: Browse and register for upcoming events
-- **Profile Management**: Edit personal information and view membership details
-- **Booking History**: View all past and current bookings
+### Unified Calendar View
+- Combined bookings + events in one calendar
+- Filter by bookings, events, or amenity type
+- Color-coded items distinguishing your bookings from others
+- Month view with day-by-day breakdown
 
-### 📆 Unified Calendar View
-- **Combined View**: See both bookings and events in a single calendar
-- **Filter Options**: Filter by bookings, events, or amenity type
-- **Visual Indicators**: Color-coded items showing your bookings vs. others
-- **Month View**: Full month calendar with day-by-day breakdown
+### Public Homepage
+- Amenity and event showcase without login
+- Hosting project display on event cards
+- Seamless sign-up call-to-action for new members
 
-### 🏠 Public Homepage
-- **Amenity Preview**: Browse available amenities without logging in
-- **Event Showcase**: View upcoming and past events
-- **Project Integration**: Display hosting projects for events
-- **Call-to-Action**: Seamless sign-up flow for new members
+### Notifications & Email
+- **Event Status Email** — Nodemailer/Lark SMTP sends email on approval, rejection, or cancellation
+- **Booking Confirmations** — automated email on booking creation
+- **SMTP password** stored in Firebase Secret Manager (not in code)
 
-### ⚙️ Cloud Functions & Automation
-- **Conflict Checking**: Server-side validation to prevent double-bookings
-- **Auto Checkout**: Auto-complete expired or past-day bookings (hourly) — checked-in past end time or any booking whose date has passed
-- **Booking Confirmations**: Automated notifications on booking creation
-- **Event Reminders**: Scheduled reminders for upcoming events (hourly)
-- **Waitlist Promotion**: Automatic promotion from waitlist when capacity opens
-- **Data Cleanup**: Daily cleanup of old completed bookings
+### Internationalization
+- **English and Vietnamese** UI via i18next
+- Language auto-detected from browser, persisted to localStorage
+- Toggle available in the header
 
-### 🎨 User Experience
-- **Responsive Design**: Mobile-friendly interface with modern UI
-- **Dark/Light Mode**: System-aware theme switching with manual toggle
-- **Loading States**: Skeleton loaders for better perceived performance
-- **Toast Notifications**: User-friendly feedback for actions
-- **Modal Dialogs**: Smooth booking and event registration flows
-- **Error Handling**: Graceful error handling with user-friendly messages
+### Mobile / PWA
+- **Installable PWA** — `vite-plugin-pwa` with Workbox service worker
+- **Bottom Navigation Bar** — persistent tab bar for authenticated users on mobile
+- **Offline-capable** — Google Fonts, Firebase Storage, and app shell cached via Workbox
+- Responsive design throughout; glassmorphism aesthetic with dark/light theme
+
+### Other
+- **Telegram Bot Widget** — floating contact widget for quick support
+- **Amenity Photo Lightbox** — full-screen photo viewer for amenity galleries
+- **Dark / Light Theme** — system-aware with manual toggle, persisted to localStorage
+- **Skeleton Loaders** — perceived performance on all data-fetching views
+
+---
 
 ## Tech Stack
 
-- **Frontend Framework**: React 18 with Vite
-- **Routing**: React Router v6 with protected routes
-- **State Management**: 
-  - React Context API for authentication and theme management
-  - TanStack React Query for server state and data fetching
-- **Backend Services**:
-  - Firebase Authentication (Google OAuth, Email/Password, Custom Token for wallets)
-  - Cloud Firestore (NoSQL database)
-  - Cloud Functions (Node.js serverless functions — includes `ethers` v6, `tweetnacl`, `bs58` for wallet signature verification)
-  - Firebase Storage (for file uploads)
-- **AI Integration**: Google Gemini API (gemini-2.5-flash model)
-- **Markdown Rendering**: react-markdown for AI chatbot responses
-- **Styling**: Custom CSS with CSS variables, glassmorphism design, theme-aware components
-- **Date Handling**: date-fns for date manipulation
-- **Build Tool**: Vite for fast development and optimized production builds
-
-### Reference links
-- **Event Guidelines**: The app does not host an in-app Event Guidelines page. All “Event Guidelines” links point to the canonical page at **https://www.danangblockchainhub.com/event-guidelines.html**. Use that URL for any future references to event guidelines.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + Vite |
+| Routing | React Router v6 |
+| Server State | TanStack React Query v5 |
+| Auth State | React Context (AuthContext) |
+| Theme State | React Context (ThemeContext) |
+| i18n | i18next + react-i18next |
+| PWA | vite-plugin-pwa + Workbox |
+| Backend | Firebase (Auth, Firestore, Storage, Cloud Functions Node.js 20) |
+| Email | Nodemailer via Lark SMTP; password in Firebase Secret Manager |
+| Wallet Auth | ethers v6 (EVM), tweetnacl + bs58 (Solana) |
+| Styling | Custom CSS with CSS variables, glassmorphism |
+| Date utils | date-fns |
+| Build | Vite |
 
 ---
 
 ## Quick Start
 
-### 1. Install Dependencies
-
 ```bash
+# Install dependencies
 npm install
 cd functions && npm install && cd ..
-```
 
-### 2. Install Firebase CLI
+# Set up environment
+cp .env.example .env
+# Populate .env with your Firebase config (see Firebase Setup below)
 
-```bash
-npm install -g firebase-tools
-firebase login
-```
-
-### 3. Start Development
-
-```bash
+# Start dev server (http://localhost:3000)
 npm run dev
 ```
-
-Open http://localhost:3000
 
 ---
 
 ## Firebase Setup
 
-### Step 1: Create Firebase Project
+### 1. Create Firebase Project
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click **"Add project"** → Enter project name: `danang-hub-app`
-3. Disable Google Analytics (optional) → Click **"Create project"**
+1. Go to [Firebase Console](https://console.firebase.google.com/) → **Add project**
+2. Disable Google Analytics (optional) → **Create project**
 
-### Step 2: Register Web App
+### 2. Register Web App
 
-1. In Firebase dashboard, click the **Web icon** (`</>`)
-2. App nickname: `Da Nang Hub Web App`
-3. **Do NOT** check "Firebase Hosting"
-4. Click **"Register app"**
-5. Copy the Firebase configuration object
+1. Click the **Web icon** (`</>`) → App nickname: `Da Nang Hub Web App`
+2. Copy the Firebase configuration object
 
-### Step 3: Environment Setup
+### 3. Environment Variables
 
 ```bash
 cp .env.example .env
 ```
 
-Add your Firebase config to `.env`:
 ```env
 VITE_FIREBASE_API_KEY=AIza...
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
@@ -157,132 +144,78 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
-VITE_GEMINI_API_KEY=your-gemini-api-key  # Optional, for AI features
 ```
 
-### Step 4: Enable Firebase Services
+### 4. Enable Firebase Services
 
-#### Authentication
-1. Go to **Build** → **Authentication** → Click **"Get started"**
-2. Go to **Sign-in method** tab → Enable **Google** provider and **Email/Password** provider
-3. Set project support email → Click **"Save"**
-4. Wallet sign-in uses **Custom Token** (no extra provider needed — handled server-side by Cloud Functions)
+**Authentication** — Enable **Google** and **Email/Password** providers. Wallet sign-in uses Custom Tokens (no extra provider needed).
 
-#### Firestore Database
-1. Go to **Build** → **Firestore Database** → Click **"Create database"**
-2. Choose **"Start in test mode"**
-3. Select location (asia-southeast1 recommended)
-4. Click **"Enable"**
+**Firestore Database** — Create database in test mode; `asia-southeast1` recommended.
 
-#### Cloud Functions
-1. Go to **Build** → **Functions** → Click **"Get started"**
-2. **Enable billing** (Blaze plan required)
+**Cloud Functions** — Requires Blaze (pay-as-you-go) billing plan.
 
-### Step 5: Deploy Firebase Resources
+**Storage** — Enable for avatar and amenity photo uploads.
+
+### 5. Deploy Firebase Resources
 
 ```bash
-# Initialize Firebase (if first time)
-firebase init
-# Select: Firestore, Functions, Storage
-# Use existing project
+# Deploy Firestore rules, Storage rules, and Cloud Functions
+firebase deploy
 
-# Deploy Firestore rules
+# Or individually:
 firebase deploy --only firestore:rules
-
-# Deploy Storage rules (for member avatars / file uploads)
 firebase deploy --only storage
-
-# Deploy Cloud Functions
 firebase deploy --only functions
 ```
 
-### Step 6: Grant Admin Access
+### 6. Configure Email (Nodemailer)
 
-1. Go to **Firestore Database** → **Data** tab
-2. Find `members` collection → Find user document
-3. Set `membershipType` field to `"admin"`
+The SMTP password is stored in Firebase Secret Manager:
+
+```bash
+firebase functions:secrets:set EMAIL_PASS
+```
+
+Then set the non-secret email config in `functions/.env.<project-id>`:
+
+```env
+EMAIL_SMTP_HOST=smtp.larksuite.com
+EMAIL_SMTP_PORT=465
+EMAIL_SMTP_SECURE=true
+EMAIL_USER=your-email@domain.com
+EMAIL_FROM_NAME=Da Nang Blockchain Hub
+APP_URL=https://app.danangblockchainhub.com
+```
+
+### 7. Grant Admin Access
+
+In **Firestore → Data**, find the user's document in the `members` collection and set `membershipType` to `"admin"`.
 
 ---
 
 ## Cloud Functions
 
-### Deployed Functions
-
 | Function | Type | Description |
 |----------|------|-------------|
-| `checkBookingConflicts` | Callable | Server-side validation to prevent double-booking conflicts |
-| `checkSlotAvailability` | Callable | Public slot availability check for chatbot and unauthenticated queries |
-| `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (stored in `nonces/{address}`, 5-min expiry) |
-| `verifyWalletSignature` | Callable | Verifies EVM or Solana wallet signature, invalidates nonce, returns Firebase custom token |
-| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time (checked-in) or past their booking date (pending/approved/checked-in) |
-| `sendBookingConfirmation` | Firestore Trigger (onCreate) | Sends confirmation notification when a booking is created |
-| `updateEventCapacity` | Firestore Trigger (onUpdate) | Monitors event capacity and logs when events are full |
-| `sendEventReminders` | Scheduled (hourly) | Sends reminders for events happening in the next 24 hours |
-| `autoPromoteWaitlist` | Firestore Trigger (onUpdate) | Automatically promotes members from waitlist when spots become available |
-| `cleanupOldBookings` | Scheduled (daily) | Identifies and logs old completed bookings for cleanup (30+ days old) |
+| `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
+| `checkSlotAvailability` | Callable | Public slot availability check |
+| `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
+| `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
+| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
+| `sendBookingConfirmation` | Firestore trigger (onCreate) | Sends confirmation email when a booking is created |
+| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Sends email when an event is approved, rejected, or cancelled |
+| `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
+| `sendEventReminders` | Scheduled (hourly) | Emails event reminders 24 hours before start |
+| `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
+| `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
 
-### Deploy Functions
-
-```bash
-# Deploy all functions
-firebase deploy --only functions
-
-# Deploy specific function
-firebase deploy --only functions:checkBookingConflicts
-
-# Deploy without linting (if lint errors)
-firebase deploy --only functions --force
-```
-
-### View Logs
+**IAM note for wallet sign-in** — `createCustomToken` requires the `serviceAccountTokenCreator` role:
 
 ```bash
-# View all logs
-firebase functions:log
-
-# View specific function logs
-firebase functions:log --only checkBookingConflicts
-
-# Follow logs in real-time
-firebase functions:log --follow
-```
-
-### Test Locally with Emulators
-
-```bash
-# Install emulators
-firebase init emulators
-# Select: Functions, Firestore
-
-# Start emulators
-firebase emulators:start
-```
-
-### Call Functions from Frontend
-
-```javascript
-import { getFunctions, httpsCallable } from 'firebase/functions';
-
-const functions = getFunctions();
-const checkConflicts = httpsCallable(functions, 'checkBookingConflicts');
-
-const result = await checkConflicts({
-  amenityId: 'amenity-id',
-  startTime: '2024-01-20T10:00:00Z',
-  endTime: '2024-01-20T12:00:00Z'
-});
-
-console.log(result.data); // { hasConflicts: boolean, conflicts: [] }
-```
-
-### Delete Functions
-
-```bash
-# Delete specific function
-firebase functions:delete checkBookingConflicts
-
-# Delete all functions
-firebase functions:delete --all
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:YOUR_PROJECT_ID@appspot.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --condition=None
 ```
 
 ---
@@ -291,171 +224,112 @@ firebase functions:delete --all
 
 ```
 src/
-├── components/              # Shared UI components
-│   ├── AuthPrompt.jsx      # Authentication prompt modal
-│   ├── Avatar.jsx          # User avatar component
-│   ├── BookingCalendar.jsx # Visual calendar for booking selection (day/week view)
-│   ├── Chatbot.jsx         # AI chatbot interface
-│   ├── Footer.jsx          # Site footer
-│   ├── Header.jsx          # Navigation header
-│   ├── Layout.jsx          # Main layout wrapper
-│   ├── LoadingSkeleton.jsx # Loading state components
-│   ├── Modal.jsx           # Reusable modal component
-│   ├── ProtectedRoute.jsx  # Route protection wrapper
-│   ├── Toast.jsx           # Toast notification system
-│   └── UnifiedCalendar.jsx # Combined bookings/events calendar view
+├── components/
+│   ├── AmenityPhotoLightbox.jsx  # Full-screen amenity photo viewer
+│   ├── AuthPrompt.jsx            # Login prompt modal
+│   ├── Avatar.jsx                # User avatar
+│   ├── BookingCalendar.jsx       # Day/week calendar for booking selection
+│   ├── BottomNav.jsx             # PWA mobile bottom tab bar
+│   ├── Footer.jsx
+│   ├── Header.jsx                # Top nav with i18n toggle and theme switch
+│   ├── Layout.jsx
+│   ├── LoadingSkeleton.jsx
+│   ├── Modal.jsx
+│   ├── ProtectedRoute.jsx
+│   ├── Toast.jsx
+│   └── UnifiedCalendar.jsx       # Combined bookings + events calendar
 ├── pages/
-│   ├── admin/              # Admin dashboard pages
-│   │   ├── Dashboard.jsx   # Admin overview with statistics
-│   │   ├── Members.jsx     # Member management
-│   │   ├── Amenities.jsx   # Amenity management
-│   │   ├── Bookings.jsx    # Booking management
-│   │   └── Events.jsx     # Event management
-│   ├── member/             # Member portal pages
-│   │   ├── Dashboard.jsx  # Member overview
-│   │   ├── Bookings.jsx    # Booking interface with calendar
-│   │   ├── Events.jsx     # Event browsing and registration
-│   │   └── Profile.jsx    # Profile management
-│   ├── auth/               # Authentication pages
-│   │   └── Login.jsx       # Login/signup page
-│   ├── Home.jsx            # Public homepage
-│   ├── Amenities.jsx       # Public amenities page
-│   └── Events.jsx          # Public events page
-├── services/               # Firebase service layers
-│   ├── amenities.js        # Amenity CRUD operations
-│   ├── bookings.js         # Booking CRUD and conflict checking
-│   ├── events.js           # Event CRUD operations
-│   ├── firebase.js         # Firebase initialization
-│   ├── functions.js        # Cloud Functions client calls
-│   ├── gemini.js           # Gemini AI integration
-│   ├── members.js          # Member management
-│   ├── projects.js         # Project management
-│   ├── storage.js          # File storage operations
-│   └── walletAuth.js       # EIP-6963 EVM wallet discovery + Solana Wallet Standard sign-in
-├── contexts/               # React contexts
-│   ├── AuthContext.jsx     # Authentication state management
-│   └── ThemeContext.jsx    # Dark/light theme (persisted to localStorage)
-├── utils/                  # Utilities
-│   └── timezone.js         # Timezone helpers (e.g. Asia/Ho_Chi_Minh)
-├── styles/                 # Global styles
-│   └── globals.css         # Global CSS variables and styles
-├── App.jsx                 # Main app component with routing
-└── main.jsx               # Application entry point
+│   ├── admin/
+│   │   ├── Dashboard.jsx         # Stats overview
+│   │   ├── Members.jsx           # Member list with search
+│   │   ├── Amenities.jsx         # Amenity CRUD + photo gallery
+│   │   ├── Bookings.jsx          # Booking management + bulk approval
+│   │   └── Events.jsx            # Event approval + rejection with reason
+│   ├── member/
+│   │   ├── Dashboard.jsx
+│   │   ├── Bookings.jsx          # Calendar booking + fixed desk view
+│   │   ├── Events.jsx            # Event registration + waitlist
+│   │   └── Profile.jsx
+│   ├── auth/
+│   │   └── Login.jsx             # Sign-in, sign-up, password reset, wallet login
+│   ├── Home.jsx                  # Public homepage
+│   ├── Amenities.jsx             # Public amenities page
+│   └── Events.jsx                # Public events page
+├── services/
+│   ├── firebase.js               # Firebase initialization
+│   ├── amenities.js
+│   ├── bookings.js               # CRUD + conflict checking
+│   ├── events.js                 # CRUD + attendee/waitlist management
+│   ├── members.js
+│   ├── notifications.js
+│   ├── projects.js
+│   ├── storage.js                # Firebase Storage (avatars, amenity photos)
+│   ├── functions.js              # Cloud Function client wrappers
+│   └── walletAuth.js             # EIP-6963 EVM + Solana Wallet Standard
+├── contexts/
+│   ├── AuthContext.jsx
+│   └── ThemeContext.jsx
+├── i18n/
+│   └── index.js                  # i18next setup (EN/VI, browser detection)
+├── locales/
+│   ├── en.json
+│   └── vi.json
+├── utils/
+│   └── timezone.js               # Asia/Ho_Chi_Minh helpers
+├── styles/
+│   └── globals.css               # CSS custom properties, glassmorphism base
+├── App.jsx
+└── main.jsx
 
 functions/
-└── index.js                # Cloud Functions definitions
+└── index.js                      # All Cloud Function definitions
 ```
 
-## Firebase Collections
+---
+
+## Firestore Collections
 
 | Collection | Description |
 |------------|-------------|
-| `members` | User profiles, membership types (admin/member), personal information, and optional `walletAddress` |
-| `amenities` | Available resources (desks, meeting rooms, podcast rooms) with custom availability settings |
-| `bookings` | Booking records with status (pending/approved/checked-in/completed), time slots, and member associations |
-| `events` | Events with approval status, capacity, attendees, waitlist, and hosting projects |
-| `nonces` | Short-lived nonces for wallet authentication (keyed by wallet address, auto-deleted after use) |
-| `projects` | Project information for event hosting associations |
+| `members` | Profiles, membership type (admin/member), wallet address |
+| `amenities` | Resources with custom availability (hours, days, slot duration) |
+| `bookings` | Booking records with status workflow and fixed-desk support |
+| `events` | Events with approval status, attendees, waitlist, rejection reason |
+| `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
+| `projects` | Hosting project info linked to events |
 
-## Amenity Availability
+---
 
-Each amenity can have custom availability settings configured by admins. Default settings (if not customized):
-- **Hours**: 8:00 AM - 6:00 PM (configurable start/end hours)
-- **Days**: Monday to Friday (configurable available days of week)
-- **Slot Duration**: 30 minutes (configurable per amenity)
+## Available Commands
 
-Admins can customize these settings per amenity in the `/admin/amenities` page. The booking calendar automatically adapts to each amenity's availability settings.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint (max-warnings 0) |
+| `npm run preview` | Preview production build |
+| `firebase deploy` | Deploy Firestore rules, Storage rules, Functions |
+| `firebase deploy --only functions` | Deploy Cloud Functions only |
+| `firebase deploy --only firestore:rules` | Deploy Firestore rules |
+| `firebase functions:log` | View real-time function logs |
+| `firebase emulators:start` | Start local emulators |
 
 ---
 
 ## Troubleshooting
 
-### Authentication Issues
+**"auth/unauthorized-domain"** — Add your domain in Firebase Console → Authentication → Settings → Authorized domains.
 
-**"Firebase: Error (auth/unauthorized-domain)"**
-- Go to **Authentication** → **Settings** → **Authorized domains**
-- Add your domain (e.g., `localhost`)
+**Wallet sign-in 500 error** — Add the `serviceAccountTokenCreator` IAM role (see Cloud Functions section above).
 
-**Wallet sign-in returns 500 / "iam.serviceAccounts.signBlob denied"**
+**No wallets detected on EVM click** — Ensure a browser extension wallet is installed and active. EIP-6963 requires the extension to be enabled in the current browser profile.
 
-`createCustomToken` requires the `serviceAccountTokenCreator` IAM role on the App Engine default service account:
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-  --member="serviceAccount:YOUR_PROJECT_ID@appspot.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountTokenCreator" \
-  --condition=None
-```
+**"Missing or insufficient permissions"** — Deploy Firestore rules: `firebase deploy --only firestore:rules` and verify the user's `membershipType` field.
 
-**No wallets detected on EVM button click**
-- Ensure a browser extension wallet (MetaMask, Rabby, etc.) is installed and enabled
-- EIP-6963 requires the wallet extension to be active in the current browser profile
-
-### Firestore Issues
-
-**"Missing or insufficient permissions"**
-- Deploy Firestore rules: `firebase deploy --only firestore:rules`
-- Verify user has correct `membershipType`
-
-### Functions Issues
-
-**"Functions require billing"**
-- Enable billing in Firebase Console (Blaze plan required)
-
-**"Permission denied"**
-```bash
-firebase login
-firebase use your-project-id
-```
-
-**"Function not found"**
-- Deploy functions: `firebase deploy --only functions`
-- Verify function name: `firebase functions:list`
-
-**Functions not triggering**
-- Check function logs: `firebase functions:log`
-- Verify Node.js version is 20
-- Ensure Firestore triggers are correct
-
-### Environment Issues
-
-**Variables not loading**
-- Ensure `.env` is in root directory
-- Restart dev server after changes
-- Variables must start with `VITE_`
-
----
-
-## Development Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server (port 3000) |
-| `npm run build` | Build for production |
-| `npm run lint` | Run ESLint (max-warnings 0) |
-| `npm run preview` | Preview production build |
-| `firebase deploy` | Deploy all (Firestore rules, Storage rules, Functions, Hosting) |
-| `firebase deploy --only functions` | Deploy Cloud Functions |
-| `firebase deploy --only firestore:rules` | Deploy Firestore rules |
-| `firebase deploy --only storage` | Deploy Storage rules |
-| `firebase functions:log` | View function logs |
-| `firebase emulators:start` | Start local emulators |
-
----
-
-## Optional: Gemini AI Setup
-
-For AI chatbot feature:
-
-1. Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Add to `.env`:
-```env
-VITE_GEMINI_API_KEY=your-api-key-here
-```
-
-The app works without Gemini, but the AI chatbot will be disabled.
+**Email not sending** — Confirm `EMAIL_PASS` is set via `firebase functions:secrets:set EMAIL_PASS` and the non-secret config is in `functions/.env.<project-id>`.
 
 ---
 
 ## License
 
-Private - Da Nang Blockchain Hub
+MIT
