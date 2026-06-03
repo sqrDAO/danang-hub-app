@@ -182,7 +182,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   }
 
   return (
-    <header className="header">
+    <header className={`header${!isPublic ? ' header--app' : ''}`}>
       <div className="header-container container">
         <Link to="/" className="logo" onClick={closeMobileMenu}>
           <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt={t('common.appNameShort')} className="logo-image" />

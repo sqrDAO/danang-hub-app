@@ -485,4 +485,17 @@
   .mobile-nav-list {
     display: none;
   }
+
+  /* Authenticated app routes: swap hamburger for slim action bar */
+  .header--app .mobile-menu-toggle {
+    display: none;
+  }
+
+  .header--app .header-actions {
+    display: flex;
+  }
+
+  .header--app .view-switch-btn {
+    display: none;
+  }
 }
