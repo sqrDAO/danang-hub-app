@@ -1,5 +1,6 @@
 import Header from './Header'
 import Footer from './Footer'
+import BottomNav from './BottomNav'
 import './Layout.css'
 
 const Layout = ({ children, isAdmin = false, public: isPublic = false }) => {
@@ -26,6 +27,7 @@ const Layout = ({ children, isAdmin = false, public: isPublic = false }) => {
           <line x1="16" y1="16" x2="16" y2="16"></line>
         </svg>
       </a>
+      <BottomNav />
     </div>
   )
 }

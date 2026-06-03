@@ -480,4 +480,9 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* Bottom nav handles page navigation — drawer becomes settings-only */
+  .mobile-nav-list {
+    display: none;
+  }
 }

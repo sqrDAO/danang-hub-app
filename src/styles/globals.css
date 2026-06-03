@@ -92,6 +92,12 @@
   --header-height: 80px;
   --header-bg: rgba(35, 31, 32, 0.95);
   --header-border: rgba(255, 164, 6, 0.15);
+
+  /* Bottom navigation — PWA mobile tab bar */
+  --bottom-nav-height: 64px;
+  --bottom-nav-bg: rgba(35, 31, 32, 0.88);
+  --bottom-nav-border: rgba(255, 164, 6, 0.15);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 [data-theme="light"] {
@@ -127,6 +133,8 @@
   --form-field-spinner-bg: rgba(0, 0, 0, 0.1);
   --header-bg: rgba(255, 242, 221, 0.95);
   --header-border: rgba(255, 164, 6, 0.25);
+  --bottom-nav-bg: rgba(255, 242, 221, 0.92);
+  --bottom-nav-border: rgba(255, 164, 6, 0.25);
 
   /* Semantic / status colors (light theme) */
   --color-success: #16a34a;
@@ -655,5 +663,13 @@ select.form-field:focus {
 
   .section-title {
     font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .status-badge {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8rem;
+    min-height: 28px;
   }
 }

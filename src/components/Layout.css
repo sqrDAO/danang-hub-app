@@ -35,3 +35,18 @@
 .tg-float svg {
   display: block;
 }
+
+/* ── Mobile PWA adjustments for bottom nav ── */
+
+@media (max-width: 768px) {
+  .main-content {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-inset-bottom) + var(--spacing-lg));
+  }
+
+  .tg-float {
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-inset-bottom) + 0.75rem);
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+  }
+}
