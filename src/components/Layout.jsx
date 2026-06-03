@@ -1,11 +1,13 @@
+import { useAuth } from '../contexts/AuthContext'
 import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
 import './Layout.css'
 
 const Layout = ({ children, isAdmin = false, public: isPublic = false }) => {
+  const { currentUser } = useAuth()
   return (
-    <div className="layout">
+    <div className={`layout${(!isPublic || currentUser) ? ' layout--app' : ''}`}>
       <Header isAdmin={isAdmin} public={isPublic} />
       <main className="main-content">
         {children}

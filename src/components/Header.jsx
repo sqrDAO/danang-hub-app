@@ -182,7 +182,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   }
 
   return (
-    <header className={`header${!isPublic ? ' header--app' : ''}`}>
+    <header className={`header${(!isPublic || currentUser) ? ' header--app' : ''}`}>
       <div className="header-container container">
         <Link to="/" className="logo" onClick={closeMobileMenu}>
           <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt={t('common.appNameShort')} className="logo-image" />
@@ -319,7 +319,12 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
           {isPublic ? (
             !currentUser ? (
               <Link to="/login" className="btn btn-primary btn-header">
-                {t('common.login')}
+                <svg className="btn-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                  <polyline points="10 17 15 12 10 7"/>
+                  <line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+                <span className="btn-header-text">{t('common.login')}</span>
               </Link>
             ) : (
               <div className="user-menu-wrap" ref={userMenuRef}>

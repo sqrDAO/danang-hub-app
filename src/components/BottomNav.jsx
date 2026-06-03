@@ -56,7 +56,7 @@ const IconBuilding = () => (
 )
 
 const BottomNav = () => {
-  const { currentUser } = useAuth()
+  const { currentUser, isAdmin: checkAdmin } = useAuth()
   const location = useLocation()
   const { t } = useTranslation()
 
@@ -64,7 +64,6 @@ const BottomNav = () => {
 
   const isOnMemberRoute = location.pathname.startsWith('/member')
   const isOnAdminRoute = location.pathname.startsWith('/admin')
-  if (!isOnMemberRoute && !isOnAdminRoute) return null
 
   const isActive = (path) => {
     if (path === '/admin' || path === '/member') {
@@ -88,7 +87,7 @@ const BottomNav = () => {
     { to: '/admin/events',    label: t('nav.events'),     Icon: IconTicket },
   ]
 
-  const tabs = isOnAdminRoute ? adminTabs : memberTabs
+  const tabs = (isOnAdminRoute || (!isOnMemberRoute && checkAdmin())) ? adminTabs : memberTabs
 
   return (
     <nav className="bottom-nav" aria-label="Main navigation">

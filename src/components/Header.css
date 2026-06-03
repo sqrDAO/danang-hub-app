@@ -464,12 +464,30 @@
     display: none;
   }
 
-  .header-actions {
+  /* Non-logged-in public: hide logo text, turn Login into icon circle */
+  header:not(.header--app) .logo h2 {
     display: none;
   }
 
-  .mobile-menu-toggle {
-    display: flex;
+  header:not(.header--app) .btn-header {
+    width: 36px;
+    height: 36px;
+    min-height: unset;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  header:not(.header--app) .btn-header-text {
+    display: none;
+  }
+
+  header:not(.header--app) .btn-header-icon {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
   }
 
   .mobile-nav-overlay {
