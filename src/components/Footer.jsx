@@ -1,16 +1,20 @@
 import './Footer.css'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../contexts/ThemeContext'
+import { useLocation } from 'react-router-dom'
 
 const MARKETING_BASE = 'https://www.danangblockchainhub.com'
 
 const Footer = () => {
   const { t } = useTranslation()
   const { theme } = useTheme()
+  const location = useLocation()
   const currentYear = new Date().getFullYear()
 
+  const isAuthenticated = location.pathname.startsWith('/member') || location.pathname.startsWith('/admin')
+
   return (
-    <footer className="footer">
+    <footer className={`footer${isAuthenticated ? ' footer--authenticated' : ''}`}>
       <div className="footer-container container">
         <div className="footer-top">
           <div className="footer-brand">

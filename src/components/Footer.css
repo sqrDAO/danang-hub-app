@@ -132,6 +132,11 @@
   .footer-links {
     gap: var(--spacing-lg);
   }
+
+  /* Hide marketing footer on mobile for authenticated routes — bottom nav handles navigation */
+  .footer--authenticated {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
