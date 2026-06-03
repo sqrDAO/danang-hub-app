@@ -17,7 +17,7 @@ import {
   removeFromWaitlist
 } from '../../services/events'
 import { getUnreadNotifications, markNotificationRead } from '../../services/notifications'
-import { getMembers } from '../../services/members'
+import { getMember } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
@@ -31,7 +31,7 @@ const MAX_EVENT_CAPACITY = 50
 
 const MemberEvents = () => {
   const { t } = useTranslation()
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -107,11 +107,6 @@ const MemberEvents = () => {
     queryClient.invalidateQueries({ queryKey: ['notifications'] })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications.length])
-
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers
-  })
 
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
@@ -295,6 +290,10 @@ const MemberEvents = () => {
       capacity,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
       organizerId: currentUser.uid,
+      // Denormalize organizer fields from the in-memory profile so createEvent
+      // doesn't need a Firestore round-trip to look the member up.
+      organizerDisplayName: userProfile?.displayName ?? currentUser.displayName ?? null,
+      organizerPhotoURL: userProfile?.photoURL ?? currentUser.photoURL ?? null,
       status: 'pending',
       waitlist: [],
       bannerUrl
@@ -335,11 +334,17 @@ const MemberEvents = () => {
     }
   }
 
-  const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
-
-  const getOrganizerName = (organizerId) => {
-    const organizer = getOrganizer(organizerId)
-    return organizer?.displayName || organizerId
+  // On-demand fetch for the host modal. Avoids the bulk-members fetch by only
+  // hitting Firestore when the user actually clicks an organizer name.
+  const handleOpenHostModal = async (organizerId) => {
+    if (!organizerId) return
+    setHostModalMember(null)
+    try {
+      const member = await getMember(organizerId)
+      if (member) setHostModalMember(member)
+    } catch (err) {
+      console.warn('Failed to load organizer profile:', err)
+    }
   }
 
   const isRegistered = (event) => {
@@ -527,7 +532,7 @@ const MemberEvents = () => {
                 <div key={event.id} className={`event-card my-event ${event.status}`}>
                   {event.bannerUrl && (
                     <div className="event-card-banner">
-                      <img src={event.bannerUrl} alt="" />
+                      <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                     </div>
                   )}
                   <div className="event-header">
@@ -622,7 +627,7 @@ const MemberEvents = () => {
                   <div key={event.id} className={`event-card ${isMyEvent ? 'my-event-approved' : ''}`}>
                     {event.bannerUrl && (
                       <div className="event-card-banner">
-                        <img src={event.bannerUrl} alt="" />
+                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                       </div>
                     )}
                     <div className="event-header">
@@ -636,9 +641,9 @@ const MemberEvents = () => {
                         Organizer:{' '}
                         <button
                           className="organizer-link"
-                          onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                          onClick={() => handleOpenHostModal(event.organizerId)}
                         >
-                          {getOrganizerName(event.organizerId)}
+                          {event.organizerDisplayName || event.organizerId}
                         </button>
                         {isMyEvent && <span className="my-event-tag"> {t('memberEvents.organizerYou')}</span>}
                       </p>
@@ -742,7 +747,7 @@ const MemberEvents = () => {
                   <div key={event.id} className="event-card past-event">
                     {event.bannerUrl && (
                       <div className="event-card-banner">
-                        <img src={event.bannerUrl} alt="" />
+                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                       </div>
                     )}
                     <div className="event-header">
@@ -756,9 +761,9 @@ const MemberEvents = () => {
                         Organizer:{' '}
                         <button
                           className="organizer-link"
-                          onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                          onClick={() => handleOpenHostModal(event.organizerId)}
                         >
-                          {getOrganizerName(event.organizerId)}
+                          {event.organizerDisplayName || event.organizerId}
                         </button>
                       </p>
                       {event.duration && (

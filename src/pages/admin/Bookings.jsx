@@ -22,9 +22,21 @@ const AdminBookings = () => {
   const pageSize = 10
   const queryClient = useQueryClient()
 
+  // Admin "view all" intent — fetch a generous ±365 day window rather than
+  // the entire bookings collection (which is unbounded over time).
+  const adminBookingsWindow = (() => {
+    const start = new Date()
+    start.setDate(start.getDate() - 365)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date()
+    end.setDate(end.getDate() + 365)
+    end.setHours(23, 59, 59, 999)
+    return { startDate: start, endDate: end }
+  })()
+
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings'],
-    queryFn: getBookings
+    queryFn: () => getBookings(adminBookingsWindow)
   })
 
   const { data: members = [] } = useQuery({

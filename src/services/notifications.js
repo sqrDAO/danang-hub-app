@@ -5,7 +5,8 @@ import {
   getDocs,
   updateDoc,
   doc,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -14,7 +15,8 @@ export const getUnreadNotifications = async (userId) => {
     collection(db, 'notifications'),
     where('userId', '==', userId),
     where('read', '==', false),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(50)
   )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))

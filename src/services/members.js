@@ -49,9 +49,20 @@ export const deleteMember = async (uid) => {
  * @returns {Promise<{ totalBookings: number, eventsAttended: number, eventsOrganized: number }>}
  */
 export const getMemberStats = async (uid) => {
+  // Member profile stats look at lifetime-ish activity. Use a generous
+  // 2-year-back / 1-year-forward window rather than scanning the full
+  // collection on every profile open.
+  const start = new Date()
+  start.setDate(start.getDate() - 730)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date()
+  end.setDate(end.getDate() + 365)
+  end.setHours(23, 59, 59, 999)
+  const window = { startDate: start, endDate: end }
+
   const [bookings, events] = await Promise.all([
-    getBookings({ memberId: uid }),
-    getEvents()
+    getBookings({ memberId: uid, ...window }),
+    getEvents(window)
   ])
 
   return {

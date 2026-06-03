@@ -18,10 +18,10 @@ const BOOKINGS_COLLECTION = 'bookings'
 export const getBookings = async (filters = {}) => {
   try {
     const bookingsRef = collection(db, BOOKINGS_COLLECTION)
-    
+
     // Build query constraints - where clauses must come before orderBy
     const constraints = []
-    
+
     if (filters.memberId) {
       constraints.push(where('memberId', '==', filters.memberId))
     }
@@ -31,10 +31,18 @@ export const getBookings = async (filters = {}) => {
     if (filters.status) {
       constraints.push(where('status', '==', filters.status))
     }
-    
+    // Optional date window — narrows the server-side read so we don't
+    // pull the entire collection on dashboards/calendars.
+    if (filters.startDate) {
+      constraints.push(where('startTime', '>=', Timestamp.fromDate(new Date(filters.startDate))))
+    }
+    if (filters.endDate) {
+      constraints.push(where('startTime', '<=', Timestamp.fromDate(new Date(filters.endDate))))
+    }
+
     // Add orderBy last
     constraints.push(orderBy('startTime', 'desc'))
-    
+
     const q = query(bookingsRef, ...constraints)
     
     const snapshot = await getDocs(q)
@@ -167,7 +175,7 @@ export const getAvailabilityForDate = async (amenityId, date) => {
   const endOfDay = new Date(date)
   endOfDay.setHours(23, 59, 59, 999)
 
-  const bookings = await getBookings({ amenityId })
+  const bookings = await getBookings({ amenityId, startDate: startOfDay, endDate: endOfDay })
   
   // Filter bookings for the specific date
   const dayBookings = bookings.filter(booking => {
@@ -196,7 +204,7 @@ export const getWeeklyAvailability = async (amenityId, startDate) => {
   weekEnd.setDate(weekStart.getDate() + 7)
   weekEnd.setHours(23, 59, 59, 999)
 
-  const bookings = await getBookings({ amenityId })
+  const bookings = await getBookings({ amenityId, startDate: weekStart, endDate: weekEnd })
   
   const weekBookings = bookings.filter(booking => {
     const bookingStart = new Date(booking.startTime)
@@ -393,12 +401,16 @@ export const createFixedDeskPlan = async ({
   )
 }
 
-// Cancel all active bookings belonging to a fixed desk plan group
+// Cancel all active bookings belonging to a fixed desk plan group.
+// Server-side filter on planGroupId avoids fetching the whole bookings
+// collection just to cancel one plan.
 export const cancelFixedDeskPlan = async (planGroupId) => {
-  const allBookings = await getBookings()
-  const planBookings = allBookings.filter(
-    b => b.planGroupId === planGroupId && ['pending', 'approved'].includes(b.status)
-  )
+  const bookingsRef = collection(db, BOOKINGS_COLLECTION)
+  const q = query(bookingsRef, where('planGroupId', '==', planGroupId))
+  const snapshot = await getDocs(q)
+  const planBookings = snapshot.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(b => ['pending', 'approved'].includes(b.status))
   await Promise.all(planBookings.map(b => updateBooking(b.id, { status: 'cancelled' })))
   return planBookings.length
 }

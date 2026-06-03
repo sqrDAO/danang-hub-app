@@ -1,24 +1,34 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ToastContainer from './components/Toast'
 import Home from './pages/Home'
-import Login from './pages/auth/Login'
-import AdminDashboard from './pages/admin/Dashboard'
-import MemberDashboard from './pages/member/Dashboard'
-import AdminMembers from './pages/admin/Members'
-import AdminAmenities from './pages/admin/Amenities'
-import AdminBookings from './pages/admin/Bookings'
-import AdminEvents from './pages/admin/Events'
-import MemberBookings from './pages/member/Bookings'
-import MemberEvents from './pages/member/Events'
-import MemberProfile from './pages/member/Profile'
+
+// Lazy-loaded routes — these are not the landing path and benefit from code splitting
+const Login = lazy(() => import('./pages/auth/Login'))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const MemberDashboard = lazy(() => import('./pages/member/Dashboard'))
+const AdminMembers = lazy(() => import('./pages/admin/Members'))
+const AdminAmenities = lazy(() => import('./pages/admin/Amenities'))
+const AdminBookings = lazy(() => import('./pages/admin/Bookings'))
+const AdminEvents = lazy(() => import('./pages/admin/Events'))
+const MemberBookings = lazy(() => import('./pages/member/Bookings'))
+const MemberEvents = lazy(() => import('./pages/member/Events'))
+const MemberProfile = lazy(() => import('./pages/member/Profile'))
+
+const RouteFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <div className="spinner"></div>
+  </div>
+)
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -110,6 +120,7 @@ function App() {
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+        </Suspense>
         <ToastContainer />
       </AuthProvider>
     </ThemeProvider>

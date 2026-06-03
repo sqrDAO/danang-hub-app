@@ -115,7 +115,7 @@ const Amenities = () => {
                             className={`photo-thumbnail ${(expandedPhotoIndex[amenity.id] || 0) === index ? 'active' : ''}`}
                             onClick={() => setExpandedPhotoIndex({ ...expandedPhotoIndex, [amenity.id]: index })}
                           >
-                            <img src={photo} alt={`${amenity.name} ${index + 1}`} />
+                            <img src={photo} alt={`${amenity.name} ${index + 1}`} loading="lazy" decoding="async" />
                           </button>
                         ))}
                       </div>

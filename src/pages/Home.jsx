@@ -9,7 +9,6 @@ import AuthPrompt from '../components/AuthPrompt'
 import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
 import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
-import { getMembers } from '../services/members'
 import { getProjects } from '../services/projects'
 import './Home.css'
 
@@ -37,21 +36,10 @@ const Home = () => {
     queryFn: getApprovedEvents
   })
 
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers,
-    enabled: !!currentUser
-  })
-
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: getProjects
   })
-
-  const getOrganizerName = (organizerId) => {
-    const organizer = members.find(m => m.id === organizerId)
-    return organizer?.displayName || organizerId
-  }
 
   const handleBookAmenity = (amenity) => {
     if (!currentUser) {
@@ -229,7 +217,7 @@ const Home = () => {
                   <div key={event.id} className="event-preview-card glass">
                     {event.bannerUrl && (
                       <div className="event-preview-banner">
-                        <img src={event.bannerUrl} alt="" />
+                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                       </div>
                     )}
                     <div>
@@ -305,7 +293,7 @@ const Home = () => {
                   <div key={event.id} className="event-preview-card glass past-event">
                     {event.bannerUrl && (
                       <div className="event-preview-banner">
-                        <img src={event.bannerUrl} alt="" />
+                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                       </div>
                     )}
                     <div>

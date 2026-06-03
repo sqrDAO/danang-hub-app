@@ -10,7 +10,7 @@ import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { getMembers } from '../../services/members'
+import { getMember } from '../../services/members'
 import { formatEventDate, formatEventTime, formatDateDDMMYYYY } from '../../utils/timezone'
 import './Dashboard.css'
 import './Profile.css'
@@ -25,9 +25,20 @@ const MemberDashboard = () => {
   const [bookingsPage, setBookingsPage] = useState(1)
   const BOOKINGS_PAGE_SIZE = 10
   
+  // Member dashboard surfaces upcoming activity; 30 back, 90 forward.
+  const memberDashboardWindow = (() => {
+    const start = new Date()
+    start.setDate(start.getDate() - 30)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date()
+    end.setDate(end.getDate() + 90)
+    end.setHours(23, 59, 59, 999)
+    return { startDate: start, endDate: end }
+  })()
+
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
-    queryFn: () => getBookings({ memberId: currentUser?.uid }),
+    queryFn: () => getBookings({ memberId: currentUser?.uid, ...memberDashboardWindow }),
     enabled: !!currentUser?.uid
   })
   
@@ -39,11 +50,6 @@ const MemberDashboard = () => {
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
-  })
-
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers
   })
 
   const todayStart = (() => {
@@ -93,11 +99,17 @@ const MemberDashboard = () => {
 
   const [hostModalMember, setHostModalMember] = useState(null)
 
-  const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
-
-  const getOrganizerName = (organizerId) => {
-    const organizer = getOrganizer(organizerId)
-    return organizer?.displayName || '—'
+  // On-demand fetch for the host modal — avoids loading the full members list
+  // just to render organizer names.
+  const handleOpenHostModal = async (organizerId) => {
+    if (!organizerId) return
+    setHostModalMember(null)
+    try {
+      const member = await getMember(organizerId)
+      if (member) setHostModalMember(member)
+    } catch (err) {
+      console.warn('Failed to load organizer profile:', err)
+    }
   }
 
   const isRegistered = (event) =>
@@ -251,7 +263,7 @@ const MemberDashboard = () => {
                     <li key={event.id} className="event-item event-item-detailed">
                       {event.bannerUrl && (
                         <div className="event-item-banner">
-                          <img src={event.bannerUrl} alt="" />
+                          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                         </div>
                       )}
                       <div className="event-item-main">
@@ -269,9 +281,9 @@ const MemberDashboard = () => {
                             Organizer:{' '}
                             <button
                               className="organizer-link"
-                              onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                              onClick={() => handleOpenHostModal(event.organizerId)}
                             >
-                              {getOrganizerName(event.organizerId)}
+                              {event.organizerDisplayName || '—'}
                             </button>
                           </span>
                         </div>
