@@ -393,6 +393,15 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
                   >
                     {t('nav.profile')}
                   </Link>
+                  {checkAdmin() && (
+                    <Link
+                      to={isAdmin ? '/member' : '/admin'}
+                      className="user-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      {isAdmin ? t('nav.memberView') : t('nav.adminView')}
+                    </Link>
+                  )}
                   <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
                     {t('common.logout')}
                   </button>
