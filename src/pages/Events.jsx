@@ -7,7 +7,7 @@ import AuthPrompt from '../components/AuthPrompt'
 import Modal from '../components/Modal'
 import Avatar from '../components/Avatar'
 import { getApprovedEvents, getUpcomingEvents, registerForEvent, unregisterFromEvent, addToWaitlist, removeFromWaitlist } from '../services/events'
-import { getMembers } from '../services/members'
+import { getMember } from '../services/members'
 import { getProjects } from '../services/projects'
 import { showToast } from '../components/Toast'
 import { formatEventDate } from '../utils/timezone'
@@ -33,21 +33,23 @@ const Events = () => {
     queryFn: getApprovedEvents
   })
 
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers
-  })
-
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: getProjects
   })
 
-  const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
-
-  const getOrganizerName = (organizerId) => {
-    const organizer = getOrganizer(organizerId)
-    return organizer?.displayName || organizerId
+  // On-demand fetch for the host modal. Skips loading the whole members
+  // collection just to render organizer names — the event now carries those
+  // denormalized fields.
+  const handleOpenHostModal = async (organizerId) => {
+    if (!organizerId) return
+    setHostModalMember(null)
+    try {
+      const member = await getMember(organizerId)
+      if (member) setHostModalMember(member)
+    } catch (err) {
+      console.warn('Failed to load organizer profile:', err)
+    }
   }
 
   const isRegistered = (event) => {
@@ -140,7 +142,7 @@ const Events = () => {
                   <div key={event.id} className="event-card">
                     {event.bannerUrl && (
                       <div className="event-card-banner">
-                        <img src={event.bannerUrl} alt="" />
+                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                       </div>
                     )}
                     <div className="event-header">
@@ -154,9 +156,9 @@ const Events = () => {
                         Organizer:{' '}
                         <button
                           className="organizer-link"
-                          onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                          onClick={() => handleOpenHostModal(event.organizerId)}
                         >
-                          {getOrganizerName(event.organizerId)}
+                          {event.organizerDisplayName || event.organizerId}
                         </button>
                       </p>
                       {event.duration && (
@@ -267,7 +269,7 @@ const Events = () => {
                 <div key={event.id} className="event-card past-event">
                   {event.bannerUrl && (
                     <div className="event-card-banner">
-                      <img src={event.bannerUrl} alt="" />
+                      <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                     </div>
                   )}
                   <div className="event-header">
@@ -281,9 +283,9 @@ const Events = () => {
                       Organizer:{' '}
                       <button
                         className="organizer-link"
-                        onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
+                        onClick={() => handleOpenHostModal(event.organizerId)}
                       >
-                        {getOrganizerName(event.organizerId)}
+                        {event.organizerDisplayName || event.organizerId}
                       </button>
                     </p>
                     {event.duration && (

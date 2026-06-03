@@ -50,9 +50,21 @@ const MemberBookings = () => {
   const [fdPeriod, setFdPeriod] = useState('weekly')
   const [fdStartDate, setFdStartDate] = useState('')
 
+  // Member's own bookings: 90 days back (past activity) + 365 days forward
+  // (recurring/fixed-desk plans can extend up to a year out).
+  const memberBookingsWindow = (() => {
+    const start = new Date()
+    start.setDate(start.getDate() - 90)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date()
+    end.setDate(end.getDate() + 365)
+    end.setHours(23, 59, 59, 999)
+    return { startDate: start, endDate: end }
+  })()
+
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
-    queryFn: () => getBookings({ memberId: currentUser?.uid }),
+    queryFn: () => getBookings({ memberId: currentUser?.uid, ...memberBookingsWindow }),
     enabled: !!currentUser?.uid
   })
 
@@ -457,7 +469,7 @@ const MemberBookings = () => {
                     onClick={() => setLightboxAmenity(amenity)}
                     aria-label={`View photos of ${amenity.name}`}
                   >
-                    <img src={amenity.photos[0]} alt={amenity.name} />
+                    <img src={amenity.photos[0]} alt={amenity.name} loading="lazy" decoding="async" />
                     {amenity.photos.length > 1 && (
                       <span className="amenity-photo-count-badge">{amenity.photos.length}</span>
                     )}

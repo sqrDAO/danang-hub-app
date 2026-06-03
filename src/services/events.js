@@ -1,10 +1,10 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -14,20 +14,49 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getMember } from './members'
 
 const EVENTS_COLLECTION = 'events'
 
+// Fetch organizer display fields from the members collection.
+// Returns { organizerDisplayName, organizerPhotoURL } with nulls when missing.
+// Never throws — failures degrade to nulls so writes still succeed.
+const fetchOrganizerDisplayFields = async (organizerId) => {
+  try {
+    const member = await getMember(organizerId)
+    return {
+      organizerDisplayName: member?.displayName || null,
+      organizerPhotoURL: member?.photoURL || null,
+    }
+  } catch (err) {
+    console.warn('Failed to fetch organizer display fields:', err)
+    return { organizerDisplayName: null, organizerPhotoURL: null }
+  }
+}
+
 export const getEvents = async (filters = {}) => {
   const eventsRef = collection(db, EVENTS_COLLECTION)
-  let q = query(eventsRef, orderBy('date', 'desc'))
-  
+  const constraints = []
+
   if (filters.organizerId) {
-    q = query(q, where('organizerId', '==', filters.organizerId))
+    constraints.push(where('organizerId', '==', filters.organizerId))
   }
-  
+  // Optional date window — narrows the server-side read so we don't
+  // pull the entire events collection on dashboards/calendars.
+  if (filters.startDate) {
+    constraints.push(where('date', '>=', Timestamp.fromDate(new Date(filters.startDate))))
+  }
+  if (filters.endDate) {
+    constraints.push(where('date', '<=', Timestamp.fromDate(new Date(filters.endDate))))
+  }
+
+  // orderBy must come after where on the same field
+  constraints.push(orderBy('date', 'desc'))
+
+  const q = query(eventsRef, ...constraints)
   const snapshot = await getDocs(q)
-  return snapshot.docs.map(doc => ({ 
-    id: doc.id, 
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
     ...doc.data(),
     date: doc.data().date?.toDate?.() || doc.data().date,
   }))
@@ -49,8 +78,24 @@ export const getEvent = async (id) => {
 
 export const createEvent = async (data) => {
   const eventsRef = collection(db, EVENTS_COLLECTION)
+
+  // Denormalize organizer display fields onto the event so read paths don't
+  // need to fan out to the members collection. Trust caller-supplied values;
+  // only fetch when the caller didn't bother to pass them.
+  let organizerFields = {}
+  const callerHasDisplayName = Object.prototype.hasOwnProperty.call(data, 'organizerDisplayName')
+  const callerHasPhotoURL = Object.prototype.hasOwnProperty.call(data, 'organizerPhotoURL')
+  if (data.organizerId && (!callerHasDisplayName || !callerHasPhotoURL)) {
+    const fetched = await fetchOrganizerDisplayFields(data.organizerId)
+    organizerFields = {
+      organizerDisplayName: callerHasDisplayName ? data.organizerDisplayName : fetched.organizerDisplayName,
+      organizerPhotoURL: callerHasPhotoURL ? data.organizerPhotoURL : fetched.organizerPhotoURL,
+    }
+  }
+
   const docRef = await addDoc(eventsRef, {
     ...data,
+    ...organizerFields,
     date: Timestamp.fromDate(new Date(data.date)),
     attendees: data.attendees || [],
     status: data.status || 'pending', // pending, approved, rejected
@@ -223,11 +268,26 @@ export const rejectEvent = async (eventId, reason = '') => {
 export const updateEvent = async (id, data) => {
   const eventRef = doc(db, EVENTS_COLLECTION, id)
   const updateData = { ...data }
-  
+
   if (data.date) {
     updateData.date = Timestamp.fromDate(new Date(data.date))
   }
-  
+
+  // When the organizer changes, re-fetch denormalized display fields unless
+  // the caller already supplied them. Lets admins reassign organizers without
+  // a stale name/photo lingering on the event.
+  const callerHasDisplayName = Object.prototype.hasOwnProperty.call(data, 'organizerDisplayName')
+  const callerHasPhotoURL = Object.prototype.hasOwnProperty.call(data, 'organizerPhotoURL')
+  if (data.organizerId && (!callerHasDisplayName || !callerHasPhotoURL)) {
+    const fetched = await fetchOrganizerDisplayFields(data.organizerId)
+    if (!callerHasDisplayName) {
+      updateData.organizerDisplayName = fetched.organizerDisplayName
+    }
+    if (!callerHasPhotoURL) {
+      updateData.organizerPhotoURL = fetched.organizerPhotoURL
+    }
+  }
+
   updateData.updatedAt = new Date().toISOString()
   await updateDoc(eventRef, updateData)
 }

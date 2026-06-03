@@ -1,10 +1,21 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getBookings } from '../services/bookings'
 import { getAmenity, DEFAULT_AVAILABILITY } from '../services/amenities'
 import { CalendarSkeleton } from './LoadingSkeleton'
 import './BookingCalendar.css'
+
+const TimeSlot = memo(function TimeSlot({ status, title, slotKey, onSelect }) {
+  const clickable = status === 'available'
+  return (
+    <div
+      className={`time-slot ${status}`}
+      onClick={clickable && onSelect ? () => onSelect(slotKey) : undefined}
+      title={title}
+    />
+  )
+})
 
 const BookingCalendar = ({
   amenityId,
@@ -19,7 +30,6 @@ const BookingCalendar = ({
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
-  const [hoveredSlot, setHoveredSlot] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -59,10 +69,23 @@ const BookingCalendar = ({
     return new Date(date.setDate(diff))
   }, [currentDate])
 
-  // Fetch bookings for the visible period
+  // Fetch bookings for the visible week (with a 1-week buffer on each side
+  // to cover prev/next nav without a refetch storm).
+  const weekWindowStart = useMemo(() => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() - 7)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }, [weekStart])
+  const weekWindowEnd = useMemo(() => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + 14)
+    d.setHours(23, 59, 59, 999)
+    return d
+  }, [weekStart])
   const { data: allBookings = [], isLoading } = useQuery({
     queryKey: ['bookings', amenityId, weekStart.toISOString().split('T')[0]],
-    queryFn: () => getBookings({ amenityId }),
+    queryFn: () => getBookings({ amenityId, startDate: weekWindowStart, endDate: weekWindowEnd }),
     enabled: !!amenityId
   })
 
@@ -99,83 +122,83 @@ const BookingCalendar = ({
     return dates
   }, [weekStart])
 
-  // Check if a day is available for booking
-  const isDayAvailable = (date) => {
-    const dayOfWeek = date.getDay()
-    return availability.availableDays.includes(dayOfWeek)
-  }
+  // Check if a day is available for booking (used by date column header)
+  const isDayAvailable = useCallback((date) => {
+    return availability.availableDays.includes(date.getDay())
+  }, [availability.availableDays])
 
-  // Check if a slot is in the past
-  const isSlotInPast = (date, timeSlot) => {
-    const now = new Date()
-    const slotDateTime = new Date(date)
-    const [hours, minutes] = timeSlot.time.split(':').map(Number)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-    return slotDateTime < now
-  }
+  const effectiveViewMode = isMobile ? 'day' : viewMode
+  const displayDates = useMemo(
+    () => (effectiveViewMode === 'week' ? weekDates : [currentDate]),
+    [effectiveViewMode, weekDates, currentDate]
+  )
 
-  // Check if a time slot is fully booked (respect amenity capacity for shared spaces)
-  const isSlotBooked = (date, timeSlot) => {
-    if (!bookings.length) return false
-
-    const slotDateTime = new Date(date)
-    const [hours, minutes] = timeSlot.time.split(':').map(Number)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-
-    const overlappingCount = bookings.reduce((count, booking) => {
-      const start = new Date(booking.startTime)
-      const end = new Date(booking.endTime)
-      return slotDateTime >= start && slotDateTime < end
-        ? count + 1
-        : count
-    }, 0)
-
+  // Pre-compute status + title for every slot in the visible grid.
+  // Recomputes only when bookings, selection, availability, or visible dates change —
+  // not on every parent re-render. Hover state was removed (was dead, caused 196-slot thrash).
+  const dateSlots = useMemo(() => {
+    const now = Date.now()
+    const selStart = selectedStartTime ? new Date(selectedStartTime).getTime() : null
+    const selEnd = selectedEndTime ? new Date(selectedEndTime).getTime() : null
     const capacity = typeof amenity?.capacity === 'number' && amenity.capacity > 0
       ? amenity.capacity
       : 1
+    const isSharedDesk = amenity?.type === 'desk' && capacity > 1
 
-    // Desks are treated as shared coworking spaces with capacity-based concurrency
-    if (amenity?.type === 'desk' && capacity > 1) {
-      return overlappingCount >= capacity
-    }
+    // Pre-parse booking ranges once per memo run instead of per slot
+    const bookingRanges = bookings.map(b => [
+      new Date(b.startTime).getTime(),
+      new Date(b.endTime).getTime(),
+    ])
 
-    // For non-desk amenities, any overlap means the slot is booked
-    return overlappingCount > 0
-  }
+    return displayDates.map(date => {
+      const dayAvailable = availability.availableDays.includes(date.getDay())
+      const slots = timeSlots.map(slot => {
+        const slotDate = new Date(date)
+        const [h, m] = slot.time.split(':').map(Number)
+        slotDate.setHours(h, m, 0, 0)
+        const slotMs = slotDate.getTime()
 
-  // Check if slot is selected
-  const isSlotSelected = (date, timeSlot) => {
-    if (!selectedStartTime || !selectedEndTime) return false
-    
-    const slotDateTime = new Date(date)
-    const [hours, minutes] = timeSlot.time.split(':').map(Number)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-    
-    return slotDateTime >= new Date(selectedStartTime) && slotDateTime < new Date(selectedEndTime)
-  }
+        let status
+        if (!dayAvailable) {
+          status = 'unavailable'
+        } else if (slotMs < now) {
+          status = 'past'
+        } else if (selStart !== null && selEnd !== null && slotMs >= selStart && slotMs < selEnd) {
+          status = 'selected'
+        } else {
+          let overlapping = 0
+          for (let i = 0; i < bookingRanges.length; i++) {
+            const [s, e] = bookingRanges[i]
+            if (slotMs >= s && slotMs < e) overlapping++
+          }
+          const booked = isSharedDesk ? overlapping >= capacity : overlapping > 0
+          status = booked ? 'booked' : 'available'
+        }
 
-  // Get slot status
-  const getSlotStatus = (date, timeSlot) => {
-    if (!isDayAvailable(date)) return 'unavailable'
-    if (isSlotInPast(date, timeSlot)) return 'past'
-    if (isSlotSelected(date, timeSlot)) return 'selected'
-    if (isSlotBooked(date, timeSlot)) return 'booked'
-    return 'available'
-  }
+        const title =
+          status === 'unavailable' ? t('calendar.closed') :
+          status === 'past' ? t('calendar.past') :
+          status === 'booked' ? t('calendar.booked') :
+          status === 'selected' ? t('calendar.selected') :
+          t('calendar.availableAt', { time: slot.time })
 
-  const handleSlotClick = (date, timeSlot) => {
+        return { key: slotMs, status, title }
+      })
+      return { date, dayAvailable, slots }
+    })
+  }, [
+    displayDates, timeSlots, bookings,
+    selectedStartTime, selectedEndTime,
+    availability.availableDays,
+    amenity?.capacity, amenity?.type,
+    t,
+  ])
+
+  const handleSlotSelect = useCallback((slotKey) => {
     if (disabled) return
-    const status = getSlotStatus(date, timeSlot)
-    if (status !== 'available') return
-
-    const slotDateTime = new Date(date)
-    const [hours, minutes] = timeSlot.time.split(':').map(Number)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-
-    onTimeSlotSelect?.(slotDateTime)
-  }
-
-  const effectiveViewMode = isMobile ? 'day' : viewMode
+    onTimeSlotSelect?.(new Date(slotKey))
+  }, [disabled, onTimeSlotSelect])
 
   const handlePrevWeek = () => {
     const newDate = new Date(currentDate)
@@ -213,8 +236,6 @@ const BookingCalendar = ({
       </div>
     )
   }
-
-  const displayDates = effectiveViewMode === 'week' ? weekDates : [currentDate]
 
   if (isLoading && !amenityId) {
     return <CalendarSkeleton />
@@ -259,35 +280,22 @@ const BookingCalendar = ({
           </div>
         </div>
 
-        {displayDates.map((date, dateIndex) => {
-          const dayAvailable = isDayAvailable(date)
-          return (
-            <div key={dateIndex} className={`date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
-              {formatDateHeader(date)}
-              <div className="time-slots">
-                {timeSlots.map((slot, slotIndex) => {
-                  const status = getSlotStatus(date, slot)
-                  return (
-                    <div
-                      key={slotIndex}
-                      className={`time-slot ${status}`}
-                      onClick={() => handleSlotClick(date, slot)}
-                      onMouseEnter={() => setHoveredSlot({ date, slot })}
-                      onMouseLeave={() => setHoveredSlot(null)}
-                      title={
-                        status === 'unavailable' ? t('calendar.closed') :
-                        status === 'past' ? t('calendar.past') :
-                        status === 'booked' ? t('calendar.booked') :
-                        status === 'selected' ? t('calendar.selected') :
-                        t('calendar.availableAt', { time: slot.time })
-                      }
-                    />
-                  )
-                })}
-              </div>
+        {dateSlots.map(({ date, dayAvailable, slots }, dateIndex) => (
+          <div key={dateIndex} className={`date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
+            {formatDateHeader(date)}
+            <div className="time-slots">
+              {slots.map(slot => (
+                <TimeSlot
+                  key={slot.key}
+                  slotKey={slot.key}
+                  status={slot.status}
+                  title={slot.title}
+                  onSelect={handleSlotSelect}
+                />
+              ))}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
 
       <div className="calendar-legend">

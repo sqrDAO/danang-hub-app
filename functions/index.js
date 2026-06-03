@@ -10,6 +10,11 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+// Region for all deployed Cloud Functions. Hub users + Firestore live in
+// Vietnam, so colocating functions in Singapore (asia-southeast1) eliminates
+// the ~150ms transpacific RTT of the default us-central1 region.
+const REGION = "asia-southeast1";
+
 // Transporter is created fresh each call so Secret Manager values
 // (injected into process.env at runtime) are always current.
 /**
@@ -154,7 +159,7 @@ function isWithinBusinessHours(startTime, endTime) {
 }
 
 // Check for booking conflicts
-exports.checkBookingConflicts = functions.https.onCall(
+exports.checkBookingConflicts = functions.region(REGION).https.onCall(
     async (data, context) => {
       if (!context.auth) {
         throw new functions.https.HttpsError(
@@ -259,7 +264,7 @@ exports.checkBookingConflicts = functions.https.onCall(
 );
 
 // Check slot availability - no auth (for chatbot, public availability)
-exports.checkSlotAvailability = functions.https.onCall(
+exports.checkSlotAvailability = functions.region(REGION).https.onCall(
     async (data, context) => {
       const {amenityId, startTime, endTime} = data;
 
@@ -391,7 +396,7 @@ function getStartOfTodayHubTimezone() {
 }
 
 // Auto check-out expired bookings + auto-complete past-day bookings
-exports.autoCheckoutExpiredBookings = functions.pubsub
+exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
       try {
@@ -476,7 +481,7 @@ exports.autoCheckoutExpiredBookings = functions.pubsub
     });
 
 // Send booking confirmation email
-exports.sendBookingConfirmation = functions.firestore
+exports.sendBookingConfirmation = functions.region(REGION).firestore
     .document("bookings/{bookingId}")
     .onCreate(async (snap, context) => {
       const booking = snap.data();
@@ -512,7 +517,7 @@ exports.sendBookingConfirmation = functions.firestore
     });
 
 // Update event capacity when attendees change
-exports.updateEventCapacity = functions.firestore
+exports.updateEventCapacity = functions.region(REGION).firestore
     .document("events/{eventId}")
     .onUpdate(async (change, context) => {
       const before = change.before.data();
@@ -534,7 +539,7 @@ exports.updateEventCapacity = functions.firestore
     });
 
 // Clean up old completed bookings
-exports.cleanupOldBookings = functions.pubsub
+exports.cleanupOldBookings = functions.region(REGION).pubsub
     .schedule("every 24 hours")
     .onRun(async (context) => {
       try {
@@ -565,7 +570,7 @@ exports.cleanupOldBookings = functions.pubsub
     });
 
 // Send event reminders (respects member preferences.eventReminders)
-exports.sendEventReminders = functions.pubsub
+exports.sendEventReminders = functions.region(REGION).pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
       try {
@@ -590,20 +595,25 @@ exports.sendEventReminders = functions.pubsub
           const attendees = event.attendees || [];
           const waitlist = event.waitlist || [];
 
-          // Resolve attendees who have eventReminders enabled
+          // Resolve attendees who have eventReminders enabled.
+          // Batched getAll instead of N sequential .get() calls.
+          const uniqueAttendeeIds = [...new Set(attendees)];
           const membersToRemind = [];
-          for (const memberId of attendees) {
-            const memberRef = db.collection("members").doc(memberId);
-            const memberDoc = await memberRef.get();
-            const member = memberDoc.exists ? memberDoc.data() : null;
-            const prefs = (member && member.preferences) || {};
-            if (prefs.eventReminders !== false) {
-              membersToRemind.push({
-                memberId,
-                email: member && member.email ? member.email : null,
-                displayName: member && member.displayName ?
-                  member.displayName : null,
-              });
+          if (uniqueAttendeeIds.length > 0) {
+            const memberRefs = uniqueAttendeeIds.map((id) =>
+              db.collection("members").doc(id));
+            const memberDocs = await db.getAll(...memberRefs);
+            for (const memberDoc of memberDocs) {
+              const member = memberDoc.exists ? memberDoc.data() : null;
+              const prefs = (member && member.preferences) || {};
+              if (prefs.eventReminders !== false) {
+                membersToRemind.push({
+                  memberId: memberDoc.id,
+                  email: member && member.email ? member.email : null,
+                  displayName: member && member.displayName ?
+                    member.displayName : null,
+                });
+              }
             }
           }
 
@@ -630,6 +640,7 @@ exports.sendEventReminders = functions.pubsub
 
 // Notify event organizer when event status changes to approved or rejected
 exports.notifyEventStatusChange = functions
+    .region(REGION)
     .runWith({secrets: ["EMAIL_PASS"]})
     .firestore
     .document("events/{eventId}")
@@ -786,7 +797,7 @@ exports.notifyEventStatusChange = functions
     });
 
 // Generate a one-time nonce for wallet authentication
-exports.generateWalletNonce = functions.https.onCall(
+exports.generateWalletNonce = functions.region(REGION).https.onCall(
     async (data, context) => {
       const {address, chain} = data;
 
@@ -833,7 +844,7 @@ exports.generateWalletNonce = functions.https.onCall(
 );
 
 // Verify wallet signature and return a Firebase custom token
-exports.verifyWalletSignature = functions.https.onCall(
+exports.verifyWalletSignature = functions.region(REGION).https.onCall(
     async (data, context) => {
       const {address, signature, chain} = data;
 
@@ -922,7 +933,7 @@ exports.verifyWalletSignature = functions.https.onCall(
 );
 
 // Auto-promote from waitlist when spots open
-exports.autoPromoteWaitlist = functions.firestore
+exports.autoPromoteWaitlist = functions.region(REGION).firestore
     .document("events/{eventId}")
     .onUpdate(async (change, context) => {
       const before = change.before.data();

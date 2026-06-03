@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { getBookings } from '../services/bookings'
@@ -6,22 +6,57 @@ import { getApprovedEvents } from '../services/events'
 import { getAmenities } from '../services/amenities'
 import './UnifiedCalendar.css'
 
+const EMPTY_ITEMS = []
+
+const DayCell = memo(function DayCell({ date, isToday, items }) {
+  if (!date) return <div className="calendar-day empty" />
+  const visible = items.slice(0, 3)
+  const extra = items.length - 3
+  return (
+    <div className={`calendar-day ${isToday ? 'today' : ''}`}>
+      <div className="day-number">{date.getDate()}</div>
+      <div className="day-items">
+        {visible.map(item => (
+          <div
+            key={item.id}
+            className={`day-item day-item-${item.type} ${item.isMine ? 'mine' : ''} ${item.status === 'pending' ? 'pending' : ''}`}
+            title={`${item.type === 'booking' ? 'Booking' : 'Event'}: ${item.title}${item.status === 'pending' ? ' (Pending)' : ''}`}
+          >
+            {item.title}
+          </div>
+        ))}
+        {extra > 0 && (
+          <div className="day-item-more">+{extra} more</div>
+        )}
+      </div>
+    </div>
+  )
+})
+
 const UnifiedCalendar = ({ viewMode = 'month' }) => {
   const { currentUser, isAdmin } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedFilter, setSelectedFilter] = useState('all') // 'all', 'bookings', 'events'
   const [selectedAmenityType, setSelectedAmenityType] = useState('')
 
+  // Calendar shows one month at a time; fetch a buffered window around the
+  // currently viewed month so prev/next navigation doesn't refetch the world.
+  const calendarYear = currentDate.getFullYear()
+  const calendarMonth = currentDate.getMonth()
+  const calendarWindowStart = new Date(calendarYear, calendarMonth - 1, 1)
+  const calendarWindowEnd = new Date(calendarYear, calendarMonth + 2, 0, 23, 59, 59, 999)
+
   // Fetch bookings - admins see all, members see only their own
   const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
-    queryKey: ['bookings', isAdmin() ? 'all' : currentUser?.uid],
+    queryKey: ['bookings', isAdmin() ? 'all' : currentUser?.uid, calendarYear, calendarMonth],
     queryFn: () => {
+      const window = { startDate: calendarWindowStart, endDate: calendarWindowEnd }
       if (isAdmin()) {
-        // Admin can see all bookings
-        return getBookings()
+        // Admin can see all bookings in the visible window
+        return getBookings(window)
       } else {
-        // Members can only see their own bookings
-        return getBookings({ memberId: currentUser?.uid })
+        // Members can only see their own bookings in the visible window
+        return getBookings({ memberId: currentUser?.uid, ...window })
       }
     },
     enabled: !!currentUser?.uid,
@@ -40,6 +75,14 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
     queryFn: getAmenities
   })
 
+  // O(1) amenity lookup by id, built once per amenities update.
+  // Replaces amenities.find() inside per-booking loops (was O(N×M)).
+  const amenitiesById = useMemo(() => {
+    const map = new Map()
+    amenities.forEach(a => map.set(a.id, a))
+    return map
+  }, [amenities])
+
   // Filter bookings - only show approved, pending, or checked-in bookings
   const filteredBookings = useMemo(() => {
     if (!bookings || bookings.length === 0) {
@@ -48,7 +91,7 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
       }
       return []
     }
-    
+
     let filtered = bookings.filter(b => {
       // Ensure booking has required fields
       if (!b || !b.status || !b.startTime) {
@@ -58,14 +101,11 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
     })
 
     if (selectedAmenityType) {
-      filtered = filtered.filter(b => {
-        const amenity = amenities.find(a => a.id === b.amenityId)
-        return amenity?.type === selectedAmenityType
-      })
+      filtered = filtered.filter(b => amenitiesById.get(b.amenityId)?.type === selectedAmenityType)
     }
 
     return filtered
-  }, [bookings, selectedAmenityType, amenities, bookingsError])
+  }, [bookings, selectedAmenityType, amenitiesById, bookingsError])
 
   // Filter events - only show approved events that are today or in the future
   const filteredEvents = useMemo(() => {
@@ -83,43 +123,36 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
   // Get items for current month
   const calendarItems = useMemo(() => {
     const items = []
-    
+    // Hoist user state out of the per-booking loop — invariant across this memo run
+    const userIsAdmin = isAdmin()
+    const currentUserId = currentUser?.uid
+
     if (selectedFilter === 'all' || selectedFilter === 'bookings') {
       filteredBookings.forEach(booking => {
-        // Ensure booking has valid dates
         if (!booking.startTime) return
-        
+
         const startDate = new Date(booking.startTime)
         const endDate = booking.endTime ? new Date(booking.endTime) : startDate
-        
-        // Skip if date is invalid
+
         if (isNaN(startDate.getTime())) return
-        
-        // Check if this booking belongs to the current user
-        const userIsAdmin = isAdmin()
-        const currentUserId = currentUser?.uid
+
         const bookingMemberId = booking.memberId
-        
+
         // Determine ownership:
         // - For members: All bookings in the query result are theirs (query filters by memberId)
         //   But we still verify to catch any data issues
         // - For admins: Check if booking.memberId matches currentUser.uid
         let belongsToUser = false
-        
+
         if (!currentUserId) {
-          // No current user - can't be theirs
           belongsToUser = false
         } else if (userIsAdmin) {
-          // Admin viewing all bookings - check memberId
           belongsToUser = String(bookingMemberId || '') === String(currentUserId)
         } else {
-          // Member viewing - query filters by memberId, so all should be theirs
-          // But verify to catch data issues
           const bookingIdStr = String(bookingMemberId || '').trim()
           const userIdStr = String(currentUserId).trim()
           belongsToUser = bookingIdStr === userIdStr && bookingIdStr !== ''
-          
-          // If mismatch, log warning but still mark as theirs (trust the query filter)
+
           if (!belongsToUser && bookingIdStr !== '') {
             console.warn('UnifiedCalendar: Booking memberId mismatch (but query filtered by memberId)', {
               bookingId: booking.id,
@@ -127,10 +160,8 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
               currentUserId: userIdStr,
               booking
             })
-            // Trust the query - if it's in results, it's the user's booking
             belongsToUser = true
           } else if (bookingIdStr === '') {
-            // No memberId in booking - shouldn't happen
             console.warn('UnifiedCalendar: Booking missing memberId', {
               bookingId: booking.id,
               booking
@@ -138,11 +169,11 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
             belongsToUser = false
           }
         }
-        
+
         items.push({
           type: 'booking',
           id: booking.id,
-          title: amenities.find(a => a.id === booking.amenityId)?.name || 'Unknown Amenity',
+          title: amenitiesById.get(booking.amenityId)?.name || 'Unknown Amenity',
           start: startDate,
           end: endDate,
           isMine: belongsToUser,
@@ -154,28 +185,25 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
 
     if (selectedFilter === 'all' || selectedFilter === 'events') {
       filteredEvents.forEach(event => {
-        // Ensure event has valid date
         if (!event.date) return
-        
+
         const eventDate = new Date(event.date)
-        
-        // Skip if date is invalid
         if (isNaN(eventDate.getTime())) return
-        
+
         items.push({
           type: 'event',
           id: event.id,
           title: event.title || 'Untitled Event',
           start: eventDate,
           end: eventDate,
-          isMine: event.attendees?.includes(currentUser?.uid) || false,
+          isMine: event.attendees?.includes(currentUserId) || false,
           data: event
         })
       })
     }
 
     return items
-  }, [filteredBookings, filteredEvents, selectedFilter, amenities, currentUser])
+  }, [filteredBookings, filteredEvents, selectedFilter, amenitiesById, currentUser, isAdmin])
 
   // Group items by date
   const itemsByDate = useMemo(() => {
@@ -229,10 +257,7 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
     setCurrentDate(new Date())
   }
 
-  const getDayItems = (date) => {
-    if (!date) return []
-    return itemsByDate[date.toDateString()] || []
-  }
+  const todayKey = new Date().toDateString()
 
   const uniqueAmenityTypes = useMemo(() => {
     const types = new Set()
@@ -309,39 +334,14 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
           ))}
         </div>
         <div className="calendar-days">
-          {calendarDays.map((date, index) => {
-            const isToday = date && date.toDateString() === new Date().toDateString()
-            const dayItems = getDayItems(date)
-            
-            return (
-              <div
-                key={index}
-                className={`calendar-day ${!date ? 'empty' : ''} ${isToday ? 'today' : ''}`}
-              >
-                {date && (
-                  <>
-                    <div className="day-number">{date.getDate()}</div>
-                    <div className="day-items">
-                      {dayItems.slice(0, 3).map(item => (
-                        <div
-                          key={item.id}
-                          className={`day-item day-item-${item.type} ${item.isMine ? 'mine' : ''} ${item.status === 'pending' ? 'pending' : ''}`}
-                          title={`${item.type === 'booking' ? 'Booking' : 'Event'}: ${item.title}${item.status === 'pending' ? ' (Pending)' : ''}`}
-                        >
-                          {item.title}
-                        </div>
-                      ))}
-                      {dayItems.length > 3 && (
-                        <div className="day-item-more">
-                          +{dayItems.length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )
-          })}
+          {calendarDays.map((date, index) => (
+            <DayCell
+              key={index}
+              date={date}
+              isToday={date ? date.toDateString() === todayKey : false}
+              items={date ? (itemsByDate[date.toDateString()] || EMPTY_ITEMS) : EMPTY_ITEMS}
+            />
+          ))}
         </div>
       </div>
 

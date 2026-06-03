@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
-import { getFunctions } from 'firebase/functions'
-import { getStorage } from 'firebase/storage'
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 // Firebase configuration
 const firebaseConfig = {
@@ -20,8 +20,22 @@ const app = initializeApp(firebaseConfig)
 // Initialize services
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-export const functions = getFunctions(app)
+// All Cloud Functions are deployed to asia-southeast1 (Singapore) to colocate
+// with Vietnam-based users; the client must target the same region.
+export const functions = getFunctions(app, 'asia-southeast1')
 export const storage = getStorage(app)
+
+// Connect to local emulators when VITE_USE_EMULATORS=true.
+// Guarded against HMR double-connects via a window flag.
+if (import.meta.env.VITE_USE_EMULATORS === 'true' && !globalThis.__FIREBASE_EMULATORS_CONNECTED__) {
+  const host = import.meta.env.VITE_EMULATOR_HOST || 'localhost'
+  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true })
+  connectFirestoreEmulator(db, host, 8080)
+  connectFunctionsEmulator(functions, host, 5001)
+  connectStorageEmulator(storage, host, 9199)
+  globalThis.__FIREBASE_EMULATORS_CONNECTED__ = true
+  console.info('[firebase] Connected to local emulators on', host)
+}
 
 // Auth providers
 export const googleProvider = new GoogleAuthProvider()

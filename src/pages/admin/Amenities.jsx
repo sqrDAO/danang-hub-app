@@ -353,7 +353,7 @@ const AdminAmenities = () => {
                   onClick={() => setLightboxAmenity(amenity)}
                   aria-label={`View photos of ${amenity.name}`}
                 >
-                  <img src={amenity.photos[0]} alt={amenity.name} />
+                  <img src={amenity.photos[0]} alt={amenity.name} loading="lazy" decoding="async" />
                   {amenity.photos.length > 1 && (
                     <span className="photo-count-badge">{t('adminAmenities.photos', { count: amenity.photos.length })}</span>
                   )}
@@ -493,7 +493,7 @@ const AdminAmenities = () => {
                 <div className="photo-preview-grid">
                   {photos.map((photoUrl, index) => (
                     <div key={index} className="photo-preview-item">
-                      <img src={photoUrl} alt={t('adminAmenities.form.photoAlt', { index: index + 1 })} />
+                      <img src={photoUrl} alt={t('adminAmenities.form.photoAlt', { index: index + 1 })} loading="lazy" decoding="async" />
                       <button
                         type="button"
                         className="photo-delete-btn"

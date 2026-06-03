@@ -53,9 +53,20 @@ const AdminEvents = () => {
   }
   const queryClient = useQueryClient()
 
+  // Admin event management ("view all" intent): ±365 day window.
+  const adminEventsWindow = (() => {
+    const start = new Date()
+    start.setDate(start.getDate() - 365)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date()
+    end.setDate(end.getDate() + 365)
+    end.setHours(23, 59, 59, 999)
+    return { startDate: start, endDate: end }
+  })()
+
   const { data: allEvents = [], isLoading } = useQuery({
     queryKey: ['events'],
-    queryFn: getEvents
+    queryFn: () => getEvents(adminEventsWindow)
   })
 
   const { data: pendingEvents = [] } = useQuery({
@@ -281,12 +292,12 @@ const AdminEvents = () => {
 
   const [hostModalMember, setHostModalMember] = useState(null)
 
+  // Admin still keeps the full members list for the organizer <select>, so the
+  // pre-fetched roster doubles as the host-modal source.
   const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
 
-  const getOrganizerName = (organizerId) => {
-    const organizer = getOrganizer(organizerId)
-    return organizer?.displayName || organizer?.email || organizerId
-  }
+  const getOrganizerName = (event) =>
+    event.organizerDisplayName || event.organizerId
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -309,14 +320,26 @@ const AdminEvents = () => {
       ? MAX_EVENT_CAPACITY
       : Math.min(Math.max(rawCapacity, 1), MAX_EVENT_CAPACITY)
 
+    const organizerId = formData.get('organizerId')
     const data = {
       title: formData.get('title'),
       description: formData.get('description'),
       date: eventDate.toISOString(),
       capacity,
       duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
-      organizerId: formData.get('organizerId'),
+      organizerId,
       waitlist: []
+    }
+
+    // On create, pre-fill denormalized organizer fields from the already-loaded
+    // members list so createEvent doesn't need to round-trip Firestore. On
+    // update, leave them off — updateEvent re-fetches when organizerId changes.
+    if (isCreateMode && organizerId) {
+      const organizer = members.find(m => m.id === organizerId)
+      if (organizer) {
+        data.organizerDisplayName = organizer.displayName || null
+        data.organizerPhotoURL = organizer.photoURL || null
+      }
     }
 
     // Handle hosting projects (text input)
@@ -455,7 +478,7 @@ const AdminEvents = () => {
               <div key={event.id} className={`event-card glass ${event.status}`}>
                 {event.bannerUrl && (
                   <div className="event-card-banner">
-                    <img src={event.bannerUrl} alt="" />
+                    <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
                   </div>
                 )}
                 <div className="event-header">
@@ -474,7 +497,7 @@ const AdminEvents = () => {
                       className="organizer-link"
                       onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
                     >
-                      {getOrganizerName(event.organizerId)}
+                      {getOrganizerName(event)}
                     </button>
                   </p>
                   {event.duration && (
