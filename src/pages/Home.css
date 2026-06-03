@@ -329,6 +329,13 @@
   font-size: 0.9rem;
   margin-top: var(--spacing-sm);
   line-height: 1.5;
+  overflow: hidden;
+  /* stylelint-disable-next-line */
+  display: -webkit-box;
+  /* stylelint-disable-next-line */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .event-attended {

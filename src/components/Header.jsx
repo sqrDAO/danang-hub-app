@@ -186,7 +186,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
       <div className="header-container container">
         <Link to="/" className="logo" onClick={closeMobileMenu}>
           <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt={t('common.appNameShort')} className="logo-image" />
-          <h2 className="gradient-text">{t('common.appNameShort')}</h2>
         </Link>
         
         <nav className="nav">

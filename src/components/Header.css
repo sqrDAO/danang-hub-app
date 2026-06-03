@@ -464,11 +464,7 @@
     display: none;
   }
 
-  /* Non-logged-in public: hide logo text, turn Login into icon circle */
-  header:not(.header--app) .logo h2 {
-    display: none;
-  }
-
+  /* Non-logged-in public: turn Login into icon circle */
   header:not(.header--app) .btn-header {
     width: 36px;
     height: 36px;
