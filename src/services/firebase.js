@@ -20,9 +20,10 @@ const app = initializeApp(firebaseConfig)
 // Initialize services
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-// All Cloud Functions are deployed to asia-southeast1 (Singapore) to colocate
-// with Vietnam-based users; the client must target the same region.
-export const functions = getFunctions(app, 'asia-southeast1')
+// Region pinned to us-central1 to match where the Functions are actually
+// deployed; an attempted move to asia-southeast1 was rolled back due to an
+// IAM permission gap on the deploying account.
+export const functions = getFunctions(app, 'us-central1')
 export const storage = getStorage(app)
 
 // Connect to local emulators when VITE_USE_EMULATORS=true.

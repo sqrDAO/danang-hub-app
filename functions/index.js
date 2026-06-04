@@ -10,10 +10,10 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
-// Region for all deployed Cloud Functions. Hub users + Firestore live in
-// Vietnam, so colocating functions in Singapore (asia-southeast1) eliminates
-// the ~150ms transpacific RTT of the default us-central1 region.
-const REGION = "asia-southeast1";
+// Region for all deployed Cloud Functions. Pinned to us-central1 until the
+// deploying service account is granted roles/cloudfunctions.admin (required
+// to set the public invoker IAM policy in other regions).
+const REGION = "us-central1";
 
 // Transporter is created fresh each call so Secret Manager values
 // (injected into process.env at runtime) are always current.
