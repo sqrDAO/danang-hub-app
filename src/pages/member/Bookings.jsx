@@ -281,10 +281,10 @@ const MemberBookings = () => {
   const generateAlternativeSlots = (originalStart, originalEnd, durationHours) => {
     const alternatives = []
     const sameDay = new Date(originalStart)
-    sameDay.setHours(8, 0, 0, 0) // Start from 8 AM
-    
+    sameDay.setHours(9, 0, 0, 0) // Start from 9 AM
+
     // Generate slots every 2 hours
-    for (let hour = 8; hour <= 20; hour += 2) {
+    for (let hour = 9; hour <= 20; hour += 2) {
       const altStart = new Date(sameDay)
       altStart.setHours(hour, 0, 0, 0)
       

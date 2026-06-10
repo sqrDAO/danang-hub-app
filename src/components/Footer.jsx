@@ -33,7 +33,7 @@ const Footer = () => {
                 </svg>
               </a>
               <a
-                href="https://t.me/+7ycB8RxiZQY5MDNl"
+                href="https://t.me/danangblockchainhub"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="footer-social-link"

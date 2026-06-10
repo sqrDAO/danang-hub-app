@@ -578,9 +578,9 @@
       "depositTxHashHint": "Chúng tôi chỉ dùng hash này để xác minh khoản đặt cọc; sẽ không hiển thị công khai.",
       "submitting": "Đang gửi...",
       "submit": "Gửi để duyệt",
-      "availabilityHint": "Ngày thường: sau 18:00 · Cuối tuần: 8:00 – 22:00",
+      "availabilityHint": "Ngày thường: sau 18:00 · Cuối tuần: 9:00 – 22:00",
       "weekdayHoursError": "Sự kiện vào ngày thường phải bắt đầu sau 18:00.",
-      "weekendHoursError": "Sự kiện vào cuối tuần phải bắt đầu từ 8:00 trở đi.",
+      "weekendHoursError": "Sự kiện vào cuối tuần phải bắt đầu từ 9:00 trở đi.",
       "endTimeError": "Sự kiện phải kết thúc trước 22:00."
     }
   },
@@ -602,14 +602,14 @@
   },
   "fixedDesk": {
     "title": "Gói Bàn Cố Định",
-    "description": "Đăng ký bàn cố định cho toàn bộ giờ làm việc theo tuần hoặc tháng (Thứ 2–6, 8h–18h).",
+    "description": "Đăng ký bàn cố định cho toàn bộ giờ làm việc theo tuần hoặc tháng (Thứ 2–6, 9h–18h).",
     "register": "Đăng ký bàn cố định",
     "registerShort": "📅 Bàn cố định",
     "badge": "Bàn Cố Định",
     "weekly": "Theo tuần",
     "monthly": "Theo tháng",
     "workingDays": "{{count}} ngày làm việc",
-    "workingHours": "Thứ 2–6, 08:00–18:00",
+    "workingHours": "Thứ 2–6, 09:00–18:00",
     "noPlans": "Chưa có gói bàn cố định nào",
     "cancelPlan": "Hủy gói",
     "confirmCancel": "Hủy gói bàn cố định này? Tất cả đặt chỗ đang chờ/đã duyệt trong gói sẽ bị hủy.",

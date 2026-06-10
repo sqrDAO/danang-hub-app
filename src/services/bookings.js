@@ -351,7 +351,7 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
   return { createdIds, bookings, totalCreated: createdIds.length }
 }
 
-// Create a fixed desk plan: books a desk for all working days (Mon–Fri, 8am–6pm)
+// Create a fixed desk plan: books a desk for all working days (Mon–Fri, 9am–6pm)
 // over a weekly (current week) or monthly (next 30 days) period.
 export const createFixedDeskPlan = async ({
   memberId,
@@ -362,7 +362,7 @@ export const createFixedDeskPlan = async ({
   checkConflictsFn = null,
 }) => {
   const planGroupId = crypto.randomUUID()
-  const DESK_START_HOUR = 8
+  const DESK_START_HOUR = 9
   const DESK_END_HOUR = 18
 
   const planStart = new Date(startDate)

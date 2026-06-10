@@ -578,9 +578,9 @@
       "depositTxHashHint": "We only use this hash to verify your deposit; it will not be shared publicly.",
       "submitting": "Submitting...",
       "submit": "Submit for Approval",
-      "availabilityHint": "Weekdays: after 6:00 PM · Weekends: 8:00 AM – 10:00 PM",
+      "availabilityHint": "Weekdays: after 6:00 PM · Weekends: 9:00 AM – 10:00 PM",
       "weekdayHoursError": "Events on weekdays must start after 6:00 PM.",
-      "weekendHoursError": "Events on weekends must start from 8:00 AM.",
+      "weekendHoursError": "Events on weekends must start from 9:00 AM.",
       "endTimeError": "Event must end by 10:00 PM."
     }
   },
@@ -602,14 +602,14 @@
   },
   "fixedDesk": {
     "title": "Fixed Desk Plans",
-    "description": "Register for a dedicated desk for all working hours across a week or month (Mon–Fri, 8am–6pm).",
+    "description": "Register for a dedicated desk for all working hours across a week or month (Mon–Fri, 9am–6pm).",
     "register": "Register Fixed Desk",
     "registerShort": "📅 Fixed Desk",
     "badge": "Fixed Desk",
     "weekly": "Weekly",
     "monthly": "Monthly",
     "workingDays": "{{count}} working day(s)",
-    "workingHours": "Mon–Fri, 08:00–18:00",
+    "workingHours": "Mon–Fri, 09:00–18:00",
     "noPlans": "No active fixed desk plans",
     "cancelPlan": "Cancel Plan",
     "confirmCancel": "Cancel this fixed desk plan? All pending/approved bookings in this plan will be cancelled.",

@@ -14,7 +14,7 @@ const Layout = ({ children, isAdmin = false, public: isPublic = false }) => {
       </main>
       <Footer />
       <a
-        href="https://t.me/danang_blockchain_hub_bot"
+        href="https://t.me/danangblockchainhub"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with our Telegram bot"

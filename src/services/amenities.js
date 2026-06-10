@@ -43,17 +43,17 @@ export const DEFAULT_CAPACITY_BY_TYPE = {
 // Default availability settings
 export const DEFAULT_AVAILABILITY = {
   isAvailable: true,
-  startHour: 8,  // 8 AM VN time
+  startHour: 9,  // 9 AM VN time
   endHour: 18,   // 6 PM VN time
   availableDays: [1, 2, 3, 4, 5], // Monday to Friday (0=Sunday, 1=Monday, etc.)
   slotDuration: 30, // minutes
   timezone: 'Asia/Ho_Chi_Minh'
 }
 
-// Event spaces: after 6 PM on weekdays, 8 AM–10 PM on weekends
+// Event spaces: after 6 PM on weekdays, 9 AM–10 PM on weekends
 export const EVENT_SPACE_AVAILABILITY = {
   isAvailable: true,
-  startHour: 8,          // Weekend start: 8 AM
+  startHour: 9,          // Weekend start: 9 AM
   weekdayStartHour: 18,  // Weekday start: 6 PM (after office hours)
   endHour: 22,           // All days end: 10 PM
   availableDays: [0, 1, 2, 3, 4, 5, 6],

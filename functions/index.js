@@ -34,7 +34,7 @@ function getTransporter() {
 }
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
-const BUSINESS_START_HOUR = 8;
+const BUSINESS_START_HOUR = 9;
 const BUSINESS_END_HOUR = 18;
 
 const AMENITY_TYPES_WITH_BUSINESS_HOURS = [
