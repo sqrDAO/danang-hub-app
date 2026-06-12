@@ -1,4 +1,7 @@
 module.exports = {
+  // Standalone config: stop the cascade into the repo-root .eslintrc.cjs
+  // (whose ignorePatterns exclude functions/ from the root lint run).
+  root: true,
   env: {
     es6: true,
     node: true,
