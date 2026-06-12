@@ -3,6 +3,12 @@
   overflow-x: auto;
 }
 
+.page-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
 .page-filters {
   display: flex;
   align-items: center;
@@ -41,6 +47,17 @@
 }
 
 @media (max-width: 768px) {
+  /* .page-header goes column + flex-start on mobile (globals.css), so these
+     wrappers must opt in to full width or they shrink to content width. */
+  .page-actions,
+  .page-filters {
+    width: 100%;
+  }
+
+  .page-actions {
+    flex-direction: column;
+  }
+
   .page-filters {
     flex-direction: column;
     align-items: stretch;
@@ -155,10 +172,20 @@
 }
 
 @media (max-width: 768px) {
+  /* Compact horizontal row: Prev · page info · Next */
   .bookings-pagination {
-    flex-direction: column;
-    align-items: stretch;
+    gap: var(--spacing-sm);
   }
+
+  .bookings-pagination .pagination-range {
+    font-size: 0.7rem;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--spacing-xl);
 }
 
 @media (max-width: 768px) {

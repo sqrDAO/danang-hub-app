@@ -319,7 +319,8 @@
     "assignDate": "Date",
     "assignStartTime": "Start Time",
     "assignEndTime": "End Time",
-    "assignAndApprove": "Assign & Approve"
+    "assignAndApprove": "Assign & Approve",
+    "noBookings": "No bookings match your filters."
   },
   "amenityTypes": {
     "desk": "Desk",

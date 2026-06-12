@@ -536,36 +536,42 @@ const AdminBookings = () => {
             ))}
           </div>
 
-          <div className="bookings-pagination">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handlePageChange('prev')}
-              disabled={safePage === 1}
-            >
-              {t('adminBookings.prevPage')}
-            </button>
-            <div className="pagination-info">
-              <span className="pagination-page">
-                {t('adminBookings.pageOf', { current: safePage, total: totalPages })}
-              </span>
-              <span className="pagination-range">
-                {t('adminBookings.showingRange', {
-                  from: totalBookings === 0 ? 0 : startIndex + 1,
-                  to: Math.min(endIndex, totalBookings),
-                  total: totalBookings
-                })}
-              </span>
+          {paginatedBookings.length === 0 && (
+            <p className="empty-state">{t('adminBookings.noBookings')}</p>
+          )}
+
+          {totalPages > 1 && (
+            <div className="bookings-pagination">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handlePageChange('prev')}
+                disabled={safePage === 1}
+              >
+                {t('adminBookings.prevPage')}
+              </button>
+              <div className="pagination-info">
+                <span className="pagination-page">
+                  {t('adminBookings.pageOf', { current: safePage, total: totalPages })}
+                </span>
+                <span className="pagination-range">
+                  {t('adminBookings.showingRange', {
+                    from: totalBookings === 0 ? 0 : startIndex + 1,
+                    to: Math.min(endIndex, totalBookings),
+                    total: totalBookings
+                  })}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handlePageChange('next')}
+                disabled={safePage === totalPages}
+              >
+                {t('adminBookings.nextPage')}
+              </button>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handlePageChange('next')}
-              disabled={safePage === totalPages}
-            >
-              {t('adminBookings.nextPage')}
-            </button>
-          </div>
+          )}
         </div>
       </div>
 

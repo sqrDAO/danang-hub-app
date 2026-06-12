@@ -319,7 +319,8 @@
     "assignDate": "Ngày",
     "assignStartTime": "Giờ bắt đầu",
     "assignEndTime": "Giờ kết thúc",
-    "assignAndApprove": "Tạo & Duyệt"
+    "assignAndApprove": "Tạo & Duyệt",
+    "noBookings": "Không có đặt chỗ nào khớp với bộ lọc."
   },
   "amenityTypes": {
     "desk": "Bàn làm việc",
