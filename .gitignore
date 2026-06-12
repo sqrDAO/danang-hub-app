@@ -28,7 +28,6 @@ dist-ssr
 *.sw?
 
 # Claude
-CLAUDE.md
 .claude/
 
 # Copilot
