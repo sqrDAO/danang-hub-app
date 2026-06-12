@@ -6,10 +6,9 @@ import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import Modal from '../components/Modal'
 import Avatar from '../components/Avatar'
-import { getApprovedEvents, getUpcomingEvents, registerForEvent, unregisterFromEvent, addToWaitlist, removeFromWaitlist } from '../services/events'
+import { getApprovedEvents, getUpcomingEvents } from '../services/events'
 import { getMember } from '../services/members'
 import { getProjects } from '../services/projects'
-import { showToast } from '../components/Toast'
 import { formatEventDate } from '../utils/timezone'
 import './Events.css'
 import './member/Profile.css'
@@ -126,7 +125,7 @@ const Events = () => {
           <div className="section-header">
             <h2 className="section-title">Upcoming Events</h2>
             {upcomingEventsFiltered.length > 0 && (
-              <p className="section-description">Click "Register" to join an event. If full, join the waitlist!</p>
+              <p className="section-description">Click &quot;Register&quot; to join an event. If full, join the waitlist!</p>
             )}
           </div>
           {isLoadingEvents ? (

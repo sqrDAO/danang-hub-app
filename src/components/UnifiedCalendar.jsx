@@ -33,7 +33,7 @@ const DayCell = memo(function DayCell({ date, isToday, items }) {
   )
 })
 
-const UnifiedCalendar = ({ viewMode = 'month' }) => {
+const UnifiedCalendar = () => {
   const { currentUser, isAdmin } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedFilter, setSelectedFilter] = useState('all') // 'all', 'bookings', 'events'
@@ -47,7 +47,7 @@ const UnifiedCalendar = ({ viewMode = 'month' }) => {
   const calendarWindowEnd = new Date(calendarYear, calendarMonth + 2, 0, 23, 59, 59, 999)
 
   // Fetch bookings - admins see all, members see only their own
-  const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
+  const { data: bookings = [], error: bookingsError } = useQuery({
     queryKey: ['bookings', isAdmin() ? 'all' : currentUser?.uid, calendarYear, calendarMonth],
     queryFn: () => {
       const window = { startDate: calendarWindowStart, endDate: calendarWindowEnd }

@@ -56,9 +56,8 @@ const formatMemberSince = (createdAt, t) => {
 }
 
 const MemberProfile = () => {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const location = useLocation()
   const queryClient = useQueryClient()
   const profileComplete = isProfileComplete()

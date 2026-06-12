@@ -22,7 +22,7 @@ import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../components/Toast'
-import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { parseHubDateTime, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
@@ -609,7 +609,7 @@ const MemberEvents = () => {
           ) : eventsError ? (
             <p className="empty-state" style={{ color: '#ef4444' }}>
               {t('memberEvents.errorLoadingEvents')}
-              {process.env.NODE_ENV === 'development' && (
+              {import.meta.env.DEV && (
                 <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
                   {eventsError.message}
                 </div>

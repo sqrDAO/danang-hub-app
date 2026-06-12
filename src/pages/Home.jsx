@@ -13,7 +13,7 @@ import { getProjects } from '../services/projects'
 import './Home.css'
 
 const Home = () => {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { currentUser, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
@@ -106,8 +106,6 @@ const Home = () => {
     const now = new Date()
     return eventDate <= now
   })
-
-  const locale = i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
 
   return (
     <Layout public>

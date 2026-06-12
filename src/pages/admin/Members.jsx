@@ -25,8 +25,7 @@ const formatMemberSince = (createdAt, t) => {
 }
 
 const AdminMembers = () => {
-  const { t, i18n } = useTranslation()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
   const [profileModalMember, setProfileModalMember] = useState(null)
