@@ -241,6 +241,7 @@ h1, h2, h3, h4, h5, h6,
   justify-content: center;
   gap: 0.5rem;
   min-height: 44px;
+  touch-action: manipulation;
 }
 
 .btn-primary {
@@ -399,6 +400,7 @@ h1, h2, h3, h4, h5, h6,
   border-radius: var(--border-radius);
   color: var(--text-primary);
   font-family: inherit;
+  font-size: 16px;
   transition: var(--transition);
   min-height: 44px;
 }

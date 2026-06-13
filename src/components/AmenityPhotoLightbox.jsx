@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import './AmenityPhotoLightbox.css'
 
 const AmenityPhotoLightbox = ({ isOpen, onClose, photos = [], startIndex = 0, alt = '' }) => {
   const { t } = useTranslation()
   const [index, setIndex] = useState(startIndex)
+  const touchStartX = useRef(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +41,14 @@ const AmenityPhotoLightbox = ({ isOpen, onClose, photos = [], startIndex = 0, al
   const goPrev = () => setIndex((i) => (i === 0 ? photos.length - 1 : i - 1))
   const goNext = () => setIndex((i) => (i + 1) % photos.length)
 
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX }
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(dx) > 50) dx < 0 ? goNext() : goPrev()
+    touchStartX.current = null
+  }
+
   return (
     <div className="lightbox-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <button
@@ -51,7 +60,12 @@ const AmenityPhotoLightbox = ({ isOpen, onClose, photos = [], startIndex = 0, al
         ×
       </button>
 
-      <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="lightbox-content"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <img
           className="lightbox-image"
           src={photos[index]}
