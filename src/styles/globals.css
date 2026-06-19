@@ -521,6 +521,15 @@ select.form-field:focus {
   background-size: 12px 12px !important;
 }
 
+/* Native dropdown popup: the control bg (--form-field-bg) is translucent, so the
+   open <option> list falls back to white. Pin options to an opaque themed
+   background/text so they stay legible (otherwise white-on-white). */
+.filter-select option,
+select.form-field option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 /* Page Header - consistent alignment for title and controls */
 .page-header {
   display: flex;
