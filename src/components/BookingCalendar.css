@@ -192,9 +192,9 @@
 }
 
 [data-theme="light"] .time-slot.selected {
-  background: rgba(255, 230, 187, 0.22);
-  border-color: rgba(255, 230, 187, 0.6);
-  box-shadow: 0 0 8px rgba(255, 230, 187, 0.25);
+  background: rgba(255, 164, 6, 0.18);
+  border-color: rgba(255, 164, 6, 0.55);
+  box-shadow: 0 0 8px rgba(255, 164, 6, 0.2);
 }
 
 .time-slot.unavailable,

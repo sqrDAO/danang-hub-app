@@ -347,6 +347,11 @@
   border: 1px solid rgba(255, 230, 187, 0.5);
 }
 
+[data-theme="light"] .status-badge.checked-in {
+  background: rgba(255, 164, 6, 0.12);
+  border-color: rgba(255, 164, 6, 0.35);
+}
+
 .status-badge.completed {
   background: var(--color-success-bg);
   color: var(--color-success);

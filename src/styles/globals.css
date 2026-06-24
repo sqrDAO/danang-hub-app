@@ -107,9 +107,9 @@
   --text-primary: #231F20;
   --text-secondary: #4b5563;
   --accent-primary: #FFA406;
-  --accent-secondary: #FFE6BB;
+  --accent-secondary: #C47B0D;
   --color-primary: #FFA406;
-  --color-secondary: #FFE6BB;
+  --color-secondary: #C47B0D;
   --hero-text: #231F20;
   --accent-gradient: linear-gradient(135deg, #FFA406, #FFE6BB);
 
@@ -358,6 +358,11 @@ h1, h2, h3, h4, h5, h6,
   background: rgba(255, 230, 187, 0.3);
   color: var(--accent-secondary);
   border: 1px solid rgba(255, 230, 187, 0.5);
+}
+
+[data-theme="light"] .status-badge.checked-in {
+  background: rgba(255, 164, 6, 0.12);
+  border-color: rgba(255, 164, 6, 0.35);
 }
 
 .status-badge.completed,

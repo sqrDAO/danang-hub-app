@@ -137,6 +137,21 @@
   color: var(--accent-secondary);
 }
 
+[data-theme="light"] .btn-view-profile {
+  background: rgba(255, 164, 6, 0.1);
+  border-color: rgba(255, 164, 6, 0.35);
+}
+
+[data-theme="light"] .btn-view-profile:hover {
+  background: rgba(255, 164, 6, 0.18);
+  border-color: rgba(255, 164, 6, 0.55);
+}
+
+[data-theme="light"] .membership-badge.member {
+  background: rgba(255, 164, 6, 0.1);
+  border-color: rgba(255, 164, 6, 0.3);
+}
+
 /* Mobile Card Layout */
 .member-card-mobile {
   display: none;
