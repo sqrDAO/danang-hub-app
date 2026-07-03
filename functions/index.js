@@ -1,4 +1,9 @@
-const functions = require("firebase-functions");
+const {setGlobalOptions} = require("firebase-functions/v2");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {
+  onDocumentCreated, onDocumentUpdated,
+} = require("firebase-functions/v2/firestore");
 const {initializeApp} = require("firebase-admin/app");
 const {
   getFirestore, Timestamp, FieldValue,
@@ -18,6 +23,7 @@ const db = getFirestore();
 // deploying service account is granted roles/cloudfunctions.admin (required
 // to set the public invoker IAM policy in other regions).
 const REGION = "us-central1";
+setGlobalOptions({region: REGION});
 
 // Transporter is created fresh each call so Secret Manager values
 // (injected into process.env at runtime) are always current.
@@ -163,16 +169,16 @@ function isWithinBusinessHours(startTime, endTime) {
 }
 
 // Check for booking conflicts
-exports.checkBookingConflicts = functions.region(REGION).https.onCall(
-    async (data, context) => {
-      if (!context.auth) {
-        throw new functions.https.HttpsError(
+exports.checkBookingConflicts = onCall(
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError(
             "unauthenticated",
             "User must be authenticated",
         );
       }
 
-      const {amenityId, startTime, endTime, excludeBookingId} = data;
+      const {amenityId, startTime, endTime, excludeBookingId} = request.data;
 
       try {
         const amenityRef = db.collection("amenities").doc(amenityId);
@@ -191,7 +197,7 @@ exports.checkBookingConflicts = functions.region(REGION).https.onCall(
         // Always enforce available days for every amenity type
         // (including event-space)
         if (amenity && !isOnAvailableDay(startTime, amenity)) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
               "invalid-argument",
               "Booking date is outside the amenity's available days.",
           );
@@ -202,7 +208,7 @@ exports.checkBookingConflicts = functions.region(REGION).https.onCall(
           amenity && AMENITY_TYPES_WITH_BUSINESS_HOURS.includes(amenityType);
         if (amenityNeedsHoursCheck) {
           if (!isWithinAmenityHours(startTime, endTime, amenity)) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "invalid-argument",
                 "Booking time is outside the amenity's available hours.",
             );
@@ -259,7 +265,7 @@ exports.checkBookingConflicts = functions.region(REGION).https.onCall(
         return {hasConflicts, conflicts};
       } catch (error) {
         console.error("Error checking booking conflicts:", error);
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "internal",
             "Error checking conflicts",
         );
@@ -268,12 +274,12 @@ exports.checkBookingConflicts = functions.region(REGION).https.onCall(
 );
 
 // Check slot availability - no auth (for chatbot, public availability)
-exports.checkSlotAvailability = functions.region(REGION).https.onCall(
-    async (data, context) => {
-      const {amenityId, startTime, endTime} = data;
+exports.checkSlotAvailability = onCall(
+    async (request) => {
+      const {amenityId, startTime, endTime} = request.data;
 
       if (!amenityId || !startTime || !endTime) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "amenityId, startTime, and endTime are required",
         );
@@ -366,7 +372,7 @@ exports.checkSlotAvailability = functions.region(REGION).https.onCall(
         };
       } catch (error) {
         console.error("Error checking slot availability:", error);
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "internal",
             "Error checking availability",
         );
@@ -400,9 +406,9 @@ function getStartOfTodayHubTimezone() {
 }
 
 // Auto check-out expired bookings + auto-complete past-day bookings
-exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
-    .schedule("every 1 hours")
-    .onRun(async (context) => {
+exports.autoCheckoutExpiredBookings = onSchedule(
+    "every 1 hours",
+    async () => {
       try {
         const now = Timestamp.now();
         const oneHourAgo = Timestamp.fromMillis(
@@ -485,9 +491,11 @@ exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
     });
 
 // Send booking confirmation email
-exports.sendBookingConfirmation = functions.region(REGION).firestore
-    .document("bookings/{bookingId}")
-    .onCreate(async (snap, context) => {
+exports.sendBookingConfirmation = onDocumentCreated(
+    "bookings/{bookingId}",
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return null;
       const booking = snap.data();
 
       try {
@@ -521,11 +529,11 @@ exports.sendBookingConfirmation = functions.region(REGION).firestore
     });
 
 // Update event capacity when attendees change
-exports.updateEventCapacity = functions.region(REGION).firestore
-    .document("events/{eventId}")
-    .onUpdate(async (change, context) => {
-      const before = change.before.data();
-      const after = change.after.data();
+exports.updateEventCapacity = onDocumentUpdated(
+    "events/{eventId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
 
       // Check if attendees array changed
       if (JSON.stringify(before.attendees) !==
@@ -535,7 +543,7 @@ exports.updateEventCapacity = functions.region(REGION).firestore
         const capacity = after.capacity;
 
         if (capacity && currentAttendees >= capacity) {
-          console.log(`Event ${context.params.eventId} is now full`);
+          console.log(`Event ${event.params.eventId} is now full`);
         }
       }
 
@@ -543,9 +551,9 @@ exports.updateEventCapacity = functions.region(REGION).firestore
     });
 
 // Clean up old completed bookings
-exports.cleanupOldBookings = functions.region(REGION).pubsub
-    .schedule("every 24 hours")
-    .onRun(async (context) => {
+exports.cleanupOldBookings = onSchedule(
+    "every 24 hours",
+    async () => {
       try {
         const thirtyDaysAgo = Timestamp.fromMillis(
             Date.now() - 30 * 24 * 60 * 60 * 1000,
@@ -574,9 +582,9 @@ exports.cleanupOldBookings = functions.region(REGION).pubsub
     });
 
 // Send event reminders (respects member preferences.eventReminders)
-exports.sendEventReminders = functions.region(REGION).pubsub
-    .schedule("every 1 hours")
-    .onRun(async (context) => {
+exports.sendEventReminders = onSchedule(
+    "every 1 hours",
+    async () => {
       try {
         const now = Timestamp.now();
         const in24Hours = Timestamp.fromMillis(
@@ -643,20 +651,17 @@ exports.sendEventReminders = functions.region(REGION).pubsub
     });
 
 // Notify event organizer when event status changes to approved or rejected
-exports.notifyEventStatusChange = functions
-    .region(REGION)
-    .runWith({secrets: ["EMAIL_PASS"]})
-    .firestore
-    .document("events/{eventId}")
-    .onUpdate(async (change, context) => {
-      const before = change.before.data();
-      const after = change.after.data();
+exports.notifyEventStatusChange = onDocumentUpdated(
+    {document: "events/{eventId}", secrets: ["EMAIL_PASS"]},
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
 
       // Only act on status transitions
       if (before.status === after.status) return null;
       if (!["approved", "rejected"].includes(after.status)) return null;
 
-      const eventId = context.params.eventId;
+      const eventId = event.params.eventId;
       const eventTitle = after.title || after.name || "";
       const isApproved = after.status === "approved";
       const rejectionReason = after.rejectionReason || "";
@@ -801,18 +806,18 @@ exports.notifyEventStatusChange = functions
     });
 
 // Generate a one-time nonce for wallet authentication
-exports.generateWalletNonce = functions.region(REGION).https.onCall(
-    async (data, context) => {
-      const {address, chain} = data;
+exports.generateWalletNonce = onCall(
+    async (request) => {
+      const {address, chain} = request.data;
 
       if (!address || typeof address !== "string") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Address is required",
         );
       }
       if (!chain || !["ethereum", "solana"].includes(chain)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Chain must be ethereum or solana",
         );
@@ -821,13 +826,13 @@ exports.generateWalletNonce = functions.region(REGION).https.onCall(
       const ethAddressRegex = /^0x[0-9a-fA-F]{40}$/;
       const solAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
       if (chain === "ethereum" && !ethAddressRegex.test(address)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Invalid Ethereum address format",
         );
       }
       if (chain === "solana" && !solAddressRegex.test(address)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Invalid Solana address format",
         );
@@ -848,12 +853,12 @@ exports.generateWalletNonce = functions.region(REGION).https.onCall(
 );
 
 // Verify wallet signature and return a Firebase custom token
-exports.verifyWalletSignature = functions.region(REGION).https.onCall(
-    async (data, context) => {
-      const {address, signature, chain} = data;
+exports.verifyWalletSignature = onCall(
+    async (request) => {
+      const {address, signature, chain} = request.data;
 
       if (!address || !signature || !chain) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "address, signature, and chain are required",
         );
@@ -866,7 +871,7 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
         const nonceDoc = await tx.get(nonceRef);
 
         if (!nonceDoc.exists) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
               "not-found",
               "Nonce not found. Please try again.",
           );
@@ -876,7 +881,7 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
 
         if (Date.now() > expiresAt) {
           tx.delete(nonceRef);
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
               "deadline-exceeded",
               "Nonce expired. Please try again.",
           );
@@ -895,13 +900,13 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
         try {
           recoveredAddress = ethers.verifyMessage(message, signature);
         } catch (err) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
               "invalid-argument",
               "Invalid signature",
           );
         }
         if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
               "permission-denied",
               "Signature verification failed",
           );
@@ -916,14 +921,14 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
               msgBytes, sigBytes, pubkeyBytes,
           );
           if (!valid) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "permission-denied",
                 "Signature verification failed",
             );
           }
         } catch (err) {
-          if (err instanceof functions.https.HttpsError) throw err;
-          throw new functions.https.HttpsError(
+          if (err instanceof HttpsError) throw err;
+          throw new HttpsError(
               "invalid-argument",
               "Invalid signature",
           );
@@ -937,11 +942,11 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
 );
 
 // Auto-promote from waitlist when spots open
-exports.autoPromoteWaitlist = functions.region(REGION).firestore
-    .document("events/{eventId}")
-    .onUpdate(async (change, context) => {
-      const before = change.before.data();
-      const after = change.after.data();
+exports.autoPromoteWaitlist = onDocumentUpdated(
+    "events/{eventId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
 
       // Check if attendees decreased (someone unregistered)
       const beforeAttendees =
@@ -964,7 +969,7 @@ exports.autoPromoteWaitlist = functions.region(REGION).firestore
           const promoted = waitlist.slice(0, toPromote);
           const remaining = waitlist.slice(toPromote);
 
-          await db.collection("events").doc(context.params.eventId).update({
+          await db.collection("events").doc(event.params.eventId).update({
             attendees: FieldValue.arrayUnion(...promoted),
             waitlist: remaining,
           });
@@ -972,7 +977,7 @@ exports.autoPromoteWaitlist = functions.region(REGION).firestore
           // TODO: Notify promoted members
           console.log(
               `Auto-promoted ${toPromote} member(s) from waitlist ` +
-              `for event ${context.params.eventId}`,
+              `for event ${event.params.eventId}`,
           );
 
           return null;
