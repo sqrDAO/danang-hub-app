@@ -12,7 +12,6 @@ major-version bumps with breaking API changes that require code review.
 - `src/services/*.js` (edited) — audit for removed/renamed SDK exports
 - `functions/package.json` (edited) — bump `firebase-functions ^4.5.0 → ^7`
 - `functions/index.js` (edited) — migrate v1 function definitions to v2 API
-- `functions/.npmrc` (deleted) — no longer needed once functions supports admin@14
 
 ## Acceptance
 - [ ] `npm audit` on client shows 0 high severity vulnerabilities
@@ -45,8 +44,15 @@ major-version bumps with breaking API changes that require code review.
 - firebase-functions v5+ deprecates v1 in favor of v2
   (`onCall`, `onSchedule`, `onDocumentWritten` from `firebase-functions/v2/*`)
 - v2 functions have different runtime config (memory, timeout) syntax
-- firebase-functions@7.2.5 still only declares peer `firebase-admin ^11-13`;
-  once a release declares `^14`, the `functions/.npmrc` shim can be removed
+- firebase-admin namespaced→modular migration already shipped separately
+  (`done.fix-admin14-modular-imports.md`) — only the functions wrapper changes
+  here
+- `functions/.npmrc` (legacy-peer-deps) must STAY: verified 2026-07-03 that
+  firebase-functions@7.2.5 declares peer `firebase-admin ^11-13`, not ^14
+- **Deploy caveat:** GCF does not upgrade a v1 function to v2 in place — each
+  function must be deleted before the v2 deploy (`firebase functions:delete
+  <name>`), causing a brief outage window; scheduled functions get new Cloud
+  Scheduler jobs. Coordinate the delete+deploy with a human.
 
 **Sequencing:** client firebase first (lower risk), then functions (v1→v2 API
 rewrite is the larger change).
