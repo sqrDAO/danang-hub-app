@@ -702,7 +702,7 @@ const MemberBookings = () => {
                       <option value="4">{t('memberBookings.modal.duration4h')}</option>
                       <option value="5">{t('memberBookings.modal.duration5h')}</option>
                       <option value="6">{t('memberBookings.modal.duration6h')}</option>
-                      <option value="8">{t('memberBookings.modal.durationFullDay')}</option>
+                      <option value="9">{t('memberBookings.modal.durationFullDay')}</option>
                     </select>
                   </div>
                   
