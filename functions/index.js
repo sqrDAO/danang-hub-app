@@ -1,14 +1,18 @@
 const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+const {initializeApp} = require("firebase-admin/app");
+const {
+  getFirestore, Timestamp, FieldValue,
+} = require("firebase-admin/firestore");
+const {getAuth} = require("firebase-admin/auth");
 const crypto = require("crypto");
 const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
 const bs58 = require("bs58");
 const nodemailer = require("nodemailer");
 
-admin.initializeApp();
+initializeApp();
 
-const db = admin.firestore();
+const db = getFirestore();
 
 // Region for all deployed Cloud Functions. Pinned to us-central1 until the
 // deploying service account is granted roles/cloudfunctions.admin (required
@@ -375,7 +379,7 @@ const HUB_UTC_OFFSET_HOURS = 7;
 /**
  * Get start-of-day timestamp for today in hub timezone (Asia/Ho_Chi_Minh).
  * Bookings with startTime before this have a booking date that has passed.
- * @return {admin.firestore.Timestamp}
+ * @return {Timestamp}
  */
 function getStartOfTodayHubTimezone() {
   const now = new Date();
@@ -392,7 +396,7 @@ function getStartOfTodayHubTimezone() {
   const startOfTodayVN = new Date(
       midnightUtc - HUB_UTC_OFFSET_HOURS * 60 * 60 * 1000,
   );
-  return admin.firestore.Timestamp.fromDate(startOfTodayVN);
+  return Timestamp.fromDate(startOfTodayVN);
 }
 
 // Auto check-out expired bookings + auto-complete past-day bookings
@@ -400,8 +404,8 @@ exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
       try {
-        const now = admin.firestore.Timestamp.now();
-        const oneHourAgo = admin.firestore.Timestamp.fromMillis(
+        const now = Timestamp.now();
+        const oneHourAgo = Timestamp.fromMillis(
             now.toMillis() - 60 * 60 * 1000,
         );
         const startOfToday = getStartOfTodayHubTimezone();
@@ -417,7 +421,7 @@ exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
         expiredCheckedIn.forEach((doc) => {
           toComplete.set(doc.ref.path, {
             status: "completed",
-            checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
+            checkOutTime: FieldValue.serverTimestamp(),
             updatedAt: new Date().toISOString(),
           });
         });
@@ -434,7 +438,7 @@ exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
           expiredQuery.forEach((doc) => {
             toComplete.set(doc.ref.path, {
               status: "completed",
-              checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
+              checkOutTime: FieldValue.serverTimestamp(),
               updatedAt: new Date().toISOString(),
             });
           });
@@ -450,7 +454,7 @@ exports.autoCheckoutExpiredBookings = functions.region(REGION).pubsub
         pastDayCheckedIn.forEach((doc) => {
           toComplete.set(doc.ref.path, {
             status: "completed",
-            checkOutTime: admin.firestore.FieldValue.serverTimestamp(),
+            checkOutTime: FieldValue.serverTimestamp(),
             updatedAt: new Date().toISOString(),
           });
         });
@@ -543,7 +547,7 @@ exports.cleanupOldBookings = functions.region(REGION).pubsub
     .schedule("every 24 hours")
     .onRun(async (context) => {
       try {
-        const thirtyDaysAgo = admin.firestore.Timestamp.fromMillis(
+        const thirtyDaysAgo = Timestamp.fromMillis(
             Date.now() - 30 * 24 * 60 * 60 * 1000,
         );
 
@@ -574,11 +578,11 @@ exports.sendEventReminders = functions.region(REGION).pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
       try {
-        const now = admin.firestore.Timestamp.now();
-        const in24Hours = admin.firestore.Timestamp.fromMillis(
+        const now = Timestamp.now();
+        const in24Hours = Timestamp.fromMillis(
             now.toMillis() + 24 * 60 * 60 * 1000,
         );
-        const in25Hours = admin.firestore.Timestamp.fromMillis(
+        const in25Hours = Timestamp.fromMillis(
             now.toMillis() + 25 * 60 * 60 * 1000,
         );
 
@@ -667,7 +671,7 @@ exports.notifyEventStatusChange = functions
           status: after.status,
           rejectionReason,
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
 
         // 2. Send email if organizer has emailNotifications enabled
@@ -927,7 +931,7 @@ exports.verifyWalletSignature = functions.region(REGION).https.onCall(
         uid = `sol_${address}`;
       }
 
-      const token = await admin.auth().createCustomToken(uid);
+      const token = await getAuth().createCustomToken(uid);
       return {token};
     },
 );
@@ -961,7 +965,7 @@ exports.autoPromoteWaitlist = functions.region(REGION).firestore
           const remaining = waitlist.slice(toPromote);
 
           await db.collection("events").doc(context.params.eventId).update({
-            attendees: admin.firestore.FieldValue.arrayUnion(...promoted),
+            attendees: FieldValue.arrayUnion(...promoted),
             waitlist: remaining,
           });
 
