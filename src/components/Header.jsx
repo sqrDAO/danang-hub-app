@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../contexts/AuthContext'
-import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import Avatar from './Avatar'
 import './Header.css'
 

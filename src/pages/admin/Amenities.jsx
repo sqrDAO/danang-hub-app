@@ -6,7 +6,7 @@ import Modal from '../../components/Modal'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
-import { showToast } from '../../components/Toast'
+import { showToast } from '../../utils/toast'
 import './Amenities.css'
 
 const DAYS_OF_WEEK = [

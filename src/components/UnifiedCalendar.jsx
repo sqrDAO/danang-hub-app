@@ -1,6 +1,6 @@
 import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { getBookings } from '../services/bookings'
 import { getApprovedEvents } from '../services/events'
 import { getAmenities } from '../services/amenities'

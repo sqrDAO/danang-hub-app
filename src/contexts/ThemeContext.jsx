@@ -1,16 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { ThemeContext } from '../hooks/useTheme'
 
 const THEME_STORAGE_KEY = 'hub-theme'
-
-const ThemeContext = createContext({})
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext)
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider')
-  }
-  return context
-}
 
 const getSystemPreference = () => {
   if (typeof window === 'undefined' || !window.matchMedia) return 'dark'

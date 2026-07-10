@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import Modal from '../components/Modal'

@@ -1,6 +1,6 @@
 import './Footer.css'
 import { useTranslation } from 'react-i18next'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../hooks/useTheme'
 import { useLocation } from 'react-router-dom'
 
 const MARKETING_BASE = 'https://www.danangblockchainhub.com'

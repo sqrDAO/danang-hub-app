@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react'
+import { subscribeToToasts } from '../utils/toast'
 import './Toast.css'
-
-let toastIdCounter = 0
-const toastListeners = new Set()
-
-export const showToast = (message, type = 'info', duration = 3000) => {
-  const id = ++toastIdCounter
-  const toast = { id, message, type, duration }
-  
-  toastListeners.forEach(listener => listener(toast))
-  return id
-}
 
 export const ToastContainer = () => {
   const [toasts, setToasts] = useState([])
@@ -24,10 +14,7 @@ export const ToastContainer = () => {
       }, toast.duration)
     }
 
-    toastListeners.add(listener)
-    return () => {
-      toastListeners.delete(listener)
-    }
+    return subscribeToToasts(listener)
   }, [])
 
   const removeToast = (id) => {

@@ -1,4 +1,4 @@
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
