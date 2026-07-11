@@ -206,8 +206,10 @@ async function computeBookingAvailability({
     }
 
     const booking = doc.data();
-    const bookingStart = booking.startTime.toDate();
-    const bookingEnd = booking.endTime.toDate();
+    const bookingStart = typeof booking.startTime.toDate === "function" ?
+      booking.startTime.toDate() : new Date(booking.startTime);
+    const bookingEnd = typeof booking.endTime.toDate === "function" ?
+      booking.endTime.toDate() : new Date(booking.endTime);
 
     // Check for overlap
     if (
