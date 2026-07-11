@@ -24,6 +24,221 @@ const formatMemberSince = (createdAt, t) => {
   return years === 1 ? t('profile.memberSinceRelative.oneYear') : t('profile.memberSinceRelative.years', { count: years })
 }
 
+const profileModalTitle = (member, t) =>
+  member
+    ? t('adminMembers.memberProfileTitle', { name: member.displayName || t('adminMembers.title') })
+    : t('adminMembers.memberProfile')
+
+const MemberEditForm = ({ member, t, onSubmit, onCancel }) => {
+  if (!member) return null
+  return (
+    <form onSubmit={onSubmit}>
+      <div className="form-group">
+        <label className="form-label">{t('profile.displayName')}</label>
+        <input
+          type="text"
+          name="displayName"
+          className="form-field"
+          defaultValue={member.displayName}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <label className="form-label">{t('profile.email')}</label>
+        <input
+          type="email"
+          name="email"
+          className="form-field"
+          defaultValue={member.email}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <label className="form-label">{t('adminMembers.membershipType')}</label>
+        <select name="membershipType" className="form-field" defaultValue={member.membershipType}>
+          <option value="member">{t('adminMembers.memberOption')}</option>
+          <option value="admin">{t('adminMembers.adminOption')}</option>
+        </select>
+      </div>
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary">
+          {t('common.save')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onCancel}
+        >
+          {t('common.cancel')}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+const MemberProfileHeader = ({ member, t }) => (
+  <div className="profile-header">
+    <div className="profile-avatar-wrap">
+      <Avatar
+        src={member.photoURL}
+        name={member.displayName}
+        size="xl"
+        className="profile-avatar"
+      />
+    </div>
+    <div className="profile-info">
+      <h2 className="profile-name">{member.displayName || t('common.na')}</h2>
+      <p className="profile-email">{member.email || t('common.na')}</p>
+      <span className={`membership-badge ${member.membershipType}`}>
+        {t(`status.${member.membershipType || 'member'}`)}
+      </span>
+    </div>
+  </div>
+)
+
+const MemberBasicInfoSection = ({ member, t }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.displayName')}</span>
+      <span className="detail-value">{member.displayName || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.email')}</span>
+      <span className="detail-value">{member.email || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.phone')}</span>
+      <span className="detail-value">{member.phone || '—'}</span>
+    </div>
+    {member.walletAddress && (
+      <div className="profile-detail-item profile-detail-wallet">
+        <span className="detail-label">{t(walletChainLabel(member.walletAddress))}</span>
+        <span className="detail-value wallet-address-display">
+          <span className="wallet-address-text">{member.walletAddress}</span>
+        </span>
+      </div>
+    )}
+  </section>
+)
+
+const MemberProfessionalSection = ({ member, t }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">{t('profile.professional')}</h3>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.company')}</span>
+      <span className="detail-value">{member.company || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.role')}</span>
+      <span className="detail-value">{member.jobTitle || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.linkedIn')}</span>
+      <span className="detail-value">
+        {member.linkedIn ? (
+          <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.linkedIn}
+          </a>
+        ) : '—'}
+      </span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.website')}</span>
+      <span className="detail-value">
+        {member.website ? (
+          <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.website}
+          </a>
+        ) : '—'}
+      </span>
+    </div>
+  </section>
+)
+
+const MemberAboutSection = ({ member, t }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">{t('profile.about')}</h3>
+    <div className="profile-detail-item profile-detail-bio">
+      <span className="detail-label">{t('profile.bio')}</span>
+      <span className="detail-value">{member.bio || '—'}</span>
+    </div>
+  </section>
+)
+
+const MemberPreferencesSection = ({ member, t }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">{t('profile.preferences')}</h3>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.emailNotifications')}</span>
+      <span className="detail-value">
+        {(member.preferences?.emailNotifications !== false) ? t('common.on') : t('common.off')}
+      </span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.eventReminders')}</span>
+      <span className="detail-value">
+        {(member.preferences?.eventReminders !== false) ? t('common.on') : t('common.off')}
+      </span>
+    </div>
+  </section>
+)
+
+const MemberActivitySection = ({ member, stats, statsLoading, t }) => (
+  <section className="profile-section profile-section-activity">
+    <h3 className="profile-section-title">{t('profile.activity')}</h3>
+    {statsLoading ? (
+      <div className="profile-stats-loading">{t('common.loading')}</div>
+    ) : stats ? (
+      <div className="profile-stats">
+        <div className="profile-stat">
+          <span className="profile-stat-value">{stats.totalBookings}</span>
+          <span className="profile-stat-label">{t('profile.bookings')}</span>
+        </div>
+        <div className="profile-stat">
+          <span className="profile-stat-value">{stats.eventsAttended}</span>
+          <span className="profile-stat-label">{t('profile.eventsAttended')}</span>
+        </div>
+        <div className="profile-stat">
+          <span className="profile-stat-value">{stats.eventsOrganized}</span>
+          <span className="profile-stat-label">{t('profile.eventsOrganized')}</span>
+        </div>
+      </div>
+    ) : null}
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.memberSince')}</span>
+      <span className="detail-value">
+        {member.createdAt
+          ? `${formatDateDDMMYYYY(member.createdAt)} (${formatMemberSince(member.createdAt, t)})`
+          : t('common.na')}
+      </span>
+    </div>
+  </section>
+)
+
+const MemberProfileBody = ({ member, stats, statsLoading, t, onEdit, onClose }) => {
+  if (!member) return null
+  return (
+    <div className="profile-modal-content">
+      <MemberProfileHeader member={member} t={t} />
+      <MemberBasicInfoSection member={member} t={t} />
+      <MemberProfessionalSection member={member} t={t} />
+      <MemberAboutSection member={member} t={t} />
+      <MemberPreferencesSection member={member} t={t} />
+      <MemberActivitySection member={member} stats={stats} statsLoading={statsLoading} t={t} />
+
+      <div className="form-actions">
+        <button type="button" className="btn btn-primary" onClick={onEdit}>
+          {t('common.edit')}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          {t('common.close')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const AdminMembers = () => {
   const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -73,6 +288,11 @@ const AdminMembers = () => {
   const handleEdit = (member) => {
     setSelectedMember(member)
     setIsModalOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setIsModalOpen(false)
+    setSelectedMember(null)
   }
 
   const handleViewProfile = (member) => {
@@ -165,8 +385,8 @@ const AdminMembers = () => {
                 <tr key={member.id}>
                   <td>
                     <div className="member-cell">
-                      <Avatar 
-                        src={member.photoURL} 
+                      <Avatar
+                        src={member.photoURL}
                         name={member.displayName}
                         size="sm"
                       />
@@ -182,19 +402,19 @@ const AdminMembers = () => {
                   <td>{member.createdAt ? formatDateDDMMYYYY(member.createdAt) : t('common.na')}</td>
                   <td>
                     <div className="action-buttons">
-                      <button 
+                      <button
                         className="btn btn-view-profile btn-sm"
                         onClick={() => handleViewProfile(member)}
                       >
                         {t('common.viewProfile')}
                       </button>
-                      <button 
+                      <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleEdit(member)}
                       >
                         {t('common.edit')}
                       </button>
-                      <button 
+                      <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDelete(member.id)}
                       >
@@ -215,8 +435,8 @@ const AdminMembers = () => {
             {filteredMembers.map(member => (
               <div key={member.id} className="member-card-mobile">
                 <div className="member-card-mobile-header">
-                  <Avatar 
-                    src={member.photoURL} 
+                  <Avatar
+                    src={member.photoURL}
                     name={member.displayName}
                     size="md"
                   />
@@ -238,19 +458,19 @@ const AdminMembers = () => {
                   </div>
                 </div>
                 <div className="member-card-mobile-actions">
-                  <button 
+                  <button
                     className="btn btn-view-profile btn-sm"
                     onClick={() => handleViewProfile(member)}
                   >
                     {t('common.viewProfile')}
                   </button>
-                  <button 
+                  <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleEdit(member)}
                   >
                     {t('common.edit')}
                   </button>
-                  <button 
+                  <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(member.id)}
                   >
@@ -264,205 +484,30 @@ const AdminMembers = () => {
 
         <Modal
           isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSelectedMember(null)
-          }}
+          onClose={closeEditModal}
           title={t('adminMembers.editMember')}
         >
-          {selectedMember && (
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">{t('profile.displayName')}</label>
-                <input
-                  type="text"
-                  name="displayName"
-                  className="form-field"
-                  defaultValue={selectedMember.displayName}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('profile.email')}</label>
-                <input
-                  type="email"
-                  name="email"
-                  className="form-field"
-                  defaultValue={selectedMember.email}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('adminMembers.membershipType')}</label>
-                <select name="membershipType" className="form-field" defaultValue={selectedMember.membershipType}>
-                  <option value="member">{t('adminMembers.memberOption')}</option>
-                  <option value="admin">{t('adminMembers.adminOption')}</option>
-                </select>
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary">
-                  {t('common.save')}
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setIsModalOpen(false)
-                    setSelectedMember(null)
-                  }}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </form>
-          )}
+          <MemberEditForm
+            member={selectedMember}
+            t={t}
+            onSubmit={handleSubmit}
+            onCancel={closeEditModal}
+          />
         </Modal>
 
         <Modal
           isOpen={isProfileModalOpen}
           onClose={closeProfileModal}
-          title={profileModalMember ? t('adminMembers.memberProfileTitle', { name: profileModalMember.displayName || t('adminMembers.title') }) : t('adminMembers.memberProfile')}
+          title={profileModalTitle(profileModalMember, t)}
         >
-          {profileModalMember && (
-            <div className="profile-modal-content">
-              <div className="profile-header">
-                <div className="profile-avatar-wrap">
-                  <Avatar
-                    src={profileModalMember.photoURL}
-                    name={profileModalMember.displayName}
-                    size="xl"
-                    className="profile-avatar"
-                  />
-                </div>
-                <div className="profile-info">
-                  <h2 className="profile-name">{profileModalMember.displayName || t('common.na')}</h2>
-                  <p className="profile-email">{profileModalMember.email || t('common.na')}</p>
-                  <span className={`membership-badge ${profileModalMember.membershipType}`}>
-                    {t(`status.${profileModalMember.membershipType || 'member'}`)}
-                  </span>
-                </div>
-              </div>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.displayName')}</span>
-                  <span className="detail-value">{profileModalMember.displayName || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.email')}</span>
-                  <span className="detail-value">{profileModalMember.email || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.phone')}</span>
-                  <span className="detail-value">{profileModalMember.phone || '—'}</span>
-                </div>
-                {profileModalMember.walletAddress && (
-                  <div className="profile-detail-item profile-detail-wallet">
-                    <span className="detail-label">{t(walletChainLabel(profileModalMember.walletAddress))}</span>
-                    <span className="detail-value wallet-address-display">
-                      <span className="wallet-address-text">{profileModalMember.walletAddress}</span>
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.professional')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.company')}</span>
-                  <span className="detail-value">{profileModalMember.company || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.role')}</span>
-                  <span className="detail-value">{profileModalMember.jobTitle || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.linkedIn')}</span>
-                  <span className="detail-value">
-                    {profileModalMember.linkedIn ? (
-                      <a href={profileModalMember.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {profileModalMember.linkedIn}
-                      </a>
-                    ) : '—'}
-                  </span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.website')}</span>
-                  <span className="detail-value">
-                    {profileModalMember.website ? (
-                      <a href={profileModalMember.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {profileModalMember.website}
-                      </a>
-                    ) : '—'}
-                  </span>
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.about')}</h3>
-                <div className="profile-detail-item profile-detail-bio">
-                  <span className="detail-label">{t('profile.bio')}</span>
-                  <span className="detail-value">{profileModalMember.bio || '—'}</span>
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.emailNotifications')}</span>
-                  <span className="detail-value">
-                    {(profileModalMember.preferences?.emailNotifications !== false) ? t('common.on') : t('common.off')}
-                  </span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.eventReminders')}</span>
-                  <span className="detail-value">
-                    {(profileModalMember.preferences?.eventReminders !== false) ? t('common.on') : t('common.off')}
-                  </span>
-                </div>
-              </section>
-
-              <section className="profile-section profile-section-activity">
-                <h3 className="profile-section-title">{t('profile.activity')}</h3>
-                {statsLoading ? (
-                  <div className="profile-stats-loading">{t('common.loading')}</div>
-                ) : profileStats ? (
-                  <div className="profile-stats">
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{profileStats.totalBookings}</span>
-                      <span className="profile-stat-label">{t('profile.bookings')}</span>
-                    </div>
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{profileStats.eventsAttended}</span>
-                      <span className="profile-stat-label">{t('profile.eventsAttended')}</span>
-                    </div>
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{profileStats.eventsOrganized}</span>
-                      <span className="profile-stat-label">{t('profile.eventsOrganized')}</span>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.memberSince')}</span>
-                  <span className="detail-value">
-                    {profileModalMember.createdAt
-                      ? `${formatDateDDMMYYYY(profileModalMember.createdAt)} (${formatMemberSince(profileModalMember.createdAt, t)})`
-                      : t('common.na')}
-                  </span>
-                </div>
-              </section>
-
-              <div className="form-actions">
-                <button type="button" className="btn btn-primary" onClick={handleEditFromProfile}>
-                  {t('common.edit')}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={closeProfileModal}>
-                  {t('common.close')}
-                </button>
-              </div>
-            </div>
-          )}
+          <MemberProfileBody
+            member={profileModalMember}
+            stats={profileStats}
+            statsLoading={statsLoading}
+            t={t}
+            onEdit={handleEditFromProfile}
+            onClose={closeProfileModal}
+          />
         </Modal>
       </div>
     </Layout>

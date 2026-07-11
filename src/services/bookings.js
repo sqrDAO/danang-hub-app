@@ -272,6 +272,68 @@ const calculateAvailableSlots = (bookings, date) => {
   return slots
 }
 
+// Whether a candidate occurrence date falls on an open weekday
+const isAllowedWeekday = (allowedWeekdays, date) =>
+  !allowedWeekdays || allowedWeekdays.includes(date.getDay())
+
+// Check for conflicts before creating if function provided
+const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, bookingEnd) => {
+  if (!checkConflictsFn) return false
+  try {
+    const conflictCheck = await checkConflictsFn(
+      amenityId,
+      bookingStart.toISOString(),
+      bookingEnd.toISOString()
+    )
+    return conflictCheck.hasConflicts
+  } catch (error) {
+    console.error(`Error checking conflicts for recurring booking:`, error)
+    return false
+  }
+}
+
+// Create a single occurrence of a recurring booking.
+// Returns the created booking (with id) or null when skipped/failed.
+const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn }) => {
+  const hasConflict = await hasRecurringConflict(checkConflictsFn, baseBooking.amenityId, bookingStart, bookingEnd)
+  if (hasConflict) return null
+
+  const bookingData = {
+    ...baseBooking,
+    startTime: bookingStart.toISOString(),
+    endTime: bookingEnd.toISOString(),
+    recurrencePattern: {
+      frequency,
+      originalStart: baseBooking.startTime
+    }
+  }
+
+  try {
+    const id = await createBooking(bookingData)
+    return { id, ...bookingData }
+  } catch (error) {
+    console.error(`Error creating recurring booking for ${bookingStart}:`, error)
+    return null
+  }
+}
+
+// Move to next potential occurrence date
+const advanceRecurrenceDate = (currentDate, frequency) => {
+  switch (frequency) {
+    case 'daily':
+      currentDate.setDate(currentDate.getDate() + 1)
+      break
+    case 'weekly':
+      currentDate.setDate(currentDate.getDate() + 7)
+      break
+    case 'monthly':
+      currentDate.setMonth(currentDate.getMonth() + 1)
+      break
+    default:
+      break
+  }
+}
+
 // Create recurring bookings
 // Optional options.allowedWeekdays: array of JS getDay() numbers (0-6) that are open
 export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
@@ -279,6 +341,7 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
   const allowedWeekdays = Array.isArray(options.allowedWeekdays) ? options.allowedWeekdays : null
   const bookings = []
   const createdIds = []
+  const durationMs = new Date(baseBooking.endTime) - new Date(baseBooking.startTime)
 
   let currentDate = new Date(baseBooking.startTime)
   const end = endDate ? new Date(endDate) : null
@@ -288,64 +351,18 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
   while (count < maxOccurrences && (!end || currentDate <= end)) {
     const bookingStart = new Date(currentDate)
     const bookingEnd = new Date(bookingStart)
-    bookingEnd.setTime(bookingStart.getTime() + (new Date(baseBooking.endTime) - new Date(baseBooking.startTime)))
+    bookingEnd.setTime(bookingStart.getTime() + durationMs)
 
-    const weekday = bookingStart.getDay()
-    const isAllowedDay = !allowedWeekdays || allowedWeekdays.includes(weekday)
-
-    if (isAllowedDay) {
-      const bookingData = {
-        ...baseBooking,
-        startTime: bookingStart.toISOString(),
-        endTime: bookingEnd.toISOString(),
-        recurrencePattern: {
-          frequency,
-          originalStart: baseBooking.startTime
-        }
+    if (isAllowedWeekday(allowedWeekdays, bookingStart)) {
+      const created = await tryCreateOccurrence({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn })
+      if (created) {
+        createdIds.push(created.id)
+        bookings.push(created)
       }
-
-      // Check for conflicts before creating if function provided
-      let hasConflict = false
-      if (checkConflictsFn) {
-        try {
-          const conflictCheck = await checkConflictsFn(
-            baseBooking.amenityId,
-            bookingStart.toISOString(),
-            bookingEnd.toISOString()
-          )
-          hasConflict = conflictCheck.hasConflicts
-        } catch (error) {
-          console.error(`Error checking conflicts for recurring booking:`, error)
-        }
-      }
-
-      if (!hasConflict) {
-        try {
-          const id = await createBooking(bookingData)
-          createdIds.push(id)
-          bookings.push({ id, ...bookingData })
-        } catch (error) {
-          console.error(`Error creating recurring booking for ${currentDate}:`, error)
-        }
-      }
-
       count++
     }
 
-    // Move to next potential occurrence date
-    switch (frequency) {
-      case 'daily':
-        currentDate.setDate(currentDate.getDate() + 1)
-        break
-      case 'weekly':
-        currentDate.setDate(currentDate.getDate() + 7)
-        break
-      case 'monthly':
-        currentDate.setMonth(currentDate.getMonth() + 1)
-        break
-      default:
-        break
-    }
+    advanceRecurrenceDate(currentDate, frequency)
   }
 
   return { createdIds, bookings, totalCreated: createdIds.length }

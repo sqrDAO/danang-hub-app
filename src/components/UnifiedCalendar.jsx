@@ -1,6 +1,6 @@
 import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { getBookings } from '../services/bookings'
 import { getApprovedEvents } from '../services/events'
 import { getAmenities } from '../services/amenities'
@@ -32,6 +32,43 @@ const DayCell = memo(function DayCell({ date, isToday, items }) {
     </div>
   )
 })
+
+// Determine ownership:
+// - For members: All bookings in the query result are theirs (query filters by memberId)
+//   But we still verify to catch any data issues
+// - For admins: Check if booking.memberId matches currentUser.uid
+const bookingBelongsToUser = (booking, currentUserId, userIsAdmin) => {
+  const bookingMemberId = booking.memberId
+
+  if (!currentUserId) {
+    return false
+  }
+  if (userIsAdmin) {
+    return String(bookingMemberId || '') === String(currentUserId)
+  }
+
+  const bookingIdStr = String(bookingMemberId || '').trim()
+  const userIdStr = String(currentUserId).trim()
+  const belongsToUser = bookingIdStr === userIdStr && bookingIdStr !== ''
+
+  if (!belongsToUser && bookingIdStr !== '') {
+    console.warn('UnifiedCalendar: Booking memberId mismatch (but query filtered by memberId)', {
+      bookingId: booking.id,
+      bookingMemberId: bookingIdStr,
+      currentUserId: userIdStr,
+      booking
+    })
+    return true
+  }
+  if (bookingIdStr === '') {
+    console.warn('UnifiedCalendar: Booking missing memberId', {
+      bookingId: booking.id,
+      booking
+    })
+    return false
+  }
+  return belongsToUser
+}
 
 const UnifiedCalendar = () => {
   const { currentUser, isAdmin } = useAuth()
@@ -136,39 +173,7 @@ const UnifiedCalendar = () => {
 
         if (isNaN(startDate.getTime())) return
 
-        const bookingMemberId = booking.memberId
-
-        // Determine ownership:
-        // - For members: All bookings in the query result are theirs (query filters by memberId)
-        //   But we still verify to catch any data issues
-        // - For admins: Check if booking.memberId matches currentUser.uid
-        let belongsToUser = false
-
-        if (!currentUserId) {
-          belongsToUser = false
-        } else if (userIsAdmin) {
-          belongsToUser = String(bookingMemberId || '') === String(currentUserId)
-        } else {
-          const bookingIdStr = String(bookingMemberId || '').trim()
-          const userIdStr = String(currentUserId).trim()
-          belongsToUser = bookingIdStr === userIdStr && bookingIdStr !== ''
-
-          if (!belongsToUser && bookingIdStr !== '') {
-            console.warn('UnifiedCalendar: Booking memberId mismatch (but query filtered by memberId)', {
-              bookingId: booking.id,
-              bookingMemberId: bookingIdStr,
-              currentUserId: userIdStr,
-              booking
-            })
-            belongsToUser = true
-          } else if (bookingIdStr === '') {
-            console.warn('UnifiedCalendar: Booking missing memberId', {
-              bookingId: booking.id,
-              booking
-            })
-            belongsToUser = false
-          }
-        }
+        const belongsToUser = bookingBelongsToUser(booking, currentUserId, userIsAdmin)
 
         items.push({
           type: 'booking',

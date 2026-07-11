@@ -27,17 +27,15 @@ module.exports = {
       env: { node: true },
     },
     {
-      // Clean-code caps, scoped to app code. Currently "warn" with a
-      // --max-warnings ratchet in package.json while pre-existing violations
-      // are worked down (docs/backlog/todo.lint-ratchet.md); flip to "error"
-      // + --max-warnings 0 when the count hits zero.
+      // Clean-code caps, scoped to app code. Build-blocking: the lint script
+      // runs with --max-warnings 0.
       files: ['src/**/*.{js,jsx}'],
       rules: {
-        complexity: ['warn', 10], // cyclomatic complexity ≤ 10
-        'max-statements': ['warn', 30], // statements per function ≤ 30
-        'max-params': ['warn', 5], // arguments per function ≤ 5
-        'max-depth': ['warn', 4], // nested blocks ≤ 4
-        'max-nested-callbacks': ['warn', 4], // callback nesting ≤ 4
+        complexity: ['error', 10], // cyclomatic complexity ≤ 10
+        'max-statements': ['error', 30], // statements per function ≤ 30
+        'max-params': ['error', 5], // arguments per function ≤ 5
+        'max-depth': ['error', 4], // nested blocks ≤ 4
+        'max-nested-callbacks': ['error', 4], // callback nesting ≤ 4
       },
     },
   ],

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   signInWithPopup,
   signOut,
@@ -14,16 +14,7 @@ import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
   signInWithSolanaWallet as walletAuthSignInWithSolanaWallet,
 } from '../services/walletAuth'
-
-const AuthContext = createContext({})
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider')
-  }
-  return context
-}
+import { AuthContext } from '../hooks/useAuth'
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)

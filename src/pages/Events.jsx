@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import Modal from '../components/Modal'
@@ -12,6 +12,188 @@ import { getProjects } from '../services/projects'
 import { formatEventDate } from '../utils/timezone'
 import './Events.css'
 import './member/Profile.css'
+
+const getHostingProjectsLabel = (hostingProjects, projects) => {
+  if (typeof hostingProjects === 'string') return hostingProjects
+  return hostingProjects.map(projectId => {
+    const project = projects.find(p => p.id === projectId)
+    return project?.name || projectId
+  }).join(', ')
+}
+
+const HostingProjectsLine = ({ hostingProjects, projects }) => {
+  if (!hostingProjects) return null
+  return (
+    <p className="event-projects">
+      🏢 Hosted by: {getHostingProjectsLabel(hostingProjects, projects)}
+    </p>
+  )
+}
+
+const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost }) => (
+  <div className="event-info">
+    <p className="event-organizer">
+      Organizer:{' '}
+      <button
+        className="organizer-link"
+        onClick={() => onOpenHost(event.organizerId)}
+      >
+        {event.organizerDisplayName || event.organizerId}
+      </button>
+    </p>
+    {event.duration && (
+      <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+    )}
+    <p className="event-capacity">
+      👥 {event.attendees?.length || 0} / {event.capacity || 50} attendees
+    </p>
+    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} />
+    {event.eventLink && (
+      <p className="event-link">
+        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+      </p>
+    )}
+    {event.waitlist && event.waitlist.length > 0 && (
+      <p className="event-waitlist">
+        {event.waitlist.length} on waitlist
+      </p>
+    )}
+    {waitlistPosition && (
+      <p className="event-waitlist-position">
+        Your position: #{waitlistPosition}
+      </p>
+    )}
+    {event.description && (
+      <p className="event-description">{event.description}</p>
+    )}
+  </div>
+)
+
+const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist, onRegister, navigate }) => (
+  <div className="event-actions">
+    {currentUser ? (
+      registered ? (
+        <button
+          className="btn btn-secondary btn-full-width"
+          onClick={() => navigate(`/member/events?action=unregister&eventId=${event.id}`)}
+        >
+          ✓ Registered - Click to Unregister
+        </button>
+      ) : onWaitlist ? (
+        <button
+          className="btn btn-secondary btn-full-width"
+          onClick={() => navigate(`/member/events?action=leaveWaitlist&eventId=${event.id}`)}
+        >
+          On Waitlist - Click to Leave
+        </button>
+      ) : (
+        <>
+          <button
+            className="btn btn-primary btn-full-width btn-large"
+            onClick={() => onRegister(event.id)}
+            disabled={full}
+          >
+            {full ? 'Event Full' : '✓ Register for Event'}
+          </button>
+          {full && (
+            <button
+              className="btn btn-secondary btn-full-width"
+              onClick={() => navigate(`/member/events?action=joinWaitlist&eventId=${event.id}`)}
+              style={{ marginTop: '0.5rem' }}
+            >
+              Join Waitlist
+            </button>
+          )}
+        </>
+      )
+    ) : (
+      <>
+        <button
+          className="btn btn-primary btn-full-width btn-large"
+          onClick={() => onRegister(event.id)}
+          disabled={full}
+        >
+          {full ? 'Event Full' : 'Register for Event'}
+        </button>
+        {full && (
+          <p className="event-full-note">Sign in to join the waitlist</p>
+        )}
+      </>
+    )}
+  </div>
+)
+
+const HostProfessionalSection = ({ member }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">Professional</h3>
+    <div className="profile-detail-item">
+      <span className="detail-label">Company</span>
+      <span className="detail-value">{member.company || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">Role</span>
+      <span className="detail-value">{member.jobTitle || '—'}</span>
+    </div>
+    {member.linkedIn && (
+      <div className="profile-detail-item">
+        <span className="detail-label">LinkedIn</span>
+        <span className="detail-value">
+          <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.linkedIn}
+          </a>
+        </span>
+      </div>
+    )}
+    {member.website && (
+      <div className="profile-detail-item">
+        <span className="detail-label">Website</span>
+        <span className="detail-value">
+          <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.website}
+          </a>
+        </span>
+      </div>
+    )}
+  </section>
+)
+
+const HostProfileModal = ({ member, onClose }) => (
+  <Modal
+    isOpen={!!member}
+    onClose={onClose}
+    title={member?.displayName || 'Host'}
+  >
+    {member && (
+      <div className="profile-modal-content">
+        <div className="profile-header">
+          <div className="profile-avatar-wrap">
+            <Avatar src={member.photoURL} name={member.displayName} size="xl" />
+          </div>
+          <div className="profile-info">
+            <h2 className="profile-name">{member.displayName || '—'}</h2>
+            {(member.jobTitle || member.company) && (
+              <p className="profile-email">
+                {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            <span className={`membership-badge ${member.membershipType || 'member'}`}>
+              {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+            </span>
+          </div>
+        </div>
+
+        <HostProfessionalSection member={member} />
+
+        <section className="profile-section">
+          <h3 className="profile-section-title">About</h3>
+          <div className="profile-detail-item profile-detail-bio">
+            <span className="detail-value">{member.bio || '—'}</span>
+          </div>
+        </section>
+      </div>
+    )}
+  </Modal>
+)
 
 const Events = () => {
   const { currentUser } = useAuth()
@@ -150,102 +332,21 @@ const Events = () => {
                         {formatEventDate(event.date) || 'N/A'}
                       </span>
                     </div>
-                    <div className="event-info">
-                      <p className="event-organizer">
-                        Organizer:{' '}
-                        <button
-                          className="organizer-link"
-                          onClick={() => handleOpenHostModal(event.organizerId)}
-                        >
-                          {event.organizerDisplayName || event.organizerId}
-                        </button>
-                      </p>
-                      {event.duration && (
-                        <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
-                      )}
-                      <p className="event-capacity">
-                        👥 {event.attendees?.length || 0} / {event.capacity || 50} attendees
-                      </p>
-                      {event.hostingProjects && (
-                        <p className="event-projects">
-                          🏢 Hosted by: {typeof event.hostingProjects === 'string' 
-                            ? event.hostingProjects 
-                            : event.hostingProjects.map(projectId => {
-                                const project = projects.find(p => p.id === projectId)
-                                return project?.name || projectId
-                              }).join(', ')}
-                        </p>
-                      )}
-                      {event.eventLink && (
-                        <p className="event-link">
-                          🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
-                        </p>
-                      )}
-                      {event.waitlist && event.waitlist.length > 0 && (
-                        <p className="event-waitlist">
-                          {event.waitlist.length} on waitlist
-                        </p>
-                      )}
-                      {waitlistPosition && (
-                        <p className="event-waitlist-position">
-                          Your position: #{waitlistPosition}
-                        </p>
-                      )}
-                      {event.description && (
-                        <p className="event-description">{event.description}</p>
-                      )}
-                    </div>
-                    <div className="event-actions">
-                      {currentUser ? (
-                        registered ? (
-                          <button
-                            className="btn btn-secondary btn-full-width"
-                            onClick={() => navigate(`/member/events?action=unregister&eventId=${event.id}`)}
-                          >
-                            ✓ Registered - Click to Unregister
-                          </button>
-                        ) : onWaitlist ? (
-                          <button
-                            className="btn btn-secondary btn-full-width"
-                            onClick={() => navigate(`/member/events?action=leaveWaitlist&eventId=${event.id}`)}
-                          >
-                            On Waitlist - Click to Leave
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              className="btn btn-primary btn-full-width btn-large"
-                              onClick={() => handleRegister(event.id)}
-                              disabled={full}
-                            >
-                              {full ? 'Event Full' : '✓ Register for Event'}
-                            </button>
-                            {full && (
-                              <button
-                                className="btn btn-secondary btn-full-width"
-                                onClick={() => navigate(`/member/events?action=joinWaitlist&eventId=${event.id}`)}
-                                style={{ marginTop: '0.5rem' }}
-                              >
-                                Join Waitlist
-                              </button>
-                            )}
-                          </>
-                        )
-                      ) : (
-                        <>
-                          <button
-                            className="btn btn-primary btn-full-width btn-large"
-                            onClick={() => handleRegister(event.id)}
-                            disabled={full}
-                          >
-                            {full ? 'Event Full' : 'Register for Event'}
-                          </button>
-                          {full && (
-                            <p className="event-full-note">Sign in to join the waitlist</p>
-                          )}
-                        </>
-                      )}
-                    </div>
+                    <UpcomingEventInfo
+                      event={event}
+                      projects={projects}
+                      waitlistPosition={waitlistPosition}
+                      onOpenHost={handleOpenHostModal}
+                    />
+                    <UpcomingEventActions
+                      event={event}
+                      currentUser={currentUser}
+                      registered={registered}
+                      full={full}
+                      onWaitlist={onWaitlist}
+                      onRegister={handleRegister}
+                      navigate={navigate}
+                    />
                   </div>
                 )
               })}
@@ -290,16 +391,7 @@ const Events = () => {
                     {event.duration && (
                       <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
                     )}
-                    {event.hostingProjects && (
-                      <p className="event-projects">
-                        🏢 Hosted by: {typeof event.hostingProjects === 'string'
-                          ? event.hostingProjects
-                          : event.hostingProjects.map(projectId => {
-                            const project = projects.find(p => p.id === projectId)
-                            return project?.name || projectId
-                          }).join(', ')}
-                      </p>
-                    )}
+                    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} />
                     {event.eventLink && (
                       <p className="event-link">
                         🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
@@ -326,71 +418,10 @@ const Events = () => {
           onSignUp={handleSignUp}
         />
 
-        <Modal
-          isOpen={!!hostModalMember}
+        <HostProfileModal
+          member={hostModalMember}
           onClose={() => setHostModalMember(null)}
-          title={hostModalMember?.displayName || 'Host'}
-        >
-          {hostModalMember && (
-            <div className="profile-modal-content">
-              <div className="profile-header">
-                <div className="profile-avatar-wrap">
-                  <Avatar src={hostModalMember.photoURL} name={hostModalMember.displayName} size="xl" />
-                </div>
-                <div className="profile-info">
-                  <h2 className="profile-name">{hostModalMember.displayName || '—'}</h2>
-                  {(hostModalMember.jobTitle || hostModalMember.company) && (
-                    <p className="profile-email">
-                      {[hostModalMember.jobTitle, hostModalMember.company].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  <span className={`membership-badge ${hostModalMember.membershipType || 'member'}`}>
-                    {hostModalMember.membershipType === 'admin' ? 'Admin' : 'Member'}
-                  </span>
-                </div>
-              </div>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">Professional</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">Company</span>
-                  <span className="detail-value">{hostModalMember.company || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">Role</span>
-                  <span className="detail-value">{hostModalMember.jobTitle || '—'}</span>
-                </div>
-                {hostModalMember.linkedIn && (
-                  <div className="profile-detail-item">
-                    <span className="detail-label">LinkedIn</span>
-                    <span className="detail-value">
-                      <a href={hostModalMember.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {hostModalMember.linkedIn}
-                      </a>
-                    </span>
-                  </div>
-                )}
-                {hostModalMember.website && (
-                  <div className="profile-detail-item">
-                    <span className="detail-label">Website</span>
-                    <span className="detail-value">
-                      <a href={hostModalMember.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {hostModalMember.website}
-                      </a>
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">About</h3>
-                <div className="profile-detail-item profile-detail-bio">
-                  <span className="detail-value">{hostModalMember.bio || '—'}</span>
-                </div>
-              </section>
-            </div>
-          )}
-        </Modal>
+        />
       </div>
     </Layout>
   )
