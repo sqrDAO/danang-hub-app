@@ -52,8 +52,12 @@ service cloud.firestore {
       allow read: if isAuthenticated() && isOwner(resource.data.memberId);
       // Admins can read all bookings
       allow read: if isAdmin();
-      // Users can create their own bookings; admins can create on behalf of any member
-      allow create: if isAuthenticated() && isOwner(request.resource.data.memberId);
+      // Users can create their own bookings, always starting as pending
+      // (auto-approval, if any, happens server-side); admins can create
+      // on behalf of any member with any status
+      allow create: if isAuthenticated() && isOwner(request.resource.data.memberId) &&
+                       (!('status' in request.resource.data) ||
+                        request.resource.data.status == 'pending');
       allow create: if isAdmin();
       // Users can update their own bookings (limited fields)
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
