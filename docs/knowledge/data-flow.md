@@ -64,7 +64,7 @@ all non-empty). These are UX guards only — the real enforcement is `firestore.
 ## 2. Booking lifecycle
 
 ```
-pending ──admin──▶ approved ──member/admin──▶ checked-in ──member/cron──▶ completed
+pending (fixed desk) ──admin──▶ approved ──member/admin──▶ checked-in ──member/cron──▶ completed
    │ member (cancel)                                 ▲
    └────────▶ cancelled        autoCheckoutExpiredBookings (hourly) ─────┘
 ```
@@ -74,8 +74,9 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 1. `checkBookingConflicts(amenityId, start, end)` (`src/services/functions.js`) calls the
    callable of the same name. **Graceful degradation: if the function errors, the wrapper
    returns `{hasConflicts: false}`** — conflict checking is advisory, not enforced by rules.
-2. `createBooking()` (`src/services/bookings.js`) writes the doc with `status: 'pending'`
-   and `Timestamp`-converted times.
+2. `createBooking()` (`src/services/bookings.js`) writes regular bookings with
+   `status: 'approved'` and `Timestamp`-converted times. Member-created fixed desk plan
+   bookings remain `pending` for admin approval.
 3. `sendBookingConfirmation` fires `onCreate` — currently **logs only** (email TODO),
    reading `members/{memberId}.preferences.emailNotifications`.
 

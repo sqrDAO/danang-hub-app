@@ -22,6 +22,9 @@ const DEFAULT_DURATION_HOURS = {
   'event-space': 2
 }
 
+const isStandaloneBooking = booking =>
+  booking.planType !== 'fixed-desk' && !booking.eventId
+
 const MemberBookings = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
@@ -527,6 +530,7 @@ const MemberBookings = () => {
             <div className="bookings-list">
               {upcomingBookings.map(booking => {
                 const amenity = amenities.find(a => a.id === booking.amenityId)
+                const canManageIndividually = isStandaloneBooking(booking)
                 return (
                   <div key={booking.id} className="booking-card">
                     <div className="booking-header">
@@ -534,8 +538,8 @@ const MemberBookings = () => {
                     </div>
                     <div className="booking-content">
                       <div className="booking-status-section">
-                        <span className={`status-badge ${booking.status}`}>
-                          {booking.status}
+                        <span className={`status-badge ${booking.status || 'pending'}`}>
+                          {t(`status.${booking.status || 'pending'}`)}
                         </span>
                         {booking.startTime && booking.endTime ? (() => {
                           const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
@@ -555,21 +559,21 @@ const MemberBookings = () => {
                       </div>
                     </div>
                     <div className="booking-actions">
-                      {booking.status === 'pending' && (
-                        <>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleCancel(booking.id)}
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(booking.id)}
-                          >
-                            {t('common.delete')}
-                          </button>
-                        </>
+                      {canManageIndividually && ['pending', 'approved'].includes(booking.status) && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleCancel(booking.id)}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      )}
+                      {canManageIndividually && booking.status === 'pending' && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(booking.id)}
+                        >
+                          {t('common.delete')}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -598,7 +602,9 @@ const MemberBookings = () => {
                         <span className="fixed-desk-plan-name">{amenity?.name || plan.amenityId}</span>
                         <div className="fixed-desk-plan-badges">
                           <span className="fixed-desk-badge">{t('fixedDesk.badge')}</span>
-                          <span className={`status-badge ${plan.status}`}>{plan.status}</span>
+                          <span className={`status-badge ${plan.status || 'pending'}`}>
+                            {t(`status.${plan.status || 'pending'}`)}
+                          </span>
                         </div>
                       </div>
                       <div className="fixed-desk-plan-meta">
@@ -642,8 +648,8 @@ const MemberBookings = () => {
                     </div>
                     <div className="booking-content">
                       <div className="booking-status-section">
-                        <span className={`status-badge ${booking.status}`}>
-                          {booking.status}
+                        <span className={`status-badge ${booking.status || 'pending'}`}>
+                          {t(`status.${booking.status || 'pending'}`)}
                         </span>
                         {booking.startTime && booking.endTime ? (() => {
                           const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)

@@ -99,11 +99,12 @@ export const getBooking = async (id) => {
 
 export const createBooking = async (data) => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
+  const defaultStatus = data.planType === 'fixed-desk' ? 'pending' : 'approved'
   const docRef = await addDoc(bookingsRef, {
     ...data,
     startTime: Timestamp.fromDate(new Date(data.startTime)),
     endTime: Timestamp.fromDate(new Date(data.endTime)),
-    status: data.status || 'pending',
+    status: data.status || defaultStatus,
     createdAt: new Date().toISOString()
   })
   return docRef.id

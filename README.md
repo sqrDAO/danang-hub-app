@@ -23,7 +23,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Recurring Bookings** — weekly recurring reservations
 - **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
 - **Bulk Approval** — admins can approve all pending bookings in one click
-- **Booking Status Workflow** — `pending → approved → checked-in → completed`
+- **Booking Status Workflow** — regular bookings start at `approved`; member-created fixed-desk bookings start at `pending`, then continue through `approved → checked-in → completed`
 - **Event-Space Restrictions** — event space requires bookings outside office hours (weekdays: after 6 PM; weekends: 8 AM – 10 PM, must end by 10 PM)
 
 ### Event Management
