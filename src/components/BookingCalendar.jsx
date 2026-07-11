@@ -17,6 +17,31 @@ const TimeSlot = memo(function TimeSlot({ status, title, slotKey, onSelect }) {
   )
 })
 
+const countOverlappingBookings = (slotMs, bookingRanges) => {
+  let overlapping = 0
+  for (let i = 0; i < bookingRanges.length; i++) {
+    const [s, e] = bookingRanges[i]
+    if (slotMs >= s && slotMs < e) overlapping++
+  }
+  return overlapping
+}
+
+const computeSlotStatus = (slotMs, { dayAvailable, now, selStart, selEnd, bookingRanges, isSharedDesk, capacity }) => {
+  if (!dayAvailable) return 'unavailable'
+  if (slotMs < now) return 'past'
+  if (selStart !== null && selEnd !== null && slotMs >= selStart && slotMs < selEnd) return 'selected'
+  const overlapping = countOverlappingBookings(slotMs, bookingRanges)
+  const booked = isSharedDesk ? overlapping >= capacity : overlapping > 0
+  return booked ? 'booked' : 'available'
+}
+
+const getSlotTitle = (status, time, t) =>
+  status === 'unavailable' ? t('calendar.closed') :
+  status === 'past' ? t('calendar.past') :
+  status === 'booked' ? t('calendar.booked') :
+  status === 'selected' ? t('calendar.selected') :
+  t('calendar.availableAt', { time })
+
 const BookingCalendar = ({
   amenityId,
   selectedDate,
@@ -153,35 +178,15 @@ const BookingCalendar = ({
 
     return displayDates.map(date => {
       const dayAvailable = availability.availableDays.includes(date.getDay())
+      const ctx = { dayAvailable, now, selStart, selEnd, bookingRanges, isSharedDesk, capacity }
       const slots = timeSlots.map(slot => {
         const slotDate = new Date(date)
         const [h, m] = slot.time.split(':').map(Number)
         slotDate.setHours(h, m, 0, 0)
         const slotMs = slotDate.getTime()
 
-        let status
-        if (!dayAvailable) {
-          status = 'unavailable'
-        } else if (slotMs < now) {
-          status = 'past'
-        } else if (selStart !== null && selEnd !== null && slotMs >= selStart && slotMs < selEnd) {
-          status = 'selected'
-        } else {
-          let overlapping = 0
-          for (let i = 0; i < bookingRanges.length; i++) {
-            const [s, e] = bookingRanges[i]
-            if (slotMs >= s && slotMs < e) overlapping++
-          }
-          const booked = isSharedDesk ? overlapping >= capacity : overlapping > 0
-          status = booked ? 'booked' : 'available'
-        }
-
-        const title =
-          status === 'unavailable' ? t('calendar.closed') :
-          status === 'past' ? t('calendar.past') :
-          status === 'booked' ? t('calendar.booked') :
-          status === 'selected' ? t('calendar.selected') :
-          t('calendar.availableAt', { time: slot.time })
+        const status = computeSlotStatus(slotMs, ctx)
+        const title = getSlotTitle(status, slot.time, t)
 
         return { key: slotMs, status, title }
       })

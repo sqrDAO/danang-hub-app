@@ -15,6 +15,171 @@ import '../member/Profile.css'
 
 const DESCRIPTION_MAX_LENGTH = 120
 
+const truncateDescription = (text) => {
+  if (!text || typeof text !== 'string') return ''
+  return text.length <= DESCRIPTION_MAX_LENGTH
+    ? text
+    : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
+}
+
+const getEventCapacityInfo = (event) => {
+  const attendeeCount = event.attendees?.length ?? 0
+  const capacity = event.capacity ?? 0
+  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
+  const full = capacity > 0 && attendeeCount >= capacity
+  return { attendeeCount, capacity, spotsLeft, full }
+}
+
+const EventCapacityRow = ({ attendeeCount, capacity, spotsLeft, full }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="event-capacity-row">
+      <span className="event-capacity">
+        {t('adminDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
+      </span>
+      {capacity > 0 && (
+        <span className="event-spots">
+          {full ? t('adminDashboard.full') : t('adminDashboard.spotsLeft', { count: spotsLeft })}
+        </span>
+      )}
+    </div>
+  )
+}
+
+const UpcomingEventItem = ({ event, onShowOrganizer }) => {
+  const { t } = useTranslation()
+  const { attendeeCount, capacity, spotsLeft, full } = getEventCapacityInfo(event)
+  const title = event.title || event.name || t('adminDashboard.untitledEvent')
+  return (
+    <li className="event-item event-item-detailed">
+      {event.bannerUrl && (
+        <div className="event-item-banner">
+          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
+        </div>
+      )}
+      <div className="event-item-main">
+        <div className="event-item-header">
+          <h4 className="event-title">{title}</h4>
+        </div>
+        <div className="event-meta">
+          <span className="event-datetime">
+            {event.date ? formatEventDate(event.date) : 'N/A'}
+            {event.date && (
+              <span className="event-time"> {t('adminDashboard.at')} {formatEventTime(event.date)}</span>
+            )}
+          </span>
+          <span className="event-organizer">
+            Organizer:{' '}
+            <button
+              className="organizer-link"
+              onClick={() => onShowOrganizer(event.organizerId)}
+            >
+              {event.organizerDisplayName || '—'}
+            </button>
+          </span>
+        </div>
+        {event.description && (
+          <p className="event-description-truncated">
+            {truncateDescription(event.description)}
+          </p>
+        )}
+        <EventCapacityRow
+          attendeeCount={attendeeCount}
+          capacity={capacity}
+          spotsLeft={spotsLeft}
+          full={full}
+        />
+      </div>
+      <div className="event-item-actions">
+        <Link
+          to="/admin/events"
+          className="event-view-details"
+          aria-label={`Manage event: ${title}`}
+        >
+          {t('common.manage')}
+        </Link>
+      </div>
+    </li>
+  )
+}
+
+const HostProfileHeader = ({ member }) => (
+  <div className="profile-header">
+    <div className="profile-avatar-wrap">
+      <Avatar src={member.photoURL} name={member.displayName} size="xl" />
+    </div>
+    <div className="profile-info">
+      <h2 className="profile-name">{member.displayName || '—'}</h2>
+      {(member.jobTitle || member.company) && (
+        <p className="profile-email">
+          {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      <span className={`membership-badge ${member.membershipType || 'member'}`}>
+        {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+      </span>
+    </div>
+  </div>
+)
+
+const HostProfileDetails = ({ member }) => (
+  <>
+    <section className="profile-section">
+      <h3 className="profile-section-title">Professional</h3>
+      <div className="profile-detail-item">
+        <span className="detail-label">Company</span>
+        <span className="detail-value">{member.company || '—'}</span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">Role</span>
+        <span className="detail-value">{member.jobTitle || '—'}</span>
+      </div>
+      {member.linkedIn && (
+        <div className="profile-detail-item">
+          <span className="detail-label">LinkedIn</span>
+          <span className="detail-value">
+            <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+              {member.linkedIn}
+            </a>
+          </span>
+        </div>
+      )}
+      {member.website && (
+        <div className="profile-detail-item">
+          <span className="detail-label">Website</span>
+          <span className="detail-value">
+            <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+              {member.website}
+            </a>
+          </span>
+        </div>
+      )}
+    </section>
+
+    <section className="profile-section">
+      <h3 className="profile-section-title">About</h3>
+      <div className="profile-detail-item profile-detail-bio">
+        <span className="detail-value">{member.bio || '—'}</span>
+      </div>
+    </section>
+  </>
+)
+
+const HostProfileModal = ({ member, onClose }) => (
+  <Modal
+    isOpen={!!member}
+    onClose={onClose}
+    title={member?.displayName || 'Host'}
+  >
+    {member && (
+      <div className="profile-modal-content">
+        <HostProfileHeader member={member} />
+        <HostProfileDetails member={member} />
+      </div>
+    )}
+  </Modal>
+)
+
 const AdminDashboard = () => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
@@ -125,12 +290,7 @@ const AdminDashboard = () => {
   // names, so the host modal reuses it — no extra fetch needed.
   const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
 
-  const truncateDescription = (text) => {
-    if (!text || typeof text !== 'string') return ''
-    return text.length <= DESCRIPTION_MAX_LENGTH
-      ? text
-      : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
-  }
+  const handleShowOrganizer = (organizerId) => setHostModalMember(getOrganizer(organizerId))
 
   return (
     <Layout isAdmin>
@@ -247,68 +407,13 @@ const AdminDashboard = () => {
             </div>
             {upcomingEvents.length > 0 ? (
               <ul className="event-list event-list-detailed">
-                {upcomingEvents.map(event => {
-                  const attendeeCount = event.attendees?.length ?? 0
-                  const capacity = event.capacity ?? 0
-                  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
-                  const full = capacity > 0 && attendeeCount >= capacity
-                  const title = event.title || event.name || t('adminDashboard.untitledEvent')
-                  return (
-                    <li key={event.id} className="event-item event-item-detailed">
-                      {event.bannerUrl && (
-                        <div className="event-item-banner">
-                          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-                        </div>
-                      )}
-                      <div className="event-item-main">
-                        <div className="event-item-header">
-                          <h4 className="event-title">{title}</h4>
-                        </div>
-                        <div className="event-meta">
-                          <span className="event-datetime">
-                            {event.date ? formatEventDate(event.date) : 'N/A'}
-                            {event.date && (
-                              <span className="event-time"> {t('adminDashboard.at')} {formatEventTime(event.date)}</span>
-                            )}
-                          </span>
-                          <span className="event-organizer">
-                            Organizer:{' '}
-                            <button
-                              className="organizer-link"
-                              onClick={() => setHostModalMember(getOrganizer(event.organizerId))}
-                            >
-                              {event.organizerDisplayName || '—'}
-                            </button>
-                          </span>
-                        </div>
-                        {event.description && (
-                          <p className="event-description-truncated">
-                            {truncateDescription(event.description)}
-                          </p>
-                        )}
-                        <div className="event-capacity-row">
-                          <span className="event-capacity">
-                            {t('adminDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
-                          </span>
-                          {capacity > 0 && (
-                            <span className="event-spots">
-                              {full ? t('adminDashboard.full') : t('adminDashboard.spotsLeft', { count: spotsLeft })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="event-item-actions">
-                        <Link
-                          to="/admin/events"
-                          className="event-view-details"
-                          aria-label={`Manage event: ${title}`}
-                        >
-                          {t('common.manage')}
-                        </Link>
-                      </div>
-                    </li>
-                  )
-                })}
+                {upcomingEvents.map(event => (
+                  <UpcomingEventItem
+                    key={event.id}
+                    event={event}
+                    onShowOrganizer={handleShowOrganizer}
+                  />
+                ))}
               </ul>
             ) : (
               <p className="empty-state">{t('adminDashboard.noUpcomingEvents')}</p>
@@ -317,71 +422,10 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <Modal
-        isOpen={!!hostModalMember}
+      <HostProfileModal
+        member={hostModalMember}
         onClose={() => setHostModalMember(null)}
-        title={hostModalMember?.displayName || 'Host'}
-      >
-        {hostModalMember && (
-          <div className="profile-modal-content">
-            <div className="profile-header">
-              <div className="profile-avatar-wrap">
-                <Avatar src={hostModalMember.photoURL} name={hostModalMember.displayName} size="xl" />
-              </div>
-              <div className="profile-info">
-                <h2 className="profile-name">{hostModalMember.displayName || '—'}</h2>
-                {(hostModalMember.jobTitle || hostModalMember.company) && (
-                  <p className="profile-email">
-                    {[hostModalMember.jobTitle, hostModalMember.company].filter(Boolean).join(' · ')}
-                  </p>
-                )}
-                <span className={`membership-badge ${hostModalMember.membershipType || 'member'}`}>
-                  {hostModalMember.membershipType === 'admin' ? 'Admin' : 'Member'}
-                </span>
-              </div>
-            </div>
-
-            <section className="profile-section">
-              <h3 className="profile-section-title">Professional</h3>
-              <div className="profile-detail-item">
-                <span className="detail-label">Company</span>
-                <span className="detail-value">{hostModalMember.company || '—'}</span>
-              </div>
-              <div className="profile-detail-item">
-                <span className="detail-label">Role</span>
-                <span className="detail-value">{hostModalMember.jobTitle || '—'}</span>
-              </div>
-              {hostModalMember.linkedIn && (
-                <div className="profile-detail-item">
-                  <span className="detail-label">LinkedIn</span>
-                  <span className="detail-value">
-                    <a href={hostModalMember.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-                      {hostModalMember.linkedIn}
-                    </a>
-                  </span>
-                </div>
-              )}
-              {hostModalMember.website && (
-                <div className="profile-detail-item">
-                  <span className="detail-label">Website</span>
-                  <span className="detail-value">
-                    <a href={hostModalMember.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-                      {hostModalMember.website}
-                    </a>
-                  </span>
-                </div>
-              )}
-            </section>
-
-            <section className="profile-section">
-              <h3 className="profile-section-title">About</h3>
-              <div className="profile-detail-item profile-detail-bio">
-                <span className="detail-value">{hostModalMember.bio || '—'}</span>
-              </div>
-            </section>
-          </div>
-        )}
-      </Modal>
+      />
     </Layout>
   )
 }

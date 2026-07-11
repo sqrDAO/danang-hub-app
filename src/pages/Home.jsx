@@ -12,6 +12,98 @@ import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getProjects } from '../services/projects'
 import './Home.css'
 
+const getHostingProjectsLabel = (hostingProjects, projects) => {
+  if (typeof hostingProjects === 'string') return hostingProjects
+  return hostingProjects.map(projectId => {
+    const project = projects.find(p => p.id === projectId)
+    return project?.name || projectId
+  }).join(', ')
+}
+
+const isEventFull = (event) => event.capacity && event.attendees?.length >= event.capacity
+
+const HeroCta = ({ currentUser, isAdmin, t }) => (
+  currentUser ? (
+    <div className="hero-cta">
+      <Link
+        to={isAdmin() ? '/admin' : '/member'}
+        className="btn btn-primary btn-large"
+      >
+        {t('home.ctaDashboard')}
+      </Link>
+      <a href="#amenities" className="btn btn-secondary btn-large">
+        {t('home.ctaBrowseAmenities')}
+      </a>
+    </div>
+  ) : (
+    <div className="hero-cta">
+      <Link to="/login?signup=true" className="btn btn-primary btn-large">
+        {t('home.ctaGetStarted')}
+      </Link>
+      <a href="#amenities" className="btn btn-secondary btn-large">
+        {t('home.ctaBrowseAmenities')}
+      </a>
+    </div>
+  )
+)
+
+const EventPreviewCard = ({ event, projects, onRegister, t }) => (
+  <div className="event-preview-card glass">
+    {event.bannerUrl && (
+      <div className="event-preview-banner">
+        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
+      </div>
+    )}
+    <div>
+      <h4 className="event-preview-title">{event.title}</h4>
+      <p className="event-preview-date">
+        {event.date ? formatEventDate(event.date) : null}
+      </p>
+      {event.duration && (
+        <p className="event-preview-duration">
+          ⏱️ {t('home.eventsDuration', { minutes: event.duration })}
+        </p>
+      )}
+      {event.capacity && (
+        <p className="event-preview-capacity">
+          👥 {t('home.eventsCapacity', {
+            attendees: event.attendees?.length || 0,
+            capacity: event.capacity
+          })}
+        </p>
+      )}
+      {event.hostingProjects && (
+        <p className="event-preview-projects">
+          🏢 {t('home.eventsHostedBy', {
+            hosts: getHostingProjectsLabel(event.hostingProjects, projects)
+          })}
+        </p>
+      )}
+      {event.eventLink && (
+        <p className="event-preview-link">
+          🔗{' '}
+          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
+            {t('home.eventsLink')}
+          </a>
+        </p>
+      )}
+      {event.description && (
+        <p className="event-preview-description">{event.description}</p>
+      )}
+    </div>
+    <button
+      className="btn btn-primary btn-full-width"
+      onClick={() => onRegister(event)}
+      disabled={isEventFull(event)}
+      style={{ marginTop: 'var(--spacing-md)' }}
+    >
+      {isEventFull(event)
+        ? t('home.eventsFull')
+        : t('home.eventsRegister')}
+    </button>
+  </div>
+)
+
 const Home = () => {
   const { t } = useTranslation()
   const { currentUser, isAdmin } = useAuth()
@@ -119,28 +211,7 @@ const Home = () => {
             <p className="hero-subtitle">
               {t('home.heroSubtitle')}
             </p>
-            {currentUser ? (
-              <div className="hero-cta">
-                <Link 
-                  to={isAdmin() ? '/admin' : '/member'} 
-                  className="btn btn-primary btn-large"
-                >
-                  {t('home.ctaDashboard')}
-                </Link>
-                <a href="#amenities" className="btn btn-secondary btn-large">
-                  {t('home.ctaBrowseAmenities')}
-                </a>
-              </div>
-            ) : (
-              <div className="hero-cta">
-                <Link to="/login?signup=true" className="btn btn-primary btn-large">
-                  {t('home.ctaGetStarted')}
-                </Link>
-                <a href="#amenities" className="btn btn-secondary btn-large">
-                  {t('home.ctaBrowseAmenities')}
-                </a>
-              </div>
-            )}
+            <HeroCta currentUser={currentUser} isAdmin={isAdmin} t={t} />
           </div>
         </section>
 
@@ -212,65 +283,13 @@ const Home = () => {
             ) : upcomingEvents.length > 0 ? (
               <div className="events-preview-grid">
                 {upcomingEvents.map(event => (
-                  <div key={event.id} className="event-preview-card glass">
-                    {event.bannerUrl && (
-                      <div className="event-preview-banner">
-                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="event-preview-title">{event.title}</h4>
-                      <p className="event-preview-date">
-                        {event.date ? formatEventDate(event.date) : null}
-                      </p>
-                      {event.duration && (
-                        <p className="event-preview-duration">
-                          ⏱️ {t('home.eventsDuration', { minutes: event.duration })}
-                        </p>
-                      )}
-                      {event.capacity && (
-                        <p className="event-preview-capacity">
-                          👥 {t('home.eventsCapacity', {
-                            attendees: event.attendees?.length || 0,
-                            capacity: event.capacity
-                          })}
-                        </p>
-                      )}
-                      {event.hostingProjects && (
-                        <p className="event-preview-projects">
-                          🏢 {t('home.eventsHostedBy', {
-                            hosts: typeof event.hostingProjects === 'string'
-                              ? event.hostingProjects
-                              : event.hostingProjects.map(projectId => {
-                                  const project = projects.find(p => p.id === projectId)
-                                  return project?.name || projectId
-                                }).join(', ')
-                          })}
-                        </p>
-                      )}
-                      {event.eventLink && (
-                        <p className="event-preview-link">
-                          🔗{' '}
-                          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
-                            {t('home.eventsLink')}
-                          </a>
-                        </p>
-                      )}
-                      {event.description && (
-                        <p className="event-preview-description">{event.description}</p>
-                      )}
-                    </div>
-                    <button
-                      className="btn btn-primary btn-full-width"
-                      onClick={() => handleRegisterEvent(event)}
-                      disabled={event.capacity && event.attendees?.length >= event.capacity}
-                      style={{ marginTop: 'var(--spacing-md)' }}
-                    >
-                      {event.capacity && event.attendees?.length >= event.capacity
-                        ? t('home.eventsFull')
-                        : t('home.eventsRegister')}
-                    </button>
-                  </div>
+                  <EventPreviewCard
+                    key={event.id}
+                    event={event}
+                    projects={projects}
+                    onRegister={handleRegisterEvent}
+                    t={t}
+                  />
                 ))}
               </div>
             ) : (
@@ -301,12 +320,7 @@ const Home = () => {
                       </p>
                       {event.hostingProjects && (
                         <p className="event-preview-projects">
-                          🏢 Hosted by: {typeof event.hostingProjects === 'string' 
-                            ? event.hostingProjects 
-                            : event.hostingProjects.map(projectId => {
-                                const project = projects.find(p => p.id === projectId)
-                                return project?.name || projectId
-                              }).join(', ')}
+                          🏢 Hosted by: {getHostingProjectsLabel(event.hostingProjects, projects)}
                         </p>
                       )}
                       {event.eventLink && (

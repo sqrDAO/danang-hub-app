@@ -11,43 +11,130 @@ import { getAmenities } from '../../services/amenities'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 
-const AdminBookings = () => {
-  const { t, i18n } = useTranslation()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+const PAGE_SIZE = 10
+
+// Admin "view all" intent — fetch a generous ±365 day window rather than
+// the entire bookings collection (which is unbounded over time).
+const getAdminBookingsWindow = () => {
+  const start = new Date()
+  start.setDate(start.getDate() - 365)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date()
+  end.setDate(end.getDate() + 365)
+  end.setHours(23, 59, 59, 999)
+  return { startDate: start, endDate: end }
+}
+
+const getTodayStart = () => {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return todayStart
+}
+
+const getMemberName = (members, memberId) => {
+  const member = members.find(m => m.id === memberId)
+  return member?.displayName || memberId
+}
+
+const getAmenityName = (amenities, amenityId) => {
+  const amenity = amenities.find(a => a.id === amenityId)
+  return amenity?.name || amenityId
+}
+
+const getAmenityCategory = (amenities, amenityId) => {
+  const amenity = amenities.find(a => a.id === amenityId)
+  return amenity?.type || null
+}
+
+const isSameDayAsBooking = (booking) => {
+  if (!booking?.startTime) return false
+  const bookingDate = new Date(booking.startTime)
+  const today = new Date()
+  return bookingDate.toDateString() === today.toDateString()
+}
+
+const isBeforeTodayStart = (startTime, todayStart) => {
+  const bookingStart = startTime instanceof Date ? startTime : new Date(startTime)
+  const bookingDayStart = new Date(bookingStart)
+  bookingDayStart.setHours(0, 0, 0, 0)
+  return bookingDayStart < todayStart
+}
+
+const matchesBookingFilters = (booking, filters) => {
+  if (filters.statusFilter !== 'all' && booking.status !== filters.statusFilter) {
+    return false
+  }
+
+  if (filters.categoryFilter !== 'all') {
+    const category = getAmenityCategory(filters.amenities, booking.amenityId)
+    if (category !== filters.categoryFilter) {
+      return false
+    }
+  }
+
+  if (filters.memberSearch) {
+    const memberName = getMemberName(filters.members, booking.memberId).toLowerCase()
+    if (!memberName.includes(filters.memberSearch)) {
+      return false
+    }
+  }
+
+  if (!filters.showPastBookings && booking.startTime && isBeforeTodayStart(booking.startTime, filters.todayStart)) {
+    return false
+  }
+
+  return true
+}
+
+const sortBookingsByStartTime = (bookings) => [...bookings].sort((a, b) => {
+  const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
+  const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
+
+  if (!aStart && !bStart) return 0
+  if (!aStart) return 1
+  if (!bStart) return -1
+  return aStart - bStart
+})
+
+const paginateBookings = (sortedBookings, currentPage) => {
+  const totalBookings = sortedBookings.length
+  const totalPages = Math.max(1, Math.ceil(totalBookings / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const startIndex = (safePage - 1) * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const paginatedBookings = sortedBookings.slice(startIndex, endIndex)
+  return { totalBookings, totalPages, safePage, startIndex, endIndex, paginatedBookings }
+}
+
+const useBookingFilters = () => {
   const [statusFilter, setStatusFilter] = useState('pending')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [memberSearch, setMemberSearch] = useState('')
   const [showPastBookings, setShowPastBookings] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
+
+  const handleFilterChangeWrapper = (setter) => (value) => {
+    setter(value)
+    setCurrentPage(1)
+  }
+
+  return {
+    statusFilter,
+    categoryFilter,
+    memberSearch,
+    showPastBookings,
+    currentPage,
+    setStatusFilter,
+    setCurrentPage,
+    handleStatusFilterChange: handleFilterChangeWrapper(setStatusFilter),
+    handleCategoryFilterChange: handleFilterChangeWrapper(setCategoryFilter),
+    handleSearchChange: handleFilterChangeWrapper(setMemberSearch),
+    handleShowPastChange: handleFilterChangeWrapper(setShowPastBookings),
+  }
+}
+
+const useBookingMutations = () => {
   const queryClient = useQueryClient()
-
-  // Admin "view all" intent — fetch a generous ±365 day window rather than
-  // the entire bookings collection (which is unbounded over time).
-  const adminBookingsWindow = (() => {
-    const start = new Date()
-    start.setDate(start.getDate() - 365)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date()
-    end.setDate(end.getDate() + 365)
-    end.setHours(23, 59, 59, 999)
-    return { startDate: start, endDate: end }
-  })()
-
-  const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['bookings'],
-    queryFn: () => getBookings(adminBookingsWindow)
-  })
-
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers
-  })
-
-  const { data: amenities = [] } = useQuery({
-    queryKey: ['amenities'],
-    queryFn: getAmenities
-  })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateBooking(id, data),
@@ -77,27 +164,309 @@ const AdminBookings = () => {
     }
   })
 
-  const getMemberName = (memberId) => {
-    const member = members.find(m => m.id === memberId)
-    return member?.displayName || memberId
+  return { updateMutation, deleteMutation, checkInMutation, checkOutMutation }
+}
+
+const EMPTY_ASSIGN_FORM = {
+  memberId: '',
+  amenityId: '',
+  bookingType: 'standard',
+  date: '',
+  startTime: '',
+  endTime: '',
+  fdPeriod: 'weekly',
+  fdStartDate: '',
+}
+
+const submitAssignForm = async (form) => {
+  if (form.bookingType === 'fixed-desk') {
+    return createFixedDeskPlan({
+      memberId: form.memberId,
+      amenityId: form.amenityId,
+      period: form.fdPeriod,
+      startDate: form.fdStartDate,
+      createdByAdmin: true,
+    })
+  }
+  return createBooking({
+    memberId: form.memberId,
+    amenityId: form.amenityId,
+    startTime: new Date(`${form.date}T${form.startTime}`).toISOString(),
+    endTime: new Date(`${form.date}T${form.endTime}`).toISOString(),
+    status: 'approved',
+  })
+}
+
+const isAssignFormIncomplete = (form) => (
+  !form.memberId ||
+  !form.amenityId ||
+  (form.bookingType === 'standard' && (!form.date || !form.startTime || !form.endTime)) ||
+  (form.bookingType === 'fixed-desk' && !form.fdStartDate)
+)
+
+const getMemberInputValue = (assignMemberQuery, memberId, members) => (
+  assignMemberQuery || (memberId ? (members.find(m => m.id === memberId)?.displayName || members.find(m => m.id === memberId)?.email || '') : '')
+)
+
+const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned }) => {
+  const { t } = useTranslation()
+  const [assignMemberQuery, setAssignMemberQuery] = useState('')
+  const [assignMemberOpen, setAssignMemberOpen] = useState(false)
+  const [memberDropdownRect, setMemberDropdownRect] = useState(null)
+  const memberInputRef = useRef(null)
+
+  useEffect(() => {
+    if (assignMemberOpen && memberInputRef.current) {
+      setMemberDropdownRect(memberInputRef.current.getBoundingClientRect())
+    }
+  }, [assignMemberOpen])
+  const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM)
+
+  const assignMutation = useMutation({
+    mutationFn: submitAssignForm,
+    onSuccess: () => {
+      onAssigned()
+      setAssignForm(EMPTY_ASSIGN_FORM)
+      setAssignMemberQuery('')
+      setAssignMemberOpen(false)
+      showToast(t('toast.bookingAssigned'), 'success')
+    },
+    onError: () => {
+      showToast(t('toast.bookingAssignFailed'), 'error')
+    }
+  })
+
+  const handleClose = () => {
+    onClose()
+    setAssignMemberQuery('')
+    setAssignMemberOpen(false)
   }
 
-  const getAmenityName = (amenityId) => {
-    const amenity = amenities.find(a => a.id === amenityId)
-    return amenity?.name || amenityId
-  }
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={t('adminBookings.assignBooking')}
+    >
+      <div className="booking-step">
+        <div className="form-group">
+          <label className="form-label">{t('adminBookings.assignMember')}</label>
+          <div className="member-combobox">
+            <input
+              ref={memberInputRef}
+              type="text"
+              className="form-field"
+              placeholder={t('adminBookings.searchMember')}
+              value={getMemberInputValue(assignMemberQuery, assignForm.memberId, members)}
+              onChange={e => {
+                setAssignMemberQuery(e.target.value)
+                setAssignForm(f => ({ ...f, memberId: '' }))
+                setAssignMemberOpen(e.target.value.length > 0)
+              }}
+              onBlur={() => setTimeout(() => setAssignMemberOpen(false), 150)}
+              autoComplete="off"
+            />
+            {assignMemberOpen && memberDropdownRect && createPortal(
+              <ul
+                className="member-combobox-list"
+                style={{
+                  position: 'fixed',
+                  top: memberDropdownRect.bottom + 4,
+                  left: memberDropdownRect.left,
+                  width: memberDropdownRect.width,
+                }}
+              >
+                {members
+                  .filter(m => {
+                    const q = assignMemberQuery.toLowerCase()
+                    return !q ||
+                      (m.displayName || '').toLowerCase().includes(q) ||
+                      (m.email || '').toLowerCase().includes(q)
+                  })
+                  .map(m => (
+                    <li
+                      key={m.id}
+                      className={`member-combobox-option${assignForm.memberId === m.id ? ' selected' : ''}`}
+                      onMouseDown={() => {
+                        setAssignForm(f => ({ ...f, memberId: m.id }))
+                        setAssignMemberQuery('')
+                        setAssignMemberOpen(false)
+                      }}
+                    >
+                      <span className="member-combobox-name">{m.displayName || m.email}</span>
+                      {m.displayName && m.email && (
+                        <span className="member-combobox-email">{m.email}</span>
+                      )}
+                    </li>
+                  ))}
+              </ul>,
+              document.body
+            )}
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('adminBookings.assignAmenity')}</label>
+          <select
+            className="form-field"
+            value={assignForm.amenityId}
+            onChange={e => setAssignForm(f => ({ ...f, amenityId: e.target.value }))}
+          >
+            <option value="">{t('adminBookings.selectAmenity')}</option>
+            {amenities.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('adminBookings.bookingType')}</label>
+          <div className="recurring-frequency-options">
+            <label className="form-checkbox">
+              <input
+                type="radio"
+                checked={assignForm.bookingType === 'standard'}
+                onChange={() => setAssignForm(f => ({ ...f, bookingType: 'standard' }))}
+              />
+              <span>{t('adminBookings.typeStandard')}</span>
+            </label>
+            <label className="form-checkbox">
+              <input
+                type="radio"
+                checked={assignForm.bookingType === 'fixed-desk'}
+                onChange={() => setAssignForm(f => ({ ...f, bookingType: 'fixed-desk' }))}
+              />
+              <span>{t('adminBookings.typeFixedDesk')}</span>
+            </label>
+          </div>
+        </div>
 
-  const getAmenityCategory = (amenityId) => {
-    const amenity = amenities.find(a => a.id === amenityId)
-    return amenity?.type || null
-  }
+        {assignForm.bookingType === 'standard' && (
+          <>
+            <div className="form-group">
+              <label className="form-label">{t('adminBookings.assignDate')}</label>
+              <input
+                type="date"
+                className="form-field"
+                value={assignForm.date}
+                onChange={e => setAssignForm(f => ({ ...f, date: e.target.value }))}
+              />
+            </div>
+            <div className="assign-time-row">
+              <div className="form-group">
+                <label className="form-label">{t('adminBookings.assignStartTime')}</label>
+                <input
+                  type="time"
+                  className="form-field"
+                  value={assignForm.startTime}
+                  onChange={e => setAssignForm(f => ({ ...f, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('adminBookings.assignEndTime')}</label>
+                <input
+                  type="time"
+                  className="form-field"
+                  value={assignForm.endTime}
+                  onChange={e => setAssignForm(f => ({ ...f, endTime: e.target.value }))}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
-  const isSameDayAsBooking = (booking) => {
-    if (!booking?.startTime) return false
-    const bookingDate = new Date(booking.startTime)
-    const today = new Date()
-    return bookingDate.toDateString() === today.toDateString()
-  }
+        {assignForm.bookingType === 'fixed-desk' && (
+          <>
+            <div className="form-group">
+              <label className="form-label">{t('fixedDesk.period')}</label>
+              <div className="recurring-frequency-options">
+                <label className="form-checkbox">
+                  <input
+                    type="radio"
+                    checked={assignForm.fdPeriod === 'weekly'}
+                    onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'weekly' }))}
+                  />
+                  <span>{t('fixedDesk.weekly')}</span>
+                </label>
+                <label className="form-checkbox">
+                  <input
+                    type="radio"
+                    checked={assignForm.fdPeriod === 'monthly'}
+                    onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'monthly' }))}
+                  />
+                  <span>{t('fixedDesk.monthly')}</span>
+                </label>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('fixedDesk.startDate')}</label>
+              <input
+                type="date"
+                className="form-field"
+                value={assignForm.fdStartDate}
+                onChange={e => setAssignForm(f => ({ ...f, fdStartDate: e.target.value }))}
+              />
+            </div>
+            <p className="form-hint">{t('fixedDesk.adminAssignNote')}</p>
+          </>
+        )}
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleClose}
+          >
+            {t('common.close')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={assignMutation.isPending || isAssignFormIncomplete(assignForm)}
+            onClick={() => assignMutation.mutate(assignForm)}
+          >
+            {assignMutation.isPending ? t('memberBookings.modal.creating') : t('adminBookings.assignAndApprove')}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+const AdminBookings = () => {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const {
+    statusFilter,
+    categoryFilter,
+    memberSearch,
+    showPastBookings,
+    currentPage,
+    setStatusFilter,
+    setCurrentPage,
+    handleStatusFilterChange,
+    handleCategoryFilterChange,
+    handleSearchChange,
+    handleShowPastChange,
+  } = useBookingFilters()
+  const queryClient = useQueryClient()
+
+  const adminBookingsWindow = getAdminBookingsWindow()
+
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: () => getBookings(adminBookingsWindow)
+  })
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['members'],
+    queryFn: getMembers
+  })
+
+  const { data: amenities = [] } = useQuery({
+    queryKey: ['amenities'],
+    queryFn: getAmenities
+  })
+
+  const { updateMutation, deleteMutation, checkInMutation, checkOutMutation } = useBookingMutations()
 
   const handleStatusChange = async (id, newStatus) => {
     await updateMutation.mutateAsync({ id, data: { status: newStatus } })
@@ -128,60 +497,20 @@ const AdminBookings = () => {
   }
 
   const normalizedMemberSearch = memberSearch.trim().toLowerCase()
-  const now = new Date()
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
+  const todayStart = getTodayStart()
 
-  const filteredBookings = bookings.filter((booking) => {
-    if (statusFilter !== 'all' && booking.status !== statusFilter) {
-      return false
-    }
+  const filteredBookings = bookings.filter((booking) => matchesBookingFilters(booking, {
+    statusFilter,
+    categoryFilter,
+    memberSearch: normalizedMemberSearch,
+    showPastBookings,
+    todayStart,
+    members,
+    amenities,
+  }))
 
-    if (categoryFilter !== 'all') {
-      const category = getAmenityCategory(booking.amenityId)
-      if (category !== categoryFilter) {
-        return false
-      }
-    }
-
-    if (normalizedMemberSearch) {
-      const memberName = getMemberName(booking.memberId).toLowerCase()
-      if (!memberName.includes(normalizedMemberSearch)) {
-        return false
-      }
-    }
-
-    if (!showPastBookings && booking.startTime) {
-      const bookingStart = booking.startTime instanceof Date
-        ? booking.startTime
-        : new Date(booking.startTime)
-      const bookingDayStart = new Date(bookingStart)
-      bookingDayStart.setHours(0, 0, 0, 0)
-
-      if (bookingDayStart < todayStart) {
-        return false
-      }
-    }
-
-    return true
-  })
-
-  const sortedBookings = [...filteredBookings].sort((a, b) => {
-    const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
-    const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
-
-    if (!aStart && !bStart) return 0
-    if (!aStart) return 1
-    if (!bStart) return -1
-    return aStart - bStart
-  })
-
-  const totalBookings = sortedBookings.length
-  const totalPages = Math.max(1, Math.ceil(totalBookings / pageSize))
-  const safePage = Math.min(currentPage, totalPages)
-  const startIndex = (safePage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedBookings = sortedBookings.slice(startIndex, endIndex)
+  const sortedBookings = sortBookingsByStartTime(filteredBookings)
+  const { totalBookings, totalPages, safePage, startIndex, endIndex, paginatedBookings } = paginateBookings(sortedBookings, currentPage)
 
   const handlePageChange = (direction) => {
     setCurrentPage((prev) => {
@@ -195,79 +524,16 @@ const AdminBookings = () => {
     })
   }
 
-  const handleFilterChangeWrapper = (setter) => (value) => {
-    setter(value)
-    setCurrentPage(1)
-  }
-
-  const handleStatusFilterChange = handleFilterChangeWrapper(setStatusFilter)
-  const handleCategoryFilterChange = handleFilterChangeWrapper(setCategoryFilter)
-  const handleSearchChange = (value) => {
-    setMemberSearch(value)
-    setCurrentPage(1)
-  }
-  const handleShowPastChange = (checked) => {
-    setShowPastBookings(checked)
-    setCurrentPage(1)
-  }
-
   const [isApprovingAll, setIsApprovingAll] = useState(false)
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
-  const [assignMemberQuery, setAssignMemberQuery] = useState('')
-  const [assignMemberOpen, setAssignMemberOpen] = useState(false)
-  const [memberDropdownRect, setMemberDropdownRect] = useState(null)
-  const memberInputRef = useRef(null)
 
-  useEffect(() => {
-    if (assignMemberOpen && memberInputRef.current) {
-      setMemberDropdownRect(memberInputRef.current.getBoundingClientRect())
-    }
-  }, [assignMemberOpen])
-  const [assignForm, setAssignForm] = useState({
-    memberId: '',
-    amenityId: '',
-    bookingType: 'standard',
-    date: '',
-    startTime: '',
-    endTime: '',
-    fdPeriod: 'weekly',
-    fdStartDate: '',
-  })
-
-  const assignMutation = useMutation({
-    mutationFn: async (form) => {
-      if (form.bookingType === 'fixed-desk') {
-        return createFixedDeskPlan({
-          memberId: form.memberId,
-          amenityId: form.amenityId,
-          period: form.fdPeriod,
-          startDate: form.fdStartDate,
-          createdByAdmin: true,
-        })
-      }
-      return createBooking({
-        memberId: form.memberId,
-        amenityId: form.amenityId,
-        startTime: new Date(`${form.date}T${form.startTime}`).toISOString(),
-        endTime: new Date(`${form.date}T${form.endTime}`).toISOString(),
-        status: 'approved',
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
-      setIsAssignModalOpen(false)
-      setAssignForm({ memberId: '', amenityId: '', bookingType: 'standard', date: '', startTime: '', endTime: '', fdPeriod: 'weekly', fdStartDate: '' })
-      setAssignMemberQuery('')
-      setAssignMemberOpen(false)
-      setStatusFilter('all')
-      setCurrentPage(1)
-      showToast(t('toast.bookingAssigned'), 'success')
-    },
-    onError: () => {
-      showToast(t('toast.bookingAssignFailed'), 'error')
-    }
-  })
+  const handleAssigned = () => {
+    queryClient.invalidateQueries(['bookings'])
+    setIsAssignModalOpen(false)
+    setStatusFilter('all')
+    setCurrentPage(1)
+  }
 
   const handleApproveAll = async () => {
     const pendingBookings = filteredBookings.filter(b => b.status === 'pending')
@@ -329,7 +595,7 @@ const AdminBookings = () => {
             )}
           </div>
           <div className="page-filters">
-            <select 
+            <select
               className="form-field filter-select"
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
@@ -388,9 +654,9 @@ const AdminBookings = () => {
             <tbody>
               {paginatedBookings.map(booking => (
                 <tr key={booking.id}>
-                  <td>{getMemberName(booking.memberId)}</td>
+                  <td>{getMemberName(members, booking.memberId)}</td>
                   <td>
-                    {getAmenityName(booking.amenityId)}
+                    {getAmenityName(amenities, booking.amenityId)}
                     {booking.planType === 'fixed-desk' && (
                       <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
                     )}
@@ -459,7 +725,7 @@ const AdminBookings = () => {
               <div key={booking.id} className="booking-card-mobile">
                 <div className="booking-card-mobile-header">
                   <div className="booking-card-mobile-title">
-                    {getAmenityName(booking.amenityId)}
+                    {getAmenityName(amenities, booking.amenityId)}
                     {booking.planType === 'fixed-desk' && (
                       <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
                     )}
@@ -470,7 +736,7 @@ const AdminBookings = () => {
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.member')}</div>
-                  <div className="booking-card-mobile-value">{getMemberName(booking.memberId)}</div>
+                  <div className="booking-card-mobile-value">{getMemberName(members, booking.memberId)}</div>
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.startTime')}</div>
@@ -575,197 +841,13 @@ const AdminBookings = () => {
         </div>
       </div>
 
-      <Modal
+      <AssignBookingModal
         isOpen={isAssignModalOpen}
-        onClose={() => { setIsAssignModalOpen(false); setAssignMemberQuery(''); setAssignMemberOpen(false) }}
-        title={t('adminBookings.assignBooking')}
-      >
-        <div className="booking-step">
-          <div className="form-group">
-            <label className="form-label">{t('adminBookings.assignMember')}</label>
-            <div className="member-combobox">
-              <input
-                ref={memberInputRef}
-                type="text"
-                className="form-field"
-                placeholder={t('adminBookings.searchMember')}
-                value={assignMemberQuery || (assignForm.memberId ? (members.find(m => m.id === assignForm.memberId)?.displayName || members.find(m => m.id === assignForm.memberId)?.email || '') : '')}
-                onChange={e => {
-                  setAssignMemberQuery(e.target.value)
-                  setAssignForm(f => ({ ...f, memberId: '' }))
-                  setAssignMemberOpen(e.target.value.length > 0)
-                }}
-                onBlur={() => setTimeout(() => setAssignMemberOpen(false), 150)}
-                autoComplete="off"
-              />
-              {assignMemberOpen && memberDropdownRect && createPortal(
-                <ul
-                  className="member-combobox-list"
-                  style={{
-                    position: 'fixed',
-                    top: memberDropdownRect.bottom + 4,
-                    left: memberDropdownRect.left,
-                    width: memberDropdownRect.width,
-                  }}
-                >
-                  {members
-                    .filter(m => {
-                      const q = assignMemberQuery.toLowerCase()
-                      return !q ||
-                        (m.displayName || '').toLowerCase().includes(q) ||
-                        (m.email || '').toLowerCase().includes(q)
-                    })
-                    .map(m => (
-                      <li
-                        key={m.id}
-                        className={`member-combobox-option${assignForm.memberId === m.id ? ' selected' : ''}`}
-                        onMouseDown={() => {
-                          setAssignForm(f => ({ ...f, memberId: m.id }))
-                          setAssignMemberQuery('')
-                          setAssignMemberOpen(false)
-                        }}
-                      >
-                        <span className="member-combobox-name">{m.displayName || m.email}</span>
-                        {m.displayName && m.email && (
-                          <span className="member-combobox-email">{m.email}</span>
-                        )}
-                      </li>
-                    ))}
-                </ul>,
-                document.body
-              )}
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t('adminBookings.assignAmenity')}</label>
-            <select
-              className="form-field"
-              value={assignForm.amenityId}
-              onChange={e => setAssignForm(f => ({ ...f, amenityId: e.target.value }))}
-            >
-              <option value="">{t('adminBookings.selectAmenity')}</option>
-              {amenities.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t('adminBookings.bookingType')}</label>
-            <div className="recurring-frequency-options">
-              <label className="form-checkbox">
-                <input
-                  type="radio"
-                  checked={assignForm.bookingType === 'standard'}
-                  onChange={() => setAssignForm(f => ({ ...f, bookingType: 'standard' }))}
-                />
-                <span>{t('adminBookings.typeStandard')}</span>
-              </label>
-              <label className="form-checkbox">
-                <input
-                  type="radio"
-                  checked={assignForm.bookingType === 'fixed-desk'}
-                  onChange={() => setAssignForm(f => ({ ...f, bookingType: 'fixed-desk' }))}
-                />
-                <span>{t('adminBookings.typeFixedDesk')}</span>
-              </label>
-            </div>
-          </div>
-
-          {assignForm.bookingType === 'standard' && (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('adminBookings.assignDate')}</label>
-                <input
-                  type="date"
-                  className="form-field"
-                  value={assignForm.date}
-                  onChange={e => setAssignForm(f => ({ ...f, date: e.target.value }))}
-                />
-              </div>
-              <div className="assign-time-row">
-                <div className="form-group">
-                  <label className="form-label">{t('adminBookings.assignStartTime')}</label>
-                  <input
-                    type="time"
-                    className="form-field"
-                    value={assignForm.startTime}
-                    onChange={e => setAssignForm(f => ({ ...f, startTime: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('adminBookings.assignEndTime')}</label>
-                  <input
-                    type="time"
-                    className="form-field"
-                    value={assignForm.endTime}
-                    onChange={e => setAssignForm(f => ({ ...f, endTime: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {assignForm.bookingType === 'fixed-desk' && (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('fixedDesk.period')}</label>
-                <div className="recurring-frequency-options">
-                  <label className="form-checkbox">
-                    <input
-                      type="radio"
-                      checked={assignForm.fdPeriod === 'weekly'}
-                      onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'weekly' }))}
-                    />
-                    <span>{t('fixedDesk.weekly')}</span>
-                  </label>
-                  <label className="form-checkbox">
-                    <input
-                      type="radio"
-                      checked={assignForm.fdPeriod === 'monthly'}
-                      onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'monthly' }))}
-                    />
-                    <span>{t('fixedDesk.monthly')}</span>
-                  </label>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('fixedDesk.startDate')}</label>
-                <input
-                  type="date"
-                  className="form-field"
-                  value={assignForm.fdStartDate}
-                  onChange={e => setAssignForm(f => ({ ...f, fdStartDate: e.target.value }))}
-                />
-              </div>
-              <p className="form-hint">{t('fixedDesk.adminAssignNote')}</p>
-            </>
-          )}
-
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => { setIsAssignModalOpen(false); setAssignMemberQuery(''); setAssignMemberOpen(false) }}
-            >
-              {t('common.close')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={
-                assignMutation.isPending ||
-                !assignForm.memberId ||
-                !assignForm.amenityId ||
-                (assignForm.bookingType === 'standard' && (!assignForm.date || !assignForm.startTime || !assignForm.endTime)) ||
-                (assignForm.bookingType === 'fixed-desk' && !assignForm.fdStartDate)
-              }
-              onClick={() => assignMutation.mutate(assignForm)}
-            >
-              {assignMutation.isPending ? t('memberBookings.modal.creating') : t('adminBookings.assignAndApprove')}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => setIsAssignModalOpen(false)}
+        members={members}
+        amenities={amenities}
+        onAssigned={handleAssigned}
+      />
     </Layout>
   )
 }

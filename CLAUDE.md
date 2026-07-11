@@ -48,7 +48,7 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 
 ### Clean-code caps (`.eslintrc.cjs`, scoped to `src/**`)
 
-`complexity` ≤ 10, `max-statements` ≤ 30, `max-params` ≤ 5, `max-depth` ≤ 4, `max-nested-callbacks` ≤ 4 — currently **`warn`** with `--max-warnings 45` as the ratchet baseline (41 pre-existing cap violations + 4 react-refresh/exhaustive-deps warnings, being worked down per `docs/backlog/todo.lint-ratchet.md`). New code must not add warnings; when you fix some, lower the baseline in `package.json` in the same PR. Flip the caps to `error` + `--max-warnings 0` when the count hits zero.
+`complexity` ≤ 10, `max-statements` ≤ 30, `max-params` ≤ 5, `max-depth` ≤ 4, `max-nested-callbacks` ≤ 4 — all **`error`**, and the `lint` script runs `--max-warnings 0`, so any violation or new warning fails the build. Keep functions under the caps by extracting helpers/subcomponents; never add `eslint-disable` for these rules.
 
 ## Backlog workflow (STRICT)
 

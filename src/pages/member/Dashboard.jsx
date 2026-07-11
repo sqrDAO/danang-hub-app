@@ -17,6 +17,258 @@ import './Profile.css'
 
 const DESCRIPTION_MAX_LENGTH = 120
 
+// Member dashboard surfaces upcoming activity; 30 back, 90 forward.
+const getMemberDashboardWindow = () => {
+  const start = new Date()
+  start.setDate(start.getDate() - 30)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date()
+  end.setDate(end.getDate() + 90)
+  end.setHours(23, 59, 59, 999)
+  return { startDate: start, endDate: end }
+}
+
+const getTodayStart = () => {
+  const now = new Date()
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
+const isRegistered = (event, uid) =>
+  event.attendees?.includes(uid) ?? false
+
+const isFull = (event) =>
+  event.capacity != null && (event.attendees?.length ?? 0) >= event.capacity
+
+const isOnWaitlist = (event, uid) =>
+  event.waitlist?.includes(uid) ?? false
+
+const getWaitlistPosition = (event, uid) => {
+  if (!event.waitlist?.length || !isOnWaitlist(event, uid)) return null
+  return event.waitlist.indexOf(uid) + 1
+}
+
+const truncateDescription = (text) => {
+  if (!text || typeof text !== 'string') return ''
+  return text.length <= DESCRIPTION_MAX_LENGTH
+    ? text
+    : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
+}
+
+const EventMeta = ({ event, onOpenHost }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="event-meta">
+      <span className="event-datetime">
+        {event.date ? formatEventDate(event.date) : 'N/A'}
+        {event.date && (
+          <span className="event-time"> {t('memberDashboard.at')} {formatEventTime(event.date)}</span>
+        )}
+      </span>
+      <span className="event-organizer">
+        Organizer:{' '}
+        <button
+          className="organizer-link"
+          onClick={() => onOpenHost(event.organizerId)}
+        >
+          {event.organizerDisplayName || '—'}
+        </button>
+      </span>
+    </div>
+  )
+}
+
+const EventCapacityRow = ({ attendeeCount, capacity, full, spotsLeft }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="event-capacity-row">
+      <span className="event-capacity">
+        {t('memberDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
+      </span>
+      {capacity > 0 && (
+        <span className="event-spots">
+          {full ? t('memberDashboard.full') : t('memberDashboard.spotsLeft', { count: spotsLeft })}
+        </span>
+      )}
+    </div>
+  )
+}
+
+const EventMyStatus = ({ registered, onWaitlist, waitlistPosition }) => {
+  const { t } = useTranslation()
+  if (!registered && !onWaitlist) return null
+  return (
+    <span className="event-my-status">
+      {registered ? t('memberDashboard.attending') : onWaitlist ? (waitlistPosition ? t('memberDashboard.onWaitlistPosition', { position: waitlistPosition }) : t('memberDashboard.onWaitlist')) : ''}
+    </span>
+  )
+}
+
+const UpcomingEventItem = ({ event, currentUid, onOpenHost }) => {
+  const { t } = useTranslation()
+  const registered = isRegistered(event, currentUid)
+  const full = isFull(event)
+  const onWaitlist = isOnWaitlist(event, currentUid)
+  const waitlistPosition = getWaitlistPosition(event, currentUid)
+  const attendeeCount = event.attendees?.length ?? 0
+  const capacity = event.capacity ?? 0
+  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
+  const title = event.title || event.name || t('memberDashboard.untitledEvent')
+  const isExternal = Boolean(event.eventLink)
+  return (
+    <li className="event-item event-item-detailed">
+      {event.bannerUrl && (
+        <div className="event-item-banner">
+          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
+        </div>
+      )}
+      <div className="event-item-main">
+        <div className="event-item-header">
+          <h4 className="event-title">{title}</h4>
+        </div>
+        <EventMeta event={event} onOpenHost={onOpenHost} />
+        {event.description && (
+          <p className="event-description-truncated">
+            {truncateDescription(event.description)}
+          </p>
+        )}
+        <EventCapacityRow
+          attendeeCount={attendeeCount}
+          capacity={capacity}
+          full={full}
+          spotsLeft={spotsLeft}
+        />
+        <EventMyStatus
+          registered={registered}
+          onWaitlist={onWaitlist}
+          waitlistPosition={waitlistPosition}
+        />
+      </div>
+      <div className="event-item-actions">
+        <Link
+          to="/member/events"
+          className="event-view-details"
+          aria-label={`View details for ${title}`}
+        >
+          {t('common.viewDetails')}
+        </Link>
+        {isExternal && (
+          <a
+            href={event.eventLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="event-signup-link"
+            aria-label={`Sign up for ${title}`}
+          >
+            {t('common.signup')}
+          </a>
+        )}
+      </div>
+    </li>
+  )
+}
+
+const BookingsPagination = ({ page, totalPages, startIndex, endIndex, total, setPage }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="dashboard-bookings-pagination">
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={() => setPage(prev => Math.max(1, prev - 1))}
+        disabled={page === 1}
+      >
+        {t('memberDashboard.prevPage')}
+      </button>
+      <div className="dashboard-bookings-pagination-info">
+        <span className="dashboard-bookings-page">
+          {t('memberDashboard.pageOf', { current: page, total: totalPages })}
+        </span>
+        <span className="dashboard-bookings-range">
+          {t('memberDashboard.showingRange', {
+            from: total === 0 ? 0 : startIndex + 1,
+            to: Math.min(endIndex, total),
+            total
+          })}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+        disabled={page === totalPages}
+      >
+        {t('memberDashboard.nextPage')}
+      </button>
+    </div>
+  )
+}
+
+const HostProfessionalSection = ({ member }) => (
+  <section className="profile-section">
+    <h3 className="profile-section-title">Professional</h3>
+    <div className="profile-detail-item">
+      <span className="detail-label">Company</span>
+      <span className="detail-value">{member.company || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">Role</span>
+      <span className="detail-value">{member.jobTitle || '—'}</span>
+    </div>
+    {member.linkedIn && (
+      <div className="profile-detail-item">
+        <span className="detail-label">LinkedIn</span>
+        <span className="detail-value">
+          <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.linkedIn}
+          </a>
+        </span>
+      </div>
+    )}
+    {member.website && (
+      <div className="profile-detail-item">
+        <span className="detail-label">Website</span>
+        <span className="detail-value">
+          <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+            {member.website}
+          </a>
+        </span>
+      </div>
+    )}
+  </section>
+)
+
+const HostProfileContent = ({ member }) => (
+  <div className="profile-modal-content">
+    <div className="profile-header">
+      <div className="profile-avatar-wrap">
+        <Avatar src={member.photoURL} name={member.displayName} size="xl" />
+      </div>
+      <div className="profile-info">
+        <h2 className="profile-name">{member.displayName || '—'}</h2>
+        {(member.jobTitle || member.company) && (
+          <p className="profile-email">
+            {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        <span className={`membership-badge ${member.membershipType || 'member'}`}>
+          {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+        </span>
+      </div>
+    </div>
+
+    <HostProfessionalSection member={member} />
+
+    <section className="profile-section">
+      <h3 className="profile-section-title">About</h3>
+      <div className="profile-detail-item profile-detail-bio">
+        <span className="detail-value">{member.bio || '—'}</span>
+      </div>
+    </section>
+  </div>
+)
+
 const MemberDashboard = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
@@ -24,40 +276,26 @@ const MemberDashboard = () => {
   const [showCalendar, setShowCalendar] = useState(false)
   const [bookingsPage, setBookingsPage] = useState(1)
   const BOOKINGS_PAGE_SIZE = 10
-  
-  // Member dashboard surfaces upcoming activity; 30 back, 90 forward.
-  const memberDashboardWindow = (() => {
-    const start = new Date()
-    start.setDate(start.getDate() - 30)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date()
-    end.setDate(end.getDate() + 90)
-    end.setHours(23, 59, 59, 999)
-    return { startDate: start, endDate: end }
-  })()
+
+  const memberDashboardWindow = getMemberDashboardWindow()
 
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
     queryFn: () => getBookings({ memberId: currentUser?.uid, ...memberDashboardWindow }),
     enabled: !!currentUser?.uid
   })
-  
+
   const { data: events = [] } = useQuery({
     queryKey: ['upcomingEvents'],
     queryFn: getUpcomingEvents
   })
-  
+
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
 
-  const todayStart = (() => {
-    const now = new Date()
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    return start
-  })()
+  const todayStart = getTodayStart()
 
   const upcomingBookingsAll = myBookings
     .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))
@@ -112,32 +350,11 @@ const MemberDashboard = () => {
     }
   }
 
-  const isRegistered = (event) =>
-    event.attendees?.includes(currentUser?.uid) ?? false
-
-  const isFull = (event) =>
-    event.capacity != null && (event.attendees?.length ?? 0) >= event.capacity
-
-  const isOnWaitlist = (event) =>
-    event.waitlist?.includes(currentUser?.uid) ?? false
-
-  const getWaitlistPosition = (event) => {
-    if (!event.waitlist?.length || !isOnWaitlist(event)) return null
-    return event.waitlist.indexOf(currentUser?.uid) + 1
-  }
-
-  const truncateDescription = (text) => {
-    if (!text || typeof text !== 'string') return ''
-    return text.length <= DESCRIPTION_MAX_LENGTH
-      ? text
-      : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
-  }
-
   return (
     <Layout>
       <div className="container">
         <h1 className="page-title">{t('memberDashboard.title')}</h1>
-        
+
         <div className="stats-grid">
           <div className="stat-card glass">
             <h3 className="stat-value">{totalUpcomingBookings}</h3>
@@ -209,36 +426,14 @@ const MemberDashboard = () => {
             )}
 
             {totalUpcomingBookings > BOOKINGS_PAGE_SIZE && (
-              <div className="dashboard-bookings-pagination">
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setBookingsPage(prev => Math.max(1, prev - 1))}
-                  disabled={safeBookingsPage === 1}
-                >
-                  {t('memberDashboard.prevPage')}
-                </button>
-                <div className="dashboard-bookings-pagination-info">
-                  <span className="dashboard-bookings-page">
-                    {t('memberDashboard.pageOf', { current: safeBookingsPage, total: totalBookingsPages })}
-                  </span>
-                  <span className="dashboard-bookings-range">
-                    {t('memberDashboard.showingRange', {
-                      from: totalUpcomingBookings === 0 ? 0 : bookingsStartIndex + 1,
-                      to: Math.min(bookingsEndIndex, totalUpcomingBookings),
-                      total: totalUpcomingBookings
-                    })}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setBookingsPage(prev => Math.min(totalBookingsPages, prev + 1))}
-                  disabled={safeBookingsPage === totalBookingsPages}
-                >
-                  {t('memberDashboard.nextPage')}
-                </button>
-              </div>
+              <BookingsPagination
+                page={safeBookingsPage}
+                totalPages={totalBookingsPages}
+                startIndex={bookingsStartIndex}
+                endIndex={bookingsEndIndex}
+                total={totalUpcomingBookings}
+                setPage={setBookingsPage}
+              />
             )}
           </div>
 
@@ -249,88 +444,14 @@ const MemberDashboard = () => {
             </div>
             {upcomingEvents.length > 0 ? (
               <ul className="event-list event-list-detailed">
-                {upcomingEvents.map(event => {
-                  const registered = isRegistered(event)
-                  const full = isFull(event)
-                  const onWaitlist = isOnWaitlist(event)
-                  const waitlistPosition = getWaitlistPosition(event)
-                  const attendeeCount = event.attendees?.length ?? 0
-                  const capacity = event.capacity ?? 0
-                  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
-                  const title = event.title || event.name || t('memberDashboard.untitledEvent')
-                  const isExternal = Boolean(event.eventLink)
-                  return (
-                    <li key={event.id} className="event-item event-item-detailed">
-                      {event.bannerUrl && (
-                        <div className="event-item-banner">
-                          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-                        </div>
-                      )}
-                      <div className="event-item-main">
-                        <div className="event-item-header">
-                          <h4 className="event-title">{title}</h4>
-                        </div>
-                        <div className="event-meta">
-                          <span className="event-datetime">
-                            {event.date ? formatEventDate(event.date) : 'N/A'}
-                            {event.date && (
-                              <span className="event-time"> {t('memberDashboard.at')} {formatEventTime(event.date)}</span>
-                            )}
-                          </span>
-                          <span className="event-organizer">
-                            Organizer:{' '}
-                            <button
-                              className="organizer-link"
-                              onClick={() => handleOpenHostModal(event.organizerId)}
-                            >
-                              {event.organizerDisplayName || '—'}
-                            </button>
-                          </span>
-                        </div>
-                        {event.description && (
-                          <p className="event-description-truncated">
-                            {truncateDescription(event.description)}
-                          </p>
-                        )}
-                        <div className="event-capacity-row">
-                          <span className="event-capacity">
-                            {t('memberDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
-                          </span>
-                          {capacity > 0 && (
-                            <span className="event-spots">
-                              {full ? t('memberDashboard.full') : t('memberDashboard.spotsLeft', { count: spotsLeft })}
-                            </span>
-                          )}
-                        </div>
-                        {(registered || onWaitlist) && (
-                          <span className="event-my-status">
-                            {registered ? t('memberDashboard.attending') : onWaitlist ? (waitlistPosition ? t('memberDashboard.onWaitlistPosition', { position: waitlistPosition }) : t('memberDashboard.onWaitlist')) : ''}
-                          </span>
-                        )}
-                      </div>
-                      <div className="event-item-actions">
-                        <Link
-                          to="/member/events"
-                          className="event-view-details"
-                          aria-label={`View details for ${title}`}
-                        >
-                          {t('common.viewDetails')}
-                        </Link>
-                        {isExternal && (
-                          <a
-                            href={event.eventLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="event-signup-link"
-                            aria-label={`Sign up for ${title}`}
-                          >
-                            {t('common.signup')}
-                          </a>
-                        )}
-                      </div>
-                    </li>
-                  )
-                })}
+                {upcomingEvents.map(event => (
+                  <UpcomingEventItem
+                    key={event.id}
+                    event={event}
+                    currentUid={currentUser?.uid}
+                    onOpenHost={handleOpenHostModal}
+                  />
+                ))}
               </ul>
             ) : (
               <p className="empty-state">{t('memberDashboard.noUpcomingEvents')}</p>
@@ -344,65 +465,7 @@ const MemberDashboard = () => {
         onClose={() => setHostModalMember(null)}
         title={hostModalMember?.displayName || 'Host'}
       >
-        {hostModalMember && (
-          <div className="profile-modal-content">
-            <div className="profile-header">
-              <div className="profile-avatar-wrap">
-                <Avatar src={hostModalMember.photoURL} name={hostModalMember.displayName} size="xl" />
-              </div>
-              <div className="profile-info">
-                <h2 className="profile-name">{hostModalMember.displayName || '—'}</h2>
-                {(hostModalMember.jobTitle || hostModalMember.company) && (
-                  <p className="profile-email">
-                    {[hostModalMember.jobTitle, hostModalMember.company].filter(Boolean).join(' · ')}
-                  </p>
-                )}
-                <span className={`membership-badge ${hostModalMember.membershipType || 'member'}`}>
-                  {hostModalMember.membershipType === 'admin' ? 'Admin' : 'Member'}
-                </span>
-              </div>
-            </div>
-
-            <section className="profile-section">
-              <h3 className="profile-section-title">Professional</h3>
-              <div className="profile-detail-item">
-                <span className="detail-label">Company</span>
-                <span className="detail-value">{hostModalMember.company || '—'}</span>
-              </div>
-              <div className="profile-detail-item">
-                <span className="detail-label">Role</span>
-                <span className="detail-value">{hostModalMember.jobTitle || '—'}</span>
-              </div>
-              {hostModalMember.linkedIn && (
-                <div className="profile-detail-item">
-                  <span className="detail-label">LinkedIn</span>
-                  <span className="detail-value">
-                    <a href={hostModalMember.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-                      {hostModalMember.linkedIn}
-                    </a>
-                  </span>
-                </div>
-              )}
-              {hostModalMember.website && (
-                <div className="profile-detail-item">
-                  <span className="detail-label">Website</span>
-                  <span className="detail-value">
-                    <a href={hostModalMember.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-                      {hostModalMember.website}
-                    </a>
-                  </span>
-                </div>
-              )}
-            </section>
-
-            <section className="profile-section">
-              <h3 className="profile-section-title">About</h3>
-              <div className="profile-detail-item profile-detail-bio">
-                <span className="detail-value">{hostModalMember.bio || '—'}</span>
-              </div>
-            </section>
-          </div>
-        )}
+        {hostModalMember && <HostProfileContent member={hostModalMember} />}
       </Modal>
     </Layout>
   )

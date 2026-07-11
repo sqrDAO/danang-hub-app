@@ -24,20 +24,29 @@ const CopyIcon = () => (
   </svg>
 )
 
+const validateRequiredFields = (data, t) => {
+  if (!data.displayName?.trim()) return t('profile.validation.nameRequired')
+  if (!data.email?.trim()) return t('profile.validation.emailRequired')
+  if (!data.company?.trim()) return t('profile.validation.companyRequired')
+  if (!data.jobTitle?.trim()) return t('profile.validation.jobTitleRequired')
+  return null
+}
+
+const isInvalidOptionalField = (value, pattern) =>
+  Boolean(value && value.trim() && !pattern.test(value.trim()))
+
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
-    if (!data.displayName?.trim()) return t('profile.validation.nameRequired')
-    if (!data.email?.trim()) return t('profile.validation.emailRequired')
-    if (!data.company?.trim()) return t('profile.validation.companyRequired')
-    if (!data.jobTitle?.trim()) return t('profile.validation.jobTitleRequired')
+    const requiredError = validateRequiredFields(data, t)
+    if (requiredError) return requiredError
   }
-  if (data.linkedIn && data.linkedIn.trim() && !URL_PATTERN.test(data.linkedIn.trim())) {
+  if (isInvalidOptionalField(data.linkedIn, URL_PATTERN)) {
     return t('profile.validation.invalidLinkedIn')
   }
-  if (data.website && data.website.trim() && !URL_PATTERN.test(data.website.trim())) {
+  if (isInvalidOptionalField(data.website, URL_PATTERN)) {
     return t('profile.validation.invalidWebsite')
   }
-  if (data.phone && data.phone.trim() && !PHONE_PATTERN.test(data.phone.trim())) {
+  if (isInvalidOptionalField(data.phone, PHONE_PATTERN)) {
     return t('profile.validation.invalidPhone')
   }
   return null
@@ -53,6 +62,372 @@ const formatMemberSince = (createdAt, t) => {
   if (months < 12) return t('profile.memberSinceRelative.months', { count: months })
   const years = Math.floor(months / 12)
   return years === 1 ? t('profile.memberSinceRelative.oneYear') : t('profile.memberSinceRelative.years', { count: years })
+}
+
+const ProfileHeader = ({ userProfile, isAvatarUploading, avatarInputRef, onAvatarChange }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="profile-header">
+      <div className="profile-avatar-wrap">
+        <Avatar
+          src={userProfile.photoURL}
+          name={userProfile.displayName}
+          size="xl"
+          className="profile-avatar"
+        />
+        {isAvatarUploading && <div className="profile-avatar-overlay"><span className="spinner"></span></div>}
+        <label className="profile-avatar-upload">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={onAvatarChange}
+            disabled={isAvatarUploading}
+            aria-label={t('profile.changePhoto')}
+          />
+          <span>{t('profile.changePhoto')}</span>
+        </label>
+      </div>
+      <div className="profile-info">
+        <h2 className="profile-name">{userProfile.displayName || 'N/A'}</h2>
+        <p className="profile-email">{userProfile.email || 'N/A'}</p>
+        <span className={`membership-badge ${userProfile.membershipType}`}>
+          {userProfile.membershipType || 'member'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="form-group">
+      <label className="form-label">{t(walletChainLabel(address))}</label>
+      <div className="wallet-address-field">
+        <input
+          type="text"
+          className="form-field wallet-address-input"
+          value={address}
+          readOnly
+        />
+        <button
+          type="button"
+          className="wallet-copy-btn"
+          onClick={() => onCopy(address)}
+          title={t('profile.copyAddress')}
+        >
+          {copiedAddress ? t('profile.copied') : <CopyIcon />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const ProfileEditForm = ({ userProfile, profileComplete, preferences, isUpdating, copiedAddress, onCopyAddress, onSubmit, onFormChange, onCancel }) => {
+  const { t } = useTranslation()
+  return (
+    <form onSubmit={onSubmit} className="profile-form" onChange={onFormChange}>
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
+        <div className="form-group">
+          <label className="form-label">{t('profile.name')} {!profileComplete && <span className="form-required">*</span>}</label>
+          <input
+            type="text"
+            name="displayName"
+            className="form-field"
+            defaultValue={userProfile.displayName}
+            placeholder="Your full name"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('profile.email')} {!profileComplete && <span className="form-required">*</span>}</label>
+          <input
+            type="email"
+            name="email"
+            className="form-field"
+            defaultValue={userProfile.email}
+            placeholder="you@example.com"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('profile.phone')}</label>
+          <input
+            type="tel"
+            name="phone"
+            className="form-field"
+            defaultValue={userProfile.phone}
+            placeholder={t('profile.optional')}
+          />
+        </div>
+        {userProfile.walletAddress && (
+          <WalletAddressEditField
+            address={userProfile.walletAddress}
+            copiedAddress={copiedAddress}
+            onCopy={onCopyAddress}
+          />
+        )}
+      </section>
+
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.professional')}</h3>
+        <div className="form-group">
+          <label className="form-label">{t('profile.company')} {!profileComplete && <span className="form-required">*</span>}</label>
+          <input
+            type="text"
+            name="company"
+            className="form-field"
+            defaultValue={userProfile.company}
+            placeholder={profileComplete ? t('profile.optional') : 'Your company or organization'}
+            required={!profileComplete}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('profile.role')} {!profileComplete && <span className="form-required">*</span>}</label>
+          <input
+            type="text"
+            name="jobTitle"
+            className="form-field"
+            defaultValue={userProfile.jobTitle}
+            placeholder={profileComplete ? t('profile.optional') : 'Your job title or role'}
+            required={!profileComplete}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('profile.linkedIn')}</label>
+          <input
+            type="url"
+            name="linkedIn"
+            className="form-field"
+            defaultValue={userProfile.linkedIn}
+            placeholder="https://linkedin.com/in/..."
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">{t('profile.website')}</label>
+          <input
+            type="url"
+            name="website"
+            className="form-field"
+            defaultValue={userProfile.website}
+            placeholder="https://..."
+          />
+        </div>
+      </section>
+
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.about')}</h3>
+        <div className="form-group">
+          <label className="form-label">{t('profile.bio')}</label>
+          <textarea
+            name="bio"
+            className="form-field form-field-textarea"
+            defaultValue={userProfile.bio}
+            placeholder="A short bio about you"
+            rows={4}
+          />
+        </div>
+      </section>
+
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.preferences')}</h3>
+        <div className="form-group form-group-checkbox">
+          <label className="form-label form-label-checkbox">
+            <input
+              type="checkbox"
+              name="emailNotifications"
+              defaultChecked={preferences.emailNotifications !== false}
+            />
+            <span>{t('profile.emailNotifications')}</span>
+          </label>
+        </div>
+        <div className="form-group form-group-checkbox">
+          <label className="form-label form-label-checkbox">
+            <input
+              type="checkbox"
+              name="eventReminders"
+              defaultChecked={preferences.eventReminders !== false}
+            />
+            <span>{t('profile.eventReminders')}</span>
+          </label>
+        </div>
+      </section>
+
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={isUpdating}>
+          {isUpdating ? t('profile.saving') : t('common.save')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onCancel}
+          disabled={isUpdating}
+        >
+          {t('common.cancel')}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+const ProfileWalletDetail = ({ address, copiedAddress, onCopy }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="profile-detail-item profile-detail-wallet">
+      <span className="detail-label">{t(walletChainLabel(address))}</span>
+      <span className="detail-value wallet-address-display">
+        <span className="wallet-address-text">{address}</span>
+        <button
+          className="wallet-copy-btn"
+          onClick={() => onCopy(address)}
+          title={t('profile.copyAddress')}
+        >
+          {copiedAddress ? t('profile.copied') : <CopyIcon />}
+        </button>
+      </span>
+    </div>
+  )
+}
+
+const ProfileProfessionalSection = ({ userProfile }) => {
+  const { t } = useTranslation()
+  return (
+    <section className="profile-section">
+      <h3 className="profile-section-title">{t('profile.professional')}</h3>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.company')}</span>
+        <span className="detail-value">{userProfile.company || '—'}</span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.role')}</span>
+        <span className="detail-value">{userProfile.jobTitle || '—'}</span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.linkedIn')}</span>
+        <span className="detail-value">
+          {userProfile.linkedIn ? (
+            <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
+              {userProfile.linkedIn}
+            </a>
+          ) : '—'}
+        </span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.website')}</span>
+        <span className="detail-value">
+          {userProfile.website ? (
+            <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="profile-link">
+              {userProfile.website}
+            </a>
+          ) : '—'}
+        </span>
+      </div>
+    </section>
+  )
+}
+
+const ProfilePreferencesSection = ({ preferences }) => {
+  const { t } = useTranslation()
+  return (
+    <section className="profile-section">
+      <h3 className="profile-section-title">{t('profile.preferences')}</h3>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.emailNotifications')}</span>
+        <span className="detail-value">{preferences.emailNotifications !== false ? t('common.on') : t('common.off')}</span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.eventReminders')}</span>
+        <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
+      </div>
+    </section>
+  )
+}
+
+const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
+  const { t } = useTranslation()
+  return (
+    <section className="profile-section profile-section-activity">
+      <h3 className="profile-section-title">{t('profile.activity')}</h3>
+      {statsLoading ? (
+        <div className="profile-stats-loading">{t('common.loading')}</div>
+      ) : stats ? (
+        <div className="profile-stats">
+          <div className="profile-stat">
+            <span className="profile-stat-value">{stats.totalBookings}</span>
+            <span className="profile-stat-label">{t('profile.bookings')}</span>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-value">{stats.eventsAttended}</span>
+            <span className="profile-stat-label">{t('profile.eventsAttended')}</span>
+          </div>
+          <div className="profile-stat">
+            <span className="profile-stat-value">{stats.eventsOrganized}</span>
+            <span className="profile-stat-label">{t('profile.eventsOrganized')}</span>
+          </div>
+        </div>
+      ) : null}
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.memberSince')}</span>
+        <span className="detail-value">
+          {userProfile.createdAt
+            ? `${formatDateDDMMYYYY(userProfile.createdAt)} (${formatMemberSince(userProfile.createdAt, t)})`
+            : t('common.na')}
+        </span>
+      </div>
+    </section>
+  )
+}
+
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit }) => {
+  const { t } = useTranslation()
+  return (
+    <>
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.displayName')}</span>
+          <span className="detail-value">{userProfile.displayName || '—'}</span>
+        </div>
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.email')}</span>
+          <span className="detail-value">{userProfile.email || '—'}</span>
+        </div>
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.phone')}</span>
+          <span className="detail-value">{userProfile.phone || '—'}</span>
+        </div>
+        {userProfile.walletAddress && (
+          <ProfileWalletDetail
+            address={userProfile.walletAddress}
+            copiedAddress={copiedAddress}
+            onCopy={onCopyAddress}
+          />
+        )}
+      </section>
+
+      <ProfileProfessionalSection userProfile={userProfile} />
+
+      <section className="profile-section">
+        <h3 className="profile-section-title">{t('profile.about')}</h3>
+        <div className="profile-detail-item profile-detail-bio">
+          <span className="detail-label">{t('profile.bio')}</span>
+          <span className="detail-value">{userProfile.bio || '—'}</span>
+        </div>
+      </section>
+
+      <ProfilePreferencesSection preferences={preferences} />
+
+      <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
+
+      <div className="profile-actions">
+        <button className="btn btn-primary" onClick={onEdit}>
+          {t('profile.editProfile')}
+        </button>
+      </div>
+    </>
+  )
 }
 
 const MemberProfile = () => {
@@ -198,317 +573,38 @@ const MemberProfile = () => {
         )}
 
         <div className="profile-card glass">
-          <div className="profile-header">
-            <div className="profile-avatar-wrap">
-              <Avatar
-                src={userProfile.photoURL}
-                name={userProfile.displayName}
-                size="xl"
-                className="profile-avatar"
-              />
-              {isAvatarUploading && <div className="profile-avatar-overlay"><span className="spinner"></span></div>}
-              <label className="profile-avatar-upload">
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  onChange={handleAvatarChange}
-                  disabled={isAvatarUploading}
-                  aria-label={t('profile.changePhoto')}
-                />
-                <span>{t('profile.changePhoto')}</span>
-              </label>
-            </div>
-            <div className="profile-info">
-              <h2 className="profile-name">{userProfile.displayName || 'N/A'}</h2>
-              <p className="profile-email">{userProfile.email || 'N/A'}</p>
-              <span className={`membership-badge ${userProfile.membershipType}`}>
-                {userProfile.membershipType || 'member'}
-              </span>
-            </div>
-          </div>
+          <ProfileHeader
+            userProfile={userProfile}
+            isAvatarUploading={isAvatarUploading}
+            avatarInputRef={avatarInputRef}
+            onAvatarChange={handleAvatarChange}
+          />
 
           {isEditing ? (
-            <form onSubmit={handleSubmit} className="profile-form" onChange={handleFormChange}>
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.name')} {!profileComplete && <span className="form-required">*</span>}</label>
-                  <input
-                    type="text"
-                    name="displayName"
-                    className="form-field"
-                    defaultValue={userProfile.displayName}
-                    placeholder="Your full name"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.email')} {!profileComplete && <span className="form-required">*</span>}</label>
-                  <input
-                    type="email"
-                    name="email"
-                    className="form-field"
-                    defaultValue={userProfile.email}
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.phone')}</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    className="form-field"
-                    defaultValue={userProfile.phone}
-                    placeholder={t('profile.optional')}
-                  />
-                </div>
-                {userProfile.walletAddress && (
-                  <div className="form-group">
-                    <label className="form-label">{t(walletChainLabel(userProfile.walletAddress))}</label>
-                    <div className="wallet-address-field">
-                      <input
-                        type="text"
-                        className="form-field wallet-address-input"
-                        value={userProfile.walletAddress}
-                        readOnly
-                      />
-                      <button
-                        type="button"
-                        className="wallet-copy-btn"
-                        onClick={() => copyAddress(userProfile.walletAddress)}
-                        title={t('profile.copyAddress')}
-                      >
-                        {copiedAddress ? t('profile.copied') : <CopyIcon />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.professional')}</h3>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.company')} {!profileComplete && <span className="form-required">*</span>}</label>
-                  <input
-                    type="text"
-                    name="company"
-                    className="form-field"
-                    defaultValue={userProfile.company}
-                    placeholder={profileComplete ? t('profile.optional') : 'Your company or organization'}
-                    required={!profileComplete}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.role')} {!profileComplete && <span className="form-required">*</span>}</label>
-                  <input
-                    type="text"
-                    name="jobTitle"
-                    className="form-field"
-                    defaultValue={userProfile.jobTitle}
-                    placeholder={profileComplete ? t('profile.optional') : 'Your job title or role'}
-                    required={!profileComplete}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.linkedIn')}</label>
-                  <input
-                    type="url"
-                    name="linkedIn"
-                    className="form-field"
-                    defaultValue={userProfile.linkedIn}
-                    placeholder="https://linkedin.com/in/..."
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.website')}</label>
-                  <input
-                    type="url"
-                    name="website"
-                    className="form-field"
-                    defaultValue={userProfile.website}
-                    placeholder="https://..."
-                  />
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.about')}</h3>
-                <div className="form-group">
-                  <label className="form-label">{t('profile.bio')}</label>
-                  <textarea
-                    name="bio"
-                    className="form-field form-field-textarea"
-                    defaultValue={userProfile.bio}
-                    placeholder="A short bio about you"
-                    rows={4}
-                  />
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-                <div className="form-group form-group-checkbox">
-                  <label className="form-label form-label-checkbox">
-                    <input
-                      type="checkbox"
-                      name="emailNotifications"
-                      defaultChecked={preferences.emailNotifications !== false}
-                    />
-                    <span>{t('profile.emailNotifications')}</span>
-                  </label>
-                </div>
-                <div className="form-group form-group-checkbox">
-                  <label className="form-label form-label-checkbox">
-                    <input
-                      type="checkbox"
-                      name="eventReminders"
-                      defaultChecked={preferences.eventReminders !== false}
-                    />
-                    <span>{t('profile.eventReminders')}</span>
-                  </label>
-                </div>
-              </section>
-
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary" disabled={isUpdating}>
-                  {isUpdating ? t('profile.saving') : t('common.save')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setIsEditing(false)
-                    setHasUnsavedChanges(false)
-                  }}
-                  disabled={isUpdating}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </form>
+            <ProfileEditForm
+              userProfile={userProfile}
+              profileComplete={profileComplete}
+              preferences={preferences}
+              isUpdating={isUpdating}
+              copiedAddress={copiedAddress}
+              onCopyAddress={copyAddress}
+              onSubmit={handleSubmit}
+              onFormChange={handleFormChange}
+              onCancel={() => {
+                setIsEditing(false)
+                setHasUnsavedChanges(false)
+              }}
+            />
           ) : (
-            <>
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.basicInfo')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.displayName')}</span>
-                  <span className="detail-value">{userProfile.displayName || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.email')}</span>
-                  <span className="detail-value">{userProfile.email || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.phone')}</span>
-                  <span className="detail-value">{userProfile.phone || '—'}</span>
-                </div>
-                {userProfile.walletAddress && (
-                  <div className="profile-detail-item profile-detail-wallet">
-                    <span className="detail-label">{t(walletChainLabel(userProfile.walletAddress))}</span>
-                    <span className="detail-value wallet-address-display">
-                      <span className="wallet-address-text">{userProfile.walletAddress}</span>
-                      <button
-                        className="wallet-copy-btn"
-                        onClick={() => copyAddress(userProfile.walletAddress)}
-                        title={t('profile.copyAddress')}
-                      >
-                        {copiedAddress ? t('profile.copied') : <CopyIcon />}
-                      </button>
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.professional')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.company')}</span>
-                  <span className="detail-value">{userProfile.company || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.role')}</span>
-                  <span className="detail-value">{userProfile.jobTitle || '—'}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.linkedIn')}</span>
-                  <span className="detail-value">
-                    {userProfile.linkedIn ? (
-                      <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {userProfile.linkedIn}
-                      </a>
-                    ) : '—'}
-                  </span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.website')}</span>
-                  <span className="detail-value">
-                    {userProfile.website ? (
-                      <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-                        {userProfile.website}
-                      </a>
-                    ) : '—'}
-                  </span>
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.about')}</h3>
-                <div className="profile-detail-item profile-detail-bio">
-                  <span className="detail-label">{t('profile.bio')}</span>
-                  <span className="detail-value">{userProfile.bio || '—'}</span>
-                </div>
-              </section>
-
-              <section className="profile-section">
-                <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.emailNotifications')}</span>
-                  <span className="detail-value">{preferences.emailNotifications !== false ? t('common.on') : t('common.off')}</span>
-                </div>
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.eventReminders')}</span>
-                  <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
-                </div>
-              </section>
-
-              <section className="profile-section profile-section-activity">
-                <h3 className="profile-section-title">{t('profile.activity')}</h3>
-                {statsLoading ? (
-                  <div className="profile-stats-loading">{t('common.loading')}</div>
-                ) : stats ? (
-                  <div className="profile-stats">
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{stats.totalBookings}</span>
-                      <span className="profile-stat-label">{t('profile.bookings')}</span>
-                    </div>
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{stats.eventsAttended}</span>
-                      <span className="profile-stat-label">{t('profile.eventsAttended')}</span>
-                    </div>
-                    <div className="profile-stat">
-                      <span className="profile-stat-value">{stats.eventsOrganized}</span>
-                      <span className="profile-stat-label">{t('profile.eventsOrganized')}</span>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="profile-detail-item">
-                  <span className="detail-label">{t('profile.memberSince')}</span>
-                  <span className="detail-value">
-                    {userProfile.createdAt
-                      ? `${formatDateDDMMYYYY(userProfile.createdAt)} (${formatMemberSince(userProfile.createdAt, t)})`
-                      : t('common.na')}
-                  </span>
-                </div>
-              </section>
-
-              <div className="profile-actions">
-                <button className="btn btn-primary" onClick={() => setIsEditing(true)}>
-                  {t('profile.editProfile')}
-                </button>
-              </div>
-            </>
+            <ProfileDetails
+              userProfile={userProfile}
+              preferences={preferences}
+              stats={stats}
+              statsLoading={statsLoading}
+              copiedAddress={copiedAddress}
+              onCopyAddress={copyAddress}
+              onEdit={() => setIsEditing(true)}
+            />
           )}
         </div>
       </div>
