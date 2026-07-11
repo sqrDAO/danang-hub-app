@@ -168,6 +168,79 @@ function isWithinBusinessHours(startTime, endTime) {
   return startMins >= openMins && endMins <= closeMins;
 }
 
+/**
+ * Counts overlapping active bookings for an amenity/time-slot and derives
+ * whether the slot is at capacity. Shared by checkBookingConflicts,
+ * checkSlotAvailability, and the desk auto-approval trigger.
+ * @param {object} params
+ * @param {string} params.amenityId
+ * @param {object|null} params.amenity Amenity doc data, or null if missing
+ * @param {string} params.startTime ISO string
+ * @param {string} params.endTime ISO string
+ * @param {string} [params.excludeBookingId] Booking id to ignore (e.g. self)
+ * @return {Promise<{hasConflicts: boolean, conflicts: Array}>}
+ */
+async function computeBookingAvailability({
+  amenityId, amenity, startTime, endTime, excludeBookingId,
+}) {
+  const amenityType = amenity && amenity.type ? amenity.type : null;
+
+  let amenityCapacityRaw = 1;
+  if (amenity && typeof amenity.capacity === "number") {
+    amenityCapacityRaw = amenity.capacity;
+  }
+  const amenityCapacity = amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+
+  const bookingsQuery = db.collection("bookings")
+      .where("amenityId", "==", amenityId)
+      .where("status", "in", ["pending", "approved", "checked-in"]);
+
+  const snapshot = await bookingsQuery.get();
+  const conflicts = [];
+  const newStart = new Date(startTime);
+  const newEnd = new Date(endTime);
+
+  snapshot.forEach((doc) => {
+    if (excludeBookingId && doc.id === excludeBookingId) {
+      return;
+    }
+
+    const booking = doc.data();
+    const bookingStart = booking.startTime.toDate();
+    const bookingEnd = booking.endTime.toDate();
+
+    // Check for overlap
+    if (
+      (newStart >= bookingStart && newStart < bookingEnd) ||
+      (newEnd > bookingStart && newEnd <= bookingEnd) ||
+      (newStart <= bookingStart && newEnd >= bookingEnd)
+    ) {
+      conflicts.push({
+        id: doc.id,
+        startTime: bookingStart,
+        endTime: bookingEnd,
+      });
+    }
+  });
+
+  const overlapCount = conflicts.length;
+  let hasConflicts;
+
+  if (
+    amenityType &&
+    AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY.includes(amenityType) &&
+    amenityCapacity > 1
+  ) {
+    // Allow concurrent bookings up to capacity; block only when full
+    hasConflicts = overlapCount >= amenityCapacity;
+  } else {
+    // For single-occupancy amenities, any overlap is a conflict
+    hasConflicts = overlapCount > 0;
+  }
+
+  return {hasConflicts, conflicts};
+}
+
 // Check for booking conflicts
 exports.checkBookingConflicts = onCall(
     async (request) => {
@@ -185,14 +258,6 @@ exports.checkBookingConflicts = onCall(
         const amenitySnap = await amenityRef.get();
         const amenity = amenitySnap.exists ? amenitySnap.data() : null;
         const amenityType = amenity && amenity.type ? amenity.type : null;
-
-        let amenityCapacityRaw = 1;
-        if (amenity && typeof amenity.capacity === "number") {
-          amenityCapacityRaw = amenity.capacity;
-        }
-
-        const amenityCapacity =
-          amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
 
         // Always enforce available days for every amenity type
         // (including event-space)
@@ -215,52 +280,9 @@ exports.checkBookingConflicts = onCall(
           }
         }
 
-        const bookingsQuery = db.collection("bookings")
-            .where("amenityId", "==", amenityId)
-            .where("status", "in", ["pending", "approved", "checked-in"]);
-
-        const snapshot = await bookingsQuery.get();
-        const conflicts = [];
-
-        snapshot.forEach((doc) => {
-          if (excludeBookingId && doc.id === excludeBookingId) {
-            return;
-          }
-
-          const booking = doc.data();
-          const bookingStart = booking.startTime.toDate();
-          const bookingEnd = booking.endTime.toDate();
-          const newStart = new Date(startTime);
-          const newEnd = new Date(endTime);
-
-          // Check for overlap
-          if (
-            (newStart >= bookingStart && newStart < bookingEnd) ||
-            (newEnd > bookingStart && newEnd <= bookingEnd) ||
-            (newStart <= bookingStart && newEnd >= bookingEnd)
-          ) {
-            conflicts.push({
-              id: doc.id,
-              startTime: bookingStart,
-              endTime: bookingEnd,
-            });
-          }
+        const {hasConflicts, conflicts} = await computeBookingAvailability({
+          amenityId, amenity, startTime, endTime, excludeBookingId,
         });
-
-        const overlapCount = conflicts.length;
-        let hasConflicts;
-
-        if (
-          amenityType &&
-          AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY.includes(amenityType) &&
-          amenityCapacity > 1
-        ) {
-          // Allow concurrent bookings up to capacity; block only when full
-          hasConflicts = overlapCount >= amenityCapacity;
-        } else {
-          // For single-occupancy amenities, any overlap is a conflict
-          hasConflicts = overlapCount > 0;
-        }
 
         return {hasConflicts, conflicts};
       } catch (error) {
@@ -286,26 +308,11 @@ exports.checkSlotAvailability = onCall(
       }
 
       try {
-        const newStart = new Date(startTime);
-
         const amenityRef = db.collection("amenities").doc(amenityId);
         const amenityDoc = await amenityRef.get();
+        const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        let amenityType = null;
-        let amenityCapacity = 1;
-
-        if (amenityDoc.exists) {
-          const amenity = amenityDoc.data();
-          amenityType = amenity.type || null;
-
-          let amenityCapacityRaw = 1;
-          if (typeof amenity.capacity === "number") {
-            amenityCapacityRaw = amenity.capacity;
-          }
-
-          amenityCapacity =
-            amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
-
+        if (amenity) {
           // Always enforce available days for every amenity type
           if (!isOnAvailableDay(startTime, amenity)) {
             return {
@@ -325,50 +332,17 @@ exports.checkSlotAvailability = onCall(
           }
         }
 
-        const bookingsQuery = db.collection("bookings")
-            .where("amenityId", "==", amenityId)
-            .where("status", "in", ["pending", "approved", "checked-in"]);
-
-        const snapshot = await bookingsQuery.get();
-        const conflicts = [];
-        const newEnd = new Date(endTime);
-
-        snapshot.forEach((doc) => {
-          const booking = doc.data();
-          const bookingStart = booking.startTime.toDate();
-          const bookingEnd = booking.endTime.toDate();
-
-          if (
-            (newStart >= bookingStart && newStart < bookingEnd) ||
-            (newEnd > bookingStart && newEnd <= bookingEnd) ||
-            (newStart <= bookingStart && newEnd >= bookingEnd)
-          ) {
-            conflicts.push({
-              id: doc.id,
-              startTime: bookingStart.toISOString(),
-              endTime: bookingEnd.toISOString(),
-            });
-          }
+        const {hasConflicts, conflicts} = await computeBookingAvailability({
+          amenityId, amenity, startTime, endTime,
         });
 
-        const overlapCount = conflicts.length;
-        let available;
-
-        if (
-          amenityType &&
-          AMENITY_TYPES_WITH_CAPACITY_CONCURRENCY.includes(amenityType) &&
-          amenityCapacity > 1
-        ) {
-          // For shared-capacity amenities, mark unavailable when full
-          available = overlapCount < amenityCapacity;
-        } else {
-          // For single-occupancy amenities, any overlap makes slot unavailable
-          available = overlapCount === 0;
-        }
-
         return {
-          available,
-          conflicts,
+          available: !hasConflicts,
+          conflicts: conflicts.map((c) => ({
+            id: c.id,
+            startTime: c.startTime.toISOString(),
+            endTime: c.endTime.toISOString(),
+          })),
         };
       } catch (error) {
         console.error("Error checking slot availability:", error);
@@ -524,6 +498,51 @@ exports.sendBookingConfirmation = onDocumentCreated(
         return null;
       } catch (error) {
         console.error("Error sending booking confirmation:", error);
+        return null;
+      }
+    });
+
+// Auto-approve desk bookings (excluding Fixed Desk plans) when the desk
+// still has capacity for that time slot; otherwise leave pending for
+// manual admin review.
+exports.autoApproveDeskBooking = onDocumentCreated(
+    "bookings/{bookingId}",
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return null;
+      const booking = snap.data();
+
+      if (booking.status !== "pending" || booking.planType === "fixed-desk") {
+        return null;
+      }
+
+      try {
+        const amenityDoc = await db.collection("amenities")
+            .doc(booking.amenityId).get();
+        const amenity = amenityDoc.exists ? amenityDoc.data() : null;
+
+        if (!amenity || amenity.type !== "desk") {
+          return null;
+        }
+
+        const {hasConflicts} = await computeBookingAvailability({
+          amenityId: booking.amenityId,
+          amenity,
+          startTime: booking.startTime.toDate().toISOString(),
+          endTime: booking.endTime.toDate().toISOString(),
+          excludeBookingId: event.params.bookingId,
+        });
+
+        if (!hasConflicts) {
+          await snap.ref.update({
+            status: "approved",
+            updatedAt: new Date().toISOString(),
+          });
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error auto-approving desk booking:", error);
         return null;
       }
     });
