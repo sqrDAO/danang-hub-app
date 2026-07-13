@@ -7,6 +7,7 @@ import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
+import { disablePushNotifications, enablePushNotifications, isPushSupported } from '../../services/pushNotifications'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -34,6 +35,41 @@ const validateRequiredFields = (data, t) => {
 
 const isInvalidOptionalField = (value, pattern) =>
   Boolean(value && value.trim() && !pattern.test(value.trim()))
+
+const getPushPreferenceValue = (preferences) => preferences?.pushNotifications === true
+
+const getPushPreferenceHelp = (supported, permission, t) => {
+  if (!supported) return t('profile.pushNotificationsUnsupported')
+  if (permission === 'denied') return t('profile.pushNotificationsDenied')
+  if (permission === 'granted') return t('profile.pushNotificationsGranted')
+  return t('profile.pushNotificationsHelp')
+}
+
+const buildProfileUpdateData = (formData, pushNotifications) => ({
+  displayName: formData.get('displayName')?.trim() || '',
+  email: formData.get('email')?.trim() || '',
+  phone: formData.get('phone')?.trim() || '',
+  bio: formData.get('bio')?.trim() || '',
+  company: formData.get('company')?.trim() || '',
+  jobTitle: formData.get('jobTitle')?.trim() || '',
+  linkedIn: formData.get('linkedIn')?.trim() || '',
+  website: formData.get('website')?.trim() || '',
+  preferences: {
+    emailNotifications: formData.get('emailNotifications') === 'on',
+    eventReminders: formData.get('eventReminders') === 'on',
+    pushNotifications,
+  },
+})
+
+const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications, setPushPermission) => {
+  if (desiredPushNotifications === currentPushNotifications) return
+  if (desiredPushNotifications) {
+    await enablePushNotifications(uid)
+  } else {
+    await disablePushNotifications(uid)
+  }
+  setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+}
 
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
@@ -124,7 +160,18 @@ const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
   )
 }
 
-const ProfileEditForm = ({ userProfile, profileComplete, preferences, isUpdating, copiedAddress, onCopyAddress, onSubmit, onFormChange, onCancel }) => {
+const ProfileEditForm = ({
+  userProfile,
+  profileComplete,
+  preferences,
+  isUpdating,
+  copiedAddress,
+  onCopyAddress,
+  onSubmit,
+  onFormChange,
+  onCancel,
+  pushPreferenceHelp,
+}) => {
   const { t } = useTranslation()
   return (
     <form onSubmit={onSubmit} className="profile-form" onChange={onFormChange}>
@@ -253,6 +300,17 @@ const ProfileEditForm = ({ userProfile, profileComplete, preferences, isUpdating
             <span>{t('profile.eventReminders')}</span>
           </label>
         </div>
+        <div className="form-group form-group-checkbox">
+          <label className="form-label form-label-checkbox">
+            <input
+              type="checkbox"
+              name="pushNotifications"
+              defaultChecked={preferences.pushNotifications === true}
+            />
+            <span>{t('profile.pushNotifications')}</span>
+          </label>
+          <p className="form-field-note">{pushPreferenceHelp}</p>
+        </div>
       </section>
 
       <div className="form-actions">
@@ -340,6 +398,10 @@ const ProfilePreferencesSection = ({ preferences }) => {
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
+      </div>
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.pushNotifications')}</span>
+        <span className="detail-value">{getPushPreferenceValue(preferences) ? t('common.on') : t('common.off')}</span>
       </div>
     </section>
   )
@@ -440,6 +502,9 @@ const MemberProfile = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [pushSupported, setPushSupported] = useState(true)
+  const [pushPermission, setPushPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default')
   const avatarInputRef = useRef(null)
 
   const copyAddress = async (addr) => {
@@ -456,23 +521,6 @@ const MemberProfile = () => {
     queryKey: ['memberStats', currentUser?.uid],
     queryFn: () => getMemberStats(currentUser.uid),
     enabled: !!currentUser?.uid
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: ({ uid, data }) => updateMember(uid, data),
-    onSuccess: async () => {
-      if (typeof refreshUserProfile === 'function') {
-        await refreshUserProfile()
-      }
-      queryClient.invalidateQueries(['members'])
-      queryClient.invalidateQueries(['memberStats', currentUser?.uid])
-      setIsEditing(false)
-      setHasUnsavedChanges(false)
-      showToast(t('toast.profileUpdated'), 'success')
-    },
-    onError: (error) => {
-      showToast(error.message || t('toast.profileUpdateFailed'), 'error')
-    }
   })
 
   const avatarMutation = useMutation({
@@ -494,6 +542,23 @@ const MemberProfile = () => {
   })
 
   useEffect(() => {
+    let isActive = true
+
+    const checkPushSupport = async () => {
+      const supported = await isPushSupported()
+      if (!isActive) return
+      setPushSupported(supported)
+      setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+    }
+
+    checkPushSupport()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!profileComplete && userProfile) {
       setIsEditing(true)
     }
@@ -509,30 +574,41 @@ const MemberProfile = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges, isEditing])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const preferences = {
-      emailNotifications: formData.get('emailNotifications') === 'on',
-      eventReminders: formData.get('eventReminders') === 'on'
-    }
-    const data = {
-      displayName: formData.get('displayName')?.trim() || '',
-      email: formData.get('email')?.trim() || '',
-      phone: formData.get('phone')?.trim() || '',
-      bio: formData.get('bio')?.trim() || '',
-      company: formData.get('company')?.trim() || '',
-      jobTitle: formData.get('jobTitle')?.trim() || '',
-      linkedIn: formData.get('linkedIn')?.trim() || '',
-      website: formData.get('website')?.trim() || '',
-      preferences
-    }
+    const desiredPushNotifications = formData.get('pushNotifications') === 'on'
+    const currentPushNotifications = getPushPreferenceValue(userProfile?.preferences)
+    const data = buildProfileUpdateData(formData, currentPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
       return
     }
-    updateMutation.mutate({ uid: currentUser.uid, data })
+
+    setIsSaving(true)
+    try {
+      await updateMember(currentUser.uid, data)
+      await syncPushPreference(
+        currentUser.uid,
+        desiredPushNotifications,
+        currentPushNotifications,
+        setPushPermission
+      )
+
+      if (typeof refreshUserProfile === 'function') {
+        await refreshUserProfile()
+      }
+      queryClient.invalidateQueries(['members'])
+      queryClient.invalidateQueries(['memberStats', currentUser?.uid])
+      setIsEditing(false)
+      setHasUnsavedChanges(false)
+      showToast(t('toast.profileUpdated'), 'success')
+    } catch (error) {
+      showToast(error.message || t('toast.profileUpdateFailed'), 'error')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleAvatarChange = (e) => {
@@ -558,8 +634,9 @@ const MemberProfile = () => {
   }
 
   const preferences = userProfile.preferences || {}
-  const isUpdating = updateMutation.isPending
+  const isUpdating = isSaving
   const isAvatarUploading = avatarMutation.isPending
+  const pushPreferenceHelp = getPushPreferenceHelp(pushSupported, pushPermission, t)
 
   return (
     <Layout isAdmin={isAdminRoute}>
@@ -594,6 +671,7 @@ const MemberProfile = () => {
                 setIsEditing(false)
                 setHasUnsavedChanges(false)
               }}
+              pushPreferenceHelp={pushPreferenceHelp}
             />
           ) : (
             <ProfileDetails

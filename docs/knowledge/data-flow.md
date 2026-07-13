@@ -97,7 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
-- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. For opted-in users, the same booking review/approval path also sends browser push via the private token stored in `push_tokens/{uid}`.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -145,8 +145,8 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
-| `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review |
-| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan |
+| `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
+| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
@@ -190,6 +190,8 @@ those live in the callable / client and are advisory.
 | `bookings` | booking create/update (§2), schedulers (§2) | member/admin dashboards, conflict checks |
 | `events` | event create/approve (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
+| `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
+| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking review/approval |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
 | `projects` | admin (rules allow; no write service yet) | Home page showcase |
 

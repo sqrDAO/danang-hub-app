@@ -60,14 +60,21 @@ const NOTIFICATION_COPY_BY_TYPE = {
   booking_approved: getBookingApprovedCopy
 }
 
+const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
+
+const getNotificationTone = (type) => {
+  if (type === 'booking_approved') return 'approved'
+  if (type === 'event_rejected') return 'rejected'
+  return 'pending'
+}
+
 const getNotificationCopy = (notification, t) => {
-  const copyFactory = NOTIFICATION_COPY_BY_TYPE[notification.type]
+  const copyFactory = getNotificationCopyFactory(notification.type)
   const copy = copyFactory ? copyFactory(notification, t) : getDefaultNotificationCopy(t)
-  const tone = notification.type === 'booking_approved' ? 'approved' : 'pending'
 
   return {
     ...copy,
-    tone
+    tone: getNotificationTone(notification.type)
   }
 }
 

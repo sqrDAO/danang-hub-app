@@ -60,6 +60,7 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Notifications & Email
 - **In-App Notification Center** — unread inbox for new event review requests plus booking review and approval work
+- **Browser Push Alerts** — opt-in booking review / approval alerts through Firebase Cloud Messaging
 - **Booking Confirmation Trigger** — records booking confirmation details; email delivery remains pending
 - **SMTP password** stored in Firebase Secret Manager (not in code)
 
@@ -144,6 +145,7 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+VITE_FIREBASE_VAPID_KEY=BLPUSH_PUBLIC_KEY_FROM_FIREBASE
 ```
 
 ### 4. Enable Firebase Services
@@ -187,7 +189,13 @@ EMAIL_FROM_NAME=Da Nang Blockchain Hub
 APP_URL=https://app.danangblockchainhub.com
 ```
 
-### 7. Grant Admin Access
+### 7. Configure Browser Push
+
+In **Firebase Console → Project settings → Cloud Messaging → Web Push certificates**, generate or copy the web push public key and place it in `VITE_FIREBASE_VAPID_KEY`.
+
+The app registers a custom service worker at `public/sw.js` to handle background FCM messages and keep the Workbox caching rules used by the PWA.
+
+### 8. Grant Admin Access
 
 In **Firestore → Data**, find the user's document in the `members` collection and set `membershipType` to `"admin"`.
 
@@ -203,8 +211,8 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
-| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work |
-| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
+| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
@@ -258,10 +266,12 @@ src/
 │   └── Events.jsx                # Public events page
 ├── services/
 │   ├── firebase.js               # Firebase initialization
+│   ├── firebaseConfig.js         # Shared Firebase config + VAPID key
 │   ├── amenities.js
 │   ├── bookings.js               # CRUD + conflict checking
 │   ├── events.js                 # CRUD + attendee/waitlist management
 │   ├── members.js
+│   ├── pushNotifications.js      # Browser push token opt-in/out helpers
 │   ├── notifications.js
 │   ├── projects.js
 │   ├── storage.js                # Firebase Storage (avatars, amenity photos)
@@ -296,6 +306,8 @@ functions/
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
 | `events` | Events with approval status, attendees, waitlist, rejection reason |
+| `push_tokens` | Private browser push tokens keyed by member uid |
+| `push_notifications` | Internal dedupe markers for browser push alerts |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 

@@ -33,6 +33,11 @@ export const AuthProvider = ({ children }) => {
         email: user.email || '',
         photoURL: user.photoURL || '',
         membershipType: 'member',
+        preferences: {
+          emailNotifications: true,
+          eventReminders: true,
+          pushNotifications: false,
+        },
         createdAt: new Date().toISOString(),
         ...(extraFields.walletAddress && { walletAddress: extraFields.walletAddress }),
       }

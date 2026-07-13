@@ -106,5 +106,12 @@ service cloud.firestore {
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       // Only Cloud Functions (admin SDK) create notifications — no client-side create/delete
     }
+
+    // Browser push tokens are private client writes. Cloud Functions read them
+    // through the Admin SDK; no client should read tokens back from Firestore.
+    match /push_tokens/{userId} {
+      allow read: if false;
+      allow create, update, delete: if isOwner(userId);
+    }
   }
 }

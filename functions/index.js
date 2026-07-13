@@ -9,6 +9,7 @@ const {
   getFirestore, Timestamp, FieldValue,
 } = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
+const {getMessaging} = require("firebase-admin/messaging");
 const crypto = require("crypto");
 const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
@@ -374,6 +375,136 @@ async function notifyAdmins(type, subjectId, data) {
 }
 
 /**
+ * @param {Object} member Member Firestore document data
+ * @return {boolean} True if the member opted into push notifications
+ */
+function hasPushEnabled(member) {
+  return Boolean(
+      member &&
+      member.preferences &&
+      member.preferences.pushNotifications === true,
+  );
+}
+
+/**
+ * @param {string} memberId Member document id
+ * @param {Object} member Member Firestore document data
+ * @return {Promise<string>} Stored browser push token, if available
+ */
+async function getPushToken(memberId, member) {
+  if (!hasPushEnabled(member)) return "";
+
+  const tokenDoc = await db.collection("push_tokens").doc(memberId).get();
+  if (!tokenDoc.exists) return "";
+
+  const tokenData = tokenDoc.data();
+  return tokenData && tokenData.token ? tokenData.token : "";
+}
+
+/**
+ * Sends one push payload to a batch of tokens.
+ * @param {Array<string>} tokens Device tokens
+ * @param {Object} data FCM data payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToTokens(tokens, data) {
+  if (!tokens.length) return [];
+
+  const messaging = getMessaging();
+  const results = [];
+  const batchSize = 500;
+  for (let i = 0; i < tokens.length; i += batchSize) {
+    const batchTokens = tokens.slice(i, i + batchSize);
+    const response = await messaging.sendEachForMulticast({
+      tokens: batchTokens,
+      data,
+    });
+    results.push(response);
+  }
+  return results;
+}
+
+/**
+ * @param {Error} error Firestore write error
+ * @return {boolean} True when a dedupe marker already exists
+ */
+function isAlreadyExistsError(error) {
+  return error && (
+    error.code === 6 ||
+    error.code === "already-exists" ||
+    String(error.message || "").includes("ALREADY_EXISTS")
+  );
+}
+
+/**
+ * Creates a best-effort dedupe marker for one push recipient and subject.
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<boolean>} True if this recipient has not seen the push yet
+ */
+async function markPushRecipient(recipientId, type, subjectId) {
+  const markerId = `${type}_${recipientId}_${subjectId || "default"}`;
+  const markerRef = db.collection("push_notifications").doc(markerId);
+  try {
+    await markerRef.create({
+      recipientId,
+      type,
+      subjectId: subjectId || "",
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      throw error;
+    }
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Sends a push payload to member docs that have opted in.
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} docs Member docs
+ * @param {Object} payload Notification payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToMembers(docs, payload) {
+  const recipients = [];
+  for (const doc of docs) {
+    const member = doc.data();
+    const pushToken = await getPushToken(doc.id, member);
+    if (!pushToken) {
+      continue;
+    }
+    // Fixed-desk plans generate one booking doc per working day. Use a
+    // recipient/subject marker so push follows the same grouped behavior as
+    // the in-app notification id.
+    const shouldSend = await markPushRecipient(
+        doc.id,
+        payload.type || "notification",
+        payload.subjectId || "",
+    );
+    if (shouldSend) {
+      recipients.push(pushToken);
+    }
+  }
+
+  if (!recipients.length) return [];
+
+  const data = {
+    title: String(payload.title || ""),
+    body: String(payload.body || ""),
+    link: String(payload.link || "/"),
+    type: String(payload.type || "notification"),
+    subjectId: String(payload.subjectId || ""),
+    tag: String(payload.tag ||
+      `${payload.type || "notification"}-${payload.subjectId || "default"}`),
+  };
+
+  return sendPushToTokens(recipients, data);
+}
+
+/**
  * @param {string} amenityId Amenity document id
  * @return {Promise<string>} Amenity name or id when unavailable
  */
@@ -404,6 +535,33 @@ function getBookingSubjectId(booking, bookingId) {
 }
 
 /**
+ * Sends booking-review push notifications to opted-in admins.
+ * @param {string} subjectId Stable booking or plan identifier
+ * @param {Object} payload Push payload
+ * @return {Promise<Array>}
+ */
+async function notifyAdminsPush(subjectId, payload) {
+  const admins = await db.collection("members")
+      .where("membershipType", "==", "admin").get();
+  return sendPushToMembers(admins.docs, {
+    ...payload,
+    subjectId,
+  });
+}
+
+/**
+ * Sends a booking-approval push to the member who owns the booking.
+ * @param {string} memberId Member document id
+ * @param {Object} payload Push payload
+ * @return {Promise<Array>}
+ */
+async function notifyMemberPush(memberId, payload) {
+  const memberDoc = await db.collection("members").doc(memberId).get();
+  if (!memberDoc.exists) return [];
+  return sendPushToMembers([memberDoc], payload);
+}
+
+/**
  * @param {Object} booking Booking Firestore document data
  * @param {string} bookingId Booking document id
  * @return {Promise<void>}
@@ -421,6 +579,24 @@ async function notifyPendingBookingReview(booking, bookingId) {
     planType: booking.planType || "standard",
     link: "/admin/bookings",
   });
+  const requesterName = memberName || "A member";
+  const fixedDeskReviewBody =
+    `${requesterName} requested a fixed desk plan for ` +
+    `"${amenityName}".`;
+  const standardReviewBody =
+    `${requesterName} requested "${amenityName}".`;
+  try {
+    await notifyAdminsPush(subjectId, {
+      title: "Booking needs review",
+      body: booking.planType === "fixed-desk" ?
+        fixedDeskReviewBody :
+        standardReviewBody,
+      link: "/admin/bookings",
+      type: "booking_pending_review",
+    });
+  } catch (error) {
+    console.error("Error sending booking review push:", error);
+  }
 }
 
 /**
@@ -430,10 +606,11 @@ async function notifyPendingBookingReview(booking, bookingId) {
  */
 async function notifyBookingApproved(booking, bookingId) {
   const amenityName = await getAmenityName(booking.amenityId);
-  return createNotification(
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  await createNotification(
       booking.memberId,
       "booking_approved",
-      getBookingSubjectId(booking, bookingId),
+      subjectId,
       {
         bookingId,
         amenityName,
@@ -441,6 +618,19 @@ async function notifyBookingApproved(booking, bookingId) {
         link: "/member/bookings",
       },
   );
+  try {
+    await notifyMemberPush(booking.memberId, {
+      title: "Booking approved",
+      body: booking.planType === "fixed-desk" ?
+        `Your fixed desk plan for "${amenityName}" has been approved.` :
+        `Your booking for "${amenityName}" has been approved.`,
+      link: "/member/bookings",
+      type: "booking_approved",
+      subjectId,
+    });
+  } catch (error) {
+    console.error("Error sending booking approval push:", error);
+  }
 }
 
 const HUB_UTC_OFFSET_HOURS = 7;
