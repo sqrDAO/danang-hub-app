@@ -59,8 +59,8 @@ Live app: **https://app.danangblockchainhub.com**
 - Seamless sign-up call-to-action for new members
 
 ### Notifications & Email
-- **Event Status Email** — Nodemailer/Lark SMTP sends email on approval, rejection, or cancellation
-- **Booking Confirmations** — automated email on booking creation
+- **In-App Notification Center** — unread inbox for new event review requests plus booking review and approval work
+- **Booking Confirmation Trigger** — records booking confirmation details; email delivery remains pending
 - **SMTP password** stored in Firebase Secret Manager (not in code)
 
 ### Internationalization
@@ -202,10 +202,11 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
-| `sendBookingConfirmation` | Firestore trigger (onCreate) | Sends confirmation email when a booking is created |
-| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Sends email when an event is approved, rejected, or cancelled |
+| `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work |
+| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved |
+| `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
-| `sendEventReminders` | Scheduled (hourly) | Emails event reminders 24 hours before start |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 | `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
 

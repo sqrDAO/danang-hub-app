@@ -46,6 +46,28 @@
     "off": "Off",
     "signup": "Signup"
   },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Open notifications",
+    "markAllRead": "Mark all read",
+    "empty": "You have no unread notifications.",
+    "eventApprovedTitle": "Event approved",
+    "eventApprovedBody": "Your event \"{{title}}\" has been approved.",
+    "eventRejectedTitle": "Event not approved",
+    "eventRejectedBody": "Your event \"{{title}}\" was not approved.",
+    "eventRejectedReason": "Your event \"{{title}}\" was not approved: {{reason}}",
+    "eventPendingReviewTitle": "Event needs review",
+    "eventPendingReviewBody": "{{organizer}} submitted \"{{title}}\" for approval.",
+    "bookingPendingReviewTitle": "Booking needs review",
+    "bookingPendingReviewBody": "{{member}} requested \"{{amenity}}\".",
+    "fixedDeskPendingReviewBody": "{{member}} requested a fixed desk plan for \"{{amenity}}\".",
+    "bookingApprovedTitle": "Booking approved",
+    "bookingApprovedBody": "Your booking for \"{{amenity}}\" has been approved.",
+    "fixedDeskApprovedBody": "Your fixed desk plan for \"{{amenity}}\" has been approved.",
+    "defaultTitle": "New notification",
+    "defaultBody": "You have a new notification.",
+    "memberFallback": "A member"
+  },
   "status": {
     "pending": "pending",
     "approved": "approved",

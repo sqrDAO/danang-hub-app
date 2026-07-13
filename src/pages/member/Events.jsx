@@ -16,7 +16,6 @@ import {
   addToWaitlist,
   removeFromWaitlist
 } from '../../services/events'
-import { getUnreadNotifications, markNotificationRead } from '../../services/notifications'
 import { getMember } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
@@ -204,13 +203,6 @@ const useEventsQueries = (currentUser) => {
     enabled: !!currentUser?.uid
   })
 
-  // Fetch unread event-status notifications
-  const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications', currentUser?.uid],
-    queryFn: () => getUnreadNotifications(currentUser?.uid),
-    enabled: !!currentUser?.uid
-  })
-
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
@@ -225,7 +217,7 @@ const useEventsQueries = (currentUser) => {
     console.error('Error loading upcoming events:', eventsError)
   }
 
-  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, notifications, amenities, projects }
+  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, projects }
 }
 
 const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting }) => {
@@ -805,27 +797,9 @@ const MemberEvents = () => {
     eventsError,
     approvedEvents,
     myEvents,
-    notifications,
     amenities,
     projects
   } = useEventsQueries(currentUser)
-
-  useEffect(() => {
-    if (notifications.length === 0) return
-    notifications.forEach(n => {
-      if (n.status === 'rejected') {
-        const msg = n.rejectionReason
-          ? t('memberEvents.eventRejectedWithReason', { title: n.eventTitle, reason: n.rejectionReason })
-          : t('memberEvents.eventRejected', { title: n.eventTitle })
-        showToast(msg, 'error')
-      } else if (n.status === 'approved') {
-        showToast(t('memberEvents.eventApproved', { title: n.eventTitle }), 'success')
-      }
-      markNotificationRead(n.id)
-    })
-    queryClient.invalidateQueries({ queryKey: ['notifications'] })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications.length])
 
   const { createMutation, deleteMutation } = useEventFormMutations({ t, queryClient, setIsModalOpen, setIsSubmitting })
 

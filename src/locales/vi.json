@@ -46,6 +46,28 @@
     "off": "Tắt",
     "signup": "Đăng ký"
   },
+  "notifications": {
+    "title": "Thông báo",
+    "open": "Mở thông báo",
+    "markAllRead": "Đánh dấu đã đọc tất cả",
+    "empty": "Bạn chưa có thông báo chưa đọc.",
+    "eventApprovedTitle": "Sự kiện đã được duyệt",
+    "eventApprovedBody": "Sự kiện \"{{title}}\" của bạn đã được duyệt.",
+    "eventRejectedTitle": "Sự kiện chưa được duyệt",
+    "eventRejectedBody": "Sự kiện \"{{title}}\" của bạn chưa được duyệt.",
+    "eventRejectedReason": "Sự kiện \"{{title}}\" của bạn chưa được duyệt: {{reason}}",
+    "eventPendingReviewTitle": "Sự kiện cần được duyệt",
+    "eventPendingReviewBody": "{{organizer}} đã gửi \"{{title}}\" để duyệt.",
+    "bookingPendingReviewTitle": "Booking cần được duyệt",
+    "bookingPendingReviewBody": "{{member}} đã yêu cầu \"{{amenity}}\".",
+    "fixedDeskPendingReviewBody": "{{member}} đã yêu cầu gói bàn cố định cho \"{{amenity}}\".",
+    "bookingApprovedTitle": "Booking đã được duyệt",
+    "bookingApprovedBody": "Booking \"{{amenity}}\" của bạn đã được duyệt.",
+    "fixedDeskApprovedBody": "Gói bàn cố định \"{{amenity}}\" của bạn đã được duyệt.",
+    "defaultTitle": "Thông báo mới",
+    "defaultBody": "Bạn có một thông báo mới.",
+    "memberFallback": "Một thành viên"
+  },
   "status": {
     "pending": "chờ duyệt",
     "approved": "đã duyệt",

@@ -97,6 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -115,33 +116,16 @@ cancels every pending/approved booking in the group.
 
 ---
 
-## 3. Event lifecycle
+## 3. Event review notifications
 
 ```
-pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist[]
-   │                                              ▲
-   └──admin rejectEvent──▶ rejected     autoPromoteWaitlist (trigger)
+pending ──admin review──▶ approved / rejected
 ```
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
   **denormalizes `organizerDisplayName`/`organizerPhotoURL`** from the members collection
-  so list views don't fan out; `updateEvent()` re-fetches them when `organizerId` changes.
-- **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls
-  `approveEvent`/`rejectEvent(reason)`. The status flip fires
-  **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
-  `notifications` doc for the organizer and (2) sends a styled HTML email via
-  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
-  `preferences.emailNotifications`.
-- **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
-  `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
-  Capacity is enforced client-side before registering, not by rules.
-- **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
-  and the waitlist is non-empty, promotes FIFO up to the free spots. Manual equivalent:
-  `promoteFromWaitlist()` in the service.
-- **`updateEventCapacity`** (onUpdate trigger) — log-only "event is full" marker.
-- **`sendEventReminders`** (hourly) — finds events 24–25h out, batch-resolves attendees
-  with `db.getAll`, filters by `preferences.eventReminders` — but actual sending is TODO
-  (logs only).
+  so list views don't fan out; `notifyEventPendingReview` writes an in-app notification for each admin; `updateEvent()` re-fetches them when `organizerId` changes.
+- **Admin review** — event approval/rejection stays in the product, but this task only keeps the admin review notification on create. Organizer approval/rejection, cancellation, reminders, and waitlist notifications are out of scope here.
 - **Event-space hours** are validated client-side by `validateEventSpaceTime()`
   (`src/services/amenities.js`): weekdays from 18:00, weekends from 9:00, all days end
   22:00 (`EVENT_SPACE_AVAILABILITY`).
@@ -161,11 +145,10 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
-| `notifyEventStatusChange` | `events` onUpdate | In-app notification + nodemailer email on approve/reject |
-| `updateEventCapacity` | `events` onUpdate | Log when event hits capacity |
-| `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
+| `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review |
+| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan |
+| `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
-| `sendEventReminders` | schedule, hourly | Resolve attendees for events 24h out (send TODO) |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 
 ---

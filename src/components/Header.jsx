@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import Avatar from './Avatar'
+import NotificationBell from './NotificationBell'
 import './Header.css'
 
 const SunIcon = () => (
@@ -555,6 +556,8 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
         <div className="header-actions">
           {/* View switcher for admins */}
           {!isPublic && checkAdmin() && <ViewSwitchLink isAdmin={isAdmin} t={t} />}
+
+          {currentUser && <NotificationBell userId={currentUser.uid} />}
 
           {/* Language toggle - single button that cycles */}
           <LanguageButton currentLanguage={currentLanguage} toggleLanguage={toggleLanguage} />

@@ -25,3 +25,7 @@ export const getUnreadNotifications = async (userId) => {
 export const markNotificationRead = async (notificationId) => {
   await updateDoc(doc(db, 'notifications', notificationId), { read: true })
 }
+
+export const markNotificationsRead = async (notificationIds) => {
+  await Promise.all(notificationIds.map(markNotificationRead))
+}

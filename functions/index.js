@@ -13,7 +13,6 @@ const crypto = require("crypto");
 const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
 const bs58 = require("bs58");
-const nodemailer = require("nodemailer");
 
 initializeApp();
 
@@ -24,24 +23,6 @@ const db = getFirestore();
 // to set the public invoker IAM policy in other regions).
 const REGION = "us-central1";
 setGlobalOptions({region: REGION});
-
-// Transporter is created fresh each call so Secret Manager values
-// (injected into process.env at runtime) are always current.
-/**
- * Creates a Nodemailer SMTP transporter from environment config.
- * @return {object} Nodemailer transporter instance
- */
-function getTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_SMTP_HOST,
-    port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
-    secure: process.env.EMAIL_SMTP_SECURE !== "false",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-}
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
 const BUSINESS_START_HOUR = 9;
@@ -356,6 +337,112 @@ exports.checkSlotAvailability = onCall(
     },
 );
 
+/**
+ * Stores an unread notification with a stable document id. This prevents
+ * duplicated notifications when a Firestore trigger retries.
+ * @param {string} userId Notification recipient uid
+ * @param {string} type Notification type
+ * @param {string} subjectId Event, booking, or plan identifier
+ * @param {Object} data Notification payload
+ * @return {Promise<FirebaseFirestore.WriteResult>}
+ */
+async function createNotification(userId, type, subjectId, data) {
+  const notificationId = `${type}_${userId}_${subjectId}`;
+  return db.collection("notifications").doc(notificationId).set({
+    ...data,
+    userId,
+    type,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Sends the same notification to every current admin.
+ * @param {string} type Notification type
+ * @param {string} subjectId Event, booking, or plan identifier
+ * @param {Object} data Notification payload
+ * @return {Promise<Array<FirebaseFirestore.WriteResult>>}
+ */
+async function notifyAdmins(type, subjectId, data) {
+  const admins = await db.collection("members")
+      .where("membershipType", "==", "admin").get();
+  const writes = admins.docs.map((admin) =>
+    createNotification(admin.id, type, subjectId, data),
+  );
+  return Promise.all(writes);
+}
+
+/**
+ * @param {string} amenityId Amenity document id
+ * @return {Promise<string>} Amenity name or id when unavailable
+ */
+async function getAmenityName(amenityId) {
+  const amenityDoc = await db.collection("amenities").doc(amenityId).get();
+  const amenity = amenityDoc.exists ? amenityDoc.data() : null;
+  return amenity && amenity.name ? amenity.name : amenityId;
+}
+
+/**
+ * @param {string} memberId Member document id
+ * @return {Promise<string>} Member display name or empty string when missing
+ */
+async function getMemberName(memberId) {
+  const memberDoc = await db.collection("members").doc(memberId).get();
+  const member = memberDoc.exists ? memberDoc.data() : null;
+  if (!member) return "";
+  return member.displayName || member.email || "";
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {string} Stable id for a booking or its fixed-desk plan
+ */
+function getBookingSubjectId(booking, bookingId) {
+  return booking.planGroupId || bookingId;
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {Promise<void>}
+ */
+async function notifyPendingBookingReview(booking, bookingId) {
+  const [amenityName, memberName] = await Promise.all([
+    getAmenityName(booking.amenityId),
+    getMemberName(booking.memberId),
+  ]);
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  await notifyAdmins("booking_pending_review", subjectId, {
+    bookingId,
+    amenityName,
+    memberName,
+    planType: booking.planType || "standard",
+    link: "/admin/bookings",
+  });
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {Promise<FirebaseFirestore.WriteResult>}
+ */
+async function notifyBookingApproved(booking, bookingId) {
+  const amenityName = await getAmenityName(booking.amenityId);
+  return createNotification(
+      booking.memberId,
+      "booking_approved",
+      getBookingSubjectId(booking, bookingId),
+      {
+        bookingId,
+        amenityName,
+        planType: booking.planType || "standard",
+        link: "/member/bookings",
+      },
+  );
+}
+
 const HUB_UTC_OFFSET_HOURS = 7;
 
 /**
@@ -513,38 +600,89 @@ exports.autoApproveDeskBooking = onDocumentCreated(
       const snap = event.data;
       if (!snap) return null;
       const booking = snap.data();
+      const bookingId = event.params.bookingId;
 
-      if (booking.status !== "pending" || booking.planType === "fixed-desk") {
+      if (booking.status === "approved") {
+        await notifyBookingApproved(booking, bookingId);
         return null;
       }
+      if (booking.status !== "pending") return null;
 
       try {
         const amenityDoc = await db.collection("amenities")
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        if (!amenity || amenity.type !== "desk") {
-          return null;
-        }
-
-        const {hasConflicts} = await computeBookingAvailability({
-          amenityId: booking.amenityId,
-          amenity,
-          startTime: booking.startTime.toDate().toISOString(),
-          endTime: booking.endTime.toDate().toISOString(),
-          excludeBookingId: event.params.bookingId,
-        });
-
-        if (!hasConflicts) {
-          await snap.ref.update({
-            status: "approved",
-            updatedAt: new Date().toISOString(),
+        if (amenity && amenity.type === "desk" &&
+            booking.planType !== "fixed-desk") {
+          const {hasConflicts} = await computeBookingAvailability({
+            amenityId: booking.amenityId,
+            amenity,
+            startTime: booking.startTime.toDate().toISOString(),
+            endTime: booking.endTime.toDate().toISOString(),
+            excludeBookingId: bookingId,
           });
+
+          if (!hasConflicts) {
+            await snap.ref.update({
+              status: "approved",
+              updatedAt: new Date().toISOString(),
+            });
+            return null;
+          }
         }
 
+        await notifyPendingBookingReview(booking, bookingId);
         return null;
       } catch (error) {
         console.error("Error auto-approving desk booking:", error);
+        return null;
+      }
+    });
+
+// Notify members when an existing booking becomes approved. Fixed-desk plan
+// bookings share a deterministic notification document, so bulk approval is
+// represented by one message rather than one per working day.
+exports.notifyBookingApproval = onDocumentUpdated(
+    "bookings/{bookingId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+
+      if (before.status === after.status || after.status !== "approved") {
+        return null;
+      }
+
+      try {
+        await notifyBookingApproved(after, event.params.bookingId);
+        return null;
+      } catch (error) {
+        console.error("Error notifying booking approval:", error);
+        return null;
+      }
+    });
+
+// Notify admins when a member submits a new event for review.
+exports.notifyEventPendingReview = onDocumentCreated(
+    "events/{eventId}",
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return null;
+      const eventData = snap.data();
+      if (eventData.status !== "pending") return null;
+
+      try {
+        const organizerName = eventData.organizerDisplayName ||
+          await getMemberName(eventData.organizerId);
+        await notifyAdmins("event_pending_review", event.params.eventId, {
+          eventId: event.params.eventId,
+          eventTitle: eventData.title || eventData.name || "",
+          organizerName,
+          link: "/admin/events",
+        });
+        return null;
+      } catch (error) {
+        console.error("Error notifying event review:", error);
         return null;
       }
     });
@@ -598,230 +736,6 @@ exports.cleanupOldBookings = onSchedule(
         return null;
       } catch (error) {
         console.error("Error cleaning up old bookings:", error);
-        return null;
-      }
-    });
-
-// Send event reminders (respects member preferences.eventReminders)
-exports.sendEventReminders = onSchedule(
-    "every 1 hours",
-    async () => {
-      try {
-        const now = Timestamp.now();
-        const in24Hours = Timestamp.fromMillis(
-            now.toMillis() + 24 * 60 * 60 * 1000,
-        );
-        const in25Hours = Timestamp.fromMillis(
-            now.toMillis() + 25 * 60 * 60 * 1000,
-        );
-
-        // Find events happening in 24 hours
-        const upcomingEvents = await db.collection("events")
-            .where("date", ">=", in24Hours)
-            .where("date", "<=", in25Hours)
-            .get();
-
-        let reminderCount = 0;
-
-        for (const eventDoc of upcomingEvents.docs) {
-          const event = eventDoc.data();
-          const attendees = event.attendees || [];
-          const waitlist = event.waitlist || [];
-
-          // Resolve attendees who have eventReminders enabled.
-          // Batched getAll instead of N sequential .get() calls.
-          const uniqueAttendeeIds = [...new Set(attendees)];
-          const membersToRemind = [];
-          if (uniqueAttendeeIds.length > 0) {
-            const memberRefs = uniqueAttendeeIds.map((id) =>
-              db.collection("members").doc(id));
-            const memberDocs = await db.getAll(...memberRefs);
-            for (const memberDoc of memberDocs) {
-              const member = memberDoc.exists ? memberDoc.data() : null;
-              const prefs = (member && member.preferences) || {};
-              if (prefs.eventReminders !== false) {
-                membersToRemind.push({
-                  memberId: memberDoc.id,
-                  email: member && member.email ? member.email : null,
-                  displayName: member && member.displayName ?
-                    member.displayName : null,
-                });
-              }
-            }
-          }
-
-          // TODO: Integrate with email/push notification service;
-          // send only to membersToRemind
-          console.log(`Event reminder for ${event.title}:`, {
-            eventId: eventDoc.id,
-            attendees: attendees.length,
-            membersToRemind: membersToRemind.length,
-            waitlist: waitlist.length,
-            date: event.date,
-          });
-
-          reminderCount++;
-        }
-
-        console.log(`Sent ${reminderCount} event reminders`);
-        return null;
-      } catch (error) {
-        console.error("Error sending event reminders:", error);
-        return null;
-      }
-    });
-
-// Notify event organizer when event status changes to approved or rejected
-exports.notifyEventStatusChange = onDocumentUpdated(
-    {document: "events/{eventId}", secrets: ["EMAIL_PASS"]},
-    async (event) => {
-      const before = event.data.before.data();
-      const after = event.data.after.data();
-
-      // Only act on status transitions
-      if (before.status === after.status) return null;
-      if (!["approved", "rejected"].includes(after.status)) return null;
-
-      const eventId = event.params.eventId;
-      const eventTitle = after.title || after.name || "";
-      const isApproved = after.status === "approved";
-      const rejectionReason = after.rejectionReason || "";
-
-      try {
-        // 1. Write in-app notification
-        await db.collection("notifications").add({
-          userId: after.organizerId,
-          type: "event_status",
-          eventId,
-          eventTitle,
-          status: after.status,
-          rejectionReason,
-          read: false,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        // 2. Send email if organizer has emailNotifications enabled
-        const memberDoc = await db.collection("members")
-            .doc(after.organizerId).get();
-        const member = memberDoc.exists ? memberDoc.data() : null;
-        const prefs = (member && member.preferences) || {};
-        const sendEmail = prefs.emailNotifications !== false;
-
-        if (member && member.email && sendEmail && process.env.EMAIL_USER) {
-          const displayName = member.displayName || member.email;
-          const fromName =
-            process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
-          const appUrl =
-            process.env.APP_URL || "https://app.danangblockchainhub.com";
-
-          const subject = isApproved ?
-            `✅ Your event "${eventTitle}" has been approved` :
-            `❌ Your event "${eventTitle}" was not approved`;
-
-          const eventTitleHtml =
-            `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
-          const statusHtml = isApproved ?
-            `${eventTitleHtml} has been ` +
-            `<strong style="color:#22c55e;">approved</strong>` +
-            ` and is now live on the events calendar.` :
-            `We're sorry, ${eventTitleHtml} was ` +
-            `<strong style="color:#ef4444;">not approved</strong>` +
-            ` at this time.`;
-          const followUpHtml = isApproved ?
-            `Members can now see and register for your event.` +
-            ` You'll receive reminders as the date approaches.` :
-            `You're welcome to submit a new event request` +
-            ` after addressing the feedback above.`;
-          /* eslint-disable max-len */
-          const guidelinesHtml = isApproved ?
-            `<p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">` +
-            `Please review our ` +
-            `<a href="https://www.danangblockchainhub.com/event-guidelines.html" ` +
-            `style="color:#38bdf8;text-decoration:none;">Event Guidelines</a>` +
-            ` and ` +
-            `<a href="https://www.danangblockchainhub.com/community-space-guidelines.html" ` +
-            `style="color:#38bdf8;text-decoration:none;">Community Space Guidelines</a>` +
-            ` before your event to ensure a smooth experience for all attendees.</p>` : "";
-          /* eslint-enable max-len */
-
-          // eslint-disable-next-line max-len
-          const reasonText = rejectionReason || "No reason was provided.";
-          const reasonHtml = isApproved ? "" :
-            `<div style="margin:20px 0;padding:16px;` +
-            `background:#fff1f2;border-left:4px solid #ef4444;` +
-            `border-radius:6px;">` +
-            `<p style="margin:0;font-size:14px;color:#991b1b;">` +
-            `<strong>Reason:</strong> ${reasonText}</p></div>`;
-
-          /* eslint-disable max-len */
-          const bodyHtml = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#0f172a;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-    <tr><td align="center" style="padding:40px 16px;">
-      <table width="600" cellpadding="0" cellspacing="0"
-             style="background:#1e293b;border-radius:16px;overflow:hidden;max-width:600px;">
-        <tr>
-          <td style="background:linear-gradient(135deg,#0ea5e9,#6366f1);padding:32px;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">
-              Da Nang Blockchain Hub
-            </h1>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:32px;">
-            <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;">
-              Hi ${displayName},
-            </p>
-            <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;line-height:1.6;">
-              ${statusHtml}
-            </p>
-            ${reasonHtml}
-            <p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">
-              ${followUpHtml}
-            </p>
-            ${guidelinesHtml}
-            <div style="margin:32px 0;text-align:center;">
-              <a href="${appUrl}/member/events"
-                 style="display:inline-block;padding:12px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
-                View My Events
-              </a>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:20px 32px;border-top:1px solid #334155;text-align:center;">
-            <p style="margin:0;color:#475569;font-size:12px;">
-              Da Nang Blockchain Hub &mdash; You're receiving this because you submitted an event request.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-          /* eslint-enable max-len */
-
-          await getTransporter().sendMail({
-            from: `"${fromName}" <${process.env.EMAIL_USER}>`,
-            to: member.email,
-            subject,
-            html: bodyHtml,
-          });
-
-          console.log("Event status email sent:", {
-            to: member.email,
-            eventId,
-            status: after.status,
-          });
-        }
-
-        return null;
-      } catch (error) {
-        console.error("Error in notifyEventStatusChange:", error);
         return null;
       }
     });
