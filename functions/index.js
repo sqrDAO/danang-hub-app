@@ -378,6 +378,33 @@ async function createNotification(userId, type, subjectId, data) {
 }
 
 /**
+ * Stores a notification only if the deterministic document is absent.
+ * @param {string} userId Notification recipient uid
+ * @param {string} type Notification type
+ * @param {string} subjectId Event, booking, or plan identifier
+ * @param {Object} data Notification payload
+ * @return {Promise<boolean>} True when a new notification was created
+ */
+async function createNotificationIfAbsent(userId, type, subjectId, data) {
+  const notificationId = `${type}_${userId}_${subjectId}`;
+  try {
+    await db.collection("notifications").doc(notificationId).create({
+      ...data,
+      userId,
+      type,
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      throw error;
+    }
+    return false;
+  }
+  return true;
+}
+
+/**
  * Sends the same notification to every current admin.
  * @param {string} type Notification type
  * @param {string} subjectId Event, booking, or plan identifier
@@ -438,11 +465,26 @@ function getPushMarkerRef(recipientId, type, subjectId) {
  * @param {string} recipientId Member document id
  * @param {string} type Notification type
  * @param {string} subjectId Stable booking or plan identifier
- * @return {Promise<boolean>} True when this push was already sent
+ * @return {Promise<boolean>} True when this execution reserved the push send
  */
-async function hasPushRecipientMarker(recipientId, type, subjectId) {
-  const markerDoc = await getPushMarkerRef(recipientId, type, subjectId).get();
-  return markerDoc.exists;
+async function reservePushRecipient(recipientId, type, subjectId) {
+  const markerRef = getPushMarkerRef(recipientId, type, subjectId);
+  try {
+    await markerRef.create({
+      recipientId,
+      type,
+      subjectId: subjectId || "",
+      status: "pending",
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
+    });
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      throw error;
+    }
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -458,7 +500,7 @@ function isAlreadyExistsError(error) {
 }
 
 /**
- * Creates a dedupe marker after a push recipient was sent successfully.
+ * Marks a reserved dedupe marker after a push recipient was sent successfully.
  * @param {string} recipientId Member document id
  * @param {string} type Notification type
  * @param {string} subjectId Stable booking or plan identifier
@@ -466,21 +508,26 @@ function isAlreadyExistsError(error) {
  */
 async function markPushRecipient(recipientId, type, subjectId) {
   const markerRef = getPushMarkerRef(recipientId, type, subjectId);
-  try {
-    await markerRef.create({
-      recipientId,
-      type,
-      subjectId: subjectId || "",
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
-    });
-  } catch (error) {
-    if (!isAlreadyExistsError(error)) {
-      throw error;
-    }
-    return false;
-  }
+  await markerRef.set({
+    recipientId,
+    type,
+    subjectId: subjectId || "",
+    status: "sent",
+    sentAt: FieldValue.serverTimestamp(),
+    expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
+  }, {merge: true});
   return true;
+}
+
+/**
+ * Releases a reserved marker so failed sends can retry later.
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<void>}
+ */
+async function releasePushRecipient(recipientId, type, subjectId) {
+  await getPushMarkerRef(recipientId, type, subjectId).delete();
 }
 
 /**
@@ -533,10 +580,22 @@ async function sendPushToRecipients(recipients, data) {
 
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batchRecipients = recipients.slice(i, i + batchSize);
-    const response = await messaging.sendEachForMulticast({
-      tokens: batchRecipients.map((recipient) => recipient.token),
-      data,
-    });
+    let response;
+    try {
+      response = await messaging.sendEachForMulticast({
+        tokens: batchRecipients.map((recipient) => recipient.token),
+        data,
+      });
+    } catch (error) {
+      await Promise.all(batchRecipients.map((recipient) =>
+        releasePushRecipient(
+            recipient.memberId,
+            recipient.type,
+            recipient.subjectId,
+        ),
+      ));
+      throw error;
+    }
     results.push(response);
 
     const followUps = response.responses.map((sendResult, index) => {
@@ -549,9 +608,20 @@ async function sendPushToRecipients(recipients, data) {
         );
       }
       if (isUnrecoverablePushTokenError(sendResult.error)) {
-        return deleteStalePushToken(recipient.memberId, recipient.token);
+        return Promise.all([
+          deleteStalePushToken(recipient.memberId, recipient.token),
+          releasePushRecipient(
+              recipient.memberId,
+              recipient.type,
+              recipient.subjectId,
+          ),
+        ]);
       }
-      return Promise.resolve();
+      return releasePushRecipient(
+          recipient.memberId,
+          recipient.type,
+          recipient.subjectId,
+      );
     });
     await Promise.all(followUps);
   }
@@ -579,12 +649,12 @@ async function sendPushToMembers(docs, payload) {
     // Fixed-desk plans generate one booking doc per working day. Use a
     // recipient/subject marker so push follows the same grouped behavior as
     // the in-app notification id.
-    const alreadySent = await hasPushRecipientMarker(
+    const shouldSend = await reservePushRecipient(
         doc.id,
         type,
         subjectId,
     );
-    if (!alreadySent) {
+    if (shouldSend) {
       recipients.push({
         memberId: doc.id,
         token: pushToken,
@@ -1034,19 +1104,21 @@ exports.notifyEventStatusChange = onDocumentUpdated(
       const eventTitle = after.title || after.name || "";
       const isApproved = after.status === "approved";
       const rejectionReason = after.rejectionReason || "";
+      const subjectId = `${eventId}_${after.status}`;
 
       try {
-        await db.collection("notifications").add({
-          userId: after.organizerId,
-          type: "event_status",
-          eventId,
-          eventTitle,
-          status: after.status,
-          rejectionReason,
-          link: "/member/events",
-          read: false,
-          createdAt: FieldValue.serverTimestamp(),
-        });
+        await createNotificationIfAbsent(
+            after.organizerId,
+            "event_status",
+            subjectId,
+            {
+              eventId,
+              eventTitle,
+              status: after.status,
+              rejectionReason,
+              link: "/member/events",
+            },
+        );
 
         const memberDoc = await db.collection("members")
             .doc(after.organizerId).get();
