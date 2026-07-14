@@ -40,6 +40,8 @@ Use in-app notifications as the source of truth, with opt-in browser push for hi
 - [ ] The app stores browser push tokens without exposing them through member profile reads.
 - [ ] Booking review notifications reach opted-in admins as browser push.
 - [ ] Booking approval notifications reach opted-in members as browser push.
+- [ ] Failed push sends prune unrecoverable browser tokens.
+- [ ] Browser push dedupe markers expire or are cleaned up.
 - [ ] NOT: Browser push is limited to `booking_pending_review` and `booking_approved`.
 - [ ] NOT: A member cancelling their own booking does not receive a notification.
 
@@ -54,3 +56,4 @@ Use in-app notifications as the source of truth, with opt-in browser push for hi
 Existing `notifications` documents are Cloud-Function-written and member-readable; clients may update only `read`.
 Notification document IDs are deterministic for grouped plans, so trigger retries do not create duplicates.
 Browser push requires the project owner to configure `VITE_FIREBASE_VAPID_KEY` before production push can be enabled.
+Browser push dedupe markers include `expiresAt` and are deleted by the daily cleanup function.

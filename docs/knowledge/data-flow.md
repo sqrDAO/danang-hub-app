@@ -97,7 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
-- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. For opted-in users, the same booking review/approval path also sends browser push via the private token stored in `push_tokens/{uid}`.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. For opted-in users, the same booking review/approval path also sends browser push via the private token stored in `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -154,6 +154,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
+| `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 
 ---

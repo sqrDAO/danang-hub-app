@@ -420,27 +420,29 @@ async function getPushToken(memberId, member) {
   return tokenData && tokenData.token ? tokenData.token : "";
 }
 
-/**
- * Sends one push payload to a batch of tokens.
- * @param {Array<string>} tokens Device tokens
- * @param {Object} data FCM data payload
- * @return {Promise<Array>}
- */
-async function sendPushToTokens(tokens, data) {
-  if (!tokens.length) return [];
+const PUSH_MARKER_TTL_DAYS = 90;
+const PUSH_MARKER_TTL_MS = PUSH_MARKER_TTL_DAYS * 24 * 60 * 60 * 1000;
 
-  const messaging = getMessaging();
-  const results = [];
-  const batchSize = 500;
-  for (let i = 0; i < tokens.length; i += batchSize) {
-    const batchTokens = tokens.slice(i, i + batchSize);
-    const response = await messaging.sendEachForMulticast({
-      tokens: batchTokens,
-      data,
-    });
-    results.push(response);
-  }
-  return results;
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {FirebaseFirestore.DocumentReference}
+ */
+function getPushMarkerRef(recipientId, type, subjectId) {
+  const markerId = `${type}_${recipientId}_${subjectId || "default"}`;
+  return db.collection("push_notifications").doc(markerId);
+}
+
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<boolean>} True when this push was already sent
+ */
+async function hasPushRecipientMarker(recipientId, type, subjectId) {
+  const markerDoc = await getPushMarkerRef(recipientId, type, subjectId).get();
+  return markerDoc.exists;
 }
 
 /**
@@ -456,21 +458,21 @@ function isAlreadyExistsError(error) {
 }
 
 /**
- * Creates a best-effort dedupe marker for one push recipient and subject.
+ * Creates a dedupe marker after a push recipient was sent successfully.
  * @param {string} recipientId Member document id
  * @param {string} type Notification type
  * @param {string} subjectId Stable booking or plan identifier
- * @return {Promise<boolean>} True if this recipient has not seen the push yet
+ * @return {Promise<boolean>} True if the marker was created
  */
 async function markPushRecipient(recipientId, type, subjectId) {
-  const markerId = `${type}_${recipientId}_${subjectId || "default"}`;
-  const markerRef = db.collection("push_notifications").doc(markerId);
+  const markerRef = getPushMarkerRef(recipientId, type, subjectId);
   try {
     await markerRef.create({
       recipientId,
       type,
       subjectId: subjectId || "",
       createdAt: FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
     });
   } catch (error) {
     if (!isAlreadyExistsError(error)) {
@@ -482,6 +484,82 @@ async function markPushRecipient(recipientId, type, subjectId) {
 }
 
 /**
+ * @param {Error} error FCM per-token send error
+ * @return {boolean} True when retrying this token cannot recover
+ */
+function isUnrecoverablePushTokenError(error) {
+  const code = String(error && error.code ? error.code : "");
+  const message = String(error && error.message ? error.message : "");
+  return (
+    code === "messaging/registration-token-not-registered" ||
+    code === "messaging/invalid-registration-token" ||
+    code === "messaging/invalid-argument" ||
+    code === "invalid-argument" ||
+    message.includes("NOT_REGISTERED") ||
+    message.includes("INVALID_ARGUMENT") ||
+    message.includes("registration-token-not-registered") ||
+    message.includes("invalid-registration-token")
+  );
+}
+
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} failedToken Token rejected by FCM
+ * @return {Promise<void>}
+ */
+async function deleteStalePushToken(recipientId, failedToken) {
+  const tokenRef = db.collection("push_tokens").doc(recipientId);
+  const tokenDoc = await tokenRef.get();
+  if (!tokenDoc.exists) return;
+
+  const tokenData = tokenDoc.data();
+  if (tokenData && tokenData.token === failedToken) {
+    await tokenRef.delete();
+  }
+}
+
+/**
+ * Sends one push payload and reconciles successful sends / dead tokens.
+ * @param {Array<Object>} recipients Push recipients
+ * @param {Object} data FCM data payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToRecipients(recipients, data) {
+  if (!recipients.length) return [];
+
+  const messaging = getMessaging();
+  const results = [];
+  const batchSize = 500;
+
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batchRecipients = recipients.slice(i, i + batchSize);
+    const response = await messaging.sendEachForMulticast({
+      tokens: batchRecipients.map((recipient) => recipient.token),
+      data,
+    });
+    results.push(response);
+
+    const followUps = response.responses.map((sendResult, index) => {
+      const recipient = batchRecipients[index];
+      if (sendResult.success) {
+        return markPushRecipient(
+            recipient.memberId,
+            recipient.type,
+            recipient.subjectId,
+        );
+      }
+      if (isUnrecoverablePushTokenError(sendResult.error)) {
+        return deleteStalePushToken(recipient.memberId, recipient.token);
+      }
+      return Promise.resolve();
+    });
+    await Promise.all(followUps);
+  }
+
+  return results;
+}
+
+/**
  * Sends a push payload to member docs that have opted in.
  * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} docs Member docs
  * @param {Object} payload Notification payload
@@ -489,6 +567,9 @@ async function markPushRecipient(recipientId, type, subjectId) {
  */
 async function sendPushToMembers(docs, payload) {
   const recipients = [];
+  const type = payload.type || "notification";
+  const subjectId = payload.subjectId || "";
+
   for (const doc of docs) {
     const member = doc.data();
     const pushToken = await getPushToken(doc.id, member);
@@ -498,13 +579,18 @@ async function sendPushToMembers(docs, payload) {
     // Fixed-desk plans generate one booking doc per working day. Use a
     // recipient/subject marker so push follows the same grouped behavior as
     // the in-app notification id.
-    const shouldSend = await markPushRecipient(
+    const alreadySent = await hasPushRecipientMarker(
         doc.id,
-        payload.type || "notification",
-        payload.subjectId || "",
+        type,
+        subjectId,
     );
-    if (shouldSend) {
-      recipients.push(pushToken);
+    if (!alreadySent) {
+      recipients.push({
+        memberId: doc.id,
+        token: pushToken,
+        type,
+        subjectId,
+      });
     }
   }
 
@@ -514,13 +600,13 @@ async function sendPushToMembers(docs, payload) {
     title: String(payload.title || ""),
     body: String(payload.body || ""),
     link: String(payload.link || "/"),
-    type: String(payload.type || "notification"),
-    subjectId: String(payload.subjectId || ""),
+    type: String(type),
+    subjectId: String(subjectId),
     tag: String(payload.tag ||
-      `${payload.type || "notification"}-${payload.subjectId || "default"}`),
+      `${type}-${subjectId || "default"}`),
   };
 
-  return sendPushToTokens(recipients, data);
+  return sendPushToRecipients(recipients, data);
 }
 
 /**
@@ -758,6 +844,43 @@ exports.autoCheckoutExpiredBookings = onSchedule(
         return null;
       } catch (error) {
         console.error("Error in auto checkout:", error);
+        return null;
+      }
+    });
+
+// Remove expired browser push dedupe markers. The markers also carry
+// expiresAt so a Firestore TTL policy can be enabled later as defense in depth.
+exports.cleanupPushNotificationMarkers = onSchedule(
+    "every 24 hours",
+    async () => {
+      try {
+        let deletedCount = 0;
+        let batches = 0;
+        const maxBatches = 10;
+
+        while (batches < maxBatches) {
+          const expiredMarkers = await db.collection("push_notifications")
+              .where("expiresAt", "<=", Timestamp.now())
+              .limit(500)
+              .get();
+
+          if (expiredMarkers.empty) break;
+
+          const batch = db.batch();
+          expiredMarkers.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+
+          deletedCount += expiredMarkers.size;
+          batches++;
+        }
+
+        if (deletedCount > 0) {
+          console.log(`Deleted ${deletedCount} push notification markers`);
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error cleaning push notification markers:", error);
         return null;
       }
     });

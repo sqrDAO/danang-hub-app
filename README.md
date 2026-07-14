@@ -216,6 +216,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests |
 | `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and sends email when an event is approved or rejected |
+| `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 | `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
@@ -308,8 +309,8 @@ functions/
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
 | `events` | Events with approval status, attendees, waitlist, rejection reason |
-| `push_tokens` | Private browser push tokens keyed by member uid |
-| `push_notifications` | Internal dedupe markers for browser push alerts |
+| `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
+| `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 
