@@ -34,6 +34,7 @@ Use in-app notifications as the source of truth, with opt-in browser push for hi
 - [ ] Opening a notification marks only that notification as read and navigates to its member or admin destination.
 - [ ] The panel can mark all currently unread notifications as read.
 - [ ] Admins receive one in-app notification for each pending event or booking review, with fixed-desk requests grouped by plan.
+- [ ] Event organizers continue to receive in-app notifications when an event is approved or rejected.
 - [ ] Members receive in-app notifications when a booking is approved, including auto-approved bookings.
 - [ ] A signed-in member can opt into and disable browser push notifications from the profile page.
 - [ ] The app stores browser push tokens without exposing them through member profile reads.

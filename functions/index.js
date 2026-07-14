@@ -14,6 +14,7 @@ const crypto = require("crypto");
 const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
 const bs58 = require("bs58");
+const nodemailer = require("nodemailer");
 
 initializeApp();
 
@@ -24,6 +25,24 @@ const db = getFirestore();
 // to set the public invoker IAM policy in other regions).
 const REGION = "us-central1";
 setGlobalOptions({region: REGION});
+
+// Transporter is created fresh each call so Secret Manager values
+// (injected into process.env at runtime) are always current.
+/**
+ * Creates a Nodemailer SMTP transporter from environment config.
+ * @return {object} Nodemailer transporter instance
+ */
+function getTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_SMTP_HOST,
+    port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
+    secure: process.env.EMAIL_SMTP_SECURE !== "false",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+}
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
 const BUSINESS_START_HOUR = 9;
@@ -873,6 +892,159 @@ exports.notifyEventPendingReview = onDocumentCreated(
         return null;
       } catch (error) {
         console.error("Error notifying event review:", error);
+        return null;
+      }
+    });
+
+// Notify event organizer when event status changes to approved or rejected.
+exports.notifyEventStatusChange = onDocumentUpdated(
+    {document: "events/{eventId}", secrets: ["EMAIL_PASS"]},
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+
+      // Only act on status transitions.
+      if (before.status === after.status) return null;
+      if (!["approved", "rejected"].includes(after.status)) return null;
+
+      const eventId = event.params.eventId;
+      const eventTitle = after.title || after.name || "";
+      const isApproved = after.status === "approved";
+      const rejectionReason = after.rejectionReason || "";
+
+      try {
+        await db.collection("notifications").add({
+          userId: after.organizerId,
+          type: "event_status",
+          eventId,
+          eventTitle,
+          status: after.status,
+          rejectionReason,
+          link: "/member/events",
+          read: false,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        const memberDoc = await db.collection("members")
+            .doc(after.organizerId).get();
+        const member = memberDoc.exists ? memberDoc.data() : null;
+        const prefs = (member && member.preferences) || {};
+        const sendEmail = prefs.emailNotifications !== false;
+
+        if (member && member.email && sendEmail && process.env.EMAIL_USER) {
+          const displayName = member.displayName || member.email;
+          const fromName =
+            process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
+          const appUrl =
+            process.env.APP_URL || "https://app.danangblockchainhub.com";
+
+          const subject = isApproved ?
+            `Your event "${eventTitle}" has been approved` :
+            `Your event "${eventTitle}" was not approved`;
+
+          const eventTitleHtml =
+            `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
+          const statusHtml = isApproved ?
+            `${eventTitleHtml} has been ` +
+            `<strong style="color:#22c55e;">approved</strong>` +
+            ` and is now live on the events calendar.` :
+            `We're sorry, ${eventTitleHtml} was ` +
+            `<strong style="color:#ef4444;">not approved</strong>` +
+            ` at this time.`;
+          const followUpHtml = isApproved ?
+            `Members can now see and register for your event.` +
+            ` You'll receive reminders as the date approaches.` :
+            `You're welcome to submit a new event request` +
+            ` after addressing the feedback above.`;
+          /* eslint-disable max-len */
+          const guidelinesHtml = isApproved ?
+            `<p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">` +
+            `Please review our ` +
+            `<a href="https://www.danangblockchainhub.com/event-guidelines.html" ` +
+            `style="color:#38bdf8;text-decoration:none;">Event Guidelines</a>` +
+            ` and ` +
+            `<a href="https://www.danangblockchainhub.com/community-space-guidelines.html" ` +
+            `style="color:#38bdf8;text-decoration:none;">Community Space Guidelines</a>` +
+            ` before your event to ensure a smooth experience for all attendees.</p>` : "";
+          /* eslint-enable max-len */
+
+          const reasonText = rejectionReason || "No reason was provided.";
+          const reasonHtml = isApproved ? "" :
+            `<div style="margin:20px 0;padding:16px;` +
+            `background:#fff1f2;border-left:4px solid #ef4444;` +
+            `border-radius:6px;">` +
+            `<p style="margin:0;font-size:14px;color:#991b1b;">` +
+            `<strong>Reason:</strong> ${reasonText}</p></div>`;
+
+          /* eslint-disable max-len */
+          const bodyHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="background:#1e293b;border-radius:16px;overflow:hidden;max-width:600px;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#0ea5e9,#6366f1);padding:32px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">
+              Da Nang Blockchain Hub
+            </h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;">
+              Hi ${displayName},
+            </p>
+            <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;line-height:1.6;">
+              ${statusHtml}
+            </p>
+            ${reasonHtml}
+            <p style="margin:20px 0 0;color:#94a3b8;font-size:14px;">
+              ${followUpHtml}
+            </p>
+            ${guidelinesHtml}
+            <div style="margin:32px 0;text-align:center;">
+              <a href="${appUrl}/member/events"
+                 style="display:inline-block;padding:12px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">
+                View My Events
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px;border-top:1px solid #334155;text-align:center;">
+            <p style="margin:0;color:#475569;font-size:12px;">
+              Da Nang Blockchain Hub &mdash; You're receiving this because you submitted an event request.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+          /* eslint-enable max-len */
+
+          await getTransporter().sendMail({
+            from: `"${fromName}" <${process.env.EMAIL_USER}>`,
+            to: member.email,
+            subject,
+            html: bodyHtml,
+          });
+
+          console.log("Event status email sent:", {
+            to: member.email,
+            eventId,
+            status: after.status,
+          });
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error in notifyEventStatusChange:", error);
         return null;
       }
     });

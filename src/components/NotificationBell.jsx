@@ -22,6 +22,23 @@ const getEventPendingReviewCopy = (notification, t) => ({
   })
 })
 
+const getEventStatusCopy = (notification, t) => {
+  const isRejected = notification.status === 'rejected'
+  return {
+    title: isRejected
+      ? t('notifications.eventRejectedTitle')
+      : t('notifications.eventApprovedTitle'),
+    body: isRejected && notification.rejectionReason
+      ? t('notifications.eventRejectedReason', {
+        title: notification.eventTitle,
+        reason: notification.rejectionReason
+      })
+      : t(isRejected ? 'notifications.eventRejectedBody' : 'notifications.eventApprovedBody', {
+        title: notification.eventTitle
+      })
+  }
+}
+
 const getBookingPendingReviewBody = (notification, t) => {
   const args = {
     member: getFallbackName(notification.memberName, t),
@@ -55,6 +72,7 @@ const getDefaultNotificationCopy = (t) => ({
 })
 
 const NOTIFICATION_COPY_BY_TYPE = {
+  event_status: getEventStatusCopy,
   event_pending_review: getEventPendingReviewCopy,
   booking_pending_review: getBookingPendingReviewCopy,
   booking_approved: getBookingApprovedCopy
@@ -68,13 +86,19 @@ const getNotificationTone = (type) => {
   return 'pending'
 }
 
+const getEventStatusTone = (status) => (
+  status === 'rejected' ? 'rejected' : 'approved'
+)
+
 const getNotificationCopy = (notification, t) => {
   const copyFactory = getNotificationCopyFactory(notification.type)
   const copy = copyFactory ? copyFactory(notification, t) : getDefaultNotificationCopy(t)
 
   return {
     ...copy,
-    tone: getNotificationTone(notification.type)
+    tone: notification.type === 'event_status'
+      ? getEventStatusTone(notification.status)
+      : getNotificationTone(notification.type)
   }
 }
 

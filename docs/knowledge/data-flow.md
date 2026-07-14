@@ -116,7 +116,7 @@ cancels every pending/approved booking in the group.
 
 ---
 
-## 3. Event review notifications
+## 3. Event lifecycle and notifications
 
 ```
 pending ──admin review──▶ approved / rejected
@@ -124,8 +124,12 @@ pending ──admin review──▶ approved / rejected
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
   **denormalizes `organizerDisplayName`/`organizerPhotoURL`** from the members collection
-  so list views don't fan out; `notifyEventPendingReview` writes an in-app notification for each admin; `updateEvent()` re-fetches them when `organizerId` changes.
-- **Admin review** — event approval/rejection stays in the product, but this task only keeps the admin review notification on create. Organizer approval/rejection, cancellation, reminders, and waitlist notifications are out of scope here.
+  so list views don't fan out; `notifyEventPendingReview` writes an in-app notification
+  for each admin; `updateEvent()` re-fetches organizer details when `organizerId`
+  changes.
+- **Admin review** — admin approval/rejection flips `status`; `notifyEventStatusChange`
+  writes an in-app notification for the organizer and sends the existing Nodemailer
+  email when `preferences.emailNotifications` is not disabled.
 - **Event-space hours** are validated client-side by `validateEventSpaceTime()`
   (`src/services/amenities.js`): weekdays from 18:00, weekends from 9:00, all days end
   22:00 (`EVENT_SPACE_AVAILABILITY`).
@@ -148,6 +152,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
+| `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 

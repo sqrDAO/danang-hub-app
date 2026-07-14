@@ -61,6 +61,7 @@ Live app: **https://app.danangblockchainhub.com**
 ### Notifications & Email
 - **In-App Notification Center** — unread inbox for new event review requests plus booking review and approval work
 - **Browser Push Alerts** — opt-in booking review / approval alerts through Firebase Cloud Messaging
+- **Event Status Email** — Nodemailer/Lark SMTP sends email on event approval or rejection
 - **Booking Confirmation Trigger** — records booking confirmation details; email delivery remains pending
 - **SMTP password** stored in Firebase Secret Manager (not in code)
 
@@ -214,6 +215,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests |
+| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and sends email when an event is approved or rejected |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 | `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
