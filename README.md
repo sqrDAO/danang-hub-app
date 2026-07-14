@@ -218,6 +218,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and sends email when an event is approved or rejected |
 | `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
+| `sendEventReminders` | Scheduled (hourly) | Resolves upcoming event reminder recipients and logs delivery details |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 | `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
 

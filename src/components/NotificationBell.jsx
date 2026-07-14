@@ -102,7 +102,18 @@ const getNotificationCopy = (notification, t) => {
   }
 }
 
-const getNotificationPath = (notification) => notification.link || '/member/bookings'
+const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
+  event_pending_review: '/admin/events',
+  booking_pending_review: '/admin/bookings',
+  booking_approved: '/member/bookings',
+  event_status: '/member/events'
+}
+
+const getNotificationPath = (notification) => (
+  notification.link ||
+  NOTIFICATION_FALLBACK_PATH_BY_TYPE[notification.type] ||
+  '/member/bookings'
+)
 
 const NotificationItem = ({ notification, onOpen, t }) => {
   const { title, body, tone } = getNotificationCopy(notification, t)

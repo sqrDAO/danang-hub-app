@@ -140,6 +140,14 @@ export const AuthProvider = ({ children }) => {
   // Sign out
   const logout = async () => {
     try {
+      if (currentUser?.uid && userProfile?.preferences?.pushNotifications) {
+        try {
+          const { disablePushNotificationsOnLogout } = await import('../services/pushNotifications')
+          await disablePushNotificationsOnLogout(currentUser.uid)
+        } catch (error) {
+          console.warn('Unable to clear browser push notifications during logout:', error)
+        }
+      }
       await signOut(auth)
       setUserProfile(null)
     } catch (error) {

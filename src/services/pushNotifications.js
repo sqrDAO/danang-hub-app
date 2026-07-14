@@ -88,7 +88,11 @@ export const enablePushNotifications = async (uid) => {
 }
 
 export const disablePushNotifications = async (uid) => {
-  await deleteBrowserPushToken().catch(() => false)
   await removeStoredPushToken(uid)
   await updateMemberPreferences(uid, { pushNotifications: false })
+  await deleteBrowserPushToken().catch(() => false)
+}
+
+export const disablePushNotificationsOnLogout = async (uid) => {
+  await disablePushNotifications(uid)
 }

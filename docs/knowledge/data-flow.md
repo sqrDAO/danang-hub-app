@@ -155,6 +155,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
+| `sendEventReminders` | schedule, hourly | Resolve upcoming event reminder recipients (log-only delivery stub) |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 
 ---

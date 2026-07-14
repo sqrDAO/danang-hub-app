@@ -358,26 +358,6 @@ exports.checkSlotAvailability = onCall(
 );
 
 /**
- * Stores an unread notification with a stable document id. This prevents
- * duplicated notifications when a Firestore trigger retries.
- * @param {string} userId Notification recipient uid
- * @param {string} type Notification type
- * @param {string} subjectId Event, booking, or plan identifier
- * @param {Object} data Notification payload
- * @return {Promise<FirebaseFirestore.WriteResult>}
- */
-async function createNotification(userId, type, subjectId, data) {
-  const notificationId = `${type}_${userId}_${subjectId}`;
-  return db.collection("notifications").doc(notificationId).set({
-    ...data,
-    userId,
-    type,
-    read: false,
-    createdAt: FieldValue.serverTimestamp(),
-  });
-}
-
-/**
  * Stores a notification only if the deterministic document is absent.
  * @param {string} userId Notification recipient uid
  * @param {string} type Notification type
@@ -415,7 +395,7 @@ async function notifyAdmins(type, subjectId, data) {
   const admins = await db.collection("members")
       .where("membershipType", "==", "admin").get();
   const writes = admins.docs.map((admin) =>
-    createNotification(admin.id, type, subjectId, data),
+    createNotificationIfAbsent(admin.id, type, subjectId, data),
   );
   return Promise.all(writes);
 }
@@ -449,6 +429,7 @@ async function getPushToken(memberId, member) {
 
 const PUSH_MARKER_TTL_DAYS = 90;
 const PUSH_MARKER_TTL_MS = PUSH_MARKER_TTL_DAYS * 24 * 60 * 60 * 1000;
+const PUSH_MARKER_PENDING_MS = 10 * 60 * 1000;
 
 /**
  * @param {string} recipientId Member document id
@@ -469,22 +450,35 @@ function getPushMarkerRef(recipientId, type, subjectId) {
  */
 async function reservePushRecipient(recipientId, type, subjectId) {
   const markerRef = getPushMarkerRef(recipientId, type, subjectId);
-  try {
-    await markerRef.create({
+  let reserved = false;
+  await db.runTransaction(async (transaction) => {
+    const markerDoc = await transaction.get(markerRef);
+    const now = Date.now();
+
+    if (markerDoc.exists) {
+      const marker = markerDoc.data();
+      const pendingUntil = marker && marker.pendingUntil ?
+        marker.pendingUntil.toMillis() :
+        0;
+      if (marker.status !== "pending" || pendingUntil > now) {
+        return;
+      }
+    }
+
+    transaction.set(markerRef, {
       recipientId,
       type,
       subjectId: subjectId || "",
       status: "pending",
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
-    });
-  } catch (error) {
-    if (!isAlreadyExistsError(error)) {
-      throw error;
-    }
-    return false;
-  }
-  return true;
+      createdAt: markerDoc.exists ?
+        markerDoc.data().createdAt || FieldValue.serverTimestamp() :
+        FieldValue.serverTimestamp(),
+      pendingUntil: Timestamp.fromMillis(now + PUSH_MARKER_PENDING_MS),
+      expiresAt: Timestamp.fromMillis(now + PUSH_MARKER_TTL_MS),
+    }, {merge: true});
+    reserved = true;
+  });
+  return reserved;
 }
 
 /**
@@ -514,6 +508,7 @@ async function markPushRecipient(recipientId, type, subjectId) {
     subjectId: subjectId || "",
     status: "sent",
     sentAt: FieldValue.serverTimestamp(),
+    pendingUntil: FieldValue.delete(),
     expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
   }, {merge: true});
   return true;
@@ -540,10 +535,7 @@ function isUnrecoverablePushTokenError(error) {
   return (
     code === "messaging/registration-token-not-registered" ||
     code === "messaging/invalid-registration-token" ||
-    code === "messaging/invalid-argument" ||
-    code === "invalid-argument" ||
     message.includes("NOT_REGISTERED") ||
-    message.includes("INVALID_ARGUMENT") ||
     message.includes("registration-token-not-registered") ||
     message.includes("invalid-registration-token")
   );
@@ -636,15 +628,14 @@ async function sendPushToRecipients(recipients, data) {
  * @return {Promise<Array>}
  */
 async function sendPushToMembers(docs, payload) {
-  const recipients = [];
   const type = payload.type || "notification";
   const subjectId = payload.subjectId || "";
 
-  for (const doc of docs) {
+  const recipients = (await Promise.all(docs.map(async (doc) => {
     const member = doc.data();
     const pushToken = await getPushToken(doc.id, member);
     if (!pushToken) {
-      continue;
+      return null;
     }
     // Fixed-desk plans generate one booking doc per working day. Use a
     // recipient/subject marker so push follows the same grouped behavior as
@@ -655,14 +646,15 @@ async function sendPushToMembers(docs, payload) {
         subjectId,
     );
     if (shouldSend) {
-      recipients.push({
+      return {
         memberId: doc.id,
         token: pushToken,
         type,
         subjectId,
-      });
+      };
     }
-  }
+    return null;
+  }))).filter(Boolean);
 
   if (!recipients.length) return [];
 
@@ -782,7 +774,7 @@ async function notifyPendingBookingReview(booking, bookingId) {
 async function notifyBookingApproved(booking, bookingId) {
   const amenityName = await getAmenityName(booking.amenityId);
   const subjectId = getBookingSubjectId(booking, bookingId);
-  await createNotification(
+  await createNotificationIfAbsent(
       booking.memberId,
       "booking_approved",
       subjectId,
@@ -951,6 +943,71 @@ exports.cleanupPushNotificationMarkers = onSchedule(
         return null;
       } catch (error) {
         console.error("Error cleaning push notification markers:", error);
+        return null;
+      }
+    });
+
+// Send event reminders (respects member preferences.eventReminders). Delivery
+// is still a TODO; this keeps the existing scheduled reminder scan in place.
+exports.sendEventReminders = onSchedule(
+    "every 1 hours",
+    async () => {
+      try {
+        const now = Timestamp.now();
+        const in24Hours = Timestamp.fromMillis(
+            now.toMillis() + 24 * 60 * 60 * 1000,
+        );
+        const in25Hours = Timestamp.fromMillis(
+            now.toMillis() + 25 * 60 * 60 * 1000,
+        );
+
+        const upcomingEvents = await db.collection("events")
+            .where("date", ">=", in24Hours)
+            .where("date", "<=", in25Hours)
+            .get();
+
+        let reminderCount = 0;
+
+        for (const eventDoc of upcomingEvents.docs) {
+          const eventData = eventDoc.data();
+          const attendees = eventData.attendees || [];
+          const waitlist = eventData.waitlist || [];
+
+          const uniqueAttendeeIds = [...new Set(attendees)];
+          const membersToRemind = [];
+          if (uniqueAttendeeIds.length > 0) {
+            const memberRefs = uniqueAttendeeIds.map((id) =>
+              db.collection("members").doc(id));
+            const memberDocs = await db.getAll(...memberRefs);
+            for (const memberDoc of memberDocs) {
+              const member = memberDoc.exists ? memberDoc.data() : null;
+              const prefs = (member && member.preferences) || {};
+              if (prefs.eventReminders !== false) {
+                membersToRemind.push({
+                  memberId: memberDoc.id,
+                  email: member && member.email ? member.email : null,
+                  displayName: member && member.displayName ?
+                    member.displayName : null,
+                });
+              }
+            }
+          }
+
+          console.log(`Event reminder for ${eventData.title}:`, {
+            eventId: eventDoc.id,
+            attendees: attendees.length,
+            membersToRemind: membersToRemind.length,
+            waitlist: waitlist.length,
+            date: eventData.date,
+          });
+
+          reminderCount++;
+        }
+
+        console.log(`Sent ${reminderCount} event reminders`);
+        return null;
+      } catch (error) {
+        console.error("Error sending event reminders:", error);
         return null;
       }
     });

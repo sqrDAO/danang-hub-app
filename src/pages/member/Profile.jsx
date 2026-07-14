@@ -170,6 +170,7 @@ const ProfileEditForm = ({
   onSubmit,
   onFormChange,
   onCancel,
+  pushSupported,
   pushPreferenceHelp,
 }) => {
   const { t } = useTranslation()
@@ -306,6 +307,7 @@ const ProfileEditForm = ({
               type="checkbox"
               name="pushNotifications"
               defaultChecked={preferences.pushNotifications === true}
+              disabled={!pushSupported}
             />
             <span>{t('profile.pushNotifications')}</span>
           </label>
@@ -577,9 +579,12 @@ const MemberProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const desiredPushNotifications = formData.get('pushNotifications') === 'on'
     const currentPushNotifications = getPushPreferenceValue(userProfile?.preferences)
-    const data = buildProfileUpdateData(formData, currentPushNotifications)
+    const pushInput = e.target.elements.namedItem('pushNotifications')
+    const desiredPushNotifications = pushInput?.disabled
+      ? currentPushNotifications
+      : pushInput?.checked === true
+    const data = buildProfileUpdateData(formData, desiredPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
@@ -588,13 +593,13 @@ const MemberProfile = () => {
 
     setIsSaving(true)
     try {
-      await updateMember(currentUser.uid, data)
       await syncPushPreference(
         currentUser.uid,
         desiredPushNotifications,
         currentPushNotifications,
         setPushPermission
       )
+      await updateMember(currentUser.uid, data)
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
@@ -671,6 +676,7 @@ const MemberProfile = () => {
                 setIsEditing(false)
                 setHasUnsavedChanges(false)
               }}
+              pushSupported={pushSupported}
               pushPreferenceHelp={pushPreferenceHelp}
             />
           ) : (

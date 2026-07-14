@@ -59,7 +59,7 @@ try {
     const body = data.body || payload.notification?.body || ''
     const targetUrl = data.link || '/'
 
-    self.registration.showNotification(title, {
+    return self.registration.showNotification(title, {
       body,
       icon: '/assets/favicon/android-chrome-192x192.png',
       badge: '/assets/favicon/favicon-32x32.png',

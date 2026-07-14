@@ -5,6 +5,7 @@ import {
   getDocs,
   updateDoc,
   doc,
+  writeBatch,
   orderBy,
   limit
 } from 'firebase/firestore'
@@ -27,5 +28,10 @@ export const markNotificationRead = async (notificationId) => {
 }
 
 export const markNotificationsRead = async (notificationIds) => {
-  await Promise.all(notificationIds.map(markNotificationRead))
+  if (!notificationIds.length) return
+  const batch = writeBatch(db)
+  notificationIds.forEach((notificationId) => {
+    batch.update(doc(db, 'notifications', notificationId), { read: true })
+  })
+  await batch.commit()
 }
