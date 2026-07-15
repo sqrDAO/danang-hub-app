@@ -15,7 +15,7 @@ Use in-app notifications as the source of truth, with opt-in browser push for hi
 - `src/services/firebaseConfig.js` (new) — shared Firebase config for the app and service worker.
 - `src/pages/member/Profile.jsx` (edited) — browser push opt-in/out UI in member preferences.
 - `src/pages/member/Profile.css` (edited) — helper text styling for the push preference.
-- `src/contexts/AuthContext.jsx` (edited) — hydrate push settings when a member signs in.
+- `src/contexts/AuthContext.jsx` (edited) — clear browser push settings when a member signs out.
 - `src/services/members.js` (edited) — persist the push preference in the member document.
 - `src/main.jsx` (edited) — register the production service worker.
 - `vite.config.js` (edited) — switch the PWA build to injectManifest.
@@ -57,3 +57,4 @@ Existing `notifications` documents are Cloud-Function-written and member-readabl
 Notification document IDs are deterministic for grouped plans, so trigger retries do not create duplicates.
 Browser push requires the project owner to configure `VITE_FIREBASE_VAPID_KEY` before production push can be enabled.
 Browser push dedupe markers include `expiresAt` and are deleted by the daily cleanup function.
+Signing out disables browser push; members must opt in again after signing back in.

@@ -389,12 +389,14 @@ async function createNotificationIfAbsent(userId, type, subjectId, data) {
  * @param {string} type Notification type
  * @param {string} subjectId Event, booking, or plan identifier
  * @param {Object} data Notification payload
- * @return {Promise<Array<FirebaseFirestore.WriteResult>>}
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
+ * Previously fetched admin documents
+ * @return {Promise<Array<boolean>>}
  */
-async function notifyAdmins(type, subjectId, data) {
-  const admins = await db.collection("members")
-      .where("membershipType", "==", "admin").get();
-  const writes = admins.docs.map((admin) =>
+async function notifyAdmins(type, subjectId, data, adminDocs) {
+  const admins = adminDocs || (await db.collection("members")
+      .where("membershipType", "==", "admin").get()).docs;
+  const writes = admins.map((admin) =>
     createNotificationIfAbsent(admin.id, type, subjectId, data),
   );
   return Promise.all(writes);
@@ -452,6 +454,8 @@ async function reservePushRecipient(recipientId, type, subjectId) {
   const markerRef = getPushMarkerRef(recipientId, type, subjectId);
   let reserved = false;
   await db.runTransaction(async (transaction) => {
+    // Firestore may rerun this callback after contention.
+    reserved = false;
     const markerDoc = await transaction.get(markerRef);
     const now = Date.now();
 
@@ -554,6 +558,9 @@ async function deleteStalePushToken(recipientId, failedToken) {
   const tokenData = tokenDoc.data();
   if (tokenData && tokenData.token === failedToken) {
     await tokenRef.delete();
+    await db.collection("members").doc(recipientId).update({
+      "preferences.pushNotifications": false,
+    });
   }
 }
 
@@ -705,12 +712,14 @@ function getBookingSubjectId(booking, bookingId) {
  * Sends booking-review push notifications to opted-in admins.
  * @param {string} subjectId Stable booking or plan identifier
  * @param {Object} payload Push payload
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
+ * Previously fetched admin documents
  * @return {Promise<Array>}
  */
-async function notifyAdminsPush(subjectId, payload) {
-  const admins = await db.collection("members")
-      .where("membershipType", "==", "admin").get();
-  return sendPushToMembers(admins.docs, {
+async function notifyAdminsPush(subjectId, payload, adminDocs) {
+  const admins = adminDocs || (await db.collection("members")
+      .where("membershipType", "==", "admin").get()).docs;
+  return sendPushToMembers(admins, {
     ...payload,
     subjectId,
   });
@@ -734,9 +743,10 @@ async function notifyMemberPush(memberId, payload) {
  * @return {Promise<void>}
  */
 async function notifyPendingBookingReview(booking, bookingId) {
-  const [amenityName, memberName] = await Promise.all([
+  const [amenityName, memberName, admins] = await Promise.all([
     getAmenityName(booking.amenityId),
     getMemberName(booking.memberId),
+    db.collection("members").where("membershipType", "==", "admin").get(),
   ]);
   const subjectId = getBookingSubjectId(booking, bookingId);
   await notifyAdmins("booking_pending_review", subjectId, {
@@ -745,7 +755,7 @@ async function notifyPendingBookingReview(booking, bookingId) {
     memberName,
     planType: booking.planType || "standard",
     link: "/admin/bookings",
-  });
+  }, admins.docs);
   const requesterName = memberName || "A member";
   const fixedDeskReviewBody =
     `${requesterName} requested a fixed desk plan for ` +
@@ -760,7 +770,7 @@ async function notifyPendingBookingReview(booking, bookingId) {
         standardReviewBody,
       link: "/admin/bookings",
       type: "booking_pending_review",
-    });
+    }, admins.docs);
   } catch (error) {
     console.error("Error sending booking review push:", error);
   }
@@ -769,7 +779,7 @@ async function notifyPendingBookingReview(booking, bookingId) {
 /**
  * @param {Object} booking Booking Firestore document data
  * @param {string} bookingId Booking document id
- * @return {Promise<FirebaseFirestore.WriteResult>}
+ * @return {Promise<void>}
  */
 async function notifyBookingApproved(booking, bookingId) {
   const amenityName = await getAmenityName(booking.amenityId);
