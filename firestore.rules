@@ -61,14 +61,23 @@ service cloud.firestore {
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
-      allow create: if isAdmin();
-      // Users can update their own bookings (limited fields)
+      allow create: if isAdmin() &&
+                       (!('planGroupId' in request.resource.data) ||
+                        (request.resource.data.planGroupId is string &&
+                         request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
+      // Users can update their own bookings (limited fields);
+      // planGroupId is identity: may not be added, changed, or removed
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
                        (!('status' in request.resource.data) || 
                         request.resource.data.status == resource.data.status ||
-                        request.resource.data.status == 'cancelled');
-      // Admins can update any booking
-      allow update: if isAdmin();
+                        request.resource.data.status == 'cancelled') &&
+                       !request.resource.data.diff(resource.data)
+                           .affectedKeys().hasAny(['planGroupId']);
+      // Admins can update any booking; planGroupId format still enforced when set
+      allow update: if isAdmin() &&
+                       (!('planGroupId' in request.resource.data) ||
+                        (request.resource.data.planGroupId is string &&
+                         request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
       // Users can delete their own pending bookings
       allow delete: if isAuthenticated() && isOwner(resource.data.memberId) && 
                        resource.data.status == 'pending';

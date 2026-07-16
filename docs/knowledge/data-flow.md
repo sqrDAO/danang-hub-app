@@ -119,7 +119,9 @@ cancels every pending/approved booking in the group.
 ## 3. Event lifecycle and notifications
 
 ```
-pending ──admin review──▶ approved / rejected
+pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist[]
+   │                                              ▲
+   └──admin rejectEvent──▶ rejected     autoPromoteWaitlist (trigger)
 ```
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
@@ -127,9 +129,22 @@ pending ──admin review──▶ approved / rejected
   so list views don't fan out; `notifyEventPendingReview` writes an in-app notification
   for each admin; `updateEvent()` re-fetches organizer details when `organizerId`
   changes.
-- **Admin review** — admin approval/rejection flips `status`; `notifyEventStatusChange`
-  writes an in-app notification for the organizer and sends the existing Nodemailer
-  email when `preferences.emailNotifications` is not disabled.
+- **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls
+  `approveEvent`/`rejectEvent(reason)`. The status flip fires
+  **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
+  `notifications` doc for the organizer and (2) sends a styled HTML email via
+  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
+  `preferences.emailNotifications`.
+- **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
+  `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
+  Capacity is enforced client-side before registering, not by rules.
+- **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
+  and the waitlist is non-empty, promotes FIFO up to the free spots. Manual equivalent:
+  `promoteFromWaitlist()` in the service.
+- **`updateEventCapacity`** (onUpdate trigger) — log-only "event is full" marker.
+- **`sendEventReminders`** (hourly) — finds events 24–25h out, batch-resolves attendees
+  with `db.getAll`, filters by `preferences.eventReminders` — but actual sending is TODO
+  (logs only).
 - **Event-space hours** are validated client-side by `validateEventSpaceTime()`
   (`src/services/amenities.js`): weekdays from 18:00, weekends from 9:00, all days end
   22:00 (`EVENT_SPACE_AVAILABILITY`).
@@ -153,6 +168,8 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
+| `updateEventCapacity` | `events` onUpdate | Log when event hits capacity |
+| `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
 | `sendEventReminders` | schedule, hourly | Resolve upcoming event reminder recipients (log-only delivery stub) |

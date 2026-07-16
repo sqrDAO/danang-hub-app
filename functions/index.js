@@ -357,6 +357,33 @@ exports.checkSlotAvailability = onCall(
     },
 );
 
+// Firestore doc ids used for notifications/push markers must be path-safe.
+// Matches booking planGroupId rules (letters, digits, _-, length-capped).
+const SAFE_DOC_ID_PART = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * @param {*} value Candidate document-id segment
+ * @return {boolean} True when value is safe to embed in a Firestore doc path
+ */
+function isSafeDocIdPart(value) {
+  return typeof value === "string" && SAFE_DOC_ID_PART.test(value);
+}
+
+/**
+ * Coerces a subject id into a path-safe document-id segment.
+ * @param {*} subjectId Event, booking, or plan identifier
+ * @param {string} [fallback="default"] Used when subjectId is unsafe
+ * @return {string} Safe subject id segment
+ */
+function toSafeSubjectId(subjectId, fallback = "default") {
+  if (isSafeDocIdPart(subjectId)) return subjectId;
+  console.error("Unsafe notification subject id; using fallback", {
+    subjectId: String(subjectId || "").slice(0, 200),
+    fallback,
+  });
+  return isSafeDocIdPart(fallback) ? fallback : "default";
+}
+
 /**
  * Stores a notification only if the deterministic document is absent.
  * @param {string} userId Notification recipient uid
@@ -366,7 +393,8 @@ exports.checkSlotAvailability = onCall(
  * @return {Promise<boolean>} True when a new notification was created
  */
 async function createNotificationIfAbsent(userId, type, subjectId, data) {
-  const notificationId = `${type}_${userId}_${subjectId}`;
+  const safeSubjectId = toSafeSubjectId(subjectId);
+  const notificationId = `${type}_${userId}_${safeSubjectId}`;
   try {
     await db.collection("notifications").doc(notificationId).create({
       ...data,
@@ -440,7 +468,8 @@ const PUSH_MARKER_PENDING_MS = 10 * 60 * 1000;
  * @return {FirebaseFirestore.DocumentReference}
  */
 function getPushMarkerRef(recipientId, type, subjectId) {
-  const markerId = `${type}_${recipientId}_${subjectId || "default"}`;
+  const safeSubjectId = toSafeSubjectId(subjectId, "default");
+  const markerId = `${type}_${recipientId}_${safeSubjectId}`;
   return db.collection("push_notifications").doc(markerId);
 }
 
@@ -705,7 +734,15 @@ async function getMemberName(memberId) {
  * @return {string} Stable id for a booking or its fixed-desk plan
  */
 function getBookingSubjectId(booking, bookingId) {
-  return booking.planGroupId || bookingId;
+  const planGroupId = booking && booking.planGroupId;
+  if (isSafeDocIdPart(planGroupId)) return planGroupId;
+  if (planGroupId) {
+    console.error("Unsafe planGroupId on booking; falling back to bookingId", {
+      bookingId,
+      planGroupId: String(planGroupId).slice(0, 200),
+    });
+  }
+  return bookingId;
 }
 
 /**

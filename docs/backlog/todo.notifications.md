@@ -58,3 +58,4 @@ Notification document IDs are deterministic for grouped plans, so trigger retrie
 Browser push requires the project owner to configure `VITE_FIREBASE_VAPID_KEY` before production push can be enabled.
 Browser push dedupe markers include `expiresAt` and are deleted by the daily cleanup function.
 Signing out disables browser push; members must opt in again after signing back in.
+Push copy stays English for now — see `todo.push-i18n.md`.
