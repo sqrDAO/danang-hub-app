@@ -38,6 +38,18 @@ export const updateMember = async (uid, data) => {
   })
 }
 
+export const updateMemberPreferences = async (uid, preferences, extraFields = {}) => {
+  const memberRef = doc(db, MEMBERS_COLLECTION, uid)
+  const preferenceUpdates = Object.fromEntries(
+    Object.entries(preferences).map(([key, value]) => [`preferences.${key}`, value])
+  )
+  await updateDoc(memberRef, {
+    ...preferenceUpdates,
+    ...extraFields,
+    updatedAt: new Date().toISOString()
+  })
+}
+
 export const deleteMember = async (uid) => {
   const memberRef = doc(db, MEMBERS_COLLECTION, uid)
   await deleteDoc(memberRef)

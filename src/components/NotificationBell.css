@@ -1,0 +1,125 @@
+.notification-bell {
+  position: relative;
+}
+
+.notification-bell-trigger {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-error);
+  color: var(--surface-color);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(360px, calc(100vw - 2rem));
+  max-height: min(420px, calc(100vh - 7rem));
+  overflow-y: auto;
+  background: var(--surface-color);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  z-index: 120;
+}
+
+.notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.notification-panel-header h2 {
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.notification-panel-header button {
+  border: none;
+  background: transparent;
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notification-panel-header button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.notification-item {
+  display: flex;
+  width: 100%;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.notification-item:hover {
+  background: var(--btn-secondary-bg);
+}
+
+.notification-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.notification-copy strong {
+  font-size: 0.875rem;
+}
+
+.notification-copy span,
+.notification-empty {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.notification-status {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin-top: 0.35rem;
+  border-radius: 50%;
+}
+
+.notification-status--approved {
+  background: var(--color-success);
+}
+
+.notification-status--rejected {
+  background: var(--color-error);
+}
+
+.notification-status--pending {
+  background: var(--color-info);
+}
+
+.notification-empty {
+  padding: var(--spacing-lg) var(--spacing-md);
+  text-align: center;
+}

@@ -97,6 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. For opted-in users, the same booking review/approval path also sends browser push via the private token stored in `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -115,7 +116,7 @@ cancels every pending/approved booking in the group.
 
 ---
 
-## 3. Event lifecycle
+## 3. Event lifecycle and notifications
 
 ```
 pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist[]
@@ -125,7 +126,9 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
   **denormalizes `organizerDisplayName`/`organizerPhotoURL`** from the members collection
-  so list views don't fan out; `updateEvent()` re-fetches them when `organizerId` changes.
+  so list views don't fan out; `notifyEventPendingReview` writes an in-app notification
+  for each admin; `updateEvent()` re-fetches organizer details when `organizerId`
+  changes.
 - **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls
   `approveEvent`/`rejectEvent(reason)`. The status flip fires
   **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
@@ -161,11 +164,15 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
-| `notifyEventStatusChange` | `events` onUpdate | In-app notification + nodemailer email on approve/reject |
+| `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
+| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
+| `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
+| `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
 | `updateEventCapacity` | `events` onUpdate | Log when event hits capacity |
 | `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
-| `sendEventReminders` | schedule, hourly | Resolve attendees for events 24h out (send TODO) |
+| `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
+| `sendEventReminders` | schedule, hourly | Resolve upcoming event reminder recipients (log-only delivery stub) |
 | `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 
 ---
@@ -207,6 +214,8 @@ those live in the callable / client and are advisory.
 | `bookings` | booking create/update (§2), schedulers (§2) | member/admin dashboards, conflict checks |
 | `events` | event create/approve (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
+| `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
+| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking review/approval |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
 | `projects` | admin (rules allow; no write service yet) | Home page showcase |
 

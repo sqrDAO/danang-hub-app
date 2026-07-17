@@ -59,8 +59,10 @@ Live app: **https://app.danangblockchainhub.com**
 - Seamless sign-up call-to-action for new members
 
 ### Notifications & Email
-- **Event Status Email** — Nodemailer/Lark SMTP sends email on approval, rejection, or cancellation
-- **Booking Confirmations** — automated email on booking creation
+- **In-App Notification Center** — unread inbox for new event review requests plus booking review and approval work
+- **Browser Push Alerts** — opt-in booking review / approval alerts through Firebase Cloud Messaging
+- **Event Status Email** — Nodemailer/Lark SMTP sends email on event approval or rejection
+- **Booking Confirmation Trigger** — records booking confirmation details; email delivery remains pending
 - **SMTP password** stored in Firebase Secret Manager (not in code)
 
 ### Internationalization
@@ -144,6 +146,7 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+VITE_FIREBASE_VAPID_KEY=BLPUSH_PUBLIC_KEY_FROM_FIREBASE
 ```
 
 ### 4. Enable Firebase Services
@@ -187,7 +190,13 @@ EMAIL_FROM_NAME=Da Nang Blockchain Hub
 APP_URL=https://app.danangblockchainhub.com
 ```
 
-### 7. Grant Admin Access
+### 7. Configure Browser Push
+
+In **Firebase Console → Project settings → Cloud Messaging → Web Push certificates**, generate or copy the web push public key and place it in `VITE_FIREBASE_VAPID_KEY`.
+
+The app registers a custom service worker at `public/sw.js` to handle background FCM messages and keep the Workbox caching rules used by the PWA.
+
+### 8. Grant Admin Access
 
 In **Firestore → Data**, find the user's document in the `members` collection and set `membershipType` to `"admin"`.
 
@@ -202,10 +211,14 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
-| `sendBookingConfirmation` | Firestore trigger (onCreate) | Sends confirmation email when a booking is created |
-| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Sends email when an event is approved, rejected, or cancelled |
+| `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
+| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
+| `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests |
+| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and sends email when an event is approved or rejected |
+| `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `updateEventCapacity` | Firestore trigger (onUpdate) | Monitors event capacity |
-| `sendEventReminders` | Scheduled (hourly) | Emails event reminders 24 hours before start |
+| `sendEventReminders` | Scheduled (hourly) | Resolves upcoming event reminder recipients and logs delivery details |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 | `cleanupOldBookings` | Scheduled (daily) | Flags old completed bookings (30+ days) for cleanup |
 
@@ -257,10 +270,12 @@ src/
 │   └── Events.jsx                # Public events page
 ├── services/
 │   ├── firebase.js               # Firebase initialization
+│   ├── firebaseConfig.js         # Shared Firebase config + VAPID key
 │   ├── amenities.js
 │   ├── bookings.js               # CRUD + conflict checking
 │   ├── events.js                 # CRUD + attendee/waitlist management
 │   ├── members.js
+│   ├── pushNotifications.js      # Browser push token opt-in/out helpers
 │   ├── notifications.js
 │   ├── projects.js
 │   ├── storage.js                # Firebase Storage (avatars, amenity photos)
@@ -295,6 +310,8 @@ functions/
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
 | `events` | Events with approval status, attendees, waitlist, rejection reason |
+| `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
+| `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 

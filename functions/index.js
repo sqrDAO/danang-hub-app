@@ -9,6 +9,7 @@ const {
   getFirestore, Timestamp, FieldValue,
 } = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
+const {getMessaging} = require("firebase-admin/messaging");
 const crypto = require("crypto");
 const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
@@ -356,6 +357,496 @@ exports.checkSlotAvailability = onCall(
     },
 );
 
+// Firestore doc ids used for notifications/push markers must be path-safe.
+// Matches booking planGroupId rules (letters, digits, _-, length-capped).
+const SAFE_DOC_ID_PART = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * @param {*} value Candidate document-id segment
+ * @return {boolean} True when value is safe to embed in a Firestore doc path
+ */
+function isSafeDocIdPart(value) {
+  return typeof value === "string" && SAFE_DOC_ID_PART.test(value);
+}
+
+/**
+ * Coerces a subject id into a path-safe document-id segment.
+ * @param {*} subjectId Event, booking, or plan identifier
+ * @param {string} [fallback="default"] Used when subjectId is unsafe
+ * @return {string} Safe subject id segment
+ */
+function toSafeSubjectId(subjectId, fallback = "default") {
+  if (isSafeDocIdPart(subjectId)) return subjectId;
+  console.error("Unsafe notification subject id; using fallback", {
+    subjectId: String(subjectId || "").slice(0, 200),
+    fallback,
+  });
+  return isSafeDocIdPart(fallback) ? fallback : "default";
+}
+
+/**
+ * Stores a notification only if the deterministic document is absent.
+ * @param {string} userId Notification recipient uid
+ * @param {string} type Notification type
+ * @param {string} subjectId Event, booking, or plan identifier
+ * @param {Object} data Notification payload
+ * @return {Promise<boolean>} True when a new notification was created
+ */
+async function createNotificationIfAbsent(userId, type, subjectId, data) {
+  const safeSubjectId = toSafeSubjectId(subjectId);
+  const notificationId = `${type}_${userId}_${safeSubjectId}`;
+  try {
+    await db.collection("notifications").doc(notificationId).create({
+      ...data,
+      userId,
+      type,
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      throw error;
+    }
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Sends the same notification to every current admin.
+ * @param {string} type Notification type
+ * @param {string} subjectId Event, booking, or plan identifier
+ * @param {Object} data Notification payload
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
+ * Previously fetched admin documents
+ * @return {Promise<Array<boolean>>}
+ */
+async function notifyAdmins(type, subjectId, data, adminDocs) {
+  const admins = adminDocs || (await db.collection("members")
+      .where("membershipType", "==", "admin").get()).docs;
+  const writes = admins.map((admin) =>
+    createNotificationIfAbsent(admin.id, type, subjectId, data),
+  );
+  return Promise.all(writes);
+}
+
+/**
+ * @param {Object} member Member Firestore document data
+ * @return {boolean} True if the member opted into push notifications
+ */
+function hasPushEnabled(member) {
+  return Boolean(
+      member &&
+      member.preferences &&
+      member.preferences.pushNotifications === true,
+  );
+}
+
+/**
+ * @param {string} memberId Member document id
+ * @param {Object} member Member Firestore document data
+ * @return {Promise<string>} Stored browser push token, if available
+ */
+async function getPushToken(memberId, member) {
+  if (!hasPushEnabled(member)) return "";
+
+  const tokenDoc = await db.collection("push_tokens").doc(memberId).get();
+  if (!tokenDoc.exists) return "";
+
+  const tokenData = tokenDoc.data();
+  return tokenData && tokenData.token ? tokenData.token : "";
+}
+
+const PUSH_MARKER_TTL_DAYS = 90;
+const PUSH_MARKER_TTL_MS = PUSH_MARKER_TTL_DAYS * 24 * 60 * 60 * 1000;
+const PUSH_MARKER_PENDING_MS = 10 * 60 * 1000;
+
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {FirebaseFirestore.DocumentReference}
+ */
+function getPushMarkerRef(recipientId, type, subjectId) {
+  const safeSubjectId = toSafeSubjectId(subjectId, "default");
+  const markerId = `${type}_${recipientId}_${safeSubjectId}`;
+  return db.collection("push_notifications").doc(markerId);
+}
+
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<boolean>} True when this execution reserved the push send
+ */
+async function reservePushRecipient(recipientId, type, subjectId) {
+  const markerRef = getPushMarkerRef(recipientId, type, subjectId);
+  let reserved = false;
+  await db.runTransaction(async (transaction) => {
+    // Firestore may rerun this callback after contention.
+    reserved = false;
+    const markerDoc = await transaction.get(markerRef);
+    const now = Date.now();
+
+    if (markerDoc.exists) {
+      const marker = markerDoc.data();
+      const pendingUntil = marker && marker.pendingUntil ?
+        marker.pendingUntil.toMillis() :
+        0;
+      if (marker.status !== "pending" || pendingUntil > now) {
+        return;
+      }
+    }
+
+    transaction.set(markerRef, {
+      recipientId,
+      type,
+      subjectId: subjectId || "",
+      status: "pending",
+      createdAt: markerDoc.exists ?
+        markerDoc.data().createdAt || FieldValue.serverTimestamp() :
+        FieldValue.serverTimestamp(),
+      pendingUntil: Timestamp.fromMillis(now + PUSH_MARKER_PENDING_MS),
+      expiresAt: Timestamp.fromMillis(now + PUSH_MARKER_TTL_MS),
+    }, {merge: true});
+    reserved = true;
+  });
+  return reserved;
+}
+
+/**
+ * @param {Error} error Firestore write error
+ * @return {boolean} True when a dedupe marker already exists
+ */
+function isAlreadyExistsError(error) {
+  return error && (
+    error.code === 6 ||
+    error.code === "already-exists" ||
+    String(error.message || "").includes("ALREADY_EXISTS")
+  );
+}
+
+/**
+ * Marks a reserved dedupe marker after a push recipient was sent successfully.
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<boolean>} True if the marker was created
+ */
+async function markPushRecipient(recipientId, type, subjectId) {
+  const markerRef = getPushMarkerRef(recipientId, type, subjectId);
+  await markerRef.set({
+    recipientId,
+    type,
+    subjectId: subjectId || "",
+    status: "sent",
+    sentAt: FieldValue.serverTimestamp(),
+    pendingUntil: FieldValue.delete(),
+    expiresAt: Timestamp.fromMillis(Date.now() + PUSH_MARKER_TTL_MS),
+  }, {merge: true});
+  return true;
+}
+
+/**
+ * Releases a reserved marker so failed sends can retry later.
+ * @param {string} recipientId Member document id
+ * @param {string} type Notification type
+ * @param {string} subjectId Stable booking or plan identifier
+ * @return {Promise<void>}
+ */
+async function releasePushRecipient(recipientId, type, subjectId) {
+  await getPushMarkerRef(recipientId, type, subjectId).delete();
+}
+
+/**
+ * @param {Error} error FCM per-token send error
+ * @return {boolean} True when retrying this token cannot recover
+ */
+function isUnrecoverablePushTokenError(error) {
+  const code = String(error && error.code ? error.code : "");
+  const message = String(error && error.message ? error.message : "");
+  return (
+    code === "messaging/registration-token-not-registered" ||
+    code === "messaging/invalid-registration-token" ||
+    message.includes("NOT_REGISTERED") ||
+    message.includes("registration-token-not-registered") ||
+    message.includes("invalid-registration-token")
+  );
+}
+
+/**
+ * @param {string} recipientId Member document id
+ * @param {string} failedToken Token rejected by FCM
+ * @return {Promise<void>}
+ */
+async function deleteStalePushToken(recipientId, failedToken) {
+  const tokenRef = db.collection("push_tokens").doc(recipientId);
+  const tokenDoc = await tokenRef.get();
+  if (!tokenDoc.exists) return;
+
+  const tokenData = tokenDoc.data();
+  if (tokenData && tokenData.token === failedToken) {
+    await tokenRef.delete();
+    await db.collection("members").doc(recipientId).update({
+      "preferences.pushNotifications": false,
+    });
+  }
+}
+
+/**
+ * Sends one push payload and reconciles successful sends / dead tokens.
+ * @param {Array<Object>} recipients Push recipients
+ * @param {Object} data FCM data payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToRecipients(recipients, data) {
+  if (!recipients.length) return [];
+
+  const messaging = getMessaging();
+  const results = [];
+  const batchSize = 500;
+
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batchRecipients = recipients.slice(i, i + batchSize);
+    let response;
+    try {
+      response = await messaging.sendEachForMulticast({
+        tokens: batchRecipients.map((recipient) => recipient.token),
+        data,
+      });
+    } catch (error) {
+      await Promise.all(batchRecipients.map((recipient) =>
+        releasePushRecipient(
+            recipient.memberId,
+            recipient.type,
+            recipient.subjectId,
+        ),
+      ));
+      throw error;
+    }
+    results.push(response);
+
+    const followUps = response.responses.map((sendResult, index) => {
+      const recipient = batchRecipients[index];
+      if (sendResult.success) {
+        return markPushRecipient(
+            recipient.memberId,
+            recipient.type,
+            recipient.subjectId,
+        );
+      }
+      if (isUnrecoverablePushTokenError(sendResult.error)) {
+        return Promise.all([
+          deleteStalePushToken(recipient.memberId, recipient.token),
+          releasePushRecipient(
+              recipient.memberId,
+              recipient.type,
+              recipient.subjectId,
+          ),
+        ]);
+      }
+      return releasePushRecipient(
+          recipient.memberId,
+          recipient.type,
+          recipient.subjectId,
+      );
+    });
+    await Promise.all(followUps);
+  }
+
+  return results;
+}
+
+/**
+ * Sends a push payload to member docs that have opted in.
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} docs Member docs
+ * @param {Object} payload Notification payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToMembers(docs, payload) {
+  const type = payload.type || "notification";
+  const subjectId = payload.subjectId || "";
+
+  const recipients = (await Promise.all(docs.map(async (doc) => {
+    const member = doc.data();
+    const pushToken = await getPushToken(doc.id, member);
+    if (!pushToken) {
+      return null;
+    }
+    // Fixed-desk plans generate one booking doc per working day. Use a
+    // recipient/subject marker so push follows the same grouped behavior as
+    // the in-app notification id.
+    const shouldSend = await reservePushRecipient(
+        doc.id,
+        type,
+        subjectId,
+    );
+    if (shouldSend) {
+      return {
+        memberId: doc.id,
+        token: pushToken,
+        type,
+        subjectId,
+      };
+    }
+    return null;
+  }))).filter(Boolean);
+
+  if (!recipients.length) return [];
+
+  const data = {
+    title: String(payload.title || ""),
+    body: String(payload.body || ""),
+    link: String(payload.link || "/"),
+    type: String(type),
+    subjectId: String(subjectId),
+    tag: String(payload.tag ||
+      `${type}-${subjectId || "default"}`),
+  };
+
+  return sendPushToRecipients(recipients, data);
+}
+
+/**
+ * @param {string} amenityId Amenity document id
+ * @return {Promise<string>} Amenity name or id when unavailable
+ */
+async function getAmenityName(amenityId) {
+  const amenityDoc = await db.collection("amenities").doc(amenityId).get();
+  const amenity = amenityDoc.exists ? amenityDoc.data() : null;
+  return amenity && amenity.name ? amenity.name : amenityId;
+}
+
+/**
+ * @param {string} memberId Member document id
+ * @return {Promise<string>} Member display name or empty string when missing
+ */
+async function getMemberName(memberId) {
+  const memberDoc = await db.collection("members").doc(memberId).get();
+  const member = memberDoc.exists ? memberDoc.data() : null;
+  if (!member) return "";
+  return member.displayName || member.email || "";
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {string} Stable id for a booking or its fixed-desk plan
+ */
+function getBookingSubjectId(booking, bookingId) {
+  const planGroupId = booking && booking.planGroupId;
+  if (isSafeDocIdPart(planGroupId)) return planGroupId;
+  if (planGroupId) {
+    console.error("Unsafe planGroupId on booking; falling back to bookingId", {
+      bookingId,
+      planGroupId: String(planGroupId).slice(0, 200),
+    });
+  }
+  return bookingId;
+}
+
+/**
+ * Sends booking-review push notifications to opted-in admins.
+ * @param {string} subjectId Stable booking or plan identifier
+ * @param {Object} payload Push payload
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
+ * Previously fetched admin documents
+ * @return {Promise<Array>}
+ */
+async function notifyAdminsPush(subjectId, payload, adminDocs) {
+  const admins = adminDocs || (await db.collection("members")
+      .where("membershipType", "==", "admin").get()).docs;
+  return sendPushToMembers(admins, {
+    ...payload,
+    subjectId,
+  });
+}
+
+/**
+ * Sends a booking-approval push to the member who owns the booking.
+ * @param {string} memberId Member document id
+ * @param {Object} payload Push payload
+ * @return {Promise<Array>}
+ */
+async function notifyMemberPush(memberId, payload) {
+  const memberDoc = await db.collection("members").doc(memberId).get();
+  if (!memberDoc.exists) return [];
+  return sendPushToMembers([memberDoc], payload);
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {Promise<void>}
+ */
+async function notifyPendingBookingReview(booking, bookingId) {
+  const [amenityName, memberName, admins] = await Promise.all([
+    getAmenityName(booking.amenityId),
+    getMemberName(booking.memberId),
+    db.collection("members").where("membershipType", "==", "admin").get(),
+  ]);
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  await notifyAdmins("booking_pending_review", subjectId, {
+    bookingId,
+    amenityName,
+    memberName,
+    planType: booking.planType || "standard",
+    link: "/admin/bookings",
+  }, admins.docs);
+  const requesterName = memberName || "A member";
+  const fixedDeskReviewBody =
+    `${requesterName} requested a fixed desk plan for ` +
+    `"${amenityName}".`;
+  const standardReviewBody =
+    `${requesterName} requested "${amenityName}".`;
+  try {
+    await notifyAdminsPush(subjectId, {
+      title: "Booking needs review",
+      body: booking.planType === "fixed-desk" ?
+        fixedDeskReviewBody :
+        standardReviewBody,
+      link: "/admin/bookings",
+      type: "booking_pending_review",
+    }, admins.docs);
+  } catch (error) {
+    console.error("Error sending booking review push:", error);
+  }
+}
+
+/**
+ * @param {Object} booking Booking Firestore document data
+ * @param {string} bookingId Booking document id
+ * @return {Promise<void>}
+ */
+async function notifyBookingApproved(booking, bookingId) {
+  const amenityName = await getAmenityName(booking.amenityId);
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  await createNotificationIfAbsent(
+      booking.memberId,
+      "booking_approved",
+      subjectId,
+      {
+        bookingId,
+        amenityName,
+        planType: booking.planType || "standard",
+        link: "/member/bookings",
+      },
+  );
+  try {
+    await notifyMemberPush(booking.memberId, {
+      title: "Booking approved",
+      body: booking.planType === "fixed-desk" ?
+        `Your fixed desk plan for "${amenityName}" has been approved.` :
+        `Your booking for "${amenityName}" has been approved.`,
+      link: "/member/bookings",
+      type: "booking_approved",
+      subjectId,
+    });
+  } catch (error) {
+    console.error("Error sending booking approval push:", error);
+  }
+}
+
 const HUB_UTC_OFFSET_HOURS = 7;
 
 /**
@@ -466,6 +957,108 @@ exports.autoCheckoutExpiredBookings = onSchedule(
       }
     });
 
+// Remove expired browser push dedupe markers. The markers also carry
+// expiresAt so a Firestore TTL policy can be enabled later as defense in depth.
+exports.cleanupPushNotificationMarkers = onSchedule(
+    "every 24 hours",
+    async () => {
+      try {
+        let deletedCount = 0;
+        let batches = 0;
+        const maxBatches = 10;
+
+        while (batches < maxBatches) {
+          const expiredMarkers = await db.collection("push_notifications")
+              .where("expiresAt", "<=", Timestamp.now())
+              .limit(500)
+              .get();
+
+          if (expiredMarkers.empty) break;
+
+          const batch = db.batch();
+          expiredMarkers.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+
+          deletedCount += expiredMarkers.size;
+          batches++;
+        }
+
+        if (deletedCount > 0) {
+          console.log(`Deleted ${deletedCount} push notification markers`);
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error cleaning push notification markers:", error);
+        return null;
+      }
+    });
+
+// Send event reminders (respects member preferences.eventReminders). Delivery
+// is still a TODO; this keeps the existing scheduled reminder scan in place.
+exports.sendEventReminders = onSchedule(
+    "every 1 hours",
+    async () => {
+      try {
+        const now = Timestamp.now();
+        const in24Hours = Timestamp.fromMillis(
+            now.toMillis() + 24 * 60 * 60 * 1000,
+        );
+        const in25Hours = Timestamp.fromMillis(
+            now.toMillis() + 25 * 60 * 60 * 1000,
+        );
+
+        const upcomingEvents = await db.collection("events")
+            .where("date", ">=", in24Hours)
+            .where("date", "<=", in25Hours)
+            .get();
+
+        let reminderCount = 0;
+
+        for (const eventDoc of upcomingEvents.docs) {
+          const eventData = eventDoc.data();
+          const attendees = eventData.attendees || [];
+          const waitlist = eventData.waitlist || [];
+
+          const uniqueAttendeeIds = [...new Set(attendees)];
+          const membersToRemind = [];
+          if (uniqueAttendeeIds.length > 0) {
+            const memberRefs = uniqueAttendeeIds.map((id) =>
+              db.collection("members").doc(id));
+            const memberDocs = await db.getAll(...memberRefs);
+            for (const memberDoc of memberDocs) {
+              const member = memberDoc.exists ? memberDoc.data() : null;
+              const prefs = (member && member.preferences) || {};
+              if (prefs.eventReminders !== false) {
+                membersToRemind.push({
+                  memberId: memberDoc.id,
+                  email: member && member.email ? member.email : null,
+                  displayName: member && member.displayName ?
+                    member.displayName : null,
+                });
+              }
+            }
+          }
+
+          console.log(`Event reminder for ${eventData.title}:`, {
+            eventId: eventDoc.id,
+            attendees: attendees.length,
+            membersToRemind: membersToRemind.length,
+            waitlist: waitlist.length,
+            date: eventData.date,
+          });
+
+          reminderCount++;
+        }
+
+        console.log(`Sent ${reminderCount} event reminders`);
+        return null;
+      } catch (error) {
+        console.error("Error sending event reminders:", error);
+        return null;
+      }
+    });
+
 // Send booking confirmation email
 exports.sendBookingConfirmation = onDocumentCreated(
     "bookings/{bookingId}",
@@ -513,35 +1106,39 @@ exports.autoApproveDeskBooking = onDocumentCreated(
       const snap = event.data;
       if (!snap) return null;
       const booking = snap.data();
+      const bookingId = event.params.bookingId;
 
-      if (booking.status !== "pending" || booking.planType === "fixed-desk") {
+      if (booking.status === "approved") {
+        await notifyBookingApproved(booking, bookingId);
         return null;
       }
+      if (booking.status !== "pending") return null;
 
       try {
         const amenityDoc = await db.collection("amenities")
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        if (!amenity || amenity.type !== "desk") {
-          return null;
-        }
-
-        const {hasConflicts} = await computeBookingAvailability({
-          amenityId: booking.amenityId,
-          amenity,
-          startTime: booking.startTime.toDate().toISOString(),
-          endTime: booking.endTime.toDate().toISOString(),
-          excludeBookingId: event.params.bookingId,
-        });
-
-        if (!hasConflicts) {
-          await snap.ref.update({
-            status: "approved",
-            updatedAt: new Date().toISOString(),
+        if (amenity && amenity.type === "desk" &&
+            booking.planType !== "fixed-desk") {
+          const {hasConflicts} = await computeBookingAvailability({
+            amenityId: booking.amenityId,
+            amenity,
+            startTime: booking.startTime.toDate().toISOString(),
+            endTime: booking.endTime.toDate().toISOString(),
+            excludeBookingId: bookingId,
           });
+
+          if (!hasConflicts) {
+            await snap.ref.update({
+              status: "approved",
+              updatedAt: new Date().toISOString(),
+            });
+            return null;
+          }
         }
 
+        await notifyPendingBookingReview(booking, bookingId);
         return null;
       } catch (error) {
         console.error("Error auto-approving desk booking:", error);
@@ -549,136 +1146,61 @@ exports.autoApproveDeskBooking = onDocumentCreated(
       }
     });
 
-// Update event capacity when attendees change
-exports.updateEventCapacity = onDocumentUpdated(
-    "events/{eventId}",
+// Notify members when an existing booking becomes approved. Fixed-desk plan
+// bookings share a deterministic notification document, so bulk approval is
+// represented by one message rather than one per working day.
+exports.notifyBookingApproval = onDocumentUpdated(
+    "bookings/{bookingId}",
     async (event) => {
       const before = event.data.before.data();
       const after = event.data.after.data();
 
-      // Check if attendees array changed
-      if (JSON.stringify(before.attendees) !==
-          JSON.stringify(after.attendees)) {
-        const currentAttendees = (after.attendees &&
-            after.attendees.length) || 0;
-        const capacity = after.capacity;
-
-        if (capacity && currentAttendees >= capacity) {
-          console.log(`Event ${event.params.eventId} is now full`);
-        }
+      if (before.status === after.status || after.status !== "approved") {
+        return null;
       }
 
-      return null;
+      try {
+        await notifyBookingApproved(after, event.params.bookingId);
+        return null;
+      } catch (error) {
+        console.error("Error notifying booking approval:", error);
+        return null;
+      }
     });
 
-// Clean up old completed bookings
-exports.cleanupOldBookings = onSchedule(
-    "every 24 hours",
-    async () => {
+// Notify admins when a member submits a new event for review.
+exports.notifyEventPendingReview = onDocumentCreated(
+    "events/{eventId}",
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return null;
+      const eventData = snap.data();
+      if (eventData.status !== "pending") return null;
+
       try {
-        const thirtyDaysAgo = Timestamp.fromMillis(
-            Date.now() - 30 * 24 * 60 * 60 * 1000,
-        );
-
-        const oldBookings = await db.collection("bookings")
-            .where("status", "==", "completed")
-            .where("endTime", "<=", thirtyDaysAgo)
-            .limit(100)
-            .get();
-
-        let count = 0;
-
-        oldBookings.forEach((doc) => {
-          // Optionally delete or archive old bookings
-          console.log(`Old booking found: ${doc.id}`);
-          count++;
+        const organizerName = eventData.organizerDisplayName ||
+          await getMemberName(eventData.organizerId);
+        await notifyAdmins("event_pending_review", event.params.eventId, {
+          eventId: event.params.eventId,
+          eventTitle: eventData.title || eventData.name || "",
+          organizerName,
+          link: "/admin/events",
         });
-
-        console.log(`Found ${count} old bookings to clean up`);
         return null;
       } catch (error) {
-        console.error("Error cleaning up old bookings:", error);
+        console.error("Error notifying event review:", error);
         return null;
       }
     });
 
-// Send event reminders (respects member preferences.eventReminders)
-exports.sendEventReminders = onSchedule(
-    "every 1 hours",
-    async () => {
-      try {
-        const now = Timestamp.now();
-        const in24Hours = Timestamp.fromMillis(
-            now.toMillis() + 24 * 60 * 60 * 1000,
-        );
-        const in25Hours = Timestamp.fromMillis(
-            now.toMillis() + 25 * 60 * 60 * 1000,
-        );
-
-        // Find events happening in 24 hours
-        const upcomingEvents = await db.collection("events")
-            .where("date", ">=", in24Hours)
-            .where("date", "<=", in25Hours)
-            .get();
-
-        let reminderCount = 0;
-
-        for (const eventDoc of upcomingEvents.docs) {
-          const event = eventDoc.data();
-          const attendees = event.attendees || [];
-          const waitlist = event.waitlist || [];
-
-          // Resolve attendees who have eventReminders enabled.
-          // Batched getAll instead of N sequential .get() calls.
-          const uniqueAttendeeIds = [...new Set(attendees)];
-          const membersToRemind = [];
-          if (uniqueAttendeeIds.length > 0) {
-            const memberRefs = uniqueAttendeeIds.map((id) =>
-              db.collection("members").doc(id));
-            const memberDocs = await db.getAll(...memberRefs);
-            for (const memberDoc of memberDocs) {
-              const member = memberDoc.exists ? memberDoc.data() : null;
-              const prefs = (member && member.preferences) || {};
-              if (prefs.eventReminders !== false) {
-                membersToRemind.push({
-                  memberId: memberDoc.id,
-                  email: member && member.email ? member.email : null,
-                  displayName: member && member.displayName ?
-                    member.displayName : null,
-                });
-              }
-            }
-          }
-
-          // TODO: Integrate with email/push notification service;
-          // send only to membersToRemind
-          console.log(`Event reminder for ${event.title}:`, {
-            eventId: eventDoc.id,
-            attendees: attendees.length,
-            membersToRemind: membersToRemind.length,
-            waitlist: waitlist.length,
-            date: event.date,
-          });
-
-          reminderCount++;
-        }
-
-        console.log(`Sent ${reminderCount} event reminders`);
-        return null;
-      } catch (error) {
-        console.error("Error sending event reminders:", error);
-        return null;
-      }
-    });
-
-// Notify event organizer when event status changes to approved or rejected
+// Notify event organizer when event status changes to approved or rejected.
 exports.notifyEventStatusChange = onDocumentUpdated(
     {document: "events/{eventId}", secrets: ["EMAIL_PASS"]},
     async (event) => {
       const before = event.data.before.data();
       const after = event.data.after.data();
 
-      // Only act on status transitions
+      // Only act on status transitions.
       if (before.status === after.status) return null;
       if (!["approved", "rejected"].includes(after.status)) return null;
 
@@ -686,21 +1208,22 @@ exports.notifyEventStatusChange = onDocumentUpdated(
       const eventTitle = after.title || after.name || "";
       const isApproved = after.status === "approved";
       const rejectionReason = after.rejectionReason || "";
+      const subjectId = `${eventId}_${after.status}`;
 
       try {
-        // 1. Write in-app notification
-        await db.collection("notifications").add({
-          userId: after.organizerId,
-          type: "event_status",
-          eventId,
-          eventTitle,
-          status: after.status,
-          rejectionReason,
-          read: false,
-          createdAt: FieldValue.serverTimestamp(),
-        });
+        await createNotificationIfAbsent(
+            after.organizerId,
+            "event_status",
+            subjectId,
+            {
+              eventId,
+              eventTitle,
+              status: after.status,
+              rejectionReason,
+              link: "/member/events",
+            },
+        );
 
-        // 2. Send email if organizer has emailNotifications enabled
         const memberDoc = await db.collection("members")
             .doc(after.organizerId).get();
         const member = memberDoc.exists ? memberDoc.data() : null;
@@ -715,8 +1238,8 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             process.env.APP_URL || "https://app.danangblockchainhub.com";
 
           const subject = isApproved ?
-            `✅ Your event "${eventTitle}" has been approved` :
-            `❌ Your event "${eventTitle}" was not approved`;
+            `Your event "${eventTitle}" has been approved` :
+            `Your event "${eventTitle}" was not approved`;
 
           const eventTitleHtml =
             `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
@@ -744,7 +1267,6 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             ` before your event to ensure a smooth experience for all attendees.</p>` : "";
           /* eslint-enable max-len */
 
-          // eslint-disable-next-line max-len
           const reasonText = rejectionReason || "No reason was provided.";
           const reasonHtml = isApproved ? "" :
             `<div style="margin:20px 0;padding:16px;` +
@@ -822,6 +1344,59 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         return null;
       } catch (error) {
         console.error("Error in notifyEventStatusChange:", error);
+        return null;
+      }
+    });
+
+// Update event capacity when attendees change
+exports.updateEventCapacity = onDocumentUpdated(
+    "events/{eventId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+
+      // Check if attendees array changed
+      if (JSON.stringify(before.attendees) !==
+          JSON.stringify(after.attendees)) {
+        const currentAttendees = (after.attendees &&
+            after.attendees.length) || 0;
+        const capacity = after.capacity;
+
+        if (capacity && currentAttendees >= capacity) {
+          console.log(`Event ${event.params.eventId} is now full`);
+        }
+      }
+
+      return null;
+    });
+
+// Clean up old completed bookings
+exports.cleanupOldBookings = onSchedule(
+    "every 24 hours",
+    async () => {
+      try {
+        const thirtyDaysAgo = Timestamp.fromMillis(
+            Date.now() - 30 * 24 * 60 * 60 * 1000,
+        );
+
+        const oldBookings = await db.collection("bookings")
+            .where("status", "==", "completed")
+            .where("endTime", "<=", thirtyDaysAgo)
+            .limit(100)
+            .get();
+
+        let count = 0;
+
+        oldBookings.forEach((doc) => {
+          // Optionally delete or archive old bookings
+          console.log(`Old booking found: ${doc.id}`);
+          count++;
+        });
+
+        console.log(`Found ${count} old bookings to clean up`);
+        return null;
+      } catch (error) {
+        console.error("Error cleaning up old bookings:", error);
         return null;
       }
     });
