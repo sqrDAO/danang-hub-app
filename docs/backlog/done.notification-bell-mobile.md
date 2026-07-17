@@ -7,7 +7,6 @@ Prevent the panel from overflowing horizontally or being clipped off-screen.
 
 ## Files
 - `src/components/NotificationBell.css` (edited) — clamp panel to viewport on narrow screens.
-- `src/components/NotificationBell.jsx` (edited) — only if a small markup hook is required for safe layout.
 
 ## Acceptance
 - [ ] On viewports ≤480px, the open notification panel stays fully within the horizontal viewport with side margins.
