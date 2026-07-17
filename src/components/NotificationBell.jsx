@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getUnreadNotifications, markNotificationRead, markNotificationsRead } from '../services/notifications'
+import { formatHubDateTimeCompact } from '../utils/timezone'
 import './NotificationBell.css'
 
 const BellIcon = () => (
@@ -115,14 +116,21 @@ const getNotificationPath = (notification) => (
   '/member/bookings'
 )
 
-const NotificationItem = ({ notification, onOpen, t }) => {
+const getNotificationTimeLabel = (createdAt, language) => {
+  const locale = language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  return formatHubDateTimeCompact(createdAt, locale)
+}
+
+const NotificationItem = ({ notification, onOpen, t, language }) => {
   const { title, body, tone } = getNotificationCopy(notification, t)
+  const timeLabel = getNotificationTimeLabel(notification.createdAt, language)
   return (
     <button type="button" className="notification-item" onClick={() => onOpen(notification)}>
       <span className={`notification-status notification-status--${tone}`} aria-hidden />
       <span className="notification-copy">
         <strong>{title}</strong>
         <span>{body}</span>
+        {timeLabel ? <time className="notification-time" dateTime={notification.createdAt?.toISOString?.()}>{timeLabel}</time> : null}
       </span>
     </button>
   )
@@ -133,7 +141,7 @@ const NotificationBell = ({ userId }) => {
   const panelRef = useRef(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', userId],
     queryFn: () => getUnreadNotifications(userId),
@@ -188,7 +196,13 @@ const NotificationBell = ({ userId }) => {
           ) : (
             <div className="notification-list">
               {notifications.map(notification => (
-                <NotificationItem key={notification.id} notification={notification} onOpen={handleOpenNotification} t={t} />
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                  onOpen={handleOpenNotification}
+                  t={t}
+                  language={i18n.language}
+                />
               ))}
             </div>
           )}

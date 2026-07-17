@@ -122,6 +122,15 @@
   line-height: 1.45;
 }
 
+.notification-time {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  opacity: 0.9;
+}
+
 .notification-status {
   flex: 0 0 auto;
   width: 9px;

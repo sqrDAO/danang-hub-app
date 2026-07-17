@@ -11,6 +11,15 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 
+const mapNotificationDoc = (docSnap) => {
+  const data = docSnap.data()
+  return {
+    id: docSnap.id,
+    ...data,
+    createdAt: data.createdAt?.toDate?.() || data.createdAt || null,
+  }
+}
+
 export const getUnreadNotifications = async (userId) => {
   const q = query(
     collection(db, 'notifications'),
@@ -20,7 +29,7 @@ export const getUnreadNotifications = async (userId) => {
     limit(50)
   )
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs.map(mapNotificationDoc)
 }
 
 export const markNotificationRead = async (notificationId) => {
