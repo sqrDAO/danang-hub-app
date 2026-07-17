@@ -144,7 +144,7 @@ const useAmenityPhotos = ({ isCreateMode, selectedAmenity, queryClient }) => {
           } catch (storageError) {
             console.error('Photo removed from amenity but storage delete failed:', storageError)
           }
-          queryClient.invalidateQueries(['amenities'])
+          queryClient.invalidateQueries({ queryKey: ['amenities'] })
         }
       }
     } catch (error) {
@@ -543,7 +543,7 @@ const AdminAmenities = () => {
       return amenityId
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['amenities'])
+      queryClient.invalidateQueries({ queryKey: ['amenities'] })
       setIsModalOpen(false)
       resetForm()
       showToast('Amenity created successfully!', 'success')
@@ -556,7 +556,7 @@ const AdminAmenities = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateAmenity(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['amenities'])
+      queryClient.invalidateQueries({ queryKey: ['amenities'] })
       setIsModalOpen(false)
       resetForm()
       showToast('Amenity updated successfully!', 'success')
@@ -569,7 +569,7 @@ const AdminAmenities = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteAmenity,
     onSuccess: () => {
-      queryClient.invalidateQueries(['amenities'])
+      queryClient.invalidateQueries({ queryKey: ['amenities'] })
       showToast('Amenity deleted successfully!', 'success')
     }
   })
@@ -577,7 +577,7 @@ const AdminAmenities = () => {
   const toggleAvailabilityMutation = useMutation({
     mutationFn: ({ id, isAvailable }) => updateAmenity(id, { isAvailable }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['amenities'])
+      queryClient.invalidateQueries({ queryKey: ['amenities'] })
       showToast('Availability updated!', 'success')
     }
   })

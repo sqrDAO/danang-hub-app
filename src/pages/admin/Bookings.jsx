@@ -139,28 +139,28 @@ const useBookingMutations = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
     }
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
     }
   })
 
   const checkInMutation = useMutation({
     mutationFn: checkIn,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
     }
   })
 
   const checkOutMutation = useMutation({
     mutationFn: checkOut,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
     }
   })
 
@@ -529,7 +529,7 @@ const AdminBookings = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
 
   const handleAssigned = () => {
-    queryClient.invalidateQueries(['bookings'])
+    queryClient.invalidateQueries({ queryKey: ['bookings'] })
     setIsAssignModalOpen(false)
     setStatusFilter('all')
     setCurrentPage(1)
@@ -547,7 +547,7 @@ const AdminBookings = () => {
       )
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const failed = results.length - succeeded
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       if (failed === 0) {
         showToast(t('toast.bookingsApprovedAll', { count: succeeded }), 'success')
       } else {

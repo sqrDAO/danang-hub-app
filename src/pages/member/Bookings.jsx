@@ -266,7 +266,7 @@ const useBookingMutations = (form, fd) => {
   const createMutation = useMutation({
     mutationFn: createBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
     },
@@ -285,7 +285,7 @@ const useBookingMutations = (form, fd) => {
         { allowedWeekdays: form.selectedAmenity?.availableDays }
       ),
     onSuccess: (result) => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
     },
@@ -298,7 +298,7 @@ const useBookingMutations = (form, fd) => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.bookingUpdated'), 'success')
     }
   })
@@ -306,7 +306,7 @@ const useBookingMutations = (form, fd) => {
   const deleteMutation = useMutation({
     mutationFn: deleteBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.bookingDeleted'), 'success')
     }
   })
@@ -315,7 +315,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: ({ memberId, amenityId, period, startDate }) =>
       createFixedDeskPlan({ memberId, amenityId, period, startDate, checkConflictsFn: checkBookingConflicts }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
     },
@@ -327,7 +327,7 @@ const useBookingMutations = (form, fd) => {
   const cancelPlanMutation = useMutation({
     mutationFn: cancelFixedDeskPlan,
     onSuccess: () => {
-      queryClient.invalidateQueries(['bookings'])
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       showToast(t('toast.fixedDeskCancelled'), 'success')
     }
   })
