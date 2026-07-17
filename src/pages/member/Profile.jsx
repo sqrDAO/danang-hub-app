@@ -535,7 +535,7 @@ const MemberProfile = () => {
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
       }
-      queryClient.invalidateQueries(['members'])
+      queryClient.invalidateQueries({ queryKey: ['members'] })
       showToast(t('toast.photoUpdated'), 'success')
     },
     onError: (error) => {
@@ -604,8 +604,8 @@ const MemberProfile = () => {
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
       }
-      queryClient.invalidateQueries(['members'])
-      queryClient.invalidateQueries(['memberStats', currentUser?.uid])
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats', currentUser?.uid] })
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')

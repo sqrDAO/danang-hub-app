@@ -272,7 +272,7 @@ const AdminMembers = () => {
   const updateMutation = useMutation({
     mutationFn: ({ uid, data }) => updateMember(uid, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['members'])
+      queryClient.invalidateQueries({ queryKey: ['members'] })
       setIsModalOpen(false)
       setSelectedMember(null)
     }
@@ -281,7 +281,7 @@ const AdminMembers = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteMember,
     onSuccess: () => {
-      queryClient.invalidateQueries(['members'])
+      queryClient.invalidateQueries({ queryKey: ['members'] })
     }
   })
 

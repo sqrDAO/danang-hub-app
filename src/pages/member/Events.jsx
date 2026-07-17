@@ -241,7 +241,7 @@ const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting
   const deleteMutation = useMutation({
     mutationFn: deleteEvent,
     onSuccess: () => {
-      queryClient.invalidateQueries(['myEvents'])
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
       showToast(t('toast.eventRequestDeleted'), 'success')
     },
     onError: () => {
@@ -262,9 +262,9 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const registerMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => registerForEvent(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['approvedEvents'])
-      queryClient.invalidateQueries(['upcomingEvents'])
-      queryClient.invalidateQueries(['myEvents'])
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
       showToast(t('toast.eventRegisterSuccess'), 'success')
       resetActionState()
     },
@@ -278,9 +278,9 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const unregisterMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => unregisterFromEvent(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['approvedEvents'])
-      queryClient.invalidateQueries(['upcomingEvents'])
-      queryClient.invalidateQueries(['myEvents'])
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
       showToast(t('toast.eventUnregisterSuccess'), 'success')
       resetActionState()
     },
@@ -293,8 +293,8 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const waitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => addToWaitlist(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['approvedEvents'])
-      queryClient.invalidateQueries(['upcomingEvents'])
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       showToast(t('toast.waitlistJoined'), 'info')
       resetActionState()
     },
@@ -307,8 +307,8 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const removeWaitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => removeFromWaitlist(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['approvedEvents'])
-      queryClient.invalidateQueries(['upcomingEvents'])
+      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       showToast(t('toast.waitlistRemoved'), 'info')
       resetActionState()
     },
