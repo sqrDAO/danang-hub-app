@@ -95,7 +95,7 @@ Live app: **https://app.danangblockchainhub.com**
 | Theme State | React Context (ThemeContext) |
 | i18n | i18next + react-i18next |
 | PWA | vite-plugin-pwa + Workbox |
-| Backend | Firebase (Auth, Firestore, Storage, Cloud Functions Node.js 20) |
+| Backend | Firebase (Auth, Firestore, Storage, Cloud Functions Node.js 22) |
 | Email | Nodemailer via Lark SMTP; password in Firebase Secret Manager |
 | Wallet Auth | ethers v6 (EVM), tweetnacl + bs58 (Solana) |
 | Styling | Custom CSS with CSS variables, glassmorphism |
@@ -147,6 +147,10 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_FIREBASE_VAPID_KEY=BLPUSH_PUBLIC_KEY_FROM_FIREBASE
+
+# Optional: route Auth/Firestore/Functions/Storage to local emulators
+# VITE_USE_EMULATORS=true
+# VITE_EMULATOR_HOST=localhost
 ```
 
 ### 4. Enable Firebase Services
@@ -248,6 +252,7 @@ src/
 │   ├── Layout.jsx
 │   ├── LoadingSkeleton.jsx
 │   ├── Modal.jsx
+│   ├── NotificationBell.jsx      # In-app notification center (bell + panel)
 │   ├── ProtectedRoute.jsx
 │   ├── Toast.jsx
 │   └── UnifiedCalendar.jsx       # Combined bookings + events calendar
@@ -284,13 +289,17 @@ src/
 ├── contexts/
 │   ├── AuthContext.jsx
 │   └── ThemeContext.jsx
+├── hooks/
+│   ├── useAuth.js                # AuthContext accessor
+│   └── useTheme.js               # ThemeContext accessor
 ├── i18n/
 │   └── index.js                  # i18next setup (EN/VI, browser detection)
 ├── locales/
 │   ├── en.json
 │   └── vi.json
 ├── utils/
-│   └── timezone.js               # Asia/Ho_Chi_Minh helpers
+│   ├── timezone.js               # Asia/Ho_Chi_Minh helpers
+│   └── toast.js                  # showToast helper
 ├── styles/
 │   └── globals.css               # CSS custom properties, glassmorphism base
 ├── App.jsx
@@ -310,6 +319,7 @@ functions/
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
 | `events` | Events with approval status, attendees, waitlist, rejection reason |
+| `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (plain JS, no TS) + Firebase (Auth, Firestore, Storage, Cloud Functions Node.js 20), PWA, EN/VI i18n. Members book amenities and run events; admins approve and manage.
+Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (plain JS, no TS) + Firebase (Auth, Firestore, Storage, Cloud Functions Node.js 22), PWA, EN/VI i18n. Members book amenities and run events; admins approve and manage.
 
 `README.md` = source of truth for the **feature list**, **Cloud Functions table**, **project structure**, **Firestore collections**, and **setup/env vars**. Read it before changing those; don't duplicate its tables.
 
