@@ -140,6 +140,7 @@ const useBookingMutations = () => {
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
     }
   })
 
@@ -147,6 +148,7 @@ const useBookingMutations = () => {
     mutationFn: deleteBooking,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
     }
   })
 
@@ -154,6 +156,7 @@ const useBookingMutations = () => {
     mutationFn: checkIn,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
     }
   })
 
@@ -161,6 +164,7 @@ const useBookingMutations = () => {
     mutationFn: checkOut,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
     }
   })
 
@@ -530,6 +534,7 @@ const AdminBookings = () => {
 
   const handleAssigned = () => {
     queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    queryClient.invalidateQueries({ queryKey: ['memberStats'] })
     setIsAssignModalOpen(false)
     setStatusFilter('all')
     setCurrentPage(1)
@@ -548,6 +553,7 @@ const AdminBookings = () => {
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const failed = results.length - succeeded
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       if (failed === 0) {
         showToast(t('toast.bookingsApprovedAll', { count: succeeded }), 'success')
       } else {
