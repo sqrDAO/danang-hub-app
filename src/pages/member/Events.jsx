@@ -242,6 +242,8 @@ const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting
     mutationFn: deleteEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       showToast(t('toast.eventRequestDeleted'), 'success')
     },
     onError: () => {
