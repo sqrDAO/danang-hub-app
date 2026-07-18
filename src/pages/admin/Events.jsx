@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
@@ -233,11 +234,7 @@ const useAdminEventsData = () => {
 }
 
 const useAdminEventMutations = ({ t, allEvents, pendingEvents, setIsModalOpen, resetForm, setIsSubmitting }) => {
-  const queryClient = useQueryClient()
-
-  const invalidate = (...keys) => {
-    keys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }))
-  }
+  const invalidate = useInvalidateQueries()
 
   const closeFormWithToast = (toastKey) => {
     setIsModalOpen(false)

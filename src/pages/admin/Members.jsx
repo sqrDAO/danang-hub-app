@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
@@ -246,7 +247,7 @@ const AdminMembers = () => {
   const [profileModalMember, setProfileModalMember] = useState(null)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['members'],
@@ -272,7 +273,7 @@ const AdminMembers = () => {
   const updateMutation = useMutation({
     mutationFn: ({ uid, data }) => updateMember(uid, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] })
+      invalidate('members')
       setIsModalOpen(false)
       setSelectedMember(null)
     }
@@ -281,7 +282,7 @@ const AdminMembers = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteMember,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] })
+      invalidate('members')
     }
   })
 

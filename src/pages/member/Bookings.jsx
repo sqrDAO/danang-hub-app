@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import Layout from '../../components/Layout'
@@ -261,13 +262,12 @@ const useFixedDeskForm = () => {
 
 const useBookingMutations = (form, fd) => {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
 
   const createMutation = useMutation({
     mutationFn: createBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
     },
@@ -286,8 +286,7 @@ const useBookingMutations = (form, fd) => {
         { allowedWeekdays: form.selectedAmenity?.availableDays }
       ),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
     },
@@ -300,8 +299,7 @@ const useBookingMutations = (form, fd) => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.bookingUpdated'), 'success')
     }
   })
@@ -309,8 +307,7 @@ const useBookingMutations = (form, fd) => {
   const deleteMutation = useMutation({
     mutationFn: deleteBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.bookingDeleted'), 'success')
     }
   })
@@ -319,8 +316,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: ({ memberId, amenityId, period, startDate }) =>
       createFixedDeskPlan({ memberId, amenityId, period, startDate, checkConflictsFn: checkBookingConflicts }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
     },
@@ -332,8 +328,7 @@ const useBookingMutations = (form, fd) => {
   const cancelPlanMutation = useMutation({
     mutationFn: cancelFixedDeskPlan,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       showToast(t('toast.fixedDeskCancelled'), 'success')
     }
   })
