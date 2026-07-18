@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
@@ -47,7 +48,8 @@ const uploadPendingPhotos = async (amenityId, pendingFiles, photos) => {
   return uploadedPhotos
 }
 
-const useAmenityPhotos = ({ isCreateMode, selectedAmenity, queryClient }) => {
+const useAmenityPhotos = ({ isCreateMode, selectedAmenity }) => {
+  const invalidate = useInvalidateQueries()
   const [photos, setPhotos] = useState([])
   const [pendingFiles, setPendingFiles] = useState([]) // Files waiting to be uploaded (create mode)
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
@@ -144,7 +146,7 @@ const useAmenityPhotos = ({ isCreateMode, selectedAmenity, queryClient }) => {
           } catch (storageError) {
             console.error('Photo removed from amenity but storage delete failed:', storageError)
           }
-          queryClient.invalidateQueries({ queryKey: ['amenities'] })
+          invalidate('amenities')
         }
       }
     } catch (error) {
@@ -484,7 +486,7 @@ const AdminAmenities = () => {
   const capacityInputRef = useRef(null)
   const startHourRef = useRef(null)
   const endHourRef = useRef(null)
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
   const {
     photos,
     setPhotos,
@@ -497,7 +499,7 @@ const AdminAmenities = () => {
     fileInputRef,
     handlePhotoUpload,
     handlePhotoDelete
-  } = useAmenityPhotos({ isCreateMode, selectedAmenity, queryClient })
+  } = useAmenityPhotos({ isCreateMode, selectedAmenity })
 
   const handleTypeChange = (e) => {
     const type = e.target.value
@@ -543,7 +545,7 @@ const AdminAmenities = () => {
       return amenityId
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amenities'] })
+      invalidate('amenities')
       setIsModalOpen(false)
       resetForm()
       showToast('Amenity created successfully!', 'success')
@@ -556,7 +558,7 @@ const AdminAmenities = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateAmenity(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amenities'] })
+      invalidate('amenities')
       setIsModalOpen(false)
       resetForm()
       showToast('Amenity updated successfully!', 'success')
@@ -569,7 +571,7 @@ const AdminAmenities = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteAmenity,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amenities'] })
+      invalidate('amenities')
       showToast('Amenity deleted successfully!', 'success')
     }
   })
@@ -577,7 +579,7 @@ const AdminAmenities = () => {
   const toggleAvailabilityMutation = useMutation({
     mutationFn: ({ id, isAvailable }) => updateAmenity(id, { isAvailable }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amenities'] })
+      invalidate('amenities')
       showToast('Availability updated!', 'success')
     }
   })

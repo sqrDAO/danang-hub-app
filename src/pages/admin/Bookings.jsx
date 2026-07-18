@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import { showToast } from '../../utils/toast'
@@ -134,37 +135,33 @@ const useBookingFilters = () => {
 }
 
 const useBookingMutations = () => {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
     }
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteBooking,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
     }
   })
 
   const checkInMutation = useMutation({
     mutationFn: checkIn,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
     }
   })
 
   const checkOutMutation = useMutation({
     mutationFn: checkOut,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
     }
   })
 
@@ -451,7 +448,7 @@ const AdminBookings = () => {
     handleSearchChange,
     handleShowPastChange,
   } = useBookingFilters()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
 
   const adminBookingsWindow = getAdminBookingsWindow()
 
@@ -533,8 +530,7 @@ const AdminBookings = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
 
   const handleAssigned = () => {
-    queryClient.invalidateQueries({ queryKey: ['bookings'] })
-    queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+    invalidate('bookings', 'memberStats')
     setIsAssignModalOpen(false)
     setStatusFilter('all')
     setCurrentPage(1)
@@ -552,8 +548,7 @@ const AdminBookings = () => {
       )
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const failed = results.length - succeeded
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('bookings', 'memberStats')
       if (failed === 0) {
         showToast(t('toast.bookingsApprovedAll', { count: succeeded }), 'success')
       } else {

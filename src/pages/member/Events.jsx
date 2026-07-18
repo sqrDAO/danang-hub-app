@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
@@ -220,14 +221,12 @@ const useEventsQueries = (currentUser) => {
   return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, projects }
 }
 
-const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting }) => {
+const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting }) => {
+  const invalidate = useInvalidateQueries()
   const createMutation = useMutation({
     mutationFn: createEvent,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      invalidate('myEvents', 'approvedEvents', 'pendingEvents', 'upcomingEvents')
       setIsModalOpen(false)
       setIsSubmitting(false)
       showToast(t('toast.eventSubmittedForApproval'), 'success')
@@ -241,9 +240,7 @@ const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting
   const deleteMutation = useMutation({
     mutationFn: deleteEvent,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['pendingEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      invalidate('myEvents', 'pendingEvents', 'upcomingEvents')
       showToast(t('toast.eventRequestDeleted'), 'success')
     },
     onError: () => {
@@ -254,7 +251,8 @@ const useEventFormMutations = ({ t, queryClient, setIsModalOpen, setIsSubmitting
   return { createMutation, deleteMutation }
 }
 
-const useEventActionMutations = ({ t, queryClient, currentUser, processedActionRef, searchParams, setSearchParams }) => {
+const useEventActionMutations = ({ t, currentUser, processedActionRef, searchParams, setSearchParams }) => {
+  const invalidate = useInvalidateQueries()
   // Reset ref and clean up query params after a processed action settles
   const resetActionState = () => {
     processedActionRef.current = null
@@ -264,10 +262,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const registerMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => registerForEvent(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('approvedEvents', 'upcomingEvents', 'myEvents', 'memberStats')
       showToast(t('toast.eventRegisterSuccess'), 'success')
       resetActionState()
     },
@@ -281,10 +276,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const unregisterMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => unregisterFromEvent(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['myEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
+      invalidate('approvedEvents', 'upcomingEvents', 'myEvents', 'memberStats')
       showToast(t('toast.eventUnregisterSuccess'), 'success')
       resetActionState()
     },
@@ -297,8 +289,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const waitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => addToWaitlist(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      invalidate('approvedEvents', 'upcomingEvents')
       showToast(t('toast.waitlistJoined'), 'info')
       resetActionState()
     },
@@ -311,8 +302,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
   const removeWaitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => removeFromWaitlist(eventId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
-      queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
+      invalidate('approvedEvents', 'upcomingEvents')
       showToast(t('toast.waitlistRemoved'), 'info')
       resetActionState()
     },
@@ -769,7 +759,6 @@ const MemberEvents = () => {
   const { t } = useTranslation()
   const { currentUser, userProfile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [hostModalMember, setHostModalMember] = useState(null)
   const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false)
@@ -805,7 +794,7 @@ const MemberEvents = () => {
     projects
   } = useEventsQueries(currentUser)
 
-  const { createMutation, deleteMutation } = useEventFormMutations({ t, queryClient, setIsModalOpen, setIsSubmitting })
+  const { createMutation, deleteMutation } = useEventFormMutations({ t, setIsModalOpen, setIsSubmitting })
 
   const {
     registerMutation,
@@ -816,7 +805,7 @@ const MemberEvents = () => {
     handleUnregister,
     handleJoinWaitlist,
     handleLeaveWaitlist
-  } = useEventActionMutations({ t, queryClient, currentUser, processedActionRef, searchParams, setSearchParams })
+  } = useEventActionMutations({ t, currentUser, processedActionRef, searchParams, setSearchParams })
 
   const handleSubmit = async (e) => {
     e.preventDefault()

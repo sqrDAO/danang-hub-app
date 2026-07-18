@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
@@ -498,7 +499,7 @@ const MemberProfile = () => {
   const { t } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
   const location = useLocation()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateQueries()
   const profileComplete = isProfileComplete()
   const isAdminRoute = location.pathname.startsWith('/admin')
   const [isEditing, setIsEditing] = useState(false)
@@ -535,7 +536,7 @@ const MemberProfile = () => {
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
       }
-      queryClient.invalidateQueries({ queryKey: ['members'] })
+      invalidate('members')
       showToast(t('toast.photoUpdated'), 'success')
     },
     onError: (error) => {
@@ -604,7 +605,7 @@ const MemberProfile = () => {
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
       }
-      queryClient.invalidateQueries({ queryKey: ['members'] })
+      invalidate('members')
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
