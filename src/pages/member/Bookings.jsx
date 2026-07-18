@@ -267,6 +267,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: createBooking,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
     },
@@ -286,6 +287,7 @@ const useBookingMutations = (form, fd) => {
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
     },
@@ -299,6 +301,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: ({ id, data }) => updateBooking(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.bookingUpdated'), 'success')
     }
   })
@@ -307,6 +310,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: deleteBooking,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.bookingDeleted'), 'success')
     }
   })
@@ -316,6 +320,7 @@ const useBookingMutations = (form, fd) => {
       createFixedDeskPlan({ memberId, amenityId, period, startDate, checkConflictsFn: checkBookingConflicts }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
     },
@@ -328,6 +333,7 @@ const useBookingMutations = (form, fd) => {
     mutationFn: cancelFixedDeskPlan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.fixedDeskCancelled'), 'success')
     }
   })

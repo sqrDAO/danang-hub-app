@@ -267,6 +267,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.eventRegisterSuccess'), 'success')
       resetActionState()
     },
@@ -283,6 +284,7 @@ const useEventActionMutations = ({ t, queryClient, currentUser, processedActionR
       queryClient.invalidateQueries({ queryKey: ['approvedEvents'] })
       queryClient.invalidateQueries({ queryKey: ['upcomingEvents'] })
       queryClient.invalidateQueries({ queryKey: ['myEvents'] })
+      queryClient.invalidateQueries({ queryKey: ['memberStats'] })
       showToast(t('toast.eventUnregisterSuccess'), 'success')
       resetActionState()
     },
