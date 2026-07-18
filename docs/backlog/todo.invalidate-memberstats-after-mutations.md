@@ -14,7 +14,8 @@
 - [ ] Register and unregister mutations also invalidate `{ queryKey: ['memberStats'] }`
 - [ ] Cancelling a booking then opening `/profile` within 30s shows the decremented `totalBookings`
 - [ ] NOT: no changes to waitlist mutations (they don't affect attendees counts)
-- [ ] NOT: no query keys renamed; no `staleTime`/refetch options touched
+- [ ] NOT: no query keys renamed
+- [ ] NOT: no `staleTime`/refetch options touched
 
 ## Verify
 - `npm run lint && npm run build` → green

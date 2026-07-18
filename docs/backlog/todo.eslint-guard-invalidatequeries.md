@@ -11,7 +11,8 @@ On v5, `invalidateQueries(['key'])` doesn't throw — the array destructures to 
 - [ ] `queryClient.invalidateQueries(['x'])` added to any `src/**` file fails `npm run lint`
 - [ ] The object form `invalidateQueries({ queryKey: ['x'] })` still lints clean
 - [ ] Current tree passes lint with 0 warnings (ratchet respected)
-- [ ] NOT: no `eslint-disable` added anywhere; no other rules changed
+- [ ] NOT: no `eslint-disable` added anywhere
+- [ ] NOT: no other rules changed
 
 ## Verify
 - `npm run lint` → green on current tree

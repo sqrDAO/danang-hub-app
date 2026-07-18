@@ -9,7 +9,8 @@ Profile save invalidates `['memberStats', uid]`, but no savable field (name, con
 
 ## Acceptance
 - [ ] Saving the profile form no longer triggers a `memberStats` refetch (no bookings/events reads in the network tab)
-- [ ] `['members']` invalidation and `refreshUserProfile()` on save are preserved
+- [ ] `['members']` invalidation on save is preserved
+- [ ] `refreshUserProfile()` on save is preserved
 - [ ] NOT: the photo-upload mutation (~line 535) unchanged
 
 ## Verify

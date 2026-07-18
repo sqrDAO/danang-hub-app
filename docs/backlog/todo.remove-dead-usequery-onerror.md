@@ -14,7 +14,7 @@
 
 ## Verify
 - `npm run lint && npm run build` → green
-- `git grep -n "onError" src/ | grep -i useQuery` → no matches in query options (manual check of remaining hits: all useMutation)
+- `git grep -n -e onError -e onSuccess -e onSettled -- src/` → for each hit, open the file and confirm the enclosing call is `useMutation` (v5 still supports these there); grep is line-based, so judge by the enclosing call, never by the hit line alone
 - regression: `/member/bookings` calendar renders bookings and events normally
 
 ## Notes
