@@ -605,7 +605,6 @@ const MemberProfile = () => {
         await refreshUserProfile()
       }
       queryClient.invalidateQueries({ queryKey: ['members'] })
-      queryClient.invalidateQueries({ queryKey: ['memberStats', currentUser?.uid] })
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
