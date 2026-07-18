@@ -79,6 +79,27 @@ export function formatEventTime(date) {
 }
 
 /**
+ * Compact date+time for list rows (e.g. notification panel) in hub timezone.
+ * Returns empty string when the value is missing or invalid.
+ * @param {Date|string|number|null|undefined} date
+ * @param {string} [locale='en-US']
+ * @returns {string}
+ */
+export function formatHubDateTimeCompact(date, locale = 'en-US') {
+  if (!date) return ''
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString(locale, {
+    timeZone: HUB_TIMEZONE,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+/**
  * Convert a Date to "YYYY-MM-DDTHH:mm" for datetime-local input (Vietnam timezone).
  * @param {Date|string} date
  * @returns {string}
