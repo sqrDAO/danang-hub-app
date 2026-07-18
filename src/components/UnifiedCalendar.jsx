@@ -96,10 +96,7 @@ const UnifiedCalendar = () => {
         return getBookings({ memberId: currentUser?.uid, ...window })
       }
     },
-    enabled: !!currentUser?.uid,
-    onError: (error) => {
-      console.error('Error fetching bookings:', error)
-    }
+    enabled: !!currentUser?.uid
   })
 
   const { data: events = [] } = useQuery({
