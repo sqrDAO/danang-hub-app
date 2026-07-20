@@ -390,7 +390,19 @@ const EventCardInfo = ({ event, amenities, projects, t, onShowHost }) => (
   </div>
 )
 
-const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, onEdit, onDelete, approvePending, rejectPending }) => (
+const EventCardActions = ({
+  event,
+  t,
+  onApprove,
+  onReject,
+  onPromoteWaitlist,
+  onEdit,
+  onDelete,
+  approvePending,
+  rejectPending,
+  promotePending,
+  deletePending,
+}) => (
   <div className="event-actions">
     {event.status === 'pending' && (
       <>
@@ -422,6 +434,7 @@ const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, on
           <button
             className="btn btn-primary btn-sm"
             onClick={() => onPromoteWaitlist(event.id)}
+            disabled={promotePending}
           >
             {t('adminEvents.promoteWaitlist')}
           </button>
@@ -447,6 +460,7 @@ const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, on
     <button
       className="btn btn-danger btn-sm"
       onClick={() => onDelete(event.id)}
+      disabled={deletePending}
     >
       {t('common.delete')}
     </button>
@@ -896,18 +910,21 @@ const AdminEvents = () => {
   }
 
   const handleDelete = async (id) => {
+    if (deleteMutation.isPending) return
     if (window.confirm(t('adminEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
 
   const handleApprove = async (eventId) => {
+    if (approveMutation.isPending) return
     if (window.confirm(t('adminEvents.confirmApprove'))) {
       await approveMutation.mutateAsync(eventId)
     }
   }
 
   const handleReject = async (eventId, isApproved = false) => {
+    if (rejectMutation.isPending) return
     if (isApproved && !window.confirm(t('adminEvents.confirmRejectApproved'))) return
     const reason = prompt(t('adminEvents.rejectReason'))
     if (reason !== null) {
@@ -916,6 +933,7 @@ const AdminEvents = () => {
   }
 
   const handlePromoteWaitlist = async (eventId) => {
+    if (promoteWaitlistMutation.isPending) return
     const count = prompt(t('adminEvents.promoteCount'), '1')
     if (count && !isNaN(count)) {
       await promoteWaitlistMutation.mutateAsync({ eventId, count: parseInt(count) })
@@ -1035,6 +1053,8 @@ const AdminEvents = () => {
                 onDelete={handleDelete}
                 approvePending={approveMutation.isPending}
                 rejectPending={rejectMutation.isPending}
+                promotePending={promoteWaitlistMutation.isPending}
+                deletePending={deleteMutation.isPending}
               />
             ))
           ) : (

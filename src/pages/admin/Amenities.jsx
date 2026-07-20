@@ -209,11 +209,20 @@ const AmenityCardInfo = ({ amenity, t }) => (
   </div>
 )
 
-const AmenityCardActions = ({ amenity, t, onToggle, onEdit, onDelete }) => (
+const AmenityCardActions = ({
+  amenity,
+  t,
+  onToggle,
+  onEdit,
+  onDelete,
+  togglePending,
+  deletePending,
+}) => (
   <div className="amenity-actions">
     <button
       className={`btn ${amenity.isAvailable !== false ? 'btn-secondary' : 'btn-primary'}`}
       onClick={() => onToggle(amenity.id, amenity.isAvailable !== false)}
+      disabled={togglePending}
     >
       {amenity.isAvailable !== false ? t('adminAmenities.markUnavailable') : t('adminAmenities.markAvailable')}
     </button>
@@ -226,13 +235,23 @@ const AmenityCardActions = ({ amenity, t, onToggle, onEdit, onDelete }) => (
     <button
       className="btn btn-danger"
       onClick={() => onDelete(amenity.id)}
+      disabled={deletePending}
     >
       {t('common.delete')}
     </button>
   </div>
 )
 
-const AmenityCard = ({ amenity, t, onViewPhotos, onToggleAvailability, onEdit, onDelete }) => (
+const AmenityCard = ({
+  amenity,
+  t,
+  onViewPhotos,
+  onToggleAvailability,
+  onEdit,
+  onDelete,
+  togglePending,
+  deletePending,
+}) => (
   <div className="amenity-card glass">
     <AmenityCardPhoto amenity={amenity} t={t} onView={onViewPhotos} />
     <div className="amenity-header">
@@ -242,7 +261,15 @@ const AmenityCard = ({ amenity, t, onViewPhotos, onToggleAvailability, onEdit, o
       </span>
     </div>
     <AmenityCardInfo amenity={amenity} t={t} />
-    <AmenityCardActions amenity={amenity} t={t} onToggle={onToggleAvailability} onEdit={onEdit} onDelete={onDelete} />
+    <AmenityCardActions
+      amenity={amenity}
+      t={t}
+      onToggle={onToggleAvailability}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      togglePending={togglePending}
+      deletePending={deletePending}
+    />
   </div>
 )
 
@@ -369,6 +396,41 @@ const AmenityAvailabilitySection = ({ t, selectedAmenity, startHourRef, endHourR
   </div>
 )
 
+const getAmenitySubmitLabel = (t, isCreateMode, isBusy) => {
+  if (isBusy) return t('common.saving')
+  return isCreateMode ? t('common.create') : t('common.save')
+}
+
+const AmenityFormActions = ({ t, isCreateMode, isBusy, onCancel }) => (
+  <div className="form-actions">
+    <button type="submit" className="btn btn-primary" disabled={isBusy}>
+      {getAmenitySubmitLabel(t, isCreateMode, isBusy)}
+    </button>
+    <button
+      type="button"
+      className="btn btn-secondary"
+      onClick={onCancel}
+      disabled={isBusy}
+    >
+      {t('common.cancel')}
+    </button>
+  </div>
+)
+
+const buildAmenityFormPayload = (formData, { availableDays, isCreateMode, photos }) => ({
+  name: formData.get('name'),
+  type: formData.get('type'),
+  capacity: parseInt(formData.get('capacity')) || 1,
+  description: formData.get('description'),
+  isAvailable: formData.get('isAvailable') === 'true',
+  startHour: parseInt(formData.get('startHour')) || DEFAULT_AVAILABILITY.startHour,
+  endHour: parseInt(formData.get('endHour')) || DEFAULT_AVAILABILITY.endHour,
+  slotDuration: parseInt(formData.get('slotDuration')) || DEFAULT_AVAILABILITY.slotDuration,
+  availableDays,
+  // In create mode, photos are uploaded after the amenity doc exists.
+  photos: isCreateMode ? [] : photos,
+})
+
 const AmenityForm = ({
   t,
   isCreateMode,
@@ -386,7 +448,8 @@ const AmenityForm = ({
   uploadingPhotos,
   uploadProgress,
   onPhotoUpload,
-  onPhotoDelete
+  onPhotoDelete,
+  isSubmitting,
 }) => (
   <form onSubmit={onSubmit}>
     <div className="form-group">
@@ -461,18 +524,12 @@ const AmenityForm = ({
       </select>
     </div>
 
-    <div className="form-actions">
-      <button type="submit" className="btn btn-primary">
-        {isCreateMode ? t('common.create') : t('common.save')}
-      </button>
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={onCancel}
-      >
-        {t('common.cancel')}
-      </button>
-    </div>
+    <AmenityFormActions
+      t={t}
+      isCreateMode={isCreateMode}
+      isBusy={isSubmitting || uploadingPhotos}
+      onCancel={onCancel}
+    />
   </form>
 )
 
@@ -642,27 +699,21 @@ const AdminAmenities = () => {
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const isFormSubmitting = createMutation.isPending || updateMutation.isPending
 
+  const handleSubmit = (e) => {
+    e.preventDefault()
     if (uploadingPhotos) {
       showToast('Please wait for photos to finish uploading', 'error')
       return
     }
+    if (isFormSubmitting) return
 
-    const formData = new FormData(e.target)
-    const data = {
-      name: formData.get('name'),
-      type: formData.get('type'),
-      capacity: parseInt(formData.get('capacity')) || 1,
-      description: formData.get('description'),
-      isAvailable: formData.get('isAvailable') === 'true',
-      startHour: parseInt(formData.get('startHour')) || DEFAULT_AVAILABILITY.startHour,
-      endHour: parseInt(formData.get('endHour')) || DEFAULT_AVAILABILITY.endHour,
-      slotDuration: parseInt(formData.get('slotDuration')) || DEFAULT_AVAILABILITY.slotDuration,
-      availableDays: availableDays,
-      photos: isCreateMode ? [] : photos // In create mode, photos will be uploaded after creation
-    }
+    const data = buildAmenityFormPayload(new FormData(e.target), {
+      availableDays,
+      isCreateMode,
+      photos,
+    })
 
     if (isCreateMode) {
       createMutation.mutate(data)
@@ -701,6 +752,8 @@ const AdminAmenities = () => {
               onToggleAvailability={handleToggleAvailability}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              togglePending={toggleAvailabilityMutation.isPending}
+              deletePending={deleteMutation.isPending}
             />
           ))}
         </div>
@@ -728,6 +781,7 @@ const AdminAmenities = () => {
             uploadProgress={uploadProgress}
             onPhotoUpload={handlePhotoUpload}
             onPhotoDelete={handlePhotoDelete}
+            isSubmitting={isFormSubmitting}
           />
         </Modal>
 

@@ -54,6 +54,70 @@ const isSameDayAsBooking = (booking) => {
   return bookingDate.toDateString() === today.toDateString()
 }
 
+const BookingRowActions = ({
+  booking,
+  t,
+  onStatusChange,
+  onCheckIn,
+  onCheckOut,
+  onDelete,
+  statusPending,
+  checkInPending,
+  checkOutPending,
+  deletePending,
+}) => {
+  const sameDay = isSameDayAsBooking(booking)
+  return (
+    <>
+      {booking.status === 'pending' && (
+        <>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => onStatusChange(booking.id, 'approved')}
+            disabled={statusPending}
+          >
+            {t('common.approve')}
+          </button>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => onStatusChange(booking.id, 'cancelled')}
+            disabled={statusPending}
+          >
+            {t('common.reject')}
+          </button>
+        </>
+      )}
+      {booking.status === 'approved' && (
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => onCheckIn(booking.id)}
+          disabled={!sameDay || checkInPending}
+          title={!sameDay ? t('adminBookings.checkInSameDay') : undefined}
+        >
+          {t('adminBookings.checkIn')}
+        </button>
+      )}
+      {booking.status === 'checked-in' && (
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => onCheckOut(booking.id)}
+          disabled={!sameDay || checkOutPending}
+          title={!sameDay ? t('adminBookings.checkOutSameDay') : undefined}
+        >
+          {t('adminBookings.checkOut')}
+        </button>
+      )}
+      <button
+        className="btn btn-danger btn-sm"
+        onClick={() => onDelete(booking.id)}
+        disabled={deletePending}
+      >
+        {t('common.delete')}
+      </button>
+    </>
+  )
+}
+
 const isBeforeTodayStart = (startTime, todayStart) => {
   const bookingStart = startTime instanceof Date ? startTime : new Date(startTime)
   const bookingDayStart = new Date(bookingStart)
@@ -468,12 +532,20 @@ const AdminBookings = () => {
   })
 
   const { updateMutation, deleteMutation, checkInMutation, checkOutMutation } = useBookingMutations()
+  const actionPending = {
+    statusPending: updateMutation.isPending,
+    checkInPending: checkInMutation.isPending,
+    checkOutPending: checkOutMutation.isPending,
+    deletePending: deleteMutation.isPending,
+  }
 
   const handleStatusChange = async (id, newStatus) => {
+    if (updateMutation.isPending) return
     await updateMutation.mutateAsync({ id, data: { status: newStatus } })
   }
 
   const handleCheckIn = async (id) => {
+    if (checkInMutation.isPending) return
     try {
       await checkInMutation.mutateAsync(id)
       showToast(t('toast.bookingCheckedIn'), 'success')
@@ -483,6 +555,7 @@ const AdminBookings = () => {
   }
 
   const handleCheckOut = async (id) => {
+    if (checkOutMutation.isPending) return
     try {
       await checkOutMutation.mutateAsync(id)
       showToast(t('toast.bookingCheckedOut'), 'success')
@@ -492,6 +565,7 @@ const AdminBookings = () => {
   }
 
   const handleDelete = async (id) => {
+    if (deleteMutation.isPending) return
     if (window.confirm(t('adminBookings.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
@@ -671,48 +745,15 @@ const AdminBookings = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      {booking.status === 'pending' && (
-                        <>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleStatusChange(booking.id, 'approved')}
-                          >
-                            {t('common.approve')}
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                          >
-                            {t('common.reject')}
-                          </button>
-                        </>
-                      )}
-                      {booking.status === 'approved' && (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleCheckIn(booking.id)}
-                          disabled={!isSameDayAsBooking(booking)}
-                          title={!isSameDayAsBooking(booking) ? t('adminBookings.checkInSameDay') : undefined}
-                        >
-                          {t('adminBookings.checkIn')}
-                        </button>
-                      )}
-                      {booking.status === 'checked-in' && (
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleCheckOut(booking.id)}
-                          disabled={!isSameDayAsBooking(booking)}
-                          title={!isSameDayAsBooking(booking) ? t('adminBookings.checkOutSameDay') : undefined}
-                        >
-                          {t('adminBookings.checkOut')}
-                        </button>
-                      )}
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(booking.id)}
-                      >
-                        {t('common.delete')}
-                      </button>
+                      <BookingRowActions
+                        booking={booking}
+                        t={t}
+                        onStatusChange={handleStatusChange}
+                        onCheckIn={handleCheckIn}
+                        onCheckOut={handleCheckOut}
+                        onDelete={handleDelete}
+                        {...actionPending}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -756,48 +797,15 @@ const AdminBookings = () => {
                   </div>
                 </div>
                 <div className="booking-card-mobile-actions">
-                  {booking.status === 'pending' && (
-                    <>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleStatusChange(booking.id, 'approved')}
-                      >
-                        {t('common.approve')}
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                      >
-                        {t('common.reject')}
-                      </button>
-                    </>
-                  )}
-                  {booking.status === 'approved' && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleCheckIn(booking.id)}
-                      disabled={!isSameDayAsBooking(booking)}
-                      title={!isSameDayAsBooking(booking) ? t('adminBookings.checkInSameDay') : undefined}
-                    >
-                      {t('adminBookings.checkIn')}
-                    </button>
-                  )}
-                  {booking.status === 'checked-in' && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => handleCheckOut(booking.id)}
-                      disabled={!isSameDayAsBooking(booking)}
-                      title={!isSameDayAsBooking(booking) ? t('adminBookings.checkOutSameDay') : undefined}
-                    >
-                      {t('adminBookings.checkOut')}
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDelete(booking.id)}
-                  >
-                    {t('common.delete')}
-                  </button>
+                  <BookingRowActions
+                    booking={booking}
+                    t={t}
+                    onStatusChange={handleStatusChange}
+                    onCheckIn={handleCheckIn}
+                    onCheckOut={handleCheckOut}
+                    onDelete={handleDelete}
+                    {...actionPending}
+                  />
                 </div>
               </div>
             ))}
