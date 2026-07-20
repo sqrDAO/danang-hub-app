@@ -97,6 +97,22 @@ export const getBooking = async (id) => {
   return null
 }
 
+// Ad-hoc desk bookings are created as pending then flipped to approved by
+// autoApproveDeskBooking. Poll briefly so the client can show the final status
+// (and hide cancel/delete) without a full page reload.
+export const waitWhileBookingPending = async (
+  id,
+  { timeoutMs = 4000, intervalMs = 350 } = {}
+) => {
+  const deadline = Date.now() + timeoutMs
+  let booking = await getBooking(id)
+  while (booking && booking.status === 'pending' && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    booking = await getBooking(id)
+  }
+  return booking
+}
+
 export const createBooking = async (data) => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
   const docRef = await addDoc(bookingsRef, {
