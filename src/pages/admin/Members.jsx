@@ -30,7 +30,7 @@ const profileModalTitle = (member, t) =>
     ? t('adminMembers.memberProfileTitle', { name: member.displayName || t('adminMembers.title') })
     : t('adminMembers.memberProfile')
 
-const MemberEditForm = ({ member, t, onSubmit, onCancel }) => {
+const MemberEditForm = ({ member, t, onSubmit, onCancel, isSubmitting }) => {
   if (!member) return null
   return (
     <form onSubmit={onSubmit}>
@@ -62,13 +62,14 @@ const MemberEditForm = ({ member, t, onSubmit, onCancel }) => {
         </select>
       </div>
       <div className="form-actions">
-        <button type="submit" className="btn btn-primary">
-          {t('common.save')}
+        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </button>
         <button
           type="button"
           className="btn btn-secondary"
           onClick={onCancel}
+          disabled={isSubmitting}
         >
           {t('common.cancel')}
         </button>
@@ -314,6 +315,7 @@ const AdminMembers = () => {
   }
 
   const handleDelete = async (uid) => {
+    if (deleteMutation.isPending) return
     if (window.confirm(t('adminMembers.confirmDelete'))) {
       await deleteMutation.mutateAsync(uid)
     }
@@ -321,6 +323,7 @@ const AdminMembers = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (updateMutation.isPending) return
     const formData = new FormData(e.target)
     const data = {
       displayName: formData.get('displayName'),
@@ -418,6 +421,7 @@ const AdminMembers = () => {
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDelete(member.id)}
+                        disabled={deleteMutation.isPending}
                       >
                         {t('common.delete')}
                       </button>
@@ -474,6 +478,7 @@ const AdminMembers = () => {
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(member.id)}
+                    disabled={deleteMutation.isPending}
                   >
                     {t('common.delete')}
                   </button>
@@ -493,6 +498,7 @@ const AdminMembers = () => {
             t={t}
             onSubmit={handleSubmit}
             onCancel={closeEditModal}
+            isSubmitting={updateMutation.isPending}
           />
         </Modal>
 

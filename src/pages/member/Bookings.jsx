@@ -480,12 +480,14 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
   }
 
   const handleCancel = async (id) => {
+    if (mutations.updateMutation.isPending) return
     if (window.confirm(t('memberBookings.confirmCancel'))) {
       await mutations.updateMutation.mutateAsync({ id, data: { status: 'cancelled' } })
     }
   }
 
   const handleDelete = async (id) => {
+    if (mutations.deleteMutation.isPending) return
     if (window.confirm(t('memberBookings.confirmDelete'))) {
       await mutations.deleteMutation.mutateAsync(id)
     }
@@ -596,7 +598,17 @@ const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onS
   </div>
 )
 
-const BookingCard = ({ booking, amenity, t, locale, showActions, onCancel, onDelete }) => (
+const BookingCard = ({
+  booking,
+  amenity,
+  t,
+  locale,
+  showActions,
+  onCancel,
+  onDelete,
+  cancelPending,
+  deletePending,
+}) => (
   <div className="booking-card">
     <div className="booking-header">
       <h4 className="booking-amenity">{amenity?.name || booking.amenityId}</h4>
@@ -630,12 +642,14 @@ const BookingCard = ({ booking, amenity, t, locale, showActions, onCancel, onDel
             <button
               className="btn btn-danger btn-sm"
               onClick={() => onCancel(booking.id)}
+              disabled={cancelPending}
             >
               {t('common.cancel')}
             </button>
             <button
               className="btn btn-danger btn-sm"
               onClick={() => onDelete(booking.id)}
+              disabled={deletePending}
             >
               {t('common.delete')}
             </button>
@@ -646,7 +660,19 @@ const BookingCard = ({ booking, amenity, t, locale, showActions, onCancel, onDel
   </div>
 )
 
-const BookingsListSection = ({ title, emptyText, bookings, amenities, t, locale, showActions, onCancel, onDelete }) => (
+const BookingsListSection = ({
+  title,
+  emptyText,
+  bookings,
+  amenities,
+  t,
+  locale,
+  showActions,
+  onCancel,
+  onDelete,
+  cancelPending,
+  deletePending,
+}) => (
   <div className="bookings-section glass">
     <div className="section-header">
       <h2 className="section-title">{title}</h2>
@@ -663,6 +689,8 @@ const BookingsListSection = ({ title, emptyText, bookings, amenities, t, locale,
             showActions={showActions}
             onCancel={onCancel}
             onDelete={onDelete}
+            cancelPending={cancelPending}
+            deletePending={deletePending}
           />
         ))}
       </div>
@@ -1151,6 +1179,8 @@ const MemberBookings = () => {
           showActions
           onCancel={handlers.handleCancel}
           onDelete={handlers.handleDelete}
+          cancelPending={mutations.updateMutation.isPending}
+          deletePending={mutations.deleteMutation.isPending}
         />
 
         <FixedDeskPlansSection
