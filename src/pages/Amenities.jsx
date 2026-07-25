@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
@@ -8,6 +9,7 @@ import { getAmenities } from '../services/amenities'
 import './Amenities.css'
 
 const Amenities = () => {
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
@@ -58,13 +60,13 @@ const Amenities = () => {
     <Layout public>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">Amenities</h1>
-          <p className="page-subtitle">Browse available workspace amenities and facilities</p>
+          <h1 className="page-title">{t('nav.amenities')}</h1>
+          <p className="page-subtitle">{t('publicAmenities.subtitle')}</p>
         </div>
 
         {isLoading ? (
           <div className="loading-state">
-            <p>Loading amenities...</p>
+            <p>{t('home.amenitiesLoading')}</p>
           </div>
         ) : availableAmenities.length > 0 ? (
           <div className="amenities-grid">
@@ -86,7 +88,7 @@ const Amenities = () => {
                               const prev = current === 0 ? amenity.photos.length - 1 : current - 1
                               setExpandedPhotoIndex({ ...expandedPhotoIndex, [amenity.id]: prev })
                             }}
-                            aria-label="Previous photo"
+                            aria-label={t('publicAmenities.prevPhoto')}
                           >
                             ‹
                           </button>
@@ -97,7 +99,7 @@ const Amenities = () => {
                               const next = (current + 1) % amenity.photos.length
                               setExpandedPhotoIndex({ ...expandedPhotoIndex, [amenity.id]: next })
                             }}
-                            aria-label="Next photo"
+                            aria-label={t('publicAmenities.nextPhoto')}
                           >
                             ›
                           </button>
@@ -123,7 +125,7 @@ const Amenities = () => {
                   </div>
                 ) : (
                   <div className="amenity-photo-placeholder">
-                    <span>No photo available</span>
+                    <span>{t('publicAmenities.noPhoto')}</span>
                   </div>
                 )}
                 <div className="amenity-header">
@@ -132,27 +134,27 @@ const Amenities = () => {
                 </div>
                 <div className="amenity-info">
                   {amenity.capacity && (
-                    <p className="amenity-capacity">Capacity: {amenity.capacity}</p>
+                    <p className="amenity-capacity">{t('home.amenitiesCapacity', { count: amenity.capacity })}</p>
                   )}
                   {amenity.description && (
                     <p className="amenity-description">{amenity.description}</p>
                   )}
                   <div className="amenity-status">
-                    <span className="status-badge available">Available</span>
+                    <span className="status-badge available">{t('status.available')}</span>
                   </div>
                 </div>
                 <button
                   className="btn btn-primary btn-full-width"
                   onClick={() => handleBookAmenity(amenity)}
                 >
-                  📅 Book Now
+                  📅 {t('common.bookNow')}
                 </button>
               </div>
             ))}
           </div>
         ) : (
           <div className="empty-state">
-            <p>No amenities available at this time</p>
+            <p>{t('home.amenitiesEmpty')}</p>
           </div>
         )}
 

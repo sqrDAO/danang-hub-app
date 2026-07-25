@@ -617,6 +617,17 @@
       "endTimeError": "Event must end by 10:00 PM."
     }
   },
+  "publicEvents": {
+    "subtitle": "Browse community events and register to attend",
+    "organizerLabel": "Organizer:",
+    "signInToJoinWaitlist": "Sign in to join the waitlist"
+  },
+  "publicAmenities": {
+    "subtitle": "Browse available workspace amenities and facilities",
+    "noPhoto": "No photo available",
+    "prevPhoto": "Previous photo",
+    "nextPhoto": "Next photo"
+  },
   "calendar": {
     "prev": "← Prev",
     "today": "Today",
