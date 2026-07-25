@@ -1,5 +1,6 @@
 import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { getBookings } from '../services/bookings'
 import { getApprovedEvents } from '../services/events'
@@ -7,6 +8,19 @@ import { getAmenities } from '../services/amenities'
 import './UnifiedCalendar.css'
 
 const EMPTY_ITEMS = []
+
+// Inline so a failed fetch is visible in place of a silently empty calendar.
+const CalendarErrorBanner = ({ message }) => (
+  <div className="error-message" style={{
+    padding: '1rem',
+    marginBottom: '1rem',
+    backgroundColor: '#fee',
+    color: '#c33',
+    borderRadius: '4px'
+  }}>
+    {message}
+  </div>
+)
 
 const DayCell = memo(function DayCell({ date, isToday, items }) {
   if (!date) return <div className="calendar-day empty" />
@@ -71,6 +85,7 @@ const bookingBelongsToUser = (booking, currentUserId, userIsAdmin) => {
 }
 
 const UnifiedCalendar = () => {
+  const { t } = useTranslation()
   const { currentUser, isAdmin } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedFilter, setSelectedFilter] = useState('all') // 'all', 'bookings', 'events'
@@ -99,7 +114,7 @@ const UnifiedCalendar = () => {
     enabled: !!currentUser?.uid
   })
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], error: eventsError } = useQuery({
     queryKey: ['approvedEvents'],
     queryFn: getApprovedEvents
   })
@@ -269,23 +284,25 @@ const UnifiedCalendar = () => {
     return Array.from(types)
   }, [amenities])
 
-  // Show error if bookings query failed
+  // Log both query failures; each renders its own banner below.
   if (bookingsError) {
     console.error('UnifiedCalendar: Bookings query error', bookingsError)
+  }
+  if (eventsError) {
+    console.error('UnifiedCalendar: Events query error', eventsError)
   }
 
   return (
     <div className="unified-calendar">
       {bookingsError && (
-        <div className="error-message" style={{ 
-          padding: '1rem', 
-          marginBottom: '1rem', 
-          backgroundColor: '#fee', 
-          color: '#c33',
-          borderRadius: '4px'
-        }}>
-          Error loading bookings: {bookingsError.message}
-        </div>
+        <CalendarErrorBanner
+          message={t('calendar.errorLoadingBookings', { message: bookingsError.message })}
+        />
+      )}
+      {eventsError && (
+        <CalendarErrorBanner
+          message={t('calendar.errorLoadingEvents', { message: eventsError.message })}
+        />
       )}
       <div className="calendar-controls">
         <div className="calendar-nav">
