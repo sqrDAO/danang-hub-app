@@ -1,5 +1,11 @@
 # Stop showing unapproved events on the public pages
-**Phase**: — · **Deps**: —
+**Phase**: — · **Deps**: — · **Blocked on**: product decision below
+
+## Decision required before implementing
+Should a member's `pending` event appear on the public pages? This spec is written for
+**no — approved only**. If the answer is "yes, but labelled", this spec is superseded by
+a label-and-disable variant and must be rewritten before any code is cut. Record the
+answer here, then implement.
 
 ## Goal
 `getUpcomingEvents()` merges `approved` + `pending` events and its callers filter by
@@ -33,14 +39,14 @@ anonymous-visitor surfaces.
   absent from `/` and `/events`
 - `npm run dev` → logged in as the organizer of that pending event; it appears on
   `/member/events` with its pending badge
-- regression: `?eventId=…&action=register` deep link from `/events` still resolves for
-  an approved event
+- regression: click Register on an approved event while logged out → lands on
+  `/login?...redirect=/member/events`, and after signing in the registration completes
 
 ## Notes
-Needs a product call first: is the public preview of pending events deliberate? The
-comment at `src/pages/Events.jsx:281` suggests someone knew. If it *is* wanted, the
-alternative scope is to keep pending events visible but label them and disable the
-Register button — pick one before implementing.
+The comment at `src/pages/Events.jsx:281` ("approved and pending") suggests the current
+behavior was known to someone, which is why the Decision section above gates this spec
+rather than the Notes hedging it. Once the decision is recorded, the Acceptance and
+Verify sections above are the contract.
 
 Four callers each reimplement the date filter (`Home.jsx:187`, `Events.jsx:282`,
 `member/Dashboard.jsx:327`, `member/Events.jsx:59`). Consolidating that is tempting

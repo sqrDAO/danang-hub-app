@@ -27,8 +27,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Claude
-.claude/
+# Claude — local session state is ignored, but committed skills are shared
+# (the weekly-review routine at claude.ai/code/routines invokes one)
+.claude/*
+!.claude/skills/
 
 # Copilot
 .github/copilot-instructions.md

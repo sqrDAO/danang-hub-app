@@ -27,7 +27,8 @@ hub is untranslated while every member page is fully localized.
 - `npm run lint && npm run build` → green
 - `npm run dev` → logged out, visit `/events` and `/amenities`, toggle EN↔VI; all chrome
   switches language, no raw key strings render
-- key parity: `node -e "…flatten en.json/vi.json and diff key sets…"` → zero difference
+- key parity: `node -e "const en=require('./src/locales/en.json'),vi=require('./src/locales/vi.json');const f=(o,p='')=>Object.entries(o).flatMap(([k,v])=>v&&typeof v==='object'&&!Array.isArray(v)?f(v,p+k+'.'):[p+k]);const e=new Set(f(en)),v=new Set(f(vi));console.log([...e].filter(k=>!v.has(k)),[...v].filter(k=>!e.has(k)))"`
+  → prints `[] []`
 - regression: `/events` register and waitlist buttons still navigate to
   `/login?...redirect=/member/events` when logged out
 

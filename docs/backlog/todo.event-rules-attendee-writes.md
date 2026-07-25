@@ -18,14 +18,17 @@ narrow attendee-write path and pin `status` for non-admins.
   (line ~189) and the register/waitlist bullet (line ~138) to match.
 
 ## Acceptance
-- [ ] A member who is not the organizer can add and remove their own uid in `attendees`.
-- [ ] A member who is not the organizer can add and remove their own uid in `waitlist`.
-- [ ] An update touching `attendees` plus any other field is denied for non-organizers.
+- [ ] A member who is not the organizer can register and unregister themselves (`attendees` write succeeds).
+- [ ] A member who is not the organizer can join and leave the waitlist (`waitlist` write succeeds).
+- [ ] An update touching `attendees` plus any field other than `waitlist` is denied for non-organizers.
+- [ ] An update touching `waitlist` plus any field other than `attendees` is denied for non-organizers.
 - [ ] An organizer updating their own event cannot change `status`.
 - [ ] A member creating an event with `status: 'approved'` is denied.
 - [ ] An admin can still update any field on any event.
+- [ ] The rules comment states that field scoping does not restrict *which* uid is written.
 - [ ] NOT: no change to the public `allow read: if true` on events.
 - [ ] NOT: no capacity enforcement in rules (stays client-side and advisory, as with bookings).
+- [ ] NOT: do not claim per-uid enforcement — rules cannot diff array contents (see Notes).
 
 ## Verify
 - `firebase emulators:start` → in the emulator UI, signed in as member A, register for
@@ -43,9 +46,19 @@ looser than git. Diff the live rules against `firestore.rules` first. If they di
 that drift is the real finding and this spec's rules become the reconciled source of
 truth.
 
-Members may only add/remove **their own** uid — check
-`request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees'])`
-combined with an `attendees` delta of exactly `request.auth.uid`. Rules cannot diff
-array contents directly; the practical form is to allow the `hasOnly` field scope and
-accept that a member could add another member's uid to the attendee list. Note that
-limit in the rules comment rather than pretending it is closed.
+**Scope of enforcement, stated plainly.** Firestore rules have no array-diff
+primitive: they can see *which fields* a write touches
+(`request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees', 'waitlist'])`)
+but not *which element* changed inside an array. So this spec enforces field scoping
+only. A member can still add or remove another member's uid in `attendees`/`waitlist`.
+
+That residual gap is accepted deliberately: the blast radius is a wrong name on an
+attendee list, not privilege escalation — `status`, `capacity`, `date` and
+`organizerId` all stay locked. The acceptance criteria above are written to that
+enforceable boundary rather than to a per-uid guarantee the rules cannot make, and the
+rules comment must say so.
+
+If per-uid enforcement is actually required, the only way to get it is to move
+attendee writes behind a callable (`registerForEvent` in `functions/index.js`, checking
+`request.auth.uid` server-side) and deny all client `attendees` writes. That is a
+larger change with its own spec — do not half-build it here.
