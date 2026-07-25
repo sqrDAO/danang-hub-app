@@ -206,7 +206,7 @@ const Events = () => {
 
   const { data: upcomingEvents = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: ['upcomingEvents'],
-    queryFn: getUpcomingEvents,
+    queryFn: () => getUpcomingEvents(),
     refetchOnWindowFocus: true,
     refetchOnMount: true
   })
@@ -280,7 +280,8 @@ const Events = () => {
     }
   }
 
-  // Filter upcoming events by date (approved and pending)
+  // Filter upcoming events by date. Approved only — pending events are not
+  // public until an admin reviews them.
   const upcomingEventsFiltered = upcomingEvents.filter(e => {
     if (!e.date) return false
     const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
