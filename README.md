@@ -175,6 +175,11 @@ firebase deploy --only storage
 firebase deploy --only functions
 ```
 
+Merging to `main` deploys hosting, **Firestore/Storage rules**, and functions via
+GitHub Actions. Firestore **indexes** are not deployed by CI (the CI service
+account lacks the permission) — run `firebase deploy --only firestore:indexes`
+manually as project owner.
+
 ### 6. Configure Email (Nodemailer)
 
 The SMTP password is stored in Firebase Secret Manager:
