@@ -17,6 +17,17 @@ export const isPushSupported = async () => {
   return isSupported()
 }
 
+/** Whether the soft post-success prompt may be shown. */
+export const canShowPushOptInPrompt = async ({ optedIn = false } = {}) => {
+  if (optedIn) return false
+  if (!(await isPushSupported())) return false
+  if (!firebaseVapidKey) return false
+  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+    return false
+  }
+  return true
+}
+
 const getMessagingInstance = async (requireVapid = true) => {
   if (!(await isPushSupported())) {
     throw new Error(PUSH_DISABLED_MESSAGE)

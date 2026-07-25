@@ -23,6 +23,7 @@ import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
+import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { parseHubDateTime, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
@@ -222,7 +223,7 @@ const useEventsQueries = (currentUser) => {
   return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, projects }
 }
 
-const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting }) => {
+const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOptedIn }) => {
   const invalidate = useInvalidateQueries()
   const createMutation = useMutation({
     mutationFn: createEvent,
@@ -231,6 +232,7 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting }) => {
       setIsModalOpen(false)
       setIsSubmitting(false)
       showToast(t('toast.eventSubmittedForApproval'), 'success')
+      promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
     onError: () => {
       setIsSubmitting(false)
@@ -252,7 +254,14 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting }) => {
   return { createMutation, deleteMutation }
 }
 
-const useEventActionMutations = ({ t, currentUser, processedActionRef, searchParams, setSearchParams }) => {
+const useEventActionMutations = ({
+  t,
+  currentUser,
+  processedActionRef,
+  searchParams,
+  setSearchParams,
+  pushOptedIn
+}) => {
   const invalidate = useInvalidateQueries()
   // Reset ref and clean up query params after a processed action settles
   const resetActionState = () => {
@@ -265,6 +274,7 @@ const useEventActionMutations = ({ t, currentUser, processedActionRef, searchPar
     onSuccess: () => {
       invalidate('approvedEvents', 'upcomingEvents', 'myEvents', 'memberStats')
       showToast(t('toast.eventRegisterSuccess'), 'success')
+      promptPushOptInAfterSuccess(currentUser?.uid, pushOptedIn)
       resetActionState()
     },
     onError: (error) => {
@@ -810,7 +820,15 @@ const MemberEvents = () => {
     projects
   } = useEventsQueries(currentUser)
 
-  const { createMutation, deleteMutation } = useEventFormMutations({ t, setIsModalOpen, setIsSubmitting })
+  const pushOptedIn = userProfile?.preferences?.pushNotifications === true
+
+  const { createMutation, deleteMutation } = useEventFormMutations({
+    t,
+    setIsModalOpen,
+    setIsSubmitting,
+    uid: currentUser?.uid,
+    pushOptedIn
+  })
 
   const {
     registerMutation,
@@ -821,7 +839,14 @@ const MemberEvents = () => {
     handleUnregister,
     handleJoinWaitlist,
     handleLeaveWaitlist
-  } = useEventActionMutations({ t, currentUser, processedActionRef, searchParams, setSearchParams })
+  } = useEventActionMutations({
+    t,
+    currentUser,
+    processedActionRef,
+    searchParams,
+    setSearchParams,
+    pushOptedIn
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()

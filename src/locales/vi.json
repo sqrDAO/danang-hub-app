@@ -66,7 +66,12 @@
     "fixedDeskApprovedBody": "Gói bàn cố định \"{{amenity}}\" của bạn đã được duyệt.",
     "defaultTitle": "Thông báo mới",
     "defaultBody": "Bạn có một thông báo mới.",
-    "memberFallback": "Một thành viên"
+    "memberFallback": "Một thành viên",
+    "pushOptInTitle": "Chạm để bật thông báo trình duyệt",
+    "pushOptInBody": "Nhận thông báo khi booking được duyệt.",
+    "pushOptInDismiss": "Đóng",
+    "pushOptInEnabled": "Đã bật thông báo trình duyệt.",
+    "pushOptInFailed": "Không thể bật thông báo trình duyệt."
   },
   "status": {
     "pending": "chờ duyệt",

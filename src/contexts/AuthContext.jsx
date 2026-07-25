@@ -14,6 +14,10 @@ import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
   signInWithSolanaWallet as walletAuthSignInWithSolanaWallet,
 } from '../services/walletAuth'
+// Static import: this module holds no Firebase dependency, so it costs nothing
+// to bundle, and a failed dynamic import here would throw out of logout()
+// before signOut ever ran.
+import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
 import { AuthContext } from '../hooks/useAuth'
 
 export const AuthProvider = ({ children }) => {
@@ -140,6 +144,7 @@ export const AuthProvider = ({ children }) => {
   // Sign out
   const logout = async () => {
     try {
+      resetPushOptInPrompt()
       if (currentUser?.uid && userProfile?.preferences?.pushNotifications) {
         try {
           const { disablePushNotificationsOnLogout } = await import('../services/pushNotifications')
