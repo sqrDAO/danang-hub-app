@@ -22,6 +22,7 @@ import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
+import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { parseHubDateTime, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
@@ -313,24 +314,24 @@ const useEventActionMutations = ({ t, currentUser, processedActionRef, searchPar
   })
 
   const handleRegister = async (eventId) => {
-    if (registerMutation.isPending) return
+    if (isPendingFor(registerMutation, eventId)) return
     await registerMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
   const handleUnregister = async (eventId) => {
-    if (unregisterMutation.isPending) return
+    if (isPendingFor(unregisterMutation, eventId)) return
     if (window.confirm(t('memberEvents.confirmUnregister'))) {
       await unregisterMutation.mutateAsync({ eventId, memberId: currentUser.uid })
     }
   }
 
   const handleJoinWaitlist = async (eventId) => {
-    if (waitlistMutation.isPending) return
+    if (isPendingFor(waitlistMutation, eventId)) return
     await waitlistMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
   const handleLeaveWaitlist = async (eventId) => {
-    if (removeWaitlistMutation.isPending) return
+    if (isPendingFor(removeWaitlistMutation, eventId)) return
     await removeWaitlistMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
@@ -427,7 +428,7 @@ const MyEventCard = ({ event, projects, onDelete, deletePending, t }) => (
   </div>
 )
 
-const MyEventsSection = ({ myEvents, projects, onDelete, deletePending, t }) => {
+const MyEventsSection = ({ myEvents, projects, onDelete, deletingId, t }) => {
   if (myEvents.length === 0) return null
   return (
     <div className="events-section glass">
@@ -442,7 +443,7 @@ const MyEventsSection = ({ myEvents, projects, onDelete, deletePending, t }) => 
             event={event}
             projects={projects}
             onDelete={onDelete}
-            deletePending={deletePending}
+            deletePending={deletingId === event.id}
             t={t}
           />
         ))}
@@ -491,7 +492,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
       <button
         className="btn btn-secondary btn-full-width"
         onClick={() => handlers.onUnregister(event.id)}
-        disabled={handlers.unregisterPending}
+        disabled={handlers.unregisteringId === event.id}
       >
         {t('memberEvents.registeredUnregister')}
       </button>
@@ -499,7 +500,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
       <button
         className="btn btn-secondary btn-full-width"
         onClick={() => handlers.onLeaveWaitlist(event.id)}
-        disabled={handlers.leaveWaitlistPending}
+        disabled={handlers.leavingWaitlistId === event.id}
       >
         {t('memberEvents.onWaitlistLeave')}
       </button>
@@ -508,7 +509,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
         <button
           className="btn btn-primary btn-full-width btn-large"
           onClick={() => handlers.onRegister(event.id)}
-          disabled={full || handlers.registerPending}
+          disabled={full || handlers.registeringId === event.id}
         >
           {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}
         </button>
@@ -516,7 +517,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
           <button
             className="btn btn-secondary btn-full-width"
             onClick={() => handlers.onJoinWaitlist(event.id)}
-            disabled={handlers.waitlistPending}
+            disabled={handlers.joiningWaitlistId === event.id}
             style={{ marginTop: '0.5rem' }}
           >
             {t('memberEvents.joinWaitlist')}
@@ -865,7 +866,7 @@ const MemberEvents = () => {
   }
 
   const handleDeleteMyEvent = async (eventId) => {
-    if (deleteMutation.isPending) return
+    if (isPendingFor(deleteMutation, eventId)) return
     if (window.confirm(t('memberEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(eventId)
     }
@@ -971,7 +972,7 @@ const MemberEvents = () => {
           myEvents={myEvents}
           projects={projects}
           onDelete={handleDeleteMyEvent}
-          deletePending={deleteMutation.isPending}
+          deletingId={pendingTargetId(deleteMutation)}
           t={t}
         />
 
@@ -989,10 +990,10 @@ const MemberEvents = () => {
             onUnregister: handleUnregister,
             onJoinWaitlist: handleJoinWaitlist,
             onLeaveWaitlist: handleLeaveWaitlist,
-            registerPending: registerMutation.isPending,
-            unregisterPending: unregisterMutation.isPending,
-            waitlistPending: waitlistMutation.isPending,
-            leaveWaitlistPending: removeWaitlistMutation.isPending,
+            registeringId: pendingTargetId(registerMutation),
+            unregisteringId: pendingTargetId(unregisterMutation),
+            joiningWaitlistId: pendingTargetId(waitlistMutation),
+            leavingWaitlistId: pendingTargetId(removeWaitlistMutation),
           }}
           t={t}
         />

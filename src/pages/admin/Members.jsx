@@ -6,6 +6,7 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import { getMembers, getMemberStats, updateMember, deleteMember } from '../../services/members'
+import { isPendingFor } from '../../utils/mutationTarget'
 import './Members.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import '../member/Profile.css'
@@ -315,7 +316,7 @@ const AdminMembers = () => {
   }
 
   const handleDelete = async (uid) => {
-    if (deleteMutation.isPending) return
+    if (isPendingFor(deleteMutation, uid)) return
     if (window.confirm(t('adminMembers.confirmDelete'))) {
       await deleteMutation.mutateAsync(uid)
     }
@@ -421,7 +422,7 @@ const AdminMembers = () => {
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDelete(member.id)}
-                        disabled={deleteMutation.isPending}
+                        disabled={isPendingFor(deleteMutation, member.id)}
                       >
                         {t('common.delete')}
                       </button>
@@ -478,7 +479,7 @@ const AdminMembers = () => {
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(member.id)}
-                    disabled={deleteMutation.isPending}
+                    disabled={isPendingFor(deleteMutation, member.id)}
                   >
                     {t('common.delete')}
                   </button>

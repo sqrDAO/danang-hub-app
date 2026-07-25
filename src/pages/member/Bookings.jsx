@@ -12,6 +12,7 @@ import { getBookings, createBooking, updateBooking, deleteBooking, createRecurri
 import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
+import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
@@ -480,14 +481,14 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
   }
 
   const handleCancel = async (id) => {
-    if (mutations.updateMutation.isPending) return
+    if (isPendingFor(mutations.updateMutation, id)) return
     if (window.confirm(t('memberBookings.confirmCancel'))) {
       await mutations.updateMutation.mutateAsync({ id, data: { status: 'cancelled' } })
     }
   }
 
   const handleDelete = async (id) => {
-    if (mutations.deleteMutation.isPending) return
+    if (isPendingFor(mutations.deleteMutation, id)) return
     if (window.confirm(t('memberBookings.confirmDelete'))) {
       await mutations.deleteMutation.mutateAsync(id)
     }
@@ -670,8 +671,8 @@ const BookingsListSection = ({
   showActions,
   onCancel,
   onDelete,
-  cancelPending,
-  deletePending,
+  cancellingId,
+  deletingId,
 }) => (
   <div className="bookings-section glass">
     <div className="section-header">
@@ -689,8 +690,8 @@ const BookingsListSection = ({
             showActions={showActions}
             onCancel={onCancel}
             onDelete={onDelete}
-            cancelPending={cancelPending}
-            deletePending={deletePending}
+            cancelPending={cancellingId === booking.id}
+            deletePending={deletingId === booking.id}
           />
         ))}
       </div>
@@ -733,7 +734,7 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
   </div>
 )
 
-const FixedDeskPlansSection = ({ plans, amenities, t, onCancelPlan, cancelPending }) => {
+const FixedDeskPlansSection = ({ plans, amenities, t, onCancelPlan, cancellingId }) => {
   if (plans.length === 0) return null
   return (
     <div className="bookings-section glass">
@@ -749,7 +750,7 @@ const FixedDeskPlansSection = ({ plans, amenities, t, onCancelPlan, cancelPendin
             amenity={amenities.find(a => a.id === plan.amenityId)}
             t={t}
             onCancelPlan={onCancelPlan}
-            cancelPending={cancelPending}
+            cancelPending={cancellingId === plan.planGroupId}
           />
         ))}
       </div>
@@ -1179,8 +1180,8 @@ const MemberBookings = () => {
           showActions
           onCancel={handlers.handleCancel}
           onDelete={handlers.handleDelete}
-          cancelPending={mutations.updateMutation.isPending}
-          deletePending={mutations.deleteMutation.isPending}
+          cancellingId={pendingTargetId(mutations.updateMutation)}
+          deletingId={pendingTargetId(mutations.deleteMutation)}
         />
 
         <FixedDeskPlansSection
@@ -1188,7 +1189,7 @@ const MemberBookings = () => {
           amenities={amenities}
           t={t}
           onCancelPlan={handlers.handleCancelPlan}
-          cancelPending={mutations.cancelPlanMutation.isPending}
+          cancellingId={pendingTargetId(mutations.cancelPlanMutation)}
         />
 
         <BookingsListSection

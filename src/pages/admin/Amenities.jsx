@@ -8,6 +8,7 @@ import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../utils/toast'
+import { isPendingFor } from '../../utils/mutationTarget'
 import './Amenities.css'
 
 const DAYS_OF_WEEK = [
@@ -682,12 +683,14 @@ const AdminAmenities = () => {
   }
 
   const handleDelete = async (id) => {
+    if (isPendingFor(deleteMutation, id)) return
     if (window.confirm('Are you sure you want to delete this amenity?')) {
       await deleteMutation.mutateAsync(id)
     }
   }
 
   const handleToggleAvailability = (id, currentStatus) => {
+    if (isPendingFor(toggleAvailabilityMutation, id)) return
     toggleAvailabilityMutation.mutate({ id, isAvailable: !currentStatus })
   }
 
@@ -752,8 +755,8 @@ const AdminAmenities = () => {
               onToggleAvailability={handleToggleAvailability}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              togglePending={toggleAvailabilityMutation.isPending}
-              deletePending={deleteMutation.isPending}
+              togglePending={isPendingFor(toggleAvailabilityMutation, amenity.id)}
+              deletePending={isPendingFor(deleteMutation, amenity.id)}
             />
           ))}
         </div>

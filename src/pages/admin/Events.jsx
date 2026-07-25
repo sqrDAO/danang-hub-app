@@ -21,6 +21,7 @@ import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
+import { isPendingFor } from '../../utils/mutationTarget'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
@@ -910,21 +911,21 @@ const AdminEvents = () => {
   }
 
   const handleDelete = async (id) => {
-    if (deleteMutation.isPending) return
+    if (isPendingFor(deleteMutation, id)) return
     if (window.confirm(t('adminEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
 
   const handleApprove = async (eventId) => {
-    if (approveMutation.isPending) return
+    if (isPendingFor(approveMutation, eventId)) return
     if (window.confirm(t('adminEvents.confirmApprove'))) {
       await approveMutation.mutateAsync(eventId)
     }
   }
 
   const handleReject = async (eventId, isApproved = false) => {
-    if (rejectMutation.isPending) return
+    if (isPendingFor(rejectMutation, eventId)) return
     if (isApproved && !window.confirm(t('adminEvents.confirmRejectApproved'))) return
     const reason = prompt(t('adminEvents.rejectReason'))
     if (reason !== null) {
@@ -933,7 +934,7 @@ const AdminEvents = () => {
   }
 
   const handlePromoteWaitlist = async (eventId) => {
-    if (promoteWaitlistMutation.isPending) return
+    if (isPendingFor(promoteWaitlistMutation, eventId)) return
     const count = prompt(t('adminEvents.promoteCount'), '1')
     if (count && !isNaN(count)) {
       await promoteWaitlistMutation.mutateAsync({ eventId, count: parseInt(count) })
@@ -1051,10 +1052,10 @@ const AdminEvents = () => {
                 onPromoteWaitlist={handlePromoteWaitlist}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                approvePending={approveMutation.isPending}
-                rejectPending={rejectMutation.isPending}
-                promotePending={promoteWaitlistMutation.isPending}
-                deletePending={deleteMutation.isPending}
+                approvePending={isPendingFor(approveMutation, event.id)}
+                rejectPending={isPendingFor(rejectMutation, event.id)}
+                promotePending={isPendingFor(promoteWaitlistMutation, event.id)}
+                deletePending={isPendingFor(deleteMutation, event.id)}
               />
             ))
           ) : (

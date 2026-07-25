@@ -6,6 +6,7 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import { showToast } from '../../utils/toast'
+import { isPendingFor } from '../../utils/mutationTarget'
 import { getBookings, updateBooking, deleteBooking, checkIn, checkOut, createBooking, createFixedDeskPlan } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
@@ -532,20 +533,20 @@ const AdminBookings = () => {
   })
 
   const { updateMutation, deleteMutation, checkInMutation, checkOutMutation } = useBookingMutations()
-  const actionPending = {
-    statusPending: updateMutation.isPending,
-    checkInPending: checkInMutation.isPending,
-    checkOutPending: checkOutMutation.isPending,
-    deletePending: deleteMutation.isPending,
-  }
+  const rowPending = (id) => ({
+    statusPending: isPendingFor(updateMutation, id),
+    checkInPending: isPendingFor(checkInMutation, id),
+    checkOutPending: isPendingFor(checkOutMutation, id),
+    deletePending: isPendingFor(deleteMutation, id),
+  })
 
   const handleStatusChange = async (id, newStatus) => {
-    if (updateMutation.isPending) return
+    if (isPendingFor(updateMutation, id)) return
     await updateMutation.mutateAsync({ id, data: { status: newStatus } })
   }
 
   const handleCheckIn = async (id) => {
-    if (checkInMutation.isPending) return
+    if (isPendingFor(checkInMutation, id)) return
     try {
       await checkInMutation.mutateAsync(id)
       showToast(t('toast.bookingCheckedIn'), 'success')
@@ -555,7 +556,7 @@ const AdminBookings = () => {
   }
 
   const handleCheckOut = async (id) => {
-    if (checkOutMutation.isPending) return
+    if (isPendingFor(checkOutMutation, id)) return
     try {
       await checkOutMutation.mutateAsync(id)
       showToast(t('toast.bookingCheckedOut'), 'success')
@@ -565,7 +566,7 @@ const AdminBookings = () => {
   }
 
   const handleDelete = async (id) => {
-    if (deleteMutation.isPending) return
+    if (isPendingFor(deleteMutation, id)) return
     if (window.confirm(t('adminBookings.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
@@ -752,7 +753,7 @@ const AdminBookings = () => {
                         onCheckIn={handleCheckIn}
                         onCheckOut={handleCheckOut}
                         onDelete={handleDelete}
-                        {...actionPending}
+                        {...rowPending(booking.id)}
                       />
                     </div>
                   </td>
@@ -804,7 +805,7 @@ const AdminBookings = () => {
                     onCheckIn={handleCheckIn}
                     onCheckOut={handleCheckOut}
                     onDelete={handleDelete}
-                    {...actionPending}
+                    {...rowPending(booking.id)}
                   />
                 </div>
               </div>
