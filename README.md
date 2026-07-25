@@ -175,10 +175,14 @@ firebase deploy --only storage
 firebase deploy --only functions
 ```
 
-Merging to `main` deploys hosting, **Firestore/Storage rules**, and functions via
-GitHub Actions. Firestore **indexes** are not deployed by CI (the CI service
-account lacks the permission) — run `firebase deploy --only firestore:indexes`
-manually as project owner.
+Merging to `main` deploys hosting, **Firestore rules**, and functions via GitHub
+Actions. Two things are *not* deployed by CI, because the CI service account
+lacks the permissions — run these manually as project owner when they change:
+
+```bash
+firebase deploy --only firestore:indexes
+firebase deploy --only storage
+```
 
 ### 6. Configure Email (Nodemailer)
 
