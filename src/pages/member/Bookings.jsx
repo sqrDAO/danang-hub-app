@@ -8,7 +8,7 @@ import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitWhileBookingPending } from '../../services/bookings'
+import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
 import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
@@ -266,10 +266,11 @@ const useBookingMutations = (form, fd) => {
   const invalidate = useInvalidateQueries()
 
   // Desk ad-hoc bookings may auto-approve after create; re-fetch once settled.
-  const resyncAfterPossibleAutoApprove = (bookingId) => {
-    if (!bookingId) return
-    waitWhileBookingPending(bookingId)
-      .then(() => invalidate('bookings'))
+  // Nothing to do when none of them flipped — the list already shows pending.
+  const resyncAfterPossibleAutoApprove = (bookingIds) => {
+    if (!bookingIds?.length) return
+    waitForBookingsSettled(bookingIds)
+      .then(({ anySettled }) => { if (anySettled) invalidate('bookings') })
       .catch((err) => console.warn('Post-create booking resync failed:', err))
   }
 
@@ -280,7 +281,7 @@ const useBookingMutations = (form, fd) => {
       invalidate('bookings', 'memberStats')
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
-      if (isDesk) resyncAfterPossibleAutoApprove(id)
+      if (isDesk) resyncAfterPossibleAutoApprove([id])
     },
     onError: (error) => {
       showToast(t('toast.bookingCreateFailed'), 'error')
@@ -301,7 +302,7 @@ const useBookingMutations = (form, fd) => {
       invalidate('bookings', 'memberStats')
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
-      if (isDesk) resyncAfterPossibleAutoApprove(result?.createdIds?.[0])
+      if (isDesk) resyncAfterPossibleAutoApprove(result?.createdIds)
     },
     onError: (error) => {
       showToast(t('toast.recurringBookingsFailed'), 'error')
