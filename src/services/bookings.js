@@ -97,6 +97,53 @@ export const getBooking = async (id) => {
   return null
 }
 
+// Ad-hoc desk bookings are created as pending then flipped to approved by
+// autoApproveDeskBooking. Poll briefly so the client can show the final status
+// (and hide cancel/delete) without a full page reload.
+//
+// Bounded and best-effort by design: a recurring create can produce up to 52
+// bookings, so we watch at most MAX_WATCHED_BOOKINGS of them and back off
+// between rounds instead of re-reading every occurrence on a fixed interval.
+// The caller refetches the whole list once this resolves, so occurrences beyond
+// the cap are still refreshed — they just don't influence the timing.
+const MAX_WATCHED_BOOKINGS = 10
+const POLL_INITIAL_MS = 300
+const POLL_BACKOFF = 1.6
+const POLL_MAX_INTERVAL_MS = 1200
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Individual gets rather than a `documentId() in [...]` query: the bookings
+// read rule is `isOwner(resource.data.memberId)`, which a get satisfies
+// per-document without the query having to prove ownership up front.
+const readStatuses = async (ids) => {
+  const bookings = await Promise.all(ids.map((id) => getBooking(id)))
+  return bookings.filter(Boolean).map((booking) => booking.status)
+}
+
+// Resolves once no watched booking is still pending, or on timeout.
+// `anySettled` reports whether anything left `pending` — when nothing did, the
+// caller can skip its refetch, since the list already shows these as pending.
+export const waitForBookingsSettled = async (ids, { timeoutMs = 4000 } = {}) => {
+  const watched = (ids || []).filter(Boolean).slice(0, MAX_WATCHED_BOOKINGS)
+  if (watched.length === 0) return { anySettled: false }
+
+  const deadline = Date.now() + timeoutMs
+  let interval = POLL_INITIAL_MS
+
+  for (;;) {
+    const statuses = await readStatuses(watched)
+    if (statuses.length === 0) return { anySettled: false }
+
+    const anySettled = statuses.some((status) => status !== 'pending')
+    if (statuses.every((status) => status !== 'pending')) return { anySettled: true }
+    if (Date.now() + interval >= deadline) return { anySettled }
+
+    await sleep(interval)
+    interval = Math.min(Math.round(interval * POLL_BACKOFF), POLL_MAX_INTERVAL_MS)
+  }
+}
+
 export const createBooking = async (data) => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
   const docRef = await addDoc(bookingsRef, {
