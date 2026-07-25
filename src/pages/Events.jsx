@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
@@ -21,19 +22,19 @@ const getHostingProjectsLabel = (hostingProjects, projects) => {
   }).join(', ')
 }
 
-const HostingProjectsLine = ({ hostingProjects, projects }) => {
+const HostingProjectsLine = ({ hostingProjects, projects, t }) => {
   if (!hostingProjects) return null
   return (
     <p className="event-projects">
-      🏢 Hosted by: {getHostingProjectsLabel(hostingProjects, projects)}
+      🏢 {t('memberEvents.hosted', { hosts: getHostingProjectsLabel(hostingProjects, projects) })}
     </p>
   )
 }
 
-const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost }) => (
+const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost, t }) => (
   <div className="event-info">
     <p className="event-organizer">
-      Organizer:{' '}
+      {t('publicEvents.organizerLabel')}{' '}
       <button
         className="organizer-link"
         onClick={() => onOpenHost(event.organizerId)}
@@ -42,25 +43,25 @@ const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost }) =>
       </button>
     </p>
     {event.duration && (
-      <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+      <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
     )}
     <p className="event-capacity">
-      👥 {event.attendees?.length || 0} / {event.capacity || 50} attendees
+      👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || 50 })}
     </p>
-    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} />
+    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
     {event.eventLink && (
       <p className="event-link">
-        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
       </p>
     )}
     {event.waitlist && event.waitlist.length > 0 && (
       <p className="event-waitlist">
-        {event.waitlist.length} on waitlist
+        {t('memberEvents.onWaitlist', { count: event.waitlist.length })}
       </p>
     )}
     {waitlistPosition && (
       <p className="event-waitlist-position">
-        Your position: #{waitlistPosition}
+        {t('memberEvents.yourPosition', { position: waitlistPosition })}
       </p>
     )}
     {event.description && (
@@ -69,7 +70,7 @@ const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost }) =>
   </div>
 )
 
-const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist, onRegister, navigate }) => (
+const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist, onRegister, navigate, t }) => (
   <div className="event-actions">
     {currentUser ? (
       registered ? (
@@ -77,14 +78,14 @@ const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist
           className="btn btn-secondary btn-full-width"
           onClick={() => navigate(`/member/events?action=unregister&eventId=${event.id}`)}
         >
-          ✓ Registered - Click to Unregister
+          {t('memberEvents.registeredUnregister')}
         </button>
       ) : onWaitlist ? (
         <button
           className="btn btn-secondary btn-full-width"
           onClick={() => navigate(`/member/events?action=leaveWaitlist&eventId=${event.id}`)}
         >
-          On Waitlist - Click to Leave
+          {t('memberEvents.onWaitlistLeave')}
         </button>
       ) : (
         <>
@@ -93,7 +94,7 @@ const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist
             onClick={() => onRegister(event.id)}
             disabled={full}
           >
-            {full ? 'Event Full' : '✓ Register for Event'}
+            {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}
           </button>
           {full && (
             <button
@@ -101,7 +102,7 @@ const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist
               onClick={() => navigate(`/member/events?action=joinWaitlist&eventId=${event.id}`)}
               style={{ marginTop: '0.5rem' }}
             >
-              Join Waitlist
+              {t('memberEvents.joinWaitlist')}
             </button>
           )}
         </>
@@ -113,30 +114,30 @@ const UpcomingEventActions = ({ event, currentUser, registered, full, onWaitlist
           onClick={() => onRegister(event.id)}
           disabled={full}
         >
-          {full ? 'Event Full' : 'Register for Event'}
+          {full ? t('memberEvents.eventFull') : t('home.eventsRegister')}
         </button>
         {full && (
-          <p className="event-full-note">Sign in to join the waitlist</p>
+          <p className="event-full-note">{t('publicEvents.signInToJoinWaitlist')}</p>
         )}
       </>
     )}
   </div>
 )
 
-const HostProfessionalSection = ({ member }) => (
+const HostProfessionalSection = ({ member, t }) => (
   <section className="profile-section">
-    <h3 className="profile-section-title">Professional</h3>
+    <h3 className="profile-section-title">{t('profile.professional')}</h3>
     <div className="profile-detail-item">
-      <span className="detail-label">Company</span>
+      <span className="detail-label">{t('profile.company')}</span>
       <span className="detail-value">{member.company || '—'}</span>
     </div>
     <div className="profile-detail-item">
-      <span className="detail-label">Role</span>
+      <span className="detail-label">{t('profile.role')}</span>
       <span className="detail-value">{member.jobTitle || '—'}</span>
     </div>
     {member.linkedIn && (
       <div className="profile-detail-item">
-        <span className="detail-label">LinkedIn</span>
+        <span className="detail-label">{t('profile.linkedIn')}</span>
         <span className="detail-value">
           <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
             {member.linkedIn}
@@ -146,7 +147,7 @@ const HostProfessionalSection = ({ member }) => (
     )}
     {member.website && (
       <div className="profile-detail-item">
-        <span className="detail-label">Website</span>
+        <span className="detail-label">{t('profile.website')}</span>
         <span className="detail-value">
           <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
             {member.website}
@@ -157,11 +158,11 @@ const HostProfessionalSection = ({ member }) => (
   </section>
 )
 
-const HostProfileModal = ({ member, onClose }) => (
+const HostProfileModal = ({ member, onClose, t }) => (
   <Modal
     isOpen={!!member}
     onClose={onClose}
-    title={member?.displayName || 'Host'}
+    title={member?.displayName || t('memberEvents.host')}
   >
     {member && (
       <div className="profile-modal-content">
@@ -177,15 +178,15 @@ const HostProfileModal = ({ member, onClose }) => (
               </p>
             )}
             <span className={`membership-badge ${member.membershipType || 'member'}`}>
-              {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+              {member.membershipType === 'admin' ? t('adminMembers.adminOption') : t('adminMembers.memberOption')}
             </span>
           </div>
         </div>
 
-        <HostProfessionalSection member={member} />
+        <HostProfessionalSection member={member} t={t} />
 
         <section className="profile-section">
-          <h3 className="profile-section-title">About</h3>
+          <h3 className="profile-section-title">{t('profile.about')}</h3>
           <div className="profile-detail-item profile-detail-bio">
             <span className="detail-value">{member.bio || '—'}</span>
           </div>
@@ -196,6 +197,7 @@ const HostProfileModal = ({ member, onClose }) => (
 )
 
 const Events = () => {
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
@@ -298,20 +300,20 @@ const Events = () => {
     <Layout public>
       <div className="container">
         <div className="page-header">
-          <h1 className="page-title">Events</h1>
-          <p className="page-subtitle">Browse community events and register to attend</p>
+          <h1 className="page-title">{t('memberEvents.title')}</h1>
+          <p className="page-subtitle">{t('publicEvents.subtitle')}</p>
         </div>
 
         {/* Upcoming Events */}
         <div className="events-section glass">
           <div className="section-header">
-            <h2 className="section-title">Upcoming Events</h2>
+            <h2 className="section-title">{t('memberEvents.upcomingEvents')}</h2>
             {upcomingEventsFiltered.length > 0 && (
-              <p className="section-description">Click &quot;Register&quot; to join an event. If full, join the waitlist!</p>
+              <p className="section-description">{t('memberEvents.upcomingEventsDesc')}</p>
             )}
           </div>
           {isLoadingEvents ? (
-            <p className="empty-state">Loading events...</p>
+            <p className="empty-state">{t('memberEvents.loadingEvents')}</p>
           ) : upcomingEventsFiltered.length > 0 ? (
             <div className="events-grid">
               {upcomingEventsFiltered.map(event => {
@@ -329,7 +331,7 @@ const Events = () => {
                     <div className="event-header">
                       <h3 className="event-title">{event.title}</h3>
                       <span className="event-date-badge">
-                        {formatEventDate(event.date) || 'N/A'}
+                        {formatEventDate(event.date) || t('common.na')}
                       </span>
                     </div>
                     <UpcomingEventInfo
@@ -337,6 +339,7 @@ const Events = () => {
                       projects={projects}
                       waitlistPosition={waitlistPosition}
                       onOpenHost={handleOpenHostModal}
+                      t={t}
                     />
                     <UpcomingEventActions
                       event={event}
@@ -346,6 +349,7 @@ const Events = () => {
                       onWaitlist={onWaitlist}
                       onRegister={handleRegister}
                       navigate={navigate}
+                      t={t}
                     />
                   </div>
                 )
@@ -353,7 +357,7 @@ const Events = () => {
             </div>
           ) : (
             <div>
-              <p className="empty-state">No upcoming events at this time</p>
+              <p className="empty-state">{t('home.eventsEmpty')}</p>
             </div>
           )}
         </div>
@@ -362,7 +366,7 @@ const Events = () => {
         {pastEvents.length > 0 && (
           <div className="events-section glass">
             <div className="section-header">
-              <h2 className="section-title">Past Events</h2>
+              <h2 className="section-title">{t('memberEvents.pastEvents')}</h2>
             </div>
             <div className="events-grid">
               {pastEvents.map(event => (
@@ -375,12 +379,12 @@ const Events = () => {
                   <div className="event-header">
                     <h3 className="event-title">{event.title}</h3>
                     <span className="event-date-badge">
-                      {formatEventDate(event.date) || 'N/A'}
+                      {formatEventDate(event.date) || t('common.na')}
                     </span>
                   </div>
                   <div className="event-info">
                     <p className="event-organizer">
-                      Organizer:{' '}
+                      {t('publicEvents.organizerLabel')}{' '}
                       <button
                         className="organizer-link"
                         onClick={() => handleOpenHostModal(event.organizerId)}
@@ -389,16 +393,16 @@ const Events = () => {
                       </button>
                     </p>
                     {event.duration && (
-                      <p className="event-duration">⏱️ Duration: {event.duration} minutes</p>
+                      <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
                     )}
-                    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} />
+                    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
                     {event.eventLink && (
                       <p className="event-link">
-                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">Event Link</a>
+                        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
                       </p>
                     )}
                     {currentUser && event.attendees?.includes(currentUser.uid) && (
-                      <p className="event-attended">✅ You attended this event</p>
+                      <p className="event-attended">{t('memberEvents.attended')}</p>
                     )}
                   </div>
                 </div>
@@ -421,6 +425,7 @@ const Events = () => {
         <HostProfileModal
           member={hostModalMember}
           onClose={() => setHostModalMember(null)}
+          t={t}
         />
       </div>
     </Layout>

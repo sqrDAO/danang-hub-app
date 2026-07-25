@@ -617,6 +617,17 @@
       "endTimeError": "Sự kiện phải kết thúc trước 22:00."
     }
   },
+  "publicEvents": {
+    "subtitle": "Khám phá các sự kiện cộng đồng và đăng ký tham gia",
+    "organizerLabel": "Người tổ chức:",
+    "signInToJoinWaitlist": "Đăng nhập để tham gia danh sách chờ"
+  },
+  "publicAmenities": {
+    "subtitle": "Khám phá các tiện ích và cơ sở vật chất hiện có",
+    "noPhoto": "Chưa có hình ảnh",
+    "prevPhoto": "Ảnh trước",
+    "nextPhoto": "Ảnh tiếp theo"
+  },
   "calendar": {
     "prev": "← Trước",
     "today": "Hôm nay",
