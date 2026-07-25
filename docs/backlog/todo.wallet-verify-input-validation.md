@@ -26,11 +26,15 @@ through both verify branches, leaves `uid` undefined, and throws an opaque `inte
 
 ## Verify
 - `cd functions && npm run lint` → exit 0
-- `cd functions && npm run serve` → call `verifyWalletSignature` with
-  `{address: '0x…40hex', signature: '0x…', chain: 'dogecoin'}` → `invalid-argument`,
-  and the `nonces/{address}` doc still exists afterwards
-- same: call with `chain: 'ethereum'` and `address: 'a/b'` → `invalid-argument`, no
-  Firestore error in the log
+- `cd functions && npm run shell`, then in the shell:
+  1. `generateWalletNonce({address: "0x1111111111111111111111111111111111111111", chain: "ethereum"})`
+     → returns `{nonce}` and creates `nonces/0x1111111111111111111111111111111111111111`
+  2. `verifyWalletSignature({address: "0x1111111111111111111111111111111111111111", signature: "0x" + "11".repeat(65), chain: "dogecoin"})`
+     → `invalid-argument`
+  3. in the Emulator UI, `nonces/0x1111111111111111111111111111111111111111` still holds
+     the `nonce` value from step 1 (proves the nonce was not consumed)
+- same shell: `verifyWalletSignature({address: "a/b", signature: "0x" + "11".repeat(65), chain: "ethereum"})`
+  → `invalid-argument`, and no Firestore `INVALID_ARGUMENT` document-path error in the log
 - regression: full MetaMask and Phantom sign-in through `npm run dev` both still mint a
   custom token and land on the member dashboard
 
