@@ -1,31 +1,31 @@
 # Allow attendee writes and block organizer self-approval in event rules
-**Phase**: — · **Deps**: — · **Blocked on**: step 0 below
+**Phase**: — · **Deps**: — · **Blocked on**: — (step 0 resolved 2026-07-25)
 
-## Step 0 — diff the deployed ruleset first (blocking)
-Do not edit `firestore.rules` until the deployed ruleset has been diffed against git. The
-committed rules cannot permit registration, yet registration presumably works in
-production — so which is true decides whether this spec is a fix or a reconciliation of
-undocumented drift. Quick look: Firebase console → Firestore Database → Rules for project
-`danang-hub-app`. Real diff (needs `firebaserules.viewer`):
+## Step 0 — deployed-ruleset diff (done 2026-07-25)
+**Outcome: the `events` block is identical, so this spec is a bug fix, not a drift
+reconciliation.** Registration by a non-organizer is genuinely denied in production.
 
-```bash
-TOKEN=$(gcloud auth print-access-token)
-RULESET=$(curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://firebaserules.googleapis.com/v1/projects/danang-hub-app/releases" \
-  | jq -r '.releases[] | select(.name | endswith("cloud.firestore")) | .rulesetName')
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://firebaserules.googleapis.com/v1/$RULESET" \
-  | jq -r '.source.files[].content' > /tmp/deployed.rules
-diff -u firestore.rules /tmp/deployed.rules
-```
+The rest of the ruleset *had* drifted — live was commit `10bb7d3` (2026-05-05), four rules
+commits behind (`77f275d`, `47019b5`, `1cc9b6f`, `0139427`) — which is what broke push
+notifications and is written up in `done.ci-deploy-rules.md`. But none of those four
+touched `events`: `git diff 10bb7d3..HEAD` over the `events` block is empty, and the
+`allow update: if isAuthenticated() && isOwner(resource.data.organizerId)` line dates to
+the initial commit `142ba4d` (2026-01-16). So the deny is not a recent regression — it has
+been there since day one, on both the stale and current rulesets.
 
-Record the outcome here before continuing:
+Live now matches `main` (ruleset `25d8de84-9e00-4ac1-bb63-f7f77ac9e5d8`, released by CI),
+so from here the committed `firestore.rules` is the source of truth and this spec edits it
+directly.
 
-- **Identical** — registration is genuinely broken in production. Confirm with one real
-  member account, then implement below as a bug fix.
-- **They differ** — the drift is the headline finding. Note every difference, across all
-  collections and not just `events`, then reconcile `firestore.rules` to the intended
-  state and treat it as the source of truth from then on.
+Still worth one real-account check before implementing: `registerForEvent`
+(`src/services/events.js:300`) is a bare client `updateDoc` with no callable fallback, so
+the failure should reproduce as a permission-denied on any event the signed-in member did
+not organize. Admins are exempt via the second `allow update: if isAdmin()`, which is the
+likely reason this went unnoticed.
+
+To re-run the diff: query the `firebaserules` releases API for the `cloud.firestore`
+ruleset and diff its source against `firestore.rules`. Needs `firebaserules.viewer`, and
+an `x-goog-user-project: danang-hub-app` header or the API returns SERVICE_DISABLED.
 
 ## Goal
 `firestore.rules:95` is the only non-admin update path on `events/{eventId}` and requires
