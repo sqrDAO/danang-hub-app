@@ -1401,38 +1401,56 @@ exports.cleanupOldBookings = onSchedule(
       }
     });
 
+// Wallet address shapes, by chain. The address doubles as the nonces/{address}
+// document id, so this is the only thing standing between request.data and a
+// Firestore document path — validate before any read or write.
+const WALLET_ADDRESS_RULES = {
+  ethereum: {
+    pattern: /^0x[0-9a-fA-F]{40}$/,
+    message: "Invalid Ethereum address format",
+  },
+  solana: {
+    pattern: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+    message: "Invalid Solana address format",
+  },
+};
+
+const WALLET_CHAINS = Object.keys(WALLET_ADDRESS_RULES);
+
+/**
+ * Rejects unknown chains and malformed addresses before the caller touches
+ * Firestore. Without this, an unknown chain falls through both verify branches
+ * in verifyWalletSignature, leaves uid undefined, and throws an opaque
+ * "internal" — after the transaction has already consumed the nonce.
+ * @param {*} address Claimed wallet address
+ * @param {*} chain Claimed chain, one of WALLET_CHAINS
+ * @throws {HttpsError} invalid-argument when either value is unusable
+ */
+function assertValidWalletInput(address, chain) {
+  if (!address || typeof address !== "string") {
+    throw new HttpsError(
+        "invalid-argument",
+        "Address is required",
+    );
+  }
+  if (!chain || !WALLET_CHAINS.includes(chain)) {
+    throw new HttpsError(
+        "invalid-argument",
+        "Chain must be ethereum or solana",
+    );
+  }
+  const {pattern, message} = WALLET_ADDRESS_RULES[chain];
+  if (!pattern.test(address)) {
+    throw new HttpsError("invalid-argument", message);
+  }
+}
+
 // Generate a one-time nonce for wallet authentication
 exports.generateWalletNonce = onCall(
     async (request) => {
       const {address, chain} = request.data;
 
-      if (!address || typeof address !== "string") {
-        throw new HttpsError(
-            "invalid-argument",
-            "Address is required",
-        );
-      }
-      if (!chain || !["ethereum", "solana"].includes(chain)) {
-        throw new HttpsError(
-            "invalid-argument",
-            "Chain must be ethereum or solana",
-        );
-      }
-
-      const ethAddressRegex = /^0x[0-9a-fA-F]{40}$/;
-      const solAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-      if (chain === "ethereum" && !ethAddressRegex.test(address)) {
-        throw new HttpsError(
-            "invalid-argument",
-            "Invalid Ethereum address format",
-        );
-      }
-      if (chain === "solana" && !solAddressRegex.test(address)) {
-        throw new HttpsError(
-            "invalid-argument",
-            "Invalid Solana address format",
-        );
-      }
+      assertValidWalletInput(address, chain);
 
       const nonce = crypto.randomBytes(32).toString("hex");
       const now = Date.now();
@@ -1459,6 +1477,8 @@ exports.verifyWalletSignature = onCall(
             "address, signature, and chain are required",
         );
       }
+
+      assertValidWalletInput(address, chain);
 
       const nonceRef = db.collection("nonces").doc(address);
       let nonce;
