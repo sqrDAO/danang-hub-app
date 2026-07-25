@@ -6,24 +6,42 @@ After a successful member booking or event create/register, follow the legacy su
 The card body is “tap to enable”; corner **×** dismisses. Stop auto-prompts after **3 ×-dismisses** (countdown alone does not count). Profile keeps long-term on/off.
 
 ## Files
-- `src/services/pushNotifications.js` (edited) — `isPushConfigured`, `canShowPushOptInPrompt`; keep enable/disable.
+- `src/services/pushNotifications.js` (edited) — `canShowPushOptInPrompt`; keep enable/disable.
 - `src/components/PushOptInBanner.jsx` (new) — top drop-in: body enable, × dismiss, progress auto-close.
 - `src/components/PushOptInBanner.css` (new) — slide-from-top; progress drains right → left.
 - `src/utils/pushOptInPrompt.js` (new) — `promptPushOptInAfterSuccess` + dismiss count; reset on logout.
 - `src/pages/member/Bookings.jsx` (edited) — schedule on single / recurring / fixed-desk create success.
 - `src/pages/member/Events.jsx` (edited) — schedule on event create + register success.
 - `src/App.jsx` (edited) — mount `PushOptInBanner` app-wide.
-- `src/locales/en.json` + `vi.json` (edited) — banner copy.
+- `src/locales/en.json` (edited) — banner copy.
+- `src/locales/vi.json` (edited) — banner copy.
 
 ## Acceptance
-- [ ] On member booking create success (single, recurring, fixed-desk) success toast still shows first; after toast duration + ~400ms, drop-in may appear if eligible.
-- [ ] On member event create and register success, same delayed drop-in rules apply.
-- [ ] Drop-in slides from top under header; body tap runs `enablePushNotifications`; × closes and increments dismiss count.
-- [ ] After 3 ×-dismisses for that uid, banner never auto-shows again in that browser.
-- [ ] Countdown auto-close (~7s, progress right → left) does not increment dismiss count.
-- [ ] Banner only when: prod push supported, VAPID set, permission not denied, not opted in, dismiss count &lt; 3.
-- [ ] Profile push checkbox still enables/disables push.
-- [ ] NOT: No dev auto-preview on load. No NotificationBell CTA. No don't-show-again checkbox. No FCM path changes.
+- [ ] On single booking create success, the existing success toast still shows first.
+- [ ] On recurring booking create success, the existing success toast still shows first.
+- [ ] On fixed-desk create success, the existing success toast still shows first.
+- [ ] After booking create success toast duration + ~400ms, the drop-in may appear if eligible.
+- [ ] On event create success, the existing success toast still shows first.
+- [ ] On event register success, the existing success toast still shows first.
+- [ ] After event create/register success toast duration + ~400ms, the drop-in may appear if eligible.
+- [ ] Drop-in slides from top under the header.
+- [ ] Body tap runs `enablePushNotifications`.
+- [ ] Body tap success refreshes AuthContext so later successes pass `pushOptedIn=true`.
+- [ ] × closes the drop-in and increments the dismiss count.
+- [ ] After 3 ×-dismisses for that uid, the banner never auto-shows again in that browser.
+- [ ] Countdown auto-close (~7s) does not increment the dismiss count.
+- [ ] Progress bar drains right → left during the countdown.
+- [ ] Banner is not shown when push is unsupported (including non-prod).
+- [ ] Banner is not shown when VAPID is unset.
+- [ ] Banner is not shown when Notification permission is denied.
+- [ ] Banner is not shown when the user is already opted in.
+- [ ] Banner is not shown when dismiss count is >= 3.
+- [ ] Profile push checkbox still enables push.
+- [ ] Profile push checkbox still disables push.
+- [ ] NOT: No dev auto-preview of the drop-in on load.
+- [ ] NOT: No NotificationBell CTA for push opt-in.
+- [ ] NOT: No don't-show-again checkbox on the drop-in.
+- [ ] NOT: No FCM path changes.
 
 ## Verify
 - `npm run lint` → zero warnings
@@ -38,3 +56,4 @@ The card body is “tap to enable”; corner **×** dismisses. Stop auto-prompts
 - localStorage: `pushOptInDismissCount:{uid}` integer; stop when `>= 3`.
 - `isPushSupported` is prod-only; soft prompt will not appear under `npm run dev` by design (accepted — no dev preview).
 - Triggers: booking create (single/recurring/fixed-desk), event create, event register — all kept.
+- Dismiss storage is best-effort: read failure → 0; write failure ignored.
