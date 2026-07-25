@@ -15,9 +15,14 @@ const notify = () => {
 
 const getDismissCount = (uid) => {
   if (!uid || typeof window === 'undefined') return 0
-  const raw = window.localStorage.getItem(DISMISS_COUNT_KEY(uid))
-  const count = Number.parseInt(raw, 10)
-  return Number.isFinite(count) && count > 0 ? count : 0
+  try {
+    const raw = window.localStorage.getItem(DISMISS_COUNT_KEY(uid))
+    const count = Number.parseInt(raw, 10)
+    return Number.isFinite(count) && count > 0 ? count : 0
+  } catch {
+    // Storage blocked / unavailable — treat as zero dismissals
+    return 0
+  }
 }
 
 const isStopped = (uid) => getDismissCount(uid) >= MAX_MANUAL_DISMISSES
@@ -25,7 +30,11 @@ const isStopped = (uid) => getDismissCount(uid) >= MAX_MANUAL_DISMISSES
 const recordManualDismiss = (uid) => {
   if (!uid || typeof window === 'undefined') return
   const next = Math.min(getDismissCount(uid) + 1, MAX_MANUAL_DISMISSES)
-  window.localStorage.setItem(DISMISS_COUNT_KEY(uid), String(next))
+  try {
+    window.localStorage.setItem(DISMISS_COUNT_KEY(uid), String(next))
+  } catch {
+    // Ignore write failures (quota / private mode); dismiss still closes UI
+  }
 }
 
 const openBanner = (uid) => {
