@@ -13,6 +13,7 @@ import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
+import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
@@ -261,7 +262,7 @@ const useFixedDeskForm = () => {
   }
 }
 
-const useBookingMutations = (form, fd) => {
+const useBookingMutations = (form, fd, uid, pushOptedIn) => {
   const { t } = useTranslation()
   const invalidate = useInvalidateQueries()
 
@@ -282,6 +283,7 @@ const useBookingMutations = (form, fd) => {
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
       if (isDesk) resyncAfterPossibleAutoApprove([id])
+      promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
     onError: (error) => {
       showToast(t('toast.bookingCreateFailed'), 'error')
@@ -303,6 +305,7 @@ const useBookingMutations = (form, fd) => {
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
       if (isDesk) resyncAfterPossibleAutoApprove(result?.createdIds)
+      promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
     onError: (error) => {
       showToast(t('toast.recurringBookingsFailed'), 'error')
@@ -333,6 +336,7 @@ const useBookingMutations = (form, fd) => {
       invalidate('bookings', 'memberStats')
       showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
+      promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
     onError: () => {
       showToast(t('toast.fixedDeskFailed'), 'error')
@@ -1135,12 +1139,13 @@ const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, isPending }) =>
 
 const MemberBookings = () => {
   const { t, i18n } = useTranslation()
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const locale = getLocale(i18n)
   const memberBookingsWindow = getMemberBookingsWindow()
+  const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
   const { data: myBookings = [] } = useQuery({
     queryKey: ['bookings', currentUser?.uid],
@@ -1155,7 +1160,7 @@ const MemberBookings = () => {
 
   const form = useBookingForm(amenities, searchParams, setSearchParams)
   const fd = useFixedDeskForm()
-  const mutations = useBookingMutations(form, fd)
+  const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
   const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t })
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)

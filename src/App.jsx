@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ToastContainer from './components/Toast'
+import PushOptInBanner from './components/PushOptInBanner'
 import Home from './pages/Home'
 
 // Lazy-loaded routes — these are not the landing path and benefit from code splitting
@@ -122,6 +123,7 @@ function App() {
       </Routes>
         </Suspense>
         <ToastContainer />
+        <PushOptInBanner />
       </AuthProvider>
     </ThemeProvider>
   )

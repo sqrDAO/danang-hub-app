@@ -140,6 +140,8 @@ export const AuthProvider = ({ children }) => {
   // Sign out
   const logout = async () => {
     try {
+      const { resetPushOptInPrompt } = await import('../utils/pushOptInPrompt')
+      resetPushOptInPrompt()
       if (currentUser?.uid && userProfile?.preferences?.pushNotifications) {
         try {
           const { disablePushNotificationsOnLogout } = await import('../services/pushNotifications')
