@@ -25,7 +25,7 @@ read and the write is silently erased, and the two paths racing can promote past
 - [ ] `promoteFromWaitlist` still returns `{ promoted, remaining }` with the same shape.
 - [ ] Events with no `capacity` still treat spots as unlimited.
 - [ ] NOT: no change to `addToWaitlist` / `removeFromWaitlist`.
-- [ ] NOT: no waitlist-promotion notification added here (still the `// TODO` at `functions/index.js:1575`).
+- [ ] NOT: no waitlist-promotion notification added here (still the `// TODO` at `functions/index.js:1573`).
 
 ## Verify
 - `npm run lint && npm run build` → green

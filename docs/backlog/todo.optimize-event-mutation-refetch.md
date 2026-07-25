@@ -5,7 +5,7 @@
 One register click refetches `['approvedEvents']` and `['upcomingEvents']` — both re-download the entire approved events set (`getUpcomingEvents` adds pending) — plus a useless `['myEvents']` refetch (`getMyEvents` filters `organizerId == uid`, unchanged by registering), ~4 collection reads to reflect a one-element attendees change. Patch the changed event in cache instead.
 
 ## Files
-- `src/pages/member/Events.jsx` (edited) — in register/unregister/waitlist `onSuccess`, use `queryClient.setQueryData` to patch the affected event's `attendees`/`waitlist` array in the `['approvedEvents']` and `['upcomingEvents']` caches; drop the `['myEvents']` invalidation from register/unregister
+- `src/pages/member/Events.jsx` (edited) — in register/unregister/waitlist `onSuccess` (lines ~275, ~290, ~303, ~316), use `queryClient.setQueryData` to patch the affected event's `attendees`/`waitlist` array in the `['approvedEvents']` and `['upcomingEvents']` caches; drop the `['myEvents']` invalidation from register/unregister
 
 ## Acceptance
 - [ ] Registering/unregistering updates the event card (attendee count, button state) without refetching the events collections
@@ -21,3 +21,7 @@ One register click refetches `['approvedEvents']` and `['upcomingEvents']` — b
 
 ## Notes
 Low priority — pre-existing idiomatic invalidate-and-refetch, flagged for Firestore read cost (approved set downloaded twice per click; scales with event count). `setQueryData` must return new array/object references so React re-renders.
+
+There is no `queryClient` in `member/Events.jsx` any more: PR #29 (`3a1df7a`) replaced it with the `useInvalidateQueries()` hook, so `useEventMutations` holds only `invalidate(...)`. Add `useQueryClient()` back alongside the hook rather than reaching through it — the hook deliberately exposes invalidation only. Note the waitlist mutations already skip `myEvents`; only register/unregister carry the useless one.
+
+Those same `onSuccess` bodies now also call `promptPushOptInAfterSuccess` (PR #32) — leave it in place and in order.

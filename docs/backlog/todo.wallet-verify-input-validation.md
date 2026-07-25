@@ -44,5 +44,5 @@ attacker needs the key. The fix is about failing early and legibly instead of bu
 the user's nonce on a 500.
 
 The address is also used unvalidated as a Firestore document id
-(`db.collection("nonces").doc(address)`, line ~1465), which is the second half of why
+(`db.collection("nonces").doc(address)`, lines 1441 and 1463), which is the second half of why
 validation belongs before the transaction.

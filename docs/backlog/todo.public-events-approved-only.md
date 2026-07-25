@@ -49,5 +49,5 @@ rather than the Notes hedging it. Once the decision is recorded, the Acceptance 
 Verify sections above are the contract.
 
 Four callers each reimplement the date filter (`Home.jsx:187`, `Events.jsx:282`,
-`member/Dashboard.jsx:327`, `member/Events.jsx:59`). Consolidating that is tempting
+`member/Dashboard.jsx:327`, `member/Events.jsx:61`). Consolidating that is tempting
 but out of scope here; leave it for a separate refactor.
