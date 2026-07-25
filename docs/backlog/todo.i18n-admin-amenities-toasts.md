@@ -2,14 +2,15 @@
 **Phase**: — · **Deps**: —
 
 ## Goal
-`src/pages/admin/Amenities.jsx` raises 9 `showToast` calls with hardcoded English
+`src/pages/admin/Amenities.jsx` raises 11 `showToast` calls with hardcoded English
 strings while every other page routes toast copy through `t('toast.*')`. Move them onto
 i18n keys so the admin surface is consistent in VI.
 
 ## Files
-- `src/pages/admin/Amenities.jsx` (edited) — replace the literals at lines 96, 153, 551,
-  554, 564, 567, 575, 583, 649 with `t('toast.*')` calls; `useAmenityPhotos` needs `t`
-  passed in or its own `useTranslation`.
+- `src/pages/admin/Amenities.jsx` (edited) — replace the literals at lines 89, 97, 154,
+  597, 609, 612, 622, 625, 633, 641, 710 with `t('toast.*')` calls; `useAmenityPhotos`
+  (line ~52) needs `t` passed in or its own `useTranslation`. Two of these interpolate
+  (`file.name` at 89, `error.message` at 89 and 597) — those keys take variables.
 - `src/locales/en.json` (edited) — add the `toast.*` keys.
 - `src/locales/vi.json` (edited) — same keys, Vietnamese copy.
 
@@ -29,5 +30,9 @@ i18n keys so the admin surface is consistent in VI.
   guard still blocks submit and shows its (now translated) toast
 
 ## Notes
-`useAmenityPhotos` (line ~51) is a plain hook, so calling `useTranslation()` inside it is
+`useAmenityPhotos` (line ~52) is a plain hook, so calling `useTranslation()` inside it is
 fine and avoids threading `t` through the options object.
+
+Line numbers were refreshed against `main` after PR #31 (`4688bbd`, `a084c3b`) shifted
+them; the original draft also missed two calls, hence 11 rather than 9. Grep for
+`showToast(` rather than trusting the list if this sits unstarted much longer.

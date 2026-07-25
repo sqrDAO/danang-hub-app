@@ -36,3 +36,9 @@ migration.
 
 If 30-day booking retention is actually wanted, note it as a follow-up spec rather than
 folding it in here; deleting member booking history is a product decision, not a cleanup.
+
+**Do this one first** of the four open specs that edit `functions/index.js`. It removes
+~50 lines at 1352–1403, directly above `wallet-verify-input-validation` (1405/1452/1463)
+and `atomic-waitlist-promotion` (1541); landing it first shifts their line refs once, in a
+known direction, instead of leaving each to resolve conflicts. `push-i18n` touches the
+push-send strings and is independent of all three.
