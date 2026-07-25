@@ -13,6 +13,7 @@ The card body is “tap to enable”; corner **×** dismisses. Stop auto-prompts
 - `src/pages/member/Bookings.jsx` (edited) — schedule on single / recurring / fixed-desk create success.
 - `src/pages/member/Events.jsx` (edited) — schedule on event create + register success.
 - `src/App.jsx` (edited) — mount `PushOptInBanner` app-wide.
+- `src/contexts/AuthContext.jsx` (edited) — reset the pending prompt on logout.
 - `src/locales/en.json` (edited) — banner copy.
 - `src/locales/vi.json` (edited) — banner copy.
 
@@ -38,6 +39,8 @@ The card body is “tap to enable”; corner **×** dismisses. Stop auto-prompts
 - [ ] Banner is not shown when dismiss count is >= 3.
 - [ ] Profile push checkbox still enables push.
 - [ ] Profile push checkbox still disables push.
+- [ ] `firebase/messaging` stays out of the eager entry chunk — `pushNotifications.js` is only fetched on banner tap or eligibility check.
+- [ ] A failed `pushNotifications` chunk load skips the prompt and never blocks logout.
 - [ ] NOT: No dev auto-preview of the drop-in on load.
 - [ ] NOT: No NotificationBell CTA for push opt-in.
 - [ ] NOT: No don't-show-again checkbox on the drop-in.
@@ -57,3 +60,5 @@ The card body is “tap to enable”; corner **×** dismisses. Stop auto-prompts
 - `isPushSupported` is prod-only; soft prompt will not appear under `npm run dev` by design (accepted — no dev preview).
 - Triggers: booking create (single/recurring/fixed-desk), event create, event register — all kept.
 - Dismiss storage is best-effort: read failure → 0; write failure ignored.
+- `PushOptInBanner` is mounted app-wide and therefore eager, so it and `pushOptInPrompt.js` must stay free of static `services/pushNotifications` imports — that import pulls `firebase/messaging` (~32 KB) into the entry chunk every visitor downloads. Both call sites load it dynamically instead.
+- `resetPushOptInPrompt` is imported statically in `AuthContext`: `pushOptInPrompt.js` has no Firebase dependency, and a failed dynamic import inside `logout()` would throw before `signOut` ran.

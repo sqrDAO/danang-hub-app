@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
-import { enablePushNotifications } from '../services/pushNotifications'
 import {
   closePushOptInBanner,
   subscribePushOptIn
@@ -37,6 +36,10 @@ const PushOptInBanner = () => {
     if (enabling) return
     setEnabling(true)
     try {
+      // Loaded on tap: this component is mounted app-wide, and a static import
+      // would pull firebase/messaging into the eager entry chunk for every
+      // visitor, logged in or not.
+      const { enablePushNotifications } = await import('../services/pushNotifications')
       await enablePushNotifications(state.uid)
       // Keep AuthContext in sync so later successes pass pushOptedIn=true
       if (typeof refreshUserProfile === 'function') {

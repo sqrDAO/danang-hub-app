@@ -1,5 +1,3 @@
-import { canShowPushOptInPrompt } from '../services/pushNotifications'
-
 const DISMISS_COUNT_KEY = (uid) => `pushOptInDismissCount:${uid}`
 const MAX_MANUAL_DISMISSES = 3
 const TOAST_MS = 3000
@@ -79,6 +77,11 @@ export const promptPushOptInAfterSuccess = (uid, optedIn = false) => {
     pendingTimer = null
     if (visibleState || isStopped(uid)) return
     try {
+      // Loaded here rather than at module scope: PushOptInBanner imports this
+      // file and is mounted app-wide, so a static import would pull
+      // firebase/messaging into the eager entry chunk. If the chunk fails to
+      // load we simply skip the prompt.
+      const { canShowPushOptInPrompt } = await import('../services/pushNotifications')
       if (!(await canShowPushOptInPrompt({ optedIn }))) return
     } catch {
       return
