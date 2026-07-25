@@ -22,6 +22,7 @@ import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
+import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { parseHubDateTime, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
@@ -313,20 +314,24 @@ const useEventActionMutations = ({ t, currentUser, processedActionRef, searchPar
   })
 
   const handleRegister = async (eventId) => {
+    if (isPendingFor(registerMutation, eventId)) return
     await registerMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
   const handleUnregister = async (eventId) => {
+    if (isPendingFor(unregisterMutation, eventId)) return
     if (window.confirm(t('memberEvents.confirmUnregister'))) {
       await unregisterMutation.mutateAsync({ eventId, memberId: currentUser.uid })
     }
   }
 
   const handleJoinWaitlist = async (eventId) => {
+    if (isPendingFor(waitlistMutation, eventId)) return
     await waitlistMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
   const handleLeaveWaitlist = async (eventId) => {
+    if (isPendingFor(removeWaitlistMutation, eventId)) return
     await removeWaitlistMutation.mutateAsync({ eventId, memberId: currentUser.uid })
   }
 
@@ -376,7 +381,7 @@ const EventLinkLine = ({ eventLink, t }) => {
   )
 }
 
-const MyEventCard = ({ event, projects, onDelete, t }) => (
+const MyEventCard = ({ event, projects, onDelete, deletePending, t }) => (
   <div className={`event-card my-event ${event.status}`}>
     <EventBanner url={event.bannerUrl} />
     <div className="event-header">
@@ -411,6 +416,7 @@ const MyEventCard = ({ event, projects, onDelete, t }) => (
         <button
           className="btn btn-danger btn-full-width"
           onClick={() => onDelete(event.id)}
+          disabled={deletePending}
         >
           {t('memberEvents.cancelRequest')}
         </button>
@@ -422,7 +428,7 @@ const MyEventCard = ({ event, projects, onDelete, t }) => (
   </div>
 )
 
-const MyEventsSection = ({ myEvents, projects, onDelete, t }) => {
+const MyEventsSection = ({ myEvents, projects, onDelete, deletingId, t }) => {
   if (myEvents.length === 0) return null
   return (
     <div className="events-section glass">
@@ -432,7 +438,14 @@ const MyEventsSection = ({ myEvents, projects, onDelete, t }) => {
       </div>
       <div className="events-grid">
         {myEvents.map(event => (
-          <MyEventCard key={event.id} event={event} projects={projects} onDelete={onDelete} t={t} />
+          <MyEventCard
+            key={event.id}
+            event={event}
+            projects={projects}
+            onDelete={onDelete}
+            deletePending={deletingId === event.id}
+            t={t}
+          />
         ))}
       </div>
     </div>
@@ -479,6 +492,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
       <button
         className="btn btn-secondary btn-full-width"
         onClick={() => handlers.onUnregister(event.id)}
+        disabled={handlers.unregisteringId === event.id}
       >
         {t('memberEvents.registeredUnregister')}
       </button>
@@ -486,6 +500,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
       <button
         className="btn btn-secondary btn-full-width"
         onClick={() => handlers.onLeaveWaitlist(event.id)}
+        disabled={handlers.leavingWaitlistId === event.id}
       >
         {t('memberEvents.onWaitlistLeave')}
       </button>
@@ -494,7 +509,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
         <button
           className="btn btn-primary btn-full-width btn-large"
           onClick={() => handlers.onRegister(event.id)}
-          disabled={full}
+          disabled={full || handlers.registeringId === event.id}
         >
           {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}
         </button>
@@ -502,6 +517,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
           <button
             className="btn btn-secondary btn-full-width"
             onClick={() => handlers.onJoinWaitlist(event.id)}
+            disabled={handlers.joiningWaitlistId === event.id}
             style={{ marginTop: '0.5rem' }}
           >
             {t('memberEvents.joinWaitlist')}
@@ -850,6 +866,7 @@ const MemberEvents = () => {
   }
 
   const handleDeleteMyEvent = async (eventId) => {
+    if (isPendingFor(deleteMutation, eventId)) return
     if (window.confirm(t('memberEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(eventId)
     }
@@ -951,7 +968,13 @@ const MemberEvents = () => {
         </div>
 
         {/* My Created Events */}
-        <MyEventsSection myEvents={myEvents} projects={projects} onDelete={handleDeleteMyEvent} t={t} />
+        <MyEventsSection
+          myEvents={myEvents}
+          projects={projects}
+          onDelete={handleDeleteMyEvent}
+          deletingId={pendingTargetId(deleteMutation)}
+          t={t}
+        />
 
         {/* Upcoming Events (Approved) */}
         <UpcomingEventsSection
@@ -966,7 +989,11 @@ const MemberEvents = () => {
             onRegister: handleRegister,
             onUnregister: handleUnregister,
             onJoinWaitlist: handleJoinWaitlist,
-            onLeaveWaitlist: handleLeaveWaitlist
+            onLeaveWaitlist: handleLeaveWaitlist,
+            registeringId: pendingTargetId(registerMutation),
+            unregisteringId: pendingTargetId(unregisterMutation),
+            joiningWaitlistId: pendingTargetId(waitlistMutation),
+            leavingWaitlistId: pendingTargetId(removeWaitlistMutation),
           }}
           t={t}
         />

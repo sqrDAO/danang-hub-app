@@ -21,6 +21,7 @@ import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
+import { isPendingFor } from '../../utils/mutationTarget'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
@@ -390,7 +391,19 @@ const EventCardInfo = ({ event, amenities, projects, t, onShowHost }) => (
   </div>
 )
 
-const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, onEdit, onDelete, approvePending, rejectPending }) => (
+const EventCardActions = ({
+  event,
+  t,
+  onApprove,
+  onReject,
+  onPromoteWaitlist,
+  onEdit,
+  onDelete,
+  approvePending,
+  rejectPending,
+  promotePending,
+  deletePending,
+}) => (
   <div className="event-actions">
     {event.status === 'pending' && (
       <>
@@ -422,6 +435,7 @@ const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, on
           <button
             className="btn btn-primary btn-sm"
             onClick={() => onPromoteWaitlist(event.id)}
+            disabled={promotePending}
           >
             {t('adminEvents.promoteWaitlist')}
           </button>
@@ -447,6 +461,7 @@ const EventCardActions = ({ event, t, onApprove, onReject, onPromoteWaitlist, on
     <button
       className="btn btn-danger btn-sm"
       onClick={() => onDelete(event.id)}
+      disabled={deletePending}
     >
       {t('common.delete')}
     </button>
@@ -896,18 +911,21 @@ const AdminEvents = () => {
   }
 
   const handleDelete = async (id) => {
+    if (isPendingFor(deleteMutation, id)) return
     if (window.confirm(t('adminEvents.confirmDelete'))) {
       await deleteMutation.mutateAsync(id)
     }
   }
 
   const handleApprove = async (eventId) => {
+    if (isPendingFor(approveMutation, eventId)) return
     if (window.confirm(t('adminEvents.confirmApprove'))) {
       await approveMutation.mutateAsync(eventId)
     }
   }
 
   const handleReject = async (eventId, isApproved = false) => {
+    if (isPendingFor(rejectMutation, eventId)) return
     if (isApproved && !window.confirm(t('adminEvents.confirmRejectApproved'))) return
     const reason = prompt(t('adminEvents.rejectReason'))
     if (reason !== null) {
@@ -916,6 +934,7 @@ const AdminEvents = () => {
   }
 
   const handlePromoteWaitlist = async (eventId) => {
+    if (isPendingFor(promoteWaitlistMutation, eventId)) return
     const count = prompt(t('adminEvents.promoteCount'), '1')
     if (count && !isNaN(count)) {
       await promoteWaitlistMutation.mutateAsync({ eventId, count: parseInt(count) })
@@ -1033,8 +1052,10 @@ const AdminEvents = () => {
                 onPromoteWaitlist={handlePromoteWaitlist}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                approvePending={approveMutation.isPending}
-                rejectPending={rejectMutation.isPending}
+                approvePending={isPendingFor(approveMutation, event.id)}
+                rejectPending={isPendingFor(rejectMutation, event.id)}
+                promotePending={isPendingFor(promoteWaitlistMutation, event.id)}
+                deletePending={isPendingFor(deleteMutation, event.id)}
               />
             ))
           ) : (
