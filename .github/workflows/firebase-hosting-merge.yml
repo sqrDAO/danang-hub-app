@@ -51,11 +51,13 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
 
-      # Scoped to firestore:rules, not firestore: the CI service account has no
-      # datastore.indexes.* permission, so a bare --only firestore would try to
-      # deploy firestore.indexes.json and fail the job. Index changes stay manual.
-      - name: Deploy Firestore and Storage rules
-        run: npx firebase-tools deploy --only firestore:rules,storage --project danang-hub-app --non-interactive
+      # Firestore rules only. The CI service account (roles/firebase.sdkAdminServiceAgent)
+      # can publish rulesets, but it has no datastore.indexes.* permission and no
+      # firebasestorage.* permission at all — so `--only firestore` (indexes) and
+      # `--only storage` (resolves the default bucket first) both fail the job.
+      # Indexes and Storage rules stay manual owner deploys; see docs/backlog.
+      - name: Deploy Firestore rules
+        run: npx firebase-tools deploy --only firestore:rules --project danang-hub-app --non-interactive
 
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
