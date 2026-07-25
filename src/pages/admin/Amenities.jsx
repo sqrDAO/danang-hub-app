@@ -50,6 +50,7 @@ const uploadPendingPhotos = async (amenityId, pendingFiles, photos) => {
 }
 
 const useAmenityPhotos = ({ isCreateMode, selectedAmenity }) => {
+  const { t } = useTranslation()
   const invalidate = useInvalidateQueries()
   const [photos, setPhotos] = useState([])
   const [pendingFiles, setPendingFiles] = useState([]) // Files waiting to be uploaded (create mode)
@@ -86,7 +87,7 @@ const useAmenityPhotos = ({ isCreateMode, selectedAmenity }) => {
             newPhotos.push(downloadURL)
             delete newProgress[fileId]
           } catch (error) {
-            showToast(`Failed to upload ${file.name}: ${error.message}`, 'error')
+            showToast(t('toast.photoUploadFailed', { file: file.name, message: error.message }), 'error')
             delete newProgress[fileId]
           }
         }
@@ -94,7 +95,7 @@ const useAmenityPhotos = ({ isCreateMode, selectedAmenity }) => {
         setPhotos(newPhotos)
         setUploadProgress(newProgress)
       } catch (error) {
-        showToast('Error uploading photos', 'error')
+        showToast(t('toast.photoUploadError'), 'error')
       } finally {
         setUploadingPhotos(false)
       }
@@ -151,7 +152,7 @@ const useAmenityPhotos = ({ isCreateMode, selectedAmenity }) => {
         }
       }
     } catch (error) {
-      showToast('Failed to delete photo. Please try again.', 'error')
+      showToast(t('toast.photoDeleteFailed'), 'error')
       setPhotos(photos)
     }
   }
@@ -594,7 +595,7 @@ const AdminAmenities = () => {
             await updateAmenity(amenityId, { photos: uploadedPhotos })
           }
         } catch (error) {
-          showToast(`Amenity created but some photos failed to upload: ${error.message}`, 'error')
+          showToast(t('toast.amenityCreatedWithUploadErrors', { message: error.message }), 'error')
         } finally {
           setUploadingPhotos(false)
         }
@@ -606,10 +607,10 @@ const AdminAmenities = () => {
       invalidate('amenities')
       setIsModalOpen(false)
       resetForm()
-      showToast('Amenity created successfully!', 'success')
+      showToast(t('toast.amenityCreated'), 'success')
     },
     onError: () => {
-      showToast('Failed to create amenity. Please try again.', 'error')
+      showToast(t('toast.amenityCreateFailed'), 'error')
     }
   })
 
@@ -619,10 +620,10 @@ const AdminAmenities = () => {
       invalidate('amenities')
       setIsModalOpen(false)
       resetForm()
-      showToast('Amenity updated successfully!', 'success')
+      showToast(t('toast.amenityUpdated'), 'success')
     },
     onError: () => {
-      showToast('Failed to update amenity. Please try again.', 'error')
+      showToast(t('toast.amenityUpdateFailed'), 'error')
     }
   })
 
@@ -630,7 +631,7 @@ const AdminAmenities = () => {
     mutationFn: deleteAmenity,
     onSuccess: () => {
       invalidate('amenities')
-      showToast('Amenity deleted successfully!', 'success')
+      showToast(t('toast.amenityDeleted'), 'success')
     }
   })
 
@@ -638,7 +639,7 @@ const AdminAmenities = () => {
     mutationFn: ({ id, isAvailable }) => updateAmenity(id, { isAvailable }),
     onSuccess: () => {
       invalidate('amenities')
-      showToast('Availability updated!', 'success')
+      showToast(t('toast.amenityAvailabilityUpdated'), 'success')
     }
   })
 
@@ -707,7 +708,7 @@ const AdminAmenities = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (uploadingPhotos) {
-      showToast('Please wait for photos to finish uploading', 'error')
+      showToast(t('toast.photoUploadInProgress'), 'error')
       return
     }
     if (isFormSubmitting) return

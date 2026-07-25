@@ -11,8 +11,9 @@ i18n keys so the admin surface is consistent in VI.
   597, 609, 612, 622, 625, 633, 641, 710 with `t('toast.*')` calls; `useAmenityPhotos`
   (line ~52) needs `t` passed in or its own `useTranslation`. Two of these interpolate
   (`file.name` at 89, `error.message` at 89 and 597) — those keys take variables.
-- `src/locales/en.json` (edited) — add the `toast.*` keys.
-- `src/locales/vi.json` (edited) — same keys, Vietnamese copy.
+- `src/locales/en.json`, `src/locales/vi.json` — **no edit needed.** All 11 keys already
+  exist in both locales, added in `e234fe2` (2026-03-04); the page just never used them.
+  Scope narrowed to wiring on 2026-07-25.
 
 ## Acceptance
 - [ ] No `showToast` call in `src/pages/admin/Amenities.jsx` takes a string literal.
