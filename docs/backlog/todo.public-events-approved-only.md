@@ -1,11 +1,11 @@
 # Stop showing unapproved events on the public pages
-**Phase**: — · **Deps**: — · **Blocked on**: product decision below
+**Phase**: — · **Deps**: —
 
-## Decision required before implementing
-Should a member's `pending` event appear on the public pages? This spec is written for
-**no — approved only**. If the answer is "yes, but labelled", this spec is superseded by
-a label-and-disable variant and must be rewritten before any code is cut. Record the
-answer here, then implement.
+## Decision (settled 2026-07-25)
+Pending events **must not** preview publicly. Approved-only on every anonymous-visitor
+surface; members keep seeing pending events on `/member/events`. The label-and-disable
+alternative was considered and rejected. The Acceptance and Verify sections below are the
+contract — no further product input needed to start.
 
 ## Goal
 `getUpcomingEvents()` merges `approved` + `pending` events and its callers filter by
