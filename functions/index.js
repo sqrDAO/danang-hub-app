@@ -627,6 +627,42 @@ function pickPushMessage(messages, locale) {
 }
 
 /**
+ * Builds web-display fields so Chrome does not fall back to its default
+ * "site updated in the background" shell when the SW cannot show custom UI.
+ * @param {Object} data FCM data payload (title/body/link/tag as strings)
+ * @return {Object} webpush config for sendEachForMulticast
+ */
+function buildWebPushConfig(data) {
+  const appUrl = process.env.APP_URL || "https://app.danangblockchainhub.com";
+  const title = data.title || "Da Nang Blockchain Hub";
+  const body = data.body || "";
+  const linkPath = data.link || "/";
+  let absoluteLink = appUrl;
+  try {
+    absoluteLink = new URL(linkPath, appUrl).href;
+  } catch (error) {
+    console.warn("Invalid push link; using APP_URL", {linkPath});
+  }
+  const icon = new URL(
+      "/assets/favicon/android-chrome-192x192.png", appUrl).href;
+  const badge = new URL(
+      "/assets/favicon/favicon-32x32.png", appUrl).href;
+  return {
+    notification: {
+      title,
+      body,
+      icon,
+      badge,
+      tag: data.tag || undefined,
+      renotify: true,
+    },
+    fcmOptions: {
+      link: absoluteLink,
+    },
+  };
+}
+
+/**
  * Sends one push payload and reconciles successful sends / dead tokens.
  * @param {Array<Object>} recipients Push recipients
  * @param {Object} data FCM data payload
@@ -638,6 +674,7 @@ async function sendPushToRecipients(recipients, data) {
   const messaging = getMessaging();
   const results = [];
   const batchSize = 500;
+  const webpush = buildWebPushConfig(data);
 
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batchRecipients = recipients.slice(i, i + batchSize);
@@ -646,6 +683,7 @@ async function sendPushToRecipients(recipients, data) {
       response = await messaging.sendEachForMulticast({
         tokens: batchRecipients.map((recipient) => recipient.token),
         data,
+        webpush,
       });
     } catch (error) {
       await Promise.all(batchRecipients.map((recipient) =>

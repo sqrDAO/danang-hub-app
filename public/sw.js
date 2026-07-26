@@ -50,25 +50,54 @@ registerRoute(
   })
 )
 
+const HUB_ICON = '/assets/favicon/android-chrome-192x192.png'
+const HUB_BADGE = '/assets/favicon/favicon-32x32.png'
+const DEFAULT_PUSH_TITLE = 'Da Nang Blockchain Hub'
+
+const resolvePushContent = (payload) => {
+  const data = payload?.data || {}
+  return {
+    title: data.title || payload?.notification?.title || DEFAULT_PUSH_TITLE,
+    body: data.body || payload?.notification?.body || '',
+    targetUrl: data.link || '/',
+    tag: data.tag || `${data.type || 'notification'}-${data.subjectId || 'default'}`
+  }
+}
+
+const showHubNotification = ({ title, body, targetUrl, tag }) =>
+  self.registration.showNotification(title, {
+    body,
+    icon: HUB_ICON,
+    badge: HUB_BADGE,
+    data: { url: targetUrl },
+    tag,
+    renotify: true
+  })
+
+/** Click URL from our SW-shown notifications or FCM auto-displayed ones. */
+const resolveNotificationClickUrl = (notification) => {
+  const data = notification?.data || {}
+  if (typeof data.url === 'string' && data.url) return data.url
+  const fcm = data.FCM_MSG
+  if (fcm && typeof fcm === 'object') {
+    if (typeof fcm.data?.link === 'string' && fcm.data.link) return fcm.data.link
+    if (typeof fcm.fcmOptions?.link === 'string' && fcm.fcmOptions.link) {
+      return fcm.fcmOptions.link
+    }
+  }
+  return '/'
+}
+
 const app = initializeApp(firebaseConfig)
 try {
   const messaging = getMessaging(app)
   onBackgroundMessage(messaging, (payload) => {
-    const data = payload.data || {}
-    const title = data.title || payload.notification?.title || 'Da Nang Blockchain Hub'
-    const body = data.body || payload.notification?.body || ''
-    const targetUrl = data.link || '/'
-
-    return self.registration.showNotification(title, {
-      body,
-      icon: '/assets/favicon/android-chrome-192x192.png',
-      badge: '/assets/favicon/favicon-32x32.png',
-      data: {
-        url: targetUrl
-      },
-      tag: data.tag || `${data.type || 'notification'}-${data.subjectId || 'default'}`,
-      renotify: true
-    })
+    // FCM already called showNotification when a notification payload is present
+    // (including webpush.notification from the server). Only handle pure data.
+    if (payload.notification?.title || payload.notification?.body) {
+      return undefined
+    }
+    return showHubNotification(resolvePushContent(payload))
   })
 } catch (error) {
   console.warn('[sw] Firebase messaging unavailable:', error)
@@ -76,7 +105,7 @@ try {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const targetUrl = event.notification?.data?.url || '/'
+  const targetUrl = resolveNotificationClickUrl(event.notification)
   const absoluteUrl = new URL(targetUrl, self.location.origin).href
 
   event.waitUntil((async () => {
