@@ -11,6 +11,7 @@ import {
   orderBy,
   arrayUnion,
   arrayRemove,
+  runTransaction,
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -340,34 +341,40 @@ export const removeFromWaitlist = async (eventId, memberId) => {
   })
 }
 
+// Promotion rewrites `waitlist` as a whole array, so it must read and write in
+// one transaction: a read-then-write would erase anyone who joined the waitlist
+// in between, and could race autoPromoteWaitlist past capacity.
 export const promoteFromWaitlist = async (eventId, count = 1) => {
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-  const eventDoc = await getDoc(eventRef)
-  
-  if (!eventDoc.exists()) {
-    throw new Error('Event not found')
-  }
-  
-  const eventData = eventDoc.data()
-  const waitlist = eventData.waitlist || []
-  const attendees = eventData.attendees || []
-  const capacity = eventData.capacity
-  
-  // Check if there's space
-  const availableSpots = capacity ? capacity - attendees.length : Infinity
-  
-  if (availableSpots <= 0 || waitlist.length === 0) {
-    return { promoted: 0, remaining: waitlist.length }
-  }
-  
-  const toPromote = Math.min(count, availableSpots, waitlist.length)
-  const promoted = waitlist.slice(0, toPromote)
-  const remaining = waitlist.slice(toPromote)
-  
-  await updateDoc(eventRef, {
-    attendees: arrayUnion(...promoted),
-    waitlist: remaining
+
+  return runTransaction(db, async (transaction) => {
+    const eventDoc = await transaction.get(eventRef)
+
+    if (!eventDoc.exists()) {
+      throw new Error('Event not found')
+    }
+
+    const eventData = eventDoc.data()
+    const waitlist = eventData.waitlist || []
+    const attendees = eventData.attendees || []
+    const capacity = eventData.capacity
+
+    // No capacity set means unlimited spots
+    const availableSpots = capacity ? capacity - attendees.length : Infinity
+
+    if (availableSpots <= 0 || waitlist.length === 0) {
+      return { promoted: 0, remaining: waitlist.length }
+    }
+
+    const toPromote = Math.min(count, availableSpots, waitlist.length)
+    const promoted = waitlist.slice(0, toPromote)
+    const remaining = waitlist.slice(toPromote)
+
+    transaction.update(eventRef, {
+      attendees: arrayUnion(...promoted),
+      waitlist: remaining
+    })
+
+    return { promoted: toPromote, remaining: remaining.length }
   })
-  
-  return { promoted: toPromote, remaining: remaining.length }
 }

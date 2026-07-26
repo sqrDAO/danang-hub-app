@@ -1564,44 +1564,59 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
       const before = event.data.before.data();
       const after = event.data.after.data();
 
-      // Check if attendees decreased (someone unregistered)
+      // The snapshot decides only *whether* to look — someone left, so a spot
+      // may have opened. It never decides how many to promote: the document can
+      // have changed again since this snapshot, so attendees/waitlist/capacity
+      // are re-read inside the transaction below. Keeping the guard here also
+      // stops this function's own write from re-entering.
       const beforeAttendees =
         (before.attendees && before.attendees.length) || 0;
       const afterAttendees =
         (after.attendees && after.attendees.length) || 0;
-      const capacity = after.capacity;
-      const waitlist = after.waitlist || [];
 
-      // If someone left and there's space and waitlist members
-      if (
-        beforeAttendees > afterAttendees &&
-        capacity &&
-        afterAttendees < capacity &&
-        waitlist.length > 0
-      ) {
-        try {
-          const availableSpots = capacity - afterAttendees;
-          const toPromote = Math.min(availableSpots, waitlist.length);
-          const promoted = waitlist.slice(0, toPromote);
-          const remaining = waitlist.slice(toPromote);
+      if (beforeAttendees <= afterAttendees) {
+        return null;
+      }
 
-          await db.collection("events").doc(event.params.eventId).update({
+      const eventRef = db.collection("events").doc(event.params.eventId);
+
+      try {
+        const toPromote = await db.runTransaction(async (tx) => {
+          const snapshot = await tx.get(eventRef);
+          if (!snapshot.exists) return 0;
+
+          const data = snapshot.data();
+          const attendees = data.attendees || [];
+          const waitlist = data.waitlist || [];
+          const capacity = data.capacity;
+
+          if (!capacity || waitlist.length === 0) return 0;
+
+          const availableSpots = capacity - attendees.length;
+          if (availableSpots <= 0) return 0;
+
+          const promoteCount = Math.min(availableSpots, waitlist.length);
+          const promoted = waitlist.slice(0, promoteCount);
+
+          tx.update(eventRef, {
             attendees: FieldValue.arrayUnion(...promoted),
-            waitlist: remaining,
+            waitlist: waitlist.slice(promoteCount),
           });
 
-          // TODO: Notify promoted members
+          return promoteCount;
+        });
+
+        // TODO: Notify promoted members
+        if (toPromote > 0) {
           console.log(
               `Auto-promoted ${toPromote} member(s) from waitlist ` +
               `for event ${event.params.eventId}`,
           );
-
-          return null;
-        } catch (error) {
-          console.error("Error auto-promoting waitlist:", error);
-          return null;
         }
-      }
 
-      return null;
+        return null;
+      } catch (error) {
+        console.error("Error auto-promoting waitlist:", error);
+        return null;
+      }
     });

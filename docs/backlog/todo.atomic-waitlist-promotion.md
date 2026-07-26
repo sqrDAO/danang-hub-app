@@ -37,6 +37,18 @@ read and the write is silently erased, and the two paths racing can promote past
 - regression: admin Events promote button (`src/pages/admin/Events.jsx:292`) still
   shows the promoted count toast
 
+### Verified 2026-07-26 (emulator, Firestore + Functions)
+Both race tests were run against the pre-fix code as a control, so a pass means the
+window was actually opened rather than missed:
+- trigger, one spot opens → exactly 1 promoted, 1 left on waitlist ✅
+- trigger, stale snapshot (unregister then immediately register a replacement):
+  new code holds at `capacity` 3/3 ✅ — pre-fix code reached 4/3 ❌
+- manual promote racing a waitlist join, swept over 16 arrival offsets (0–40 ms):
+  new code lost the joiner 0/16 ✅ — pre-fix code lost it 3/16 ❌
+- two concurrent `promoteFromWaitlist` calls, 20 rounds → never over capacity ✅
+- return shape `{promoted, remaining}`, unlimited-capacity path, at-capacity no-op,
+  and `Event not found` all unchanged ✅
+
 ## Notes
 `arrayUnion` already dedupes `attendees`; the unsafe part is only the wholesale
 `waitlist` overwrite. Keep the outer `beforeAttendees > afterAttendees` guard in the
