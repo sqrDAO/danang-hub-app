@@ -185,10 +185,12 @@ const runRedirectAction = (action, event, ctx) => {
 }
 
 const useEventsQueries = (currentUser) => {
-  // Fetch upcoming events (approved and pending)
+  // Approved plus the member's own pending requests. Distinct from the public
+  // ['upcomingEvents'] cache, but a prefix match of it, so the existing
+  // invalidate('upcomingEvents') calls still refresh both.
   const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
-    queryKey: ['upcomingEvents'],
-    queryFn: getUpcomingEvents,
+    queryKey: ['upcomingEvents', 'withPending'],
+    queryFn: () => getUpcomingEvents({ includePending: true }),
     refetchOnWindowFocus: true,
     refetchOnMount: true
   })

@@ -285,9 +285,10 @@ const MemberDashboard = () => {
     enabled: !!currentUser?.uid
   })
 
+  // Member surface: shares the pending-inclusive cache with /member/events.
   const { data: events = [] } = useQuery({
-    queryKey: ['upcomingEvents'],
-    queryFn: getUpcomingEvents
+    queryKey: ['upcomingEvents', 'withPending'],
+    queryFn: () => getUpcomingEvents({ includePending: true })
   })
 
   const { data: amenities = [] } = useQuery({

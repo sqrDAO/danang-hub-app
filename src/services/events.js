@@ -104,11 +104,23 @@ export const createEvent = async (data) => {
   return docRef.id
 }
 
-export const getUpcomingEvents = async () => {
+/**
+ * Fetches events for the "upcoming" surfaces, newest first.
+ *
+ * Despite the name this does NOT filter by date — every caller applies its own
+ * date filter. It returns approved events only; pass `includePending: true` to
+ * also include events awaiting admin review, which member surfaces do so an
+ * organizer can see their own request. Public, anonymous-visitor surfaces must
+ * use the default: a pending event has not been reviewed and must not render
+ * publicly as a registerable card.
+ *
+ * @param {{ includePending?: boolean }} [options]
+ * @returns {Promise<Array>} Events sorted by date descending
+ */
+export const getUpcomingEvents = async ({ includePending = false } = {}) => {
   try {
-    // Get both approved and pending events, then filter by date in memory
     const eventsRef = collection(db, EVENTS_COLLECTION)
-    
+
     // Try to fetch both in parallel, with error handling for each
     const fetchApproved = async () => {
       try {
@@ -140,13 +152,15 @@ export const getUpcomingEvents = async () => {
       }
     }
     
+    // Skip the pending query entirely when it isn't wanted — no point paying
+    // for reads the caller must not display.
     const [approvedEvents, pendingEvents] = await Promise.all([
       fetchApproved(),
-      fetchPending()
+      includePending ? fetchPending() : Promise.resolve([])
     ])
-    
+
     const allEvents = [...approvedEvents, ...pendingEvents]
-    
+
     // Sort by date descending
     return allEvents.sort((a, b) => {
       const dateA = a.date instanceof Date ? a.date : new Date(a.date)

@@ -120,7 +120,7 @@ const Home = () => {
 
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ['upcomingEvents'],
-    queryFn: getUpcomingEvents
+    queryFn: () => getUpcomingEvents()
   })
 
   const { data: approvedEvents = [] } = useQuery({
