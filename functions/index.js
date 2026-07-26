@@ -626,6 +626,38 @@ function pickPushMessage(messages, locale) {
   return safe[locale] || safe[DEFAULT_PUSH_LOCALE] || {};
 }
 
+const DEFAULT_APP_URL = "https://app.danangblockchainhub.com";
+
+/**
+ * Resolves APP_URL (or default) to a usable origin for absolute push URLs.
+ * Malformed env must not throw — that would fail the whole multicast batch.
+ * @return {string} Absolute base URL
+ */
+function resolvePushAppUrl() {
+  const raw = process.env.APP_URL || DEFAULT_APP_URL;
+  try {
+    return new URL(raw).href.replace(/\/$/, "") || DEFAULT_APP_URL;
+  } catch (error) {
+    console.warn("Invalid APP_URL for push; using default", {raw});
+    return DEFAULT_APP_URL;
+  }
+}
+
+/**
+ * Absolute URL under the push app base; falls back to base on bad paths.
+ * @param {string} appUrl Resolved app base
+ * @param {string} path Relative or absolute path
+ * @return {string}
+ */
+function absolutePushUrl(appUrl, path) {
+  try {
+    return new URL(path || "/", appUrl).href;
+  } catch (error) {
+    console.warn("Invalid push URL path; using app base", {path});
+    return appUrl;
+  }
+}
+
 /**
  * Builds web-display fields so Chrome does not fall back to its default
  * "site updated in the background" shell when the SW cannot show custom UI.
@@ -633,31 +665,21 @@ function pickPushMessage(messages, locale) {
  * @return {Object} webpush config for sendEachForMulticast
  */
 function buildWebPushConfig(data) {
-  const appUrl = process.env.APP_URL || "https://app.danangblockchainhub.com";
+  const appUrl = resolvePushAppUrl();
   const title = data.title || "Da Nang Blockchain Hub";
   const body = data.body || "";
-  const linkPath = data.link || "/";
-  let absoluteLink = appUrl;
-  try {
-    absoluteLink = new URL(linkPath, appUrl).href;
-  } catch (error) {
-    console.warn("Invalid push link; using APP_URL", {linkPath});
-  }
-  const icon = new URL(
-      "/assets/favicon/android-chrome-192x192.png", appUrl).href;
-  const badge = new URL(
-      "/assets/favicon/favicon-32x32.png", appUrl).href;
   return {
     notification: {
       title,
       body,
-      icon,
-      badge,
+      icon: absolutePushUrl(
+          appUrl, "/assets/favicon/android-chrome-192x192.png"),
+      badge: absolutePushUrl(appUrl, "/assets/favicon/favicon-32x32.png"),
       tag: data.tag || undefined,
       renotify: true,
     },
     fcmOptions: {
-      link: absoluteLink,
+      link: absolutePushUrl(appUrl, data.link || "/"),
     },
   };
 }
