@@ -32,9 +32,6 @@ dist-ssr
 .claude/*
 !.claude/skills/
 
-# Copilot
-.github/copilot-instructions.md
-
 # Environment variables
 .env
 .env.local
