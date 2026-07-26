@@ -642,7 +642,9 @@
     "legendAvailable": "Khả dụng",
     "legendBooked": "Đã đặt",
     "legendSelected": "Đã chọn",
-    "legendClosedPast": "Đóng cửa/Đã qua"
+    "legendClosedPast": "Đóng cửa/Đã qua",
+    "errorLoadingBookings": "Lỗi khi tải lịch đặt chỗ: {{message}}",
+    "errorLoadingEvents": "Lỗi khi tải sự kiện: {{message}}"
   },
   "fixedDesk": {
     "title": "Gói Bàn Cố Định",

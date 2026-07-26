@@ -642,7 +642,9 @@
     "legendAvailable": "Available",
     "legendBooked": "Booked",
     "legendSelected": "Selected",
-    "legendClosedPast": "Closed/Past"
+    "legendClosedPast": "Closed/Past",
+    "errorLoadingBookings": "Error loading bookings: {{message}}",
+    "errorLoadingEvents": "Error loading events: {{message}}"
   },
   "fixedDesk": {
     "title": "Fixed Desk Plans",

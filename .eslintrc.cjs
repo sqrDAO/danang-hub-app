@@ -36,16 +36,21 @@ module.exports = {
         'max-params': ['error', 5], // arguments per function ≤ 5
         'max-depth': ['error', 4], // nested blocks ≤ 4
         'max-nested-callbacks': ['error', 4], // callback nesting ≤ 4
-        // React Query v5: the positional form `invalidateQueries(['key'])`
-        // doesn't throw — the array destructures to an empty filter and
-        // silently invalidates EVERY cached query (see PR #20).
+        // React Query v5: anything but a literal object filter silently widens
+        // the match. `invalidateQueries(['key'])` destructures the array to an
+        // empty filter (see PR #20) and `invalidateQueries()` has no filter at
+        // all — both invalidate EVERY cached query. Requiring the first
+        // argument to be an ObjectExpression rejects those, plus the variable
+        // form `invalidateQueries(filter)`, which is unreviewable at the call
+        // site. Build a filter object inline, or pass it through the
+        // useInvalidateQueries hook.
         'no-restricted-syntax': [
           'error',
           {
             selector:
-              "CallExpression[callee.property.name=/^(invalidateQueries|refetchQueries|removeQueries|resetQueries|cancelQueries)$/] > ArrayExpression:first-child",
+              "CallExpression[callee.property.name=/^(invalidateQueries|refetchQueries|removeQueries|resetQueries|cancelQueries)$/]:not([arguments.0.type='ObjectExpression'])",
             message:
-              "React Query v5 requires the object filter form: use { queryKey: [...] } — a positional array silently matches ALL queries.",
+              "React Query v5 requires a literal object filter: use { queryKey: [...] }. A positional array, a variable, or no argument at all silently matches ALL queries.",
           },
         ],
       },
