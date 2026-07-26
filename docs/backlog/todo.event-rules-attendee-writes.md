@@ -64,6 +64,27 @@ attendee-write path and pin `status` for non-admins.
 - regression: `autoPromoteWaitlist` still writes (Admin SDK bypasses rules); event delete
   by organizer and by admin both still work
 
+### Verified 2026-07-26 (`@firebase/rules-unit-testing` against the Firestore emulator)
+28 assertions, all green, and the same suite run against `main`'s ruleset as a control
+fails 14 of them — so the suite is exercising the change, not passing vacuously.
+- non-organizer register / unregister / waitlist join / leave → allowed (denied on `main`)
+- `attendees` + `capacity` / `status` change / `title` / `organizerId` → denied
+- organizer self-approve, `approvedAt`, `rejectedAt`, `organizerId` reassign → denied
+  (all four **succeeded** on `main`)
+- member create with `status: 'approved'` → denied (succeeded on `main`)
+- admin create / approve / arbitrary field write → allowed
+- public read, unauthenticated write denial, organizer + admin delete → unchanged
+
+Caveat found while testing: `affectedKeys()` means *changed* keys, so a member echoing
+back the `status` value already stored passes the `hasOnly` check. It is a no-op write —
+status cannot actually move without the key entering the diff — but the suite asserts it
+explicitly so the semantics are recorded rather than assumed.
+
+Second latent bug this fixes: admins pick an organizer from a `<select>`
+(`src/pages/admin/Events.jsx:707`), so `isOwner(request.resource.data.organizerId)` denied
+**admin event creation on another member's behalf**. The clause (c) admin-create exemption
+resolves it.
+
 ## Notes
 **Scope of enforcement, stated plainly.** Firestore rules have no array-diff primitive:
 `request.resource.data.diff(resource.data).affectedKeys().hasOnly([...])` sees *which

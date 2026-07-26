@@ -137,7 +137,11 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
   `preferences.emailNotifications`.
 - **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
   `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
-  Capacity is enforced client-side before registering, not by rules.
+  These are bare client writes with no callable fallback, so `firestore.rules` carries a
+  dedicated update path: any signed-in member may write an event whose diff touches
+  **only** `attendees`/`waitlist`. Field scoping is all rules can do — there is no
+  array-diff primitive, so a member can still write *another* member's uid into those
+  arrays. Capacity is enforced client-side before registering, not by rules.
 - **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
   and the waitlist is non-empty, promotes FIFO up to the free spots. Manual equivalent:
   `promoteFromWaitlist()` in the service.
@@ -186,7 +190,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `members` | owner or admin | owner create/update (**cannot change `membershipType`**); admin anything |
 | `amenities` | public | admin only |
 | `bookings` | owner or admin | owner create; owner update **only to keep status or set `cancelled`**; owner delete only while `pending`; admin anything |
-| `events` | public | organizer create/update/delete own; admin anything |
+| `events` | public | organizer create own (**must be `pending`**); organizer update own **except `status`/`organizerId`/`approvedAt`/`rejectedAt`**; any member update when the diff touches **only `attendees`/`waitlist`**; organizer delete own; admin anything |
 | `projects` | public | admin only |
 | `notifications` | owner | owner may update **only the `read` field**; create/delete only via Admin SDK (Cloud Functions) |
 

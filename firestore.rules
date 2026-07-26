@@ -89,10 +89,32 @@ service cloud.firestore {
     match /events/{eventId} {
       // Everyone can read events (public access)
       allow read: if true;
-      // Users can create events (they become the organizer)
-      allow create: if isAuthenticated() && isOwner(request.resource.data.organizerId);
-      // Organizers can update their own events
-      allow update: if isAuthenticated() && isOwner(resource.data.organizerId);
+      // Users can create events (they become the organizer), always as
+      // 'pending' — self-approving at create time is an admin-only move.
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.organizerId) &&
+                       request.resource.data.status == 'pending';
+      // Admins can create an event in any status
+      allow create: if isAdmin();
+      // Organizers can update their own events, but approval state is not
+      // theirs to set — that is what the admin rule below is for.
+      allow update: if isAuthenticated() &&
+                       isOwner(resource.data.organizerId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['status', 'organizerId',
+                                  'approvedAt', 'rejectedAt']);
+      // Any signed-in member may register / unregister / join / leave the
+      // waitlist, which means writing only these two arrays.
+      //
+      // SCOPE: this restricts WHICH FIELDS a write may touch, never WHICH
+      // ELEMENT changed inside them — rules have no array-diff primitive, so
+      // a member can still write another member's uid into `attendees`. That
+      // is accepted: the blast radius is a wrong name on an attendee list,
+      // while status/capacity/date/organizerId stay locked. Closing it means
+      // moving attendee writes behind a callable that checks request.auth.uid.
+      allow update: if isAuthenticated() &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['attendees', 'waitlist']);
       // Admins can update any event
       allow update: if isAdmin();
       // Organizers can delete their own events
