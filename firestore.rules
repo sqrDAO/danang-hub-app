@@ -20,7 +20,9 @@ service cloud.firestore {
     // Members collection
     // Profile fields: uid, displayName, email, photoURL, membershipType,
     // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
-    // createdAt, updatedAt. Only membershipType is restricted for owner updates.
+    // locale ('en'|'vi', mirrors the UI language so Cloud Functions can
+    // localize push copy), createdAt, updatedAt.
+    // Only membershipType is restricted for owner updates.
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);

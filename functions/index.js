@@ -593,6 +593,39 @@ async function deleteStalePushToken(recipientId, failedToken) {
   }
 }
 
+// Push copy is localized per recipient. i18n lives in the browser
+// (localStorage + react-i18next), which functions cannot read, so the member
+// doc carries a `locale` mirror written by the language switcher.
+const DEFAULT_PUSH_LOCALE = "en";
+const SUPPORTED_PUSH_LOCALES = ["en", "vi"];
+
+/**
+ * Resolves a member's push locale, falling back to English for missing or
+ * unrecognized values.
+ * @param {Object} member Member document data
+ * @return {string} A locale from SUPPORTED_PUSH_LOCALES
+ */
+function resolvePushLocale(member) {
+  const raw = member && (member.locale ||
+    (member.preferences && member.preferences.locale));
+  if (typeof raw !== "string") return DEFAULT_PUSH_LOCALE;
+  const normalized = raw.toLowerCase().split(/[-_]/)[0];
+  return SUPPORTED_PUSH_LOCALES.includes(normalized) ?
+    normalized :
+    DEFAULT_PUSH_LOCALE;
+}
+
+/**
+ * Picks the message for a locale, falling back to English.
+ * @param {Object} messages Locale-keyed {title, body} map
+ * @param {string} locale Resolved recipient locale
+ * @return {Object} {title, body}
+ */
+function pickPushMessage(messages, locale) {
+  const safe = messages || {};
+  return safe[locale] || safe[DEFAULT_PUSH_LOCALE] || {};
+}
+
 /**
  * Sends one push payload and reconciles successful sends / dead tokens.
  * @param {Array<Object>} recipients Push recipients
@@ -687,6 +720,7 @@ async function sendPushToMembers(docs, payload) {
         token: pushToken,
         type,
         subjectId,
+        locale: resolvePushLocale(member),
       };
     }
     return null;
@@ -694,9 +728,7 @@ async function sendPushToMembers(docs, payload) {
 
   if (!recipients.length) return [];
 
-  const data = {
-    title: String(payload.title || ""),
-    body: String(payload.body || ""),
+  const baseData = {
     link: String(payload.link || "/"),
     type: String(type),
     subjectId: String(subjectId),
@@ -704,7 +736,26 @@ async function sendPushToMembers(docs, payload) {
       `${type}-${subjectId || "default"}`),
   };
 
-  return sendPushToRecipients(recipients, data);
+  // sendEachForMulticast carries one data payload for the whole batch, so
+  // recipients are grouped by locale and each group sent with its own copy.
+  const byLocale = new Map();
+  recipients.forEach((recipient) => {
+    const group = byLocale.get(recipient.locale) || [];
+    group.push(recipient);
+    byLocale.set(recipient.locale, group);
+  });
+
+  const results = [];
+  for (const [locale, group] of byLocale) {
+    const message = pickPushMessage(payload.messages, locale);
+    const data = {
+      ...baseData,
+      title: String(message.title || payload.title || ""),
+      body: String(message.body || payload.body || ""),
+    };
+    results.push(...await sendPushToRecipients(group, data));
+  }
+  return results;
 }
 
 /**
@@ -793,18 +844,21 @@ async function notifyPendingBookingReview(booking, bookingId) {
     planType: booking.planType || "standard",
     link: "/admin/bookings",
   }, admins.docs);
+  const isFixedDesk = booking.planType === "fixed-desk";
   const requesterName = memberName || "A member";
-  const fixedDeskReviewBody =
-    `${requesterName} requested a fixed desk plan for ` +
-    `"${amenityName}".`;
-  const standardReviewBody =
+  const requesterNameVi = memberName || "Một thành viên";
+  const reviewBodyEn = isFixedDesk ?
+    `${requesterName} requested a fixed desk plan for "${amenityName}".` :
     `${requesterName} requested "${amenityName}".`;
+  const reviewBodyVi = isFixedDesk ?
+    `${requesterNameVi} đã yêu cầu gói bàn cố định cho "${amenityName}".` :
+    `${requesterNameVi} đã yêu cầu "${amenityName}".`;
   try {
     await notifyAdminsPush(subjectId, {
-      title: "Booking needs review",
-      body: booking.planType === "fixed-desk" ?
-        fixedDeskReviewBody :
-        standardReviewBody,
+      messages: {
+        en: {title: "Booking needs review", body: reviewBodyEn},
+        vi: {title: "Đặt chỗ cần duyệt", body: reviewBodyVi},
+      },
       link: "/admin/bookings",
       type: "booking_pending_review",
     }, admins.docs);
@@ -833,11 +887,22 @@ async function notifyBookingApproved(booking, bookingId) {
       },
   );
   try {
+    const isFixedDesk = booking.planType === "fixed-desk";
     await notifyMemberPush(booking.memberId, {
-      title: "Booking approved",
-      body: booking.planType === "fixed-desk" ?
-        `Your fixed desk plan for "${amenityName}" has been approved.` :
-        `Your booking for "${amenityName}" has been approved.`,
+      messages: {
+        en: {
+          title: "Booking approved",
+          body: isFixedDesk ?
+            `Your fixed desk plan for "${amenityName}" has been approved.` :
+            `Your booking for "${amenityName}" has been approved.`,
+        },
+        vi: {
+          title: "Đặt chỗ đã được duyệt",
+          body: isFixedDesk ?
+            `Gói bàn cố định cho "${amenityName}" đã được duyệt.` :
+            `Đặt chỗ "${amenityName}" của bạn đã được duyệt.`,
+        },
+      },
       link: "/member/bookings",
       type: "booking_approved",
       subjectId,

@@ -14,6 +14,8 @@ import { getEvents } from './events'
 
 const MEMBERS_COLLECTION = 'members'
 
+export const SUPPORTED_LOCALES = ['en', 'vi']
+
 export const getMembers = async () => {
   const membersRef = collection(db, MEMBERS_COLLECTION)
   const q = query(membersRef, orderBy('createdAt', 'desc'))
@@ -48,6 +50,22 @@ export const updateMemberPreferences = async (uid, preferences, extraFields = {}
     ...extraFields,
     updatedAt: new Date().toISOString()
   })
+}
+
+// Cloud Functions can't read the browser's localStorage, so the chosen UI
+// language is mirrored onto the member doc for push notification copy.
+// Best-effort: a failed write must never block the language switch.
+export const updateMemberLocale = async (uid, locale) => {
+  if (!uid || !SUPPORTED_LOCALES.includes(locale)) return
+  try {
+    const memberRef = doc(db, MEMBERS_COLLECTION, uid)
+    await updateDoc(memberRef, {
+      locale,
+      updatedAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.warn('Failed to persist member locale:', error)
+  }
 }
 
 export const deleteMember = async (uid) => {
