@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import { updateMemberLocale } from '../services/members'
 import Avatar from './Avatar'
 import NotificationBell from './NotificationBell'
 import './Header.css'
@@ -382,7 +383,11 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   const currentLanguage = getCurrentLanguage(i18n)
 
   const toggleLanguage = () => {
-    i18n.changeLanguage(currentLanguage === 'en' ? 'vi' : 'en')
+    const nextLanguage = currentLanguage === 'en' ? 'vi' : 'en'
+    i18n.changeLanguage(nextLanguage)
+    // Mirror onto the member doc so Cloud Functions can localize push copy;
+    // updateMemberLocale swallows its own errors so the UI switch always wins.
+    updateMemberLocale(currentUser?.uid, nextLanguage)
   }
 
   const handleLogout = async () => {
