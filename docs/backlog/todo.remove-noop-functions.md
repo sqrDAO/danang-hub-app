@@ -30,6 +30,9 @@ README functions table that does not exist. Remove them.
   and the notification triggers still fire; no missing-function errors in the log
 
 ## Notes
+`.github/copilot-instructions.md` also lists both functions, but it is gitignored
+(`.gitignore:36`) — updated locally, not shippable, so it is not an Acceptance item.
+
 Deploy will prompt to confirm function deletion — expected, not an error. Nothing reads
 either function's return value, and neither writes to Firestore, so there is no data
 migration.
