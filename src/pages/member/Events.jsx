@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
@@ -254,6 +254,35 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
   return { createMutation, deleteMutation }
 }
 
+// Caches holding the full event objects a register/waitlist click can change.
+const EVENT_LIST_KEYS = ['approvedEvents', 'upcomingEvents']
+
+const withMember = (list, memberId) =>
+  (list || []).includes(memberId) ? (list || []) : [...(list || []), memberId]
+
+const withoutMember = (list, memberId) =>
+  (list || []).filter(id => id !== memberId)
+
+// Patch the one changed event in place rather than invalidating two queries
+// that each re-download the whole approved-events set. `patch` receives the
+// cached event and returns the fields to overwrite; new array/object
+// references are required or React Query hands back an equal reference and
+// nothing re-renders.
+const patchEventInCaches = (queryClient, eventId, patch) => {
+  EVENT_LIST_KEYS.forEach(key => {
+    queryClient.setQueryData([key], events => {
+      if (!Array.isArray(events)) return events
+      let matched = false
+      const next = events.map(event => {
+        if (event.id !== eventId) return event
+        matched = true
+        return { ...event, ...patch(event) }
+      })
+      return matched ? next : events
+    })
+  })
+}
+
 const useEventActionMutations = ({
   t,
   currentUser,
@@ -263,6 +292,9 @@ const useEventActionMutations = ({
   pushOptedIn
 }) => {
   const invalidate = useInvalidateQueries()
+  // useInvalidateQueries deliberately exposes invalidation only, so the
+  // client is taken separately rather than reached through the hook.
+  const queryClient = useQueryClient()
   // Reset ref and clean up query params after a processed action settles
   const resetActionState = () => {
     processedActionRef.current = null
@@ -271,8 +303,13 @@ const useEventActionMutations = ({
 
   const registerMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => registerForEvent(eventId, memberId),
-    onSuccess: () => {
-      invalidate('approvedEvents', 'upcomingEvents', 'myEvents', 'memberStats')
+    // myEvents is not invalidated: getMyEvents filters organizerId == uid,
+    // which registering never changes.
+    onSuccess: (_data, { eventId, memberId }) => {
+      patchEventInCaches(queryClient, eventId, event => ({
+        attendees: withMember(event.attendees, memberId)
+      }))
+      invalidate('memberStats')
       showToast(t('toast.eventRegisterSuccess'), 'success')
       promptPushOptInAfterSuccess(currentUser?.uid, pushOptedIn)
       resetActionState()
@@ -286,8 +323,11 @@ const useEventActionMutations = ({
 
   const unregisterMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => unregisterFromEvent(eventId, memberId),
-    onSuccess: () => {
-      invalidate('approvedEvents', 'upcomingEvents', 'myEvents', 'memberStats')
+    onSuccess: (_data, { eventId, memberId }) => {
+      patchEventInCaches(queryClient, eventId, event => ({
+        attendees: withoutMember(event.attendees, memberId)
+      }))
+      invalidate('memberStats')
       showToast(t('toast.eventUnregisterSuccess'), 'success')
       resetActionState()
     },
@@ -299,8 +339,10 @@ const useEventActionMutations = ({
 
   const waitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => addToWaitlist(eventId, memberId),
-    onSuccess: () => {
-      invalidate('approvedEvents', 'upcomingEvents')
+    onSuccess: (_data, { eventId, memberId }) => {
+      patchEventInCaches(queryClient, eventId, event => ({
+        waitlist: withMember(event.waitlist, memberId)
+      }))
       showToast(t('toast.waitlistJoined'), 'info')
       resetActionState()
     },
@@ -312,8 +354,10 @@ const useEventActionMutations = ({
 
   const removeWaitlistMutation = useMutation({
     mutationFn: ({ eventId, memberId }) => removeFromWaitlist(eventId, memberId),
-    onSuccess: () => {
-      invalidate('approvedEvents', 'upcomingEvents')
+    onSuccess: (_data, { eventId, memberId }) => {
+      patchEventInCaches(queryClient, eventId, event => ({
+        waitlist: withoutMember(event.waitlist, memberId)
+      }))
       showToast(t('toast.waitlistRemoved'), 'info')
       resetActionState()
     },
