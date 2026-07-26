@@ -1413,59 +1413,6 @@ exports.notifyEventStatusChange = onDocumentUpdated(
       }
     });
 
-// Update event capacity when attendees change
-exports.updateEventCapacity = onDocumentUpdated(
-    "events/{eventId}",
-    async (event) => {
-      const before = event.data.before.data();
-      const after = event.data.after.data();
-
-      // Check if attendees array changed
-      if (JSON.stringify(before.attendees) !==
-          JSON.stringify(after.attendees)) {
-        const currentAttendees = (after.attendees &&
-            after.attendees.length) || 0;
-        const capacity = after.capacity;
-
-        if (capacity && currentAttendees >= capacity) {
-          console.log(`Event ${event.params.eventId} is now full`);
-        }
-      }
-
-      return null;
-    });
-
-// Clean up old completed bookings
-exports.cleanupOldBookings = onSchedule(
-    "every 24 hours",
-    async () => {
-      try {
-        const thirtyDaysAgo = Timestamp.fromMillis(
-            Date.now() - 30 * 24 * 60 * 60 * 1000,
-        );
-
-        const oldBookings = await db.collection("bookings")
-            .where("status", "==", "completed")
-            .where("endTime", "<=", thirtyDaysAgo)
-            .limit(100)
-            .get();
-
-        let count = 0;
-
-        oldBookings.forEach((doc) => {
-          // Optionally delete or archive old bookings
-          console.log(`Old booking found: ${doc.id}`);
-          count++;
-        });
-
-        console.log(`Found ${count} old bookings to clean up`);
-        return null;
-      } catch (error) {
-        console.error("Error cleaning up old bookings:", error);
-        return null;
-      }
-    });
-
 // Wallet address shapes, by chain. The address doubles as the nonces/{address}
 // document id, so this is the only thing standing between request.data and a
 // Firestore document path — validate before any read or write.

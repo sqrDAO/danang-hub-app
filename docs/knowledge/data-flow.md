@@ -103,8 +103,6 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
   checked-in past `endTime`+1h, any pending/approved past `endTime`, and checked-in
   bookings from a previous hub-timezone day (`getStartOfTodayHubTimezone`, UTC+7 math).
-- **`cleanupOldBookings`** (daily) only *logs* completed bookings older than 30 days —
-  it does not delete.
 
 ### Fixed desk plans — `src/services/bookings.js`
 
@@ -145,7 +143,6 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
 - **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
   and the waitlist is non-empty, promotes FIFO up to the free spots. Manual equivalent:
   `promoteFromWaitlist()` in the service.
-- **`updateEventCapacity`** (onUpdate trigger) — log-only "event is full" marker.
 - **`sendEventReminders`** (hourly) — finds events 24–25h out, batch-resolves attendees
   with `db.getAll`, filters by `preferences.eventReminders` — but actual sending is TODO
   (logs only).
@@ -172,12 +169,10 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
-| `updateEventCapacity` | `events` onUpdate | Log when event hits capacity |
 | `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
 | `sendEventReminders` | schedule, hourly | Resolve upcoming event reminder recipients (log-only delivery stub) |
-| `cleanupOldBookings` | schedule, daily | Log 30-day-old completed bookings (no delete) |
 
 ---
 

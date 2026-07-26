@@ -13,11 +13,16 @@ README functions table that does not exist. Remove them.
 - `README.md` (edited) — drop both rows from the Cloud Functions table.
 - `docs/knowledge/data-flow.md` (edited) — drop both from the Cloud Functions wiring
   table and any prose reference.
+- `.gitignore` (edited) — stop ignoring `.github/copilot-instructions.md`.
+- `.github/copilot-instructions.md` (new) — now tracked; drop both functions, and
+  correct the stale facts that being untracked let drift.
 
 ## Acceptance
 - [ ] Neither export remains in `functions/index.js`.
 - [ ] The README Cloud Functions table lists neither function.
 - [ ] `docs/knowledge/data-flow.md` lists neither function.
+- [ ] `.github/copilot-instructions.md` is tracked by git and lists neither function.
+- [ ] That file states no function count that contradicts `functions/index.js`.
 - [ ] Every remaining `events` trigger (`notifyEventPendingReview`, `notifyEventStatusChange`, `autoPromoteWaitlist`) is untouched.
 - [ ] NOT: do not implement booking archival as a substitute — if retention is wanted it gets its own spec.
 - [ ] NOT: no change to `autoCheckoutExpiredBookings` or `cleanupPushNotificationMarkers`.
@@ -30,6 +35,12 @@ README functions table that does not exist. Remove them.
   and the notification triggers still fire; no missing-function errors in the log
 
 ## Notes
+`.github/copilot-instructions.md` listed both functions but was gitignored, so it had
+drifted unchecked. Unignoring it is part of this change: an untracked doc that nobody can
+review is how the drift happened. Three stale facts corrected alongside the deletions —
+Node 20 → 22, `amenities.availability` → the real top-level `startHour`/`endHour`/
+`availableDays`, and `events.name` → `title`.
+
 Deploy will prompt to confirm function deletion — expected, not an error. Nothing reads
 either function's return value, and neither writes to Firestore, so there is no data
 migration.
