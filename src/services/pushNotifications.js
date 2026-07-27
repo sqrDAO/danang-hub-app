@@ -168,8 +168,12 @@ export const ensureForegroundPushListener = async () => {
 export const stopForegroundPushListener = () => {
   foregroundListenerGeneration += 1
   if (!stopForegroundListener) return
-  stopForegroundListener()
-  stopForegroundListener = null
+  try {
+    stopForegroundListener()
+  } finally {
+    // Always clear so a throwing unsubscribe cannot block re-register.
+    stopForegroundListener = null
+  }
 }
 
 export const enablePushNotifications = async (uid) => {

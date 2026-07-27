@@ -13,7 +13,7 @@ already creates an in-app notification (bookings + events).
 - `src/services/pushNotifications.js` (edited) — unfocused `onMessage` +
   concurrency-safe ensure/stop.
 - `src/contexts/AuthContext.jsx` (edited) — preference-driven listener lifecycle.
-- `src/locales/en.json` + `vi.json` (edited) — opt-in copy mentions events too.
+- `src/locales/en.json` + `src/locales/vi.json` (edited) — opt-in copy mentions events too.
 - `README.md` + `docs/knowledge/data-flow.md` (edited) — push coverage docs.
 
 ## Acceptance
@@ -32,9 +32,12 @@ already creates an in-app notification (bookings + events).
 - `npm run build` → exit 0
 - `cd functions && npm run lint` → exit 0
 - regression: all four types still create in-app notifications
-- manual: unfocused tab + each type → custom toast + correct click path
+- manual: unfocused tab **and** closed window + each of the four types → system
+  notification title/body/icon (not Chrome default shell) + correct click path
+- manual: focused tab → no required system toast; in-app bell still works
 
 ## Notes
 In-app types that get push: `booking_pending_review`, `booking_approved`,
 `event_pending_review`, `event_status`. Dedupe markers use the same subject ids
 as in-app docs (fixed-desk plan id; event status uses `{eventId}_{status}`).
+Phase/Deps use `—` per backlog format (no phase gate; no deps).
