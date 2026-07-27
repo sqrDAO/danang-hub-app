@@ -214,7 +214,7 @@ those live in the callable / client and are advisory.
 | `events` | event create/approve (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
 | `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
-| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking review/approval |
+| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking/event review and status |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
 | `projects` | admin (rules allow; no write service yet) | Home page showcase |
 

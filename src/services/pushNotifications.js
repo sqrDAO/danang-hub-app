@@ -114,6 +114,8 @@ const showForegroundSystemNotification = async (payload) => {
   }
   const { title, body, targetUrl, tag } = resolvePushContent(payload)
   const registration = await getServiceWorkerRegistration()
+  // Re-check after await — user may have focused this tab during registration lookup.
+  if (typeof document !== 'undefined' && document.hasFocus()) return
   await registration.showNotification(title, {
     body,
     icon: HUB_ICON,
