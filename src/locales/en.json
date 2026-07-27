@@ -68,7 +68,7 @@
     "defaultBody": "You have a new notification.",
     "memberFallback": "A member",
     "pushOptInTitle": "Tap to enable browser notifications",
-    "pushOptInBody": "Get alerted when a booking is approved.",
+    "pushOptInBody": "Get alerted for booking and event updates.",
     "pushOptInDismiss": "Dismiss",
     "pushOptInEnabled": "Browser notifications enabled.",
     "pushOptInFailed": "Could not enable browser notifications."

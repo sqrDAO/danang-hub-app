@@ -857,8 +857,8 @@ function getBookingSubjectId(booking, bookingId) {
 }
 
 /**
- * Sends booking-review push notifications to opted-in admins.
- * @param {string} subjectId Stable booking or plan identifier
+ * Sends browser push to opted-in admins (booking/event review, etc.).
+ * @param {string} subjectId Stable subject identifier for dedupe markers
  * @param {Object} payload Push payload
  * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
  * Previously fetched admin documents
@@ -874,7 +874,7 @@ async function notifyAdminsPush(subjectId, payload, adminDocs) {
 }
 
 /**
- * Sends a booking-approval push to the member who owns the booking.
+ * Sends browser push to one opted-in member (booking/event status, etc.).
  * @param {string} memberId Member document id
  * @param {Object} payload Push payload
  * @return {Promise<Array>}
@@ -1303,14 +1303,41 @@ exports.notifyEventPendingReview = onDocumentCreated(
       if (eventData.status !== "pending") return null;
 
       try {
-        const organizerName = eventData.organizerDisplayName ||
-          await getMemberName(eventData.organizerId);
-        await notifyAdmins("event_pending_review", event.params.eventId, {
-          eventId: event.params.eventId,
-          eventTitle: eventData.title || eventData.name || "",
+        const eventId = event.params.eventId;
+        const eventTitle = eventData.title || eventData.name || "";
+        const [organizerName, admins] = await Promise.all([
+          eventData.organizerDisplayName ?
+            Promise.resolve(eventData.organizerDisplayName) :
+            getMemberName(eventData.organizerId),
+          db.collection("members")
+              .where("membershipType", "==", "admin").get(),
+        ]);
+        await notifyAdmins("event_pending_review", eventId, {
+          eventId,
+          eventTitle,
           organizerName,
           link: "/admin/events",
-        });
+        }, admins.docs);
+        const orgEn = organizerName || "A member";
+        const orgVi = organizerName || "Một thành viên";
+        try {
+          await notifyAdminsPush(eventId, {
+            messages: {
+              en: {
+                title: "Event needs review",
+                body: `${orgEn} submitted "${eventTitle}" for approval.`,
+              },
+              vi: {
+                title: "Sự kiện cần được duyệt",
+                body: `${orgVi} đã gửi "${eventTitle}" để duyệt.`,
+              },
+            },
+            link: "/admin/events",
+            type: "event_pending_review",
+          }, admins.docs);
+        } catch (pushError) {
+          console.error("Error sending event review push:", pushError);
+        }
         return null;
       } catch (error) {
         console.error("Error notifying event review:", error);
@@ -1348,6 +1375,38 @@ exports.notifyEventStatusChange = onDocumentUpdated(
               link: "/member/events",
             },
         );
+
+        try {
+          await notifyMemberPush(after.organizerId, {
+            messages: {
+              en: isApproved ? {
+                title: "Event approved",
+                body: `Your event "${eventTitle}" has been approved.`,
+              } : {
+                title: "Event not approved",
+                body: rejectionReason ?
+                  `Your event "${eventTitle}" was not approved: ` +
+                    `${rejectionReason}` :
+                  `Your event "${eventTitle}" was not approved.`,
+              },
+              vi: isApproved ? {
+                title: "Sự kiện đã được duyệt",
+                body: `Sự kiện "${eventTitle}" của bạn đã được duyệt.`,
+              } : {
+                title: "Sự kiện chưa được duyệt",
+                body: rejectionReason ?
+                  `Sự kiện "${eventTitle}" của bạn chưa được duyệt: ` +
+                    `${rejectionReason}` :
+                  `Sự kiện "${eventTitle}" của bạn chưa được duyệt.`,
+              },
+            },
+            link: "/member/events",
+            type: "event_status",
+            subjectId,
+          });
+        } catch (pushError) {
+          console.error("Error sending event status push:", pushError);
+        }
 
         const memberDoc = await db.collection("members")
             .doc(after.organizerId).get();
