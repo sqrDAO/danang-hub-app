@@ -629,14 +629,15 @@ function pickPushMessage(messages, locale) {
 const DEFAULT_APP_URL = "https://app.danangblockchainhub.com";
 
 /**
- * Resolves APP_URL (or default) to a usable origin for absolute push URLs.
+ * Resolves APP_URL (or default) to origin for absolute push asset URLs.
+ * Uses origin only so a path on APP_URL cannot break `/assets/...` resolution.
  * Malformed env must not throw — that would fail the whole multicast batch.
- * @return {string} Absolute base URL
+ * @return {string} Absolute origin URL (no trailing path)
  */
 function resolvePushAppUrl() {
   const raw = process.env.APP_URL || DEFAULT_APP_URL;
   try {
-    return new URL(raw).href.replace(/\/$/, "") || DEFAULT_APP_URL;
+    return new URL(raw).origin;
   } catch (error) {
     console.warn("Invalid APP_URL for push; using default", {raw});
     return DEFAULT_APP_URL;
@@ -668,6 +669,9 @@ function buildWebPushConfig(data) {
   const appUrl = resolvePushAppUrl();
   const title = data.title || "Da Nang Blockchain Hub";
   const body = data.body || "";
+  // Relative link: SW resolves against self.location so preview hosts work.
+  // Absolute APP_URL here would make Firebase's host check no-op on previews.
+  const linkPath = data.link || "/";
   return {
     notification: {
       title,
@@ -679,7 +683,9 @@ function buildWebPushConfig(data) {
       renotify: true,
     },
     fcmOptions: {
-      link: absolutePushUrl(appUrl, data.link || "/"),
+      link: linkPath.startsWith("/") ?
+        linkPath :
+        absolutePushUrl(appUrl, linkPath),
     },
   };
 }
@@ -877,10 +883,13 @@ async function notifyAdminsPush(subjectId, payload, adminDocs) {
  * Sends browser push to one opted-in member (booking/event status, etc.).
  * @param {string} memberId Member document id
  * @param {Object} payload Push payload
+ * @param {FirebaseFirestore.DocumentSnapshot} [memberDocSnap] Optional
+ *   pre-fetched members/{memberId} snap to avoid a second read
  * @return {Promise<Array>}
  */
-async function notifyMemberPush(memberId, payload) {
-  const memberDoc = await db.collection("members").doc(memberId).get();
+async function notifyMemberPush(memberId, payload, memberDocSnap = null) {
+  const memberDoc = memberDocSnap ||
+      await db.collection("members").doc(memberId).get();
   if (!memberDoc.exists) return [];
   return sendPushToMembers([memberDoc], payload);
 }
@@ -1376,6 +1385,10 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             },
         );
 
+        const memberDoc = await db.collection("members")
+            .doc(after.organizerId).get();
+        const member = memberDoc.exists ? memberDoc.data() : null;
+
         try {
           await notifyMemberPush(after.organizerId, {
             messages: {
@@ -1403,14 +1416,10 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             link: "/member/events",
             type: "event_status",
             subjectId,
-          });
+          }, memberDoc);
         } catch (pushError) {
           console.error("Error sending event status push:", pushError);
         }
-
-        const memberDoc = await db.collection("members")
-            .doc(after.organizerId).get();
-        const member = memberDoc.exists ? memberDoc.data() : null;
         const prefs = (member && member.preferences) || {};
         const sendEmail = prefs.emailNotifications !== false;
 

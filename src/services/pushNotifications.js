@@ -22,6 +22,11 @@ let ensureForegroundPromise = null
  * instead of registering after disable/logout/effect cleanup.
  */
 let foregroundListenerGeneration = 0
+/** BroadcastChannel for multi-tab “is any peer focused?” queries. */
+let pushFocusChannel = null
+const PUSH_FOCUS_CHANNEL = 'hub-push-focus'
+const PUSH_SHOW_LOCK = 'hub-push-foreground-show'
+const FOCUS_QUERY_MS = 40
 
 export const isPushSupported = async () => {
   if (typeof window === 'undefined') return false
@@ -102,20 +107,51 @@ const resolvePushContent = (payload) => {
   }
 }
 
-/**
- * When a tab is open, FCM delivers to onMessage instead of the SW. Chrome still
- * requires a system notification if the page is not focused — otherwise it
- * injects the default "site updated in the background" shell.
- */
-const showForegroundSystemNotification = async (payload) => {
-  if (typeof document !== 'undefined' && document.hasFocus()) return
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-    return
+const startPushFocusChannel = () => {
+  if (pushFocusChannel || typeof BroadcastChannel === 'undefined') return
+  pushFocusChannel = new BroadcastChannel(PUSH_FOCUS_CHANNEL)
+  pushFocusChannel.onmessage = (event) => {
+    if (event.data?.type === 'focus-query' && document.hasFocus()) {
+      pushFocusChannel.postMessage({ type: 'focus-claim' })
+    }
   }
+}
+
+const stopPushFocusChannel = () => {
+  if (!pushFocusChannel) return
+  try {
+    pushFocusChannel.close()
+  } catch {
+    // ignore
+  }
+  pushFocusChannel = null
+}
+
+/** True if another same-origin tab reports focus (BroadcastChannel ping). */
+const peerTabHasFocus = () => {
+  if (typeof BroadcastChannel === 'undefined') return Promise.resolve(false)
+  return new Promise((resolve) => {
+    const channel = new BroadcastChannel(PUSH_FOCUS_CHANNEL)
+    let found = false
+    const onMessage = (event) => {
+      if (event.data?.type === 'focus-claim') found = true
+    }
+    channel.addEventListener('message', onMessage)
+    channel.postMessage({ type: 'focus-query' })
+    setTimeout(() => {
+      channel.removeEventListener('message', onMessage)
+      channel.close()
+      resolve(found)
+    }, FOCUS_QUERY_MS)
+  })
+}
+
+const displaySystemNotification = async (payload) => {
   const { title, body, targetUrl, tag } = resolvePushContent(payload)
   const registration = await getServiceWorkerRegistration()
   // Re-check after await — user may have focused this tab during registration lookup.
   if (typeof document !== 'undefined' && document.hasFocus()) return
+  if (await peerTabHasFocus()) return
   await registration.showNotification(title, {
     body,
     icon: HUB_ICON,
@@ -124,6 +160,28 @@ const showForegroundSystemNotification = async (payload) => {
     tag,
     renotify: true
   })
+}
+
+/**
+ * When a tab is open, FCM delivers to onMessage instead of the SW. Chrome still
+ * requires a system notification if the page is not focused — otherwise it
+ * injects the default "site updated in the background" shell.
+ * Skips when this tab or any peer tab is focused; multi-unfocused tabs elect
+ * one shower via navigator.locks when available.
+ */
+const showForegroundSystemNotification = async (payload) => {
+  if (typeof document !== 'undefined' && document.hasFocus()) return
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return
+  }
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    await navigator.locks.request(PUSH_SHOW_LOCK, { ifAvailable: true }, async (lock) => {
+      if (!lock) return
+      await displaySystemNotification(payload)
+    })
+    return
+  }
+  await displaySystemNotification(payload)
 }
 
 /**
@@ -143,6 +201,7 @@ export const ensureForegroundPushListener = async () => {
       if (generation !== foregroundListenerGeneration) return undefined
       if (stopForegroundListener) return stopForegroundListener
 
+      startPushFocusChannel()
       const messaging = getMessaging(app)
       const unsubscribe = onMessage(messaging, (payload) => {
         showForegroundSystemNotification(payload).catch((error) => {
@@ -152,10 +211,14 @@ export const ensureForegroundPushListener = async () => {
 
       if (generation !== foregroundListenerGeneration) {
         unsubscribe()
+        stopPushFocusChannel()
         return undefined
       }
 
-      stopForegroundListener = unsubscribe
+      stopForegroundListener = () => {
+        unsubscribe()
+        stopPushFocusChannel()
+      }
       return stopForegroundListener
     } finally {
       ensureForegroundPromise = null
@@ -167,12 +230,16 @@ export const ensureForegroundPushListener = async () => {
 
 export const stopForegroundPushListener = () => {
   foregroundListenerGeneration += 1
-  if (!stopForegroundListener) return
+  if (!stopForegroundListener) {
+    stopPushFocusChannel()
+    return
+  }
   try {
     stopForegroundListener()
   } finally {
     // Always clear so a throwing unsubscribe cannot block re-register.
     stopForegroundListener = null
+    stopPushFocusChannel()
   }
 }
 
