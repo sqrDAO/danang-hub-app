@@ -30,7 +30,6 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         strategies: 'injectManifest',
         injectRegister: false,
-        includeAssets: ['assets/favicon/*.png', 'assets/favicon/*.ico'],
         manifest: false,
         injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

@@ -626,6 +626,62 @@ function pickPushMessage(messages, locale) {
   return safe[locale] || safe[DEFAULT_PUSH_LOCALE] || {};
 }
 
+const DEFAULT_APP_URL = "https://app.danangblockchainhub.com";
+
+/**
+ * Resolves APP_URL (or default) to origin for absolute push asset URLs.
+ * Uses origin only so a path on APP_URL cannot break `/assets/...` resolution.
+ * Malformed env must not throw — that would fail the whole multicast batch.
+ * @return {string} Absolute origin URL (no trailing path)
+ */
+function resolvePushAppUrl() {
+  const raw = process.env.APP_URL || DEFAULT_APP_URL;
+  try {
+    return new URL(raw).origin;
+  } catch (error) {
+    console.warn("Invalid APP_URL for push; using default", {raw});
+    return DEFAULT_APP_URL;
+  }
+}
+
+/**
+ * Absolute URL under the push app base; falls back to base on bad paths.
+ * @param {string} appUrl Resolved app base
+ * @param {string} path Relative or absolute path
+ * @return {string}
+ */
+function absolutePushUrl(appUrl, path) {
+  try {
+    return new URL(path || "/", appUrl).href;
+  } catch (error) {
+    console.warn("Invalid push URL path; using app base", {path});
+    return appUrl;
+  }
+}
+
+/**
+ * Builds web-display fields so Chrome does not fall back to its default
+ * "site updated in the background" shell when the SW cannot show custom UI.
+ * @param {Object} data FCM data payload (title/body/link/tag as strings)
+ * @return {Object} webpush config for sendEachForMulticast
+ */
+function buildWebPushConfig(data) {
+  const appUrl = resolvePushAppUrl();
+  const title = data.title || "Da Nang Blockchain Hub";
+  const body = data.body || "";
+  return {
+    notification: {
+      title,
+      body,
+      icon: absolutePushUrl(
+          appUrl, "/assets/favicon/android-chrome-192x192.png"),
+      badge: absolutePushUrl(appUrl, "/assets/favicon/favicon-32x32.png"),
+      tag: data.tag || undefined,
+      renotify: true,
+    },
+  };
+}
+
 /**
  * Sends one push payload and reconciles successful sends / dead tokens.
  * @param {Array<Object>} recipients Push recipients
@@ -638,6 +694,7 @@ async function sendPushToRecipients(recipients, data) {
   const messaging = getMessaging();
   const results = [];
   const batchSize = 500;
+  const webpush = buildWebPushConfig(data);
 
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batchRecipients = recipients.slice(i, i + batchSize);
@@ -646,6 +703,7 @@ async function sendPushToRecipients(recipients, data) {
       response = await messaging.sendEachForMulticast({
         tokens: batchRecipients.map((recipient) => recipient.token),
         data,
+        webpush,
       });
     } catch (error) {
       await Promise.all(batchRecipients.map((recipient) =>
@@ -797,8 +855,8 @@ function getBookingSubjectId(booking, bookingId) {
 }
 
 /**
- * Sends booking-review push notifications to opted-in admins.
- * @param {string} subjectId Stable booking or plan identifier
+ * Sends browser push to opted-in admins (booking/event review, etc.).
+ * @param {string} subjectId Stable subject identifier for dedupe markers
  * @param {Object} payload Push payload
  * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} [adminDocs]
  * Previously fetched admin documents
@@ -814,13 +872,16 @@ async function notifyAdminsPush(subjectId, payload, adminDocs) {
 }
 
 /**
- * Sends a booking-approval push to the member who owns the booking.
+ * Sends browser push to one opted-in member (booking/event status, etc.).
  * @param {string} memberId Member document id
  * @param {Object} payload Push payload
+ * @param {FirebaseFirestore.DocumentSnapshot} [memberDocSnap] Optional
+ *   pre-fetched members/{memberId} snap to avoid a second read
  * @return {Promise<Array>}
  */
-async function notifyMemberPush(memberId, payload) {
-  const memberDoc = await db.collection("members").doc(memberId).get();
+async function notifyMemberPush(memberId, payload, memberDocSnap = null) {
+  const memberDoc = memberDocSnap ||
+      await db.collection("members").doc(memberId).get();
   if (!memberDoc.exists) return [];
   return sendPushToMembers([memberDoc], payload);
 }
@@ -1243,14 +1304,41 @@ exports.notifyEventPendingReview = onDocumentCreated(
       if (eventData.status !== "pending") return null;
 
       try {
-        const organizerName = eventData.organizerDisplayName ||
-          await getMemberName(eventData.organizerId);
-        await notifyAdmins("event_pending_review", event.params.eventId, {
-          eventId: event.params.eventId,
-          eventTitle: eventData.title || eventData.name || "",
+        const eventId = event.params.eventId;
+        const eventTitle = eventData.title || eventData.name || "";
+        const [organizerName, admins] = await Promise.all([
+          eventData.organizerDisplayName ?
+            Promise.resolve(eventData.organizerDisplayName) :
+            getMemberName(eventData.organizerId),
+          db.collection("members")
+              .where("membershipType", "==", "admin").get(),
+        ]);
+        await notifyAdmins("event_pending_review", eventId, {
+          eventId,
+          eventTitle,
           organizerName,
           link: "/admin/events",
-        });
+        }, admins.docs);
+        const orgEn = organizerName || "A member";
+        const orgVi = organizerName || "Một thành viên";
+        try {
+          await notifyAdminsPush(eventId, {
+            messages: {
+              en: {
+                title: "Event needs review",
+                body: `${orgEn} submitted "${eventTitle}" for approval.`,
+              },
+              vi: {
+                title: "Sự kiện cần được duyệt",
+                body: `${orgVi} đã gửi "${eventTitle}" để duyệt.`,
+              },
+            },
+            link: "/admin/events",
+            type: "event_pending_review",
+          }, admins.docs);
+        } catch (pushError) {
+          console.error("Error sending event review push:", pushError);
+        }
         return null;
       } catch (error) {
         console.error("Error notifying event review:", error);
@@ -1292,6 +1380,38 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         const memberDoc = await db.collection("members")
             .doc(after.organizerId).get();
         const member = memberDoc.exists ? memberDoc.data() : null;
+
+        try {
+          await notifyMemberPush(after.organizerId, {
+            messages: {
+              en: isApproved ? {
+                title: "Event approved",
+                body: `Your event "${eventTitle}" has been approved.`,
+              } : {
+                title: "Event not approved",
+                body: rejectionReason ?
+                  `Your event "${eventTitle}" was not approved: ` +
+                    `${rejectionReason}` :
+                  `Your event "${eventTitle}" was not approved.`,
+              },
+              vi: isApproved ? {
+                title: "Sự kiện đã được duyệt",
+                body: `Sự kiện "${eventTitle}" của bạn đã được duyệt.`,
+              } : {
+                title: "Sự kiện chưa được duyệt",
+                body: rejectionReason ?
+                  `Sự kiện "${eventTitle}" của bạn chưa được duyệt: ` +
+                    `${rejectionReason}` :
+                  `Sự kiện "${eventTitle}" của bạn chưa được duyệt.`,
+              },
+            },
+            link: "/member/events",
+            type: "event_status",
+            subjectId,
+          }, memberDoc);
+        } catch (pushError) {
+          console.error("Error sending event status push:", pushError);
+        }
         const prefs = (member && member.preferences) || {};
         const sendEmail = prefs.emailNotifications !== false;
 

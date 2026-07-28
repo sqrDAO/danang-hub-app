@@ -97,7 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
-- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. For opted-in users, the same booking review/approval path also sends browser push via the private token stored in `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same four high-signal paths (`booking_pending_review`, `booking_approved`, `event_pending_review`, `event_status`) via `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -167,8 +167,8 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
 | `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
-| `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event |
-| `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + Nodemailer email on approve/reject |
+| `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event; browser push for opted-in admins |
+| `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + optional email + browser push on approve/reject |
 | `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
@@ -214,7 +214,7 @@ those live in the callable / client and are advisory.
 | `events` | event create/approve (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
 | `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
-| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking review/approval |
+| `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking/event review and status |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
 | `projects` | admin (rules allow; no write service yet) | Home page showcase |
 

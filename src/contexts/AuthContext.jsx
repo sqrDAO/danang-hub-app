@@ -207,6 +207,39 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe
   }, [])
 
+  // FCM delivers to onMessage when a tab is open; without a handler Chrome shows
+  // its default "site updated in the background" shell for unfocused tabs.
+  useEffect(() => {
+    const pushModule = () => import('../services/pushNotifications')
+    const pushEnabled = Boolean(
+      currentUser && userProfile?.preferences?.pushNotifications
+    )
+    if (!pushEnabled) {
+      pushModule()
+        .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
+        .catch(() => {})
+      return undefined
+    }
+
+    let cancelled = false
+    pushModule()
+      .then(async ({ ensureForegroundPushListener, stopForegroundPushListener }) => {
+        await ensureForegroundPushListener()
+        // Effect cleaned up while ensure was in flight — drop the listener.
+        if (cancelled) stopForegroundPushListener()
+      })
+      .catch((error) => {
+        console.warn('Unable to start foreground push listener:', error)
+      })
+
+    return () => {
+      cancelled = true
+      pushModule()
+        .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
+        .catch(() => {})
+    }
+  }, [currentUser, userProfile?.preferences?.pushNotifications])
+
   const value = {
     currentUser,
     userProfile,

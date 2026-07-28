@@ -50,45 +50,124 @@ registerRoute(
   })
 )
 
+const HUB_ICON = '/assets/favicon/android-chrome-192x192.png'
+const HUB_BADGE = '/assets/favicon/favicon-32x32.png'
+const DEFAULT_PUSH_TITLE = 'Da Nang Blockchain Hub'
+
+const resolvePushContent = (payload) => {
+  const data = payload?.data || {}
+  return {
+    title: data.title || payload?.notification?.title || DEFAULT_PUSH_TITLE,
+    body: data.body || payload?.notification?.body || '',
+    targetUrl: data.link || '/',
+    tag: data.tag || `${data.type || 'notification'}-${data.subjectId || 'default'}`
+  }
+}
+
+const showHubNotification = ({ title, body, targetUrl, tag }) =>
+  self.registration.showNotification(title, {
+    body,
+    icon: HUB_ICON,
+    badge: HUB_BADGE,
+    data: { url: targetUrl },
+    tag,
+    renotify: true
+  })
+
+/** Prefer relative app paths so clicks work on prod and preview origins. */
+const toSameOriginPath = (urlOrPath) => {
+  if (typeof urlOrPath !== 'string' || !urlOrPath) return '/'
+  try {
+    if (urlOrPath.startsWith('/')) return urlOrPath
+    const parsed = new URL(urlOrPath, self.location.origin)
+    // Strip domain (e.g. prod APP_URL on preview host) → keep path only
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/'
+  } catch {
+    return '/'
+  }
+}
+
+/** Click URL from our SW-shown notifications or FCM auto-displayed ones. */
+const resolveNotificationClickUrl = (notification) => {
+  const data = notification?.data || {}
+  if (typeof data.url === 'string' && data.url) return toSameOriginPath(data.url)
+  const fcm = data.FCM_MSG
+  if (fcm && typeof fcm === 'object') {
+    if (typeof fcm.data?.link === 'string' && fcm.data.link) {
+      return toSameOriginPath(fcm.data.link)
+    }
+    if (typeof fcm.fcmOptions?.link === 'string' && fcm.fcmOptions.link) {
+      return toSameOriginPath(fcm.fcmOptions.link)
+    }
+  }
+  return '/'
+}
+
+/**
+ * Open or focus a same-origin client on the deep-link path.
+ * Pass 1: Focus an existing tab already on the exact target URL.
+ * Pass 2: Reuse an existing same-origin tab by navigating it.
+ */
+const openOrFocusPath = async (targetUrl) => {
+  const absoluteUrl = new URL(targetUrl, self.location.origin).href
+  const windowClients = await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  })
+  const sameOriginClients = []
+  for (const client of windowClients) {
+    let clientOrigin
+    try {
+      clientOrigin = new URL(client.url).origin
+    } catch {
+      continue
+    }
+    if (clientOrigin !== self.location.origin || !('focus' in client)) continue
+    if (client.url === absoluteUrl) {
+      await client.focus()
+      return client
+    }
+    sameOriginClients.push(client)
+  }
+
+  for (const client of sameOriginClients) {
+    await client.focus()
+    if (typeof client.navigate === 'function') {
+      return client.navigate(absoluteUrl).catch(() => {
+        if (self.clients.openWindow) return self.clients.openWindow(absoluteUrl)
+        return undefined
+      })
+    }
+  }
+
+  if (self.clients.openWindow) {
+    return self.clients.openWindow(absoluteUrl)
+  }
+  return undefined
+}
+
+// Register BEFORE getMessaging(): the Firebase SW SDK also listens for
+// notificationclick and, for FCM-displayed notifications (FCM_MSG), calls
+// stopImmediatePropagation() with host-only window matching — which drops
+// deep-link paths and breaks preview origins when APP_URL is prod.
+self.addEventListener('notificationclick', (event) => {
+  event.stopImmediatePropagation()
+  event.notification.close()
+  const targetUrl = resolveNotificationClickUrl(event.notification)
+  event.waitUntil(openOrFocusPath(targetUrl))
+})
+
 const app = initializeApp(firebaseConfig)
 try {
   const messaging = getMessaging(app)
   onBackgroundMessage(messaging, (payload) => {
-    const data = payload.data || {}
-    const title = data.title || payload.notification?.title || 'Da Nang Blockchain Hub'
-    const body = data.body || payload.notification?.body || ''
-    const targetUrl = data.link || '/'
-
-    return self.registration.showNotification(title, {
-      body,
-      icon: '/assets/favicon/android-chrome-192x192.png',
-      badge: '/assets/favicon/favicon-32x32.png',
-      data: {
-        url: targetUrl
-      },
-      tag: data.tag || `${data.type || 'notification'}-${data.subjectId || 'default'}`,
-      renotify: true
-    })
+    // FCM already called showNotification when a notification payload is present
+    // (including webpush.notification from the server). Only handle pure data.
+    if (payload.notification?.title || payload.notification?.body) {
+      return undefined
+    }
+    return showHubNotification(resolvePushContent(payload))
   })
 } catch (error) {
   console.warn('[sw] Firebase messaging unavailable:', error)
 }
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-  const targetUrl = event.notification?.data?.url || '/'
-  const absoluteUrl = new URL(targetUrl, self.location.origin).href
-
-  event.waitUntil((async () => {
-    const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    for (const client of windowClients) {
-      if (client.url === absoluteUrl && 'focus' in client) {
-        return client.focus()
-      }
-    }
-    if (self.clients.openWindow) {
-      return self.clients.openWindow(absoluteUrl)
-    }
-    return undefined
-  })())
-})
