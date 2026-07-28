@@ -669,9 +669,6 @@ function buildWebPushConfig(data) {
   const appUrl = resolvePushAppUrl();
   const title = data.title || "Da Nang Blockchain Hub";
   const body = data.body || "";
-  // Relative link: SW resolves against self.location so preview hosts work.
-  // Absolute APP_URL here would make Firebase's host check no-op on previews.
-  const linkPath = data.link || "/";
   return {
     notification: {
       title,
@@ -681,11 +678,6 @@ function buildWebPushConfig(data) {
       badge: absolutePushUrl(appUrl, "/assets/favicon/favicon-32x32.png"),
       tag: data.tag || undefined,
       renotify: true,
-    },
-    fcmOptions: {
-      link: linkPath.startsWith("/") ?
-        linkPath :
-        absolutePushUrl(appUrl, linkPath),
     },
   };
 }

@@ -80,10 +80,7 @@ const toSameOriginPath = (urlOrPath) => {
   try {
     if (urlOrPath.startsWith('/')) return urlOrPath
     const parsed = new URL(urlOrPath, self.location.origin)
-    if (parsed.origin === self.location.origin) {
-      return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/'
-    }
-    // Cross-origin absolute (e.g. prod APP_URL on a preview host) → keep path only
+    // Strip domain (e.g. prod APP_URL on preview host) → keep path only
     return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/'
   } catch {
     return '/'
@@ -127,7 +124,10 @@ const openOrFocusPath = async (targetUrl) => {
     await client.focus()
     if (client.url === absoluteUrl) return client
     if (typeof client.navigate === 'function') {
-      return client.navigate(absoluteUrl)
+      return client.navigate(absoluteUrl).catch(() => {
+        if (self.clients.openWindow) return self.clients.openWindow(absoluteUrl)
+        return undefined
+      })
     }
   }
   if (self.clients.openWindow) {

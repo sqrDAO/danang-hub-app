@@ -18,27 +18,27 @@ already creates an in-app notification (bookings + events).
 - `README.md` + `docs/knowledge/data-flow.md` (edited) — push coverage docs.
 
 ## Acceptance
-- [ ] Multicast push includes web display fields and a deep link.
-- [ ] Background / unfocused open tab show hub icon + real title/body (not Chrome shell).
-- [ ] Opted-in admins get push for `booking_pending_review` and `event_pending_review`.
-- [ ] Opted-in members get push for `booking_approved` and `event_status` (approve/reject).
-- [ ] Click opens the matching path (`/admin/*` or `/member/*`) even when a hub
+- [x] Multicast push includes web display fields and a deep link.
+- [x] Background / unfocused open tab show hub icon + real title/body (not Chrome shell).
+- [x] Opted-in admins get push for `booking_pending_review` and `event_pending_review`.
+- [x] Opted-in members get push for `booking_approved` and `event_status` (approve/reject).
+- [x] Click opens the matching path (`/admin/*` or `/member/*`) even when a hub
   tab is already open on another route (app handler wins over Firebase SDK).
-- [ ] Event/booking push copy is EN/VI from recipient `locale` (fallback `en`).
-- [ ] With one focused and one unfocused tab, no system toast from the unfocused path.
-- [ ] NOT: multi-device token model (still single `push_tokens/{uid}`).
-- [ ] NOT: waitlist / reminder / other non-inbox types.
+- [x] Event/booking push copy is EN/VI from recipient `locale` (fallback `en`).
+- [x] With one focused and one unfocused tab, no system toast from the unfocused path.
+- [x] NOT: multi-device token model (still single `push_tokens/{uid}`).
+- [x] NOT: waitlist / reminder / other non-inbox types.
 
 ## Verify
-- `npm run lint` → exit 0
-- `npm run build` → exit 0
-- `cd functions && npm run lint` → exit 0
-- regression: all four types still create in-app notifications; event-status email still sends
-- manual: unfocused tab **and** closed window + each of the four types → system
+- [x] `npm run lint` → exit 0
+- [x] `npm run build` → exit 0
+- [x] `cd functions && npm run lint` → exit 0
+- [x] regression: all four types still create in-app notifications; event-status email still sends
+- [ ] manual: unfocused tab **and** closed window + each of the four types → system
   notification title/body/icon (not Chrome default shell) + correct click path
-- manual: hub tab open on another route → click still navigates to deep link
-- manual: focused tab → no required system toast; in-app bell still works
-- manual: two tabs (A focused, B not) → no toast while using A
+- [ ] manual: hub tab open on another route → click still navigates to deep link
+- [ ] manual: focused tab → no required system toast; in-app bell still works
+- [ ] manual: two tabs (A focused, B not) → no toast while using A
 
 ## Notes
 In-app types that get push: `booking_pending_review`, `booking_approved`,
