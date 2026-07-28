@@ -7,8 +7,12 @@ title/body/icon/link, and send browser push for every high-signal case that
 already creates an in-app notification (bookings + events).
 
 ## Files
+- `vite.config.js` (edited) — drop `includeAssets`; it collided with
+  `globPatterns` under `injectManifest`, duplicating the favicon precache
+  entries so the SW threw on evaluation and never installed.
 - `functions/index.js` (edited) — `webpush.notification` + origin APP_URL;
-  relative `fcmOptions.link`; push for event review/status; single member read.
+  no `fcmOptions.link` (deep link rides `data.link`); push for event
+  review/status; single member read.
 - `public/sw.js` (edited) — claim `notificationclick` before Firebase SDK;
   path-aware open/focus; data-only show when no notification payload.
 - `src/services/pushNotifications.js` (edited) — unfocused `onMessage`,
@@ -18,6 +22,8 @@ already creates an in-app notification (bookings + events).
 - `README.md` + `docs/knowledge/data-flow.md` (edited) — push coverage docs.
 
 ## Acceptance
+- [x] The built service worker evaluates and reaches `activated` (no duplicate
+  precache entries) — without this nothing below can work.
 - [x] Multicast push includes web display fields and a deep link.
 - [x] Background / unfocused open tab show hub icon + real title/body (not Chrome shell).
 - [x] Opted-in admins get push for `booking_pending_review` and `event_pending_review`.
@@ -34,8 +40,11 @@ already creates an in-app notification (bookings + events).
 - [x] `npm run build` → exit 0
 - [x] `cd functions && npm run lint` → exit 0
 - [x] regression: all four types still create in-app notifications; event-status email still sends
-- [ ] manual: unfocused tab **and** closed window + each of the four types → system
-  notification title/body/icon (not Chrome default shell) + correct click path
+- [x] `dist/sw.js` precache manifest has 0 duplicate urls; SW reaches `activated`
+  on `npm run preview` (regression guard for the `includeAssets` collision)
+- [x] manual: closed window + each of the four types → system notification with
+  real title/body/hub icon (not Chrome default shell) and correct `data.link`
+- [ ] manual: unfocused (hidden) tab + each of the four types → same as above
 - [ ] manual: hub tab open on another route → click still navigates to deep link
 - [ ] manual: focused tab → no required system toast; in-app bell still works
 - [ ] manual: two tabs (A focused, B not) → no toast while using A
