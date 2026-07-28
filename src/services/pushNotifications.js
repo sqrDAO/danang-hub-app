@@ -130,17 +130,18 @@ const stopPushFocusChannel = () => {
 /** True if another same-origin tab reports focus (BroadcastChannel ping). */
 const peerTabHasFocus = () => {
   if (typeof BroadcastChannel === 'undefined') return Promise.resolve(false)
+  startPushFocusChannel()
+  if (!pushFocusChannel) return Promise.resolve(false)
+
   return new Promise((resolve) => {
-    const channel = new BroadcastChannel(PUSH_FOCUS_CHANNEL)
     let found = false
     const onMessage = (event) => {
       if (event.data?.type === 'focus-claim') found = true
     }
-    channel.addEventListener('message', onMessage)
-    channel.postMessage({ type: 'focus-query' })
+    pushFocusChannel.addEventListener('message', onMessage)
+    pushFocusChannel.postMessage({ type: 'focus-query' })
     setTimeout(() => {
-      channel.removeEventListener('message', onMessage)
-      channel.close()
+      pushFocusChannel?.removeEventListener('message', onMessage)
       resolve(found)
     }, FOCUS_QUERY_MS)
   })

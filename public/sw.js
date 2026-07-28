@@ -105,7 +105,8 @@ const resolveNotificationClickUrl = (notification) => {
 
 /**
  * Open or focus a same-origin client on the deep-link path.
- * Prefer navigate() so an existing tab on another route is reused.
+ * Pass 1: Focus an existing tab already on the exact target URL.
+ * Pass 2: Reuse an existing same-origin tab by navigating it.
  */
 const openOrFocusPath = async (targetUrl) => {
   const absoluteUrl = new URL(targetUrl, self.location.origin).href
@@ -113,6 +114,7 @@ const openOrFocusPath = async (targetUrl) => {
     type: 'window',
     includeUncontrolled: true
   })
+  const sameOriginClients = []
   for (const client of windowClients) {
     let clientOrigin
     try {
@@ -121,8 +123,15 @@ const openOrFocusPath = async (targetUrl) => {
       continue
     }
     if (clientOrigin !== self.location.origin || !('focus' in client)) continue
+    if (client.url === absoluteUrl) {
+      await client.focus()
+      return client
+    }
+    sameOriginClients.push(client)
+  }
+
+  for (const client of sameOriginClients) {
     await client.focus()
-    if (client.url === absoluteUrl) return client
     if (typeof client.navigate === 'function') {
       return client.navigate(absoluteUrl).catch(() => {
         if (self.clients.openWindow) return self.clients.openWindow(absoluteUrl)
@@ -130,6 +139,7 @@ const openOrFocusPath = async (targetUrl) => {
       })
     }
   }
+
   if (self.clients.openWindow) {
     return self.clients.openWindow(absoluteUrl)
   }
