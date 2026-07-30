@@ -8,7 +8,12 @@ import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
-import { disablePushNotifications, enablePushNotifications, isPushSupported } from '../../services/pushNotifications'
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  isMobilePushEligible,
+  isPushSupported
+} from '../../services/pushNotifications'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -171,6 +176,7 @@ const ProfileEditForm = ({
   onSubmit,
   onFormChange,
   onCancel,
+  mobilePushEligible,
   pushSupported,
   pushPreferenceHelp,
 }) => {
@@ -302,18 +308,20 @@ const ProfileEditForm = ({
             <span>{t('profile.eventReminders')}</span>
           </label>
         </div>
-        <div className="form-group form-group-checkbox">
-          <label className="form-label form-label-checkbox">
-            <input
-              type="checkbox"
-              name="pushNotifications"
-              defaultChecked={preferences.pushNotifications === true}
-              disabled={!pushSupported}
-            />
-            <span>{t('profile.pushNotifications')}</span>
-          </label>
-          <p className="form-field-note">{pushPreferenceHelp}</p>
-        </div>
+        {mobilePushEligible && (
+          <div className="form-group form-group-checkbox">
+            <label className="form-label form-label-checkbox">
+              <input
+                type="checkbox"
+                name="pushNotifications"
+                defaultChecked={preferences.pushNotifications === true}
+                disabled={!pushSupported}
+              />
+              <span>{t('profile.pushNotifications')}</span>
+            </label>
+            <p className="form-field-note">{pushPreferenceHelp}</p>
+          </div>
+        )}
       </section>
 
       <div className="form-actions">
@@ -389,7 +397,7 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
@@ -402,10 +410,12 @@ const ProfilePreferencesSection = ({ preferences }) => {
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
       </div>
-      <div className="profile-detail-item">
-        <span className="detail-label">{t('profile.pushNotifications')}</span>
-        <span className="detail-value">{getPushPreferenceValue(preferences) ? t('common.on') : t('common.off')}</span>
-      </div>
+      {mobilePushEligible && (
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.pushNotifications')}</span>
+          <span className="detail-value">{getPushPreferenceValue(preferences) ? t('common.on') : t('common.off')}</span>
+        </div>
+      )}
     </section>
   )
 }
@@ -445,7 +455,7 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit }) => {
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible }) => {
   const { t } = useTranslation()
   return (
     <>
@@ -482,7 +492,7 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         </div>
       </section>
 
-      <ProfilePreferencesSection preferences={preferences} />
+      <ProfilePreferencesSection preferences={preferences} mobilePushEligible={mobilePushEligible} />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
 
@@ -507,6 +517,7 @@ const MemberProfile = () => {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [pushSupported, setPushSupported] = useState(true)
+  const [mobilePushEligible, setMobilePushEligible] = useState(isMobilePushEligible)
   const [pushPermission, setPushPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default')
   const avatarInputRef = useRef(null)
 
@@ -548,8 +559,10 @@ const MemberProfile = () => {
     let isActive = true
 
     const checkPushSupport = async () => {
+      const mobileEligible = isMobilePushEligible()
       const supported = await isPushSupported()
       if (!isActive) return
+      setMobilePushEligible(mobileEligible)
       setPushSupported(supported)
       setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
     }
@@ -582,9 +595,9 @@ const MemberProfile = () => {
     const formData = new FormData(e.target)
     const currentPushNotifications = getPushPreferenceValue(userProfile?.preferences)
     const pushInput = e.target.elements.namedItem('pushNotifications')
-    const desiredPushNotifications = pushInput?.disabled
+    const desiredPushNotifications = !pushInput || pushInput.disabled
       ? currentPushNotifications
-      : pushInput?.checked === true
+      : pushInput.checked
     const data = buildProfileUpdateData(formData, desiredPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
@@ -676,6 +689,7 @@ const MemberProfile = () => {
                 setIsEditing(false)
                 setHasUnsavedChanges(false)
               }}
+              mobilePushEligible={mobilePushEligible}
               pushSupported={pushSupported}
               pushPreferenceHelp={pushPreferenceHelp}
             />
@@ -688,6 +702,7 @@ const MemberProfile = () => {
               copiedAddress={copiedAddress}
               onCopyAddress={copyAddress}
               onEdit={() => setIsEditing(true)}
+              mobilePushEligible={mobilePushEligible}
             />
           )}
         </div>

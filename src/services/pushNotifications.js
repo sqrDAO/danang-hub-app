@@ -27,9 +27,23 @@ let pushFocusChannel = null
 const PUSH_FOCUS_CHANNEL = 'hub-push-focus'
 const PUSH_SHOW_LOCK = 'hub-push-foreground-show'
 const FOCUS_QUERY_MS = 40
+const MOBILE_PHONE_USER_AGENT = /android.+mobile|iphone|ipod|windows phone/i
+
+/**
+ * Browser push is intentionally limited to phones. UA Client Hints takes
+ * precedence when available; the fallback excludes iPad and Android tablets.
+ */
+export const isMobilePushEligible = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  if (typeof navigator.userAgentData?.mobile === 'boolean') {
+    return navigator.userAgentData.mobile
+  }
+  return MOBILE_PHONE_USER_AGENT.test(navigator.userAgent || '')
+}
 
 export const isPushSupported = async () => {
   if (typeof window === 'undefined') return false
+  if (!isMobilePushEligible()) return false
   if (!import.meta.env.PROD) return false
   if (!('Notification' in window) || !('serviceWorker' in navigator)) return false
   return isSupported()
