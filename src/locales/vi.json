@@ -225,7 +225,7 @@
     "pushNotifications": "Thông báo trên điện thoại này",
     "pushNotificationsHelp": "Nhận cập nhật booking và sự kiện trên điện thoại này.",
     "pushNotificationsGranted": "Đã bật thông báo trên điện thoại này.",
-    "pushNotificationsDenied": "Thông báo đẩy đang bị chặn trong trình duyệt này. Hãy đổi cài đặt trình duyệt hoặc trang web để bật lên.",
+    "pushNotificationsDenied": "Thông báo đang bị chặn trên điện thoại này. Hãy đổi cài đặt trình duyệt hoặc điện thoại để bật lên.",
     "pushNotificationsUnsupported": "Điện thoại này không hỗ trợ thông báo.",
     "saving": "Đang lưu…",
     "activity": "Hoạt động",

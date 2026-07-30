@@ -225,7 +225,7 @@
     "pushNotifications": "Notifications on this phone",
     "pushNotificationsHelp": "Get booking and event updates on this phone.",
     "pushNotificationsGranted": "Notifications are enabled on this phone.",
-    "pushNotificationsDenied": "Push notifications are blocked in this browser. Change your browser or site settings to enable them.",
+    "pushNotificationsDenied": "Notifications are blocked on this phone. Change your browser or phone settings to enable them.",
     "pushNotificationsUnsupported": "Notifications are not supported on this phone.",
     "saving": "Saving…",
     "activity": "Activity",
