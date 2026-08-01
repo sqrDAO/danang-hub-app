@@ -16,13 +16,15 @@ iPad, and Android-tablet sessions must neither be prompted nor able to enable it
 ## Acceptance
 - [x] Phone browsers remain eligible for the existing push flow.
 - [x] Desktop, iPad, and Android-tablet sessions cannot register a push token.
-- [x] Desktop, iPad, and Android-tablet Profile screens cannot enable push or see device status; an active singleton registration exposes only an explicit off switch.
+- [x] Desktop, iPad, and Android-tablet Profile screens cannot enable push notifications.
+- [x] Desktop, iPad, and Android-tablet Profile screens cannot see phone device push status.
+- [x] A non-phone session where push is already enabled shows an explicit opt-out control for the active singleton registration.
 - [x] Saving a Profile from a non-phone session preserves the existing push preference.
-- [x] Logging out on desktop or tablet preserves the registered phone token.
-- [x] A non-phone session with push already enabled can explicitly turn off the singleton phone registration.
+- [x] Automatic logout cleanup on non-phone sessions does not delete `push_tokens/{uid}` or clear the account push preference.
+- [x] Explicit opt-out from a non-phone session does delete the active singleton registration on `push_tokens/{uid}`.
 - [x] UA Client Hints and the user-agent fallback must both identify a phone before destructive logout cleanup runs.
 - [x] The push service owns the logout cleanup policy so every caller receives the same protection.
-- [x] NOT: reset or delete existing push tokens.
+- [x] NOT: reset or delete existing push tokens on automatic logout from any session type.
 - [x] NOT: change the single-token `push_tokens/{uid}` data model.
 
 ## Verify
