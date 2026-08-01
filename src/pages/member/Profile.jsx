@@ -166,6 +166,45 @@ const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
   )
 }
 
+const PushNotificationPreferenceField = ({
+  preferences,
+  mobilePushEligible,
+  pushSupported,
+  pushPreferenceHelp
+}) => {
+  const { t } = useTranslation()
+  if (mobilePushEligible) {
+    return (
+      <div className="form-group form-group-checkbox">
+        <label className="form-label form-label-checkbox">
+          <input
+            type="checkbox"
+            name="pushNotifications"
+            defaultChecked={preferences.pushNotifications === true}
+            disabled={!pushSupported}
+          />
+          <span>{t('profile.pushNotifications')}</span>
+        </label>
+        <p className="form-field-note">{pushPreferenceHelp}</p>
+      </div>
+    )
+  }
+  if (preferences.pushNotifications !== true) return null
+  return (
+    <div className="form-group form-group-checkbox">
+      <label className="form-label form-label-checkbox">
+        <input
+          type="checkbox"
+          name="pushNotifications"
+          defaultChecked
+        />
+        <span>{t('profile.pushNotificationsRegisteredPhone')}</span>
+      </label>
+      <p className="form-field-note">{t('profile.pushNotificationsRegisteredPhoneHelp')}</p>
+    </div>
+  )
+}
+
 const ProfileEditForm = ({
   userProfile,
   profileComplete,
@@ -308,20 +347,12 @@ const ProfileEditForm = ({
             <span>{t('profile.eventReminders')}</span>
           </label>
         </div>
-        {mobilePushEligible && (
-          <div className="form-group form-group-checkbox">
-            <label className="form-label form-label-checkbox">
-              <input
-                type="checkbox"
-                name="pushNotifications"
-                defaultChecked={preferences.pushNotifications === true}
-                disabled={!pushSupported}
-              />
-              <span>{t('profile.pushNotifications')}</span>
-            </label>
-            <p className="form-field-note">{pushPreferenceHelp}</p>
-          </div>
-        )}
+        <PushNotificationPreferenceField
+          preferences={preferences}
+          mobilePushEligible={mobilePushEligible}
+          pushSupported={pushSupported}
+          pushPreferenceHelp={pushPreferenceHelp}
+        />
       </section>
 
       <div className="form-actions">

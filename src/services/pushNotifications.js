@@ -3,6 +3,9 @@ import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'fir
 import app, { db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
 import { updateMemberPreferences } from './members'
+import { isMobilePushEligible } from '../utils/mobilePushEligibility'
+
+export { isMobilePushEligible } from '../utils/mobilePushEligibility'
 
 const PUSH_TOKENS_COLLECTION = 'push_tokens'
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
@@ -27,20 +30,6 @@ let pushFocusChannel = null
 const PUSH_FOCUS_CHANNEL = 'hub-push-focus'
 const PUSH_SHOW_LOCK = 'hub-push-foreground-show'
 const FOCUS_QUERY_MS = 40
-const MOBILE_PHONE_USER_AGENT = /android.+mobile|iphone|ipod|windows phone/i
-
-/**
- * Browser push is intentionally limited to phones. UA Client Hints takes
- * precedence when available; the fallback excludes iPad and Android tablets.
- */
-export const isMobilePushEligible = () => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
-  if (typeof navigator.userAgentData?.mobile === 'boolean') {
-    return navigator.userAgentData.mobile
-  }
-  return MOBILE_PHONE_USER_AGENT.test(navigator.userAgent || '')
-}
-
 export const isPushSupported = async () => {
   if (typeof window === 'undefined') return false
   if (!isMobilePushEligible()) return false
@@ -286,5 +275,7 @@ export const disablePushNotifications = async (uid) => {
 }
 
 export const disablePushNotificationsOnLogout = async (uid) => {
+  if (!isMobilePushEligible()) return false
   await disablePushNotifications(uid)
+  return true
 }
