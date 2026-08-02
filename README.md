@@ -341,6 +341,7 @@ functions/
 | `npm run dev` | Start dev server on port 3000 |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint (max-warnings 0) |
+| `npm test` | Node test runner over `test/*.test.js` (pure helpers only) |
 | `npm run preview` | Preview production build |
 | `firebase deploy` | Deploy Firestore rules, Storage rules, Functions |
 | `firebase deploy --only functions` | Deploy Cloud Functions only |
