@@ -185,7 +185,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `members` | owner or admin | owner create/update (**cannot change `membershipType`**); admin anything |
 | `amenities` | public | admin only |
 | `bookings` | owner or admin | owner create; owner update **only to keep status or set `cancelled`**; owner delete only while `pending`; admin anything |
-| `events` | public | organizer create own (**must be `pending`**); organizer update own **except `status`/`organizerId`/`approvedAt`/`rejectedAt`**; any member update when the diff touches **only `attendees`/`waitlist`**; organizer delete own; admin anything |
+| `events` | public | organizer create own (**must be `pending`**); organizer update own **except `status`/`organizerId`/`approvedAt`/`rejectedAt`**; any member update when the diff touches **only `attendees`/`waitlist`**; organizer delete own **only while `pending`**; admin anything |
 | `projects` | public | admin only |
 | `notifications` | owner | owner may update **only the `read` field**; create/delete only via Admin SDK (Cloud Functions) |
 
