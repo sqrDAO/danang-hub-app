@@ -522,6 +522,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
   }
 
   const handleCancelPlan = async (planGroupId) => {
+    if (isPendingFor(mutations.cancelPlanMutation, planGroupId)) return
     if (window.confirm(t('fixedDesk.confirmCancel'))) {
       await mutations.cancelPlanMutation.mutateAsync(planGroupId)
     }
