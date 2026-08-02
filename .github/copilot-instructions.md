@@ -24,7 +24,7 @@ No test suite currently exists.
 
 ## Architecture
 
-**Stack:** React 18 + Vite, React Router v6, TanStack React Query v5, Firebase (Auth/Firestore/Storage/Cloud Functions Node 22), Google Gemini AI, i18next (EN + VI).
+**Stack:** React 18 + Vite, React Router v6, TanStack React Query v5, Firebase (Auth/Firestore/Storage/Cloud Functions Node 22), i18next (EN + VI).
 
 ### Layered State Model
 
@@ -40,7 +40,6 @@ No test suite currently exists.
 - `bookings.js` — CRUD + conflict checking + recurring bookings
 - `events.js` — CRUD + attendee/waitlist management
 - `amenities.js`, `members.js`, `projects.js` — CRUD
-- `gemini.js` — Gemini agentic loop (max 10 iterations) with tool-calling
 - `functions.js` — Callable Cloud Function wrappers
 - `storage.js` — Firebase Storage
 - `walletAuth.js` — EVM (EIP-6963) + Solana (Wallet Standard) sign-in via Cloud Functions + custom token
@@ -49,7 +48,7 @@ No test suite currently exists.
 
 Every function lives in a single file; `README.md` holds the authoritative table.
 - `checkBookingConflicts` — callable, authenticated
-- `checkSlotAvailability` — callable, public (used by AI chatbot)
+- `checkSlotAvailability` — callable, public (public slot availability check)
 - `generateWalletNonce` / `verifyWalletSignature` — callables, public (wallet sign-in)
 - `sendBookingConfirmation` — Firestore `onCreate` on bookings
 - `autoApproveDeskBooking` — Firestore `onCreate` on bookings
@@ -124,4 +123,4 @@ Use the `Toast` system (`src/components/Toast.jsx`) for user-facing feedback —
 
 ### Environment
 
-Copy `.env.example` → `.env` and populate Firebase config. `VITE_GEMINI_API_KEY` is optional — omitting it disables the AI chatbot.
+Copy `.env.example` → `.env` and populate Firebase config.
