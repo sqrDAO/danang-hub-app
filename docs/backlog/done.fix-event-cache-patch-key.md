@@ -33,10 +33,10 @@ pages until a window refocus or remount. Patch the key the query actually uses.
 ## Verify
 - `npm run dev` → open `/member/events`, register for an approved event → attendee
   count and button update immediately in the "Upcoming Events" section, no refocus needed
-- same session → open `/member` (Dashboard) in a second tab, register in the first tab,
-  switch to the second tab → count reflects the change (React Query cache is shared
-  per browser session, so this should update on next render/refetch trigger, not require
-  a hard reload)
+- same tab → navigate from `/member/events` to `/member` (Dashboard) after registering →
+  the Dashboard's upcoming-events list reflects the change without a refetch (both read
+  the patched `['upcomingEvents', 'withPending']` entry in the same QueryClient; the cache
+  is per-tab — there is no cross-tab persister or broadcast plugin)
 - unregister and waitlist join/leave: repeat the same check for each
 - `npm run lint && npm run build` → green
 - regression: `['approvedEvents']`-only surfaces (e.g. registration eligibility checks)
