@@ -2,7 +2,7 @@
 **Phase**: — · **Deps**: —
 
 ## Decision required
-`sendEventReminders` (`functions/index.js:1064-1121`, hourly schedule) resolves the
+`sendEventReminders` (`functions/index.js:1123-1186`, hourly schedule) resolves the
 attendee list for events 24-25h out, filters by `preferences.eventReminders`, and then
 only `console.log`s a summary — it never emails or pushes anyone. `docs/knowledge/data-flow.md`
 already documents this as "actual sending is TODO (logs only)." This week's PR #47 deleted

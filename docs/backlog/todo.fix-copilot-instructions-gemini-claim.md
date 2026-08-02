@@ -10,10 +10,12 @@ repo. Remove the fabricated claims so Copilot sessions stop being told about a s
 that was never built.
 
 ## Files
-- `.github/copilot-instructions.md` (edited) — remove "Google Gemini AI" from the Stack
-  line (~line 20); remove the `gemini.js` bullet from the Service Layer list (~line 33);
-  change the `checkSlotAvailability` description (~line 34) to match README.md's actual
-  wording ("public availability check", not "used by AI chatbot").
+- `.github/copilot-instructions.md` (edited) — four references, all fabricated:
+  remove "Google Gemini AI" from the Stack line (line 27); delete the `gemini.js` bullet
+  from the Service Layer list (line 43); change the `checkSlotAvailability` description
+  (line 52) to match README.md's actual wording ("public availability check", not "used
+  by AI chatbot"); drop the `VITE_GEMINI_API_KEY` sentence from the Environment section
+  (line 127) — that variable is not in `.env.example` either.
 
 ## Acceptance
 - [ ] `.github/copilot-instructions.md` contains no reference to Gemini, generative AI, or a chatbot.
