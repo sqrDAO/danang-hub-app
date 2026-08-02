@@ -65,9 +65,17 @@ idempotent `arrayUnion`/`arrayRemove` and a refresh shows correct state.
 Why the 2026-07-26 emulator verification missed it: it measured request counts and watched
 the **event card**, which reads `['approvedEvents']` — the key that does patch correctly.
 
-Fix and remaining Acceptance are specified in `todo.fix-event-cache-patch-key.md`; this
+Fix and remaining Acceptance are specified in `done.fix-event-cache-patch-key.md`; this
 spec stays `todo.*` until that one lands. Re-verify bullets 1 and 2 against the Upcoming
 Events section and the Dashboard, not just the card.
+
+### Closed 2026-08-02
+
+`done.fix-event-cache-patch-key.md` landed in PR #59. `EVENT_LIST_KEYS`
+(`src/pages/member/Events.jsx:266`) is now `[['approvedEvents'], ['upcomingEvents',
+'withPending']]`, so `patchEventInCaches` reaches both lists, and the stale prefix-match
+comment (lines 189-192) was corrected in the same change. Acceptance bullets 1 and 2 hold
+for the Upcoming Events section and the Dashboard.
 
 ## Notes
 Low priority — pre-existing idiomatic invalidate-and-refetch, flagged for Firestore read cost (approved set downloaded twice per click; scales with event count). `setQueryData` must return new array/object references so React re-renders.
