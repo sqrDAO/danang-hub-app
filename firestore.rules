@@ -119,8 +119,14 @@ service cloud.firestore {
                          .hasOnly(['attendees', 'waitlist']);
       // Admins can update any event
       allow update: if isAdmin();
-      // Organizers can delete their own events
-      allow delete: if isAuthenticated() && isOwner(resource.data.organizerId);
+      // Organizers can delete their own events, but only while still pending.
+      // Mirrors the bookings rule above: once an event is approved it has
+      // attendees and a waitlist, and a bare deleteDoc would erase every
+      // registration with no notification and no recovery. The member UI only
+      // renders delete for pending events, but the rule is the enforcement
+      // layer — a direct client write must not get past this.
+      allow delete: if isAuthenticated() && isOwner(resource.data.organizerId) &&
+                       resource.data.status == 'pending';
       // Admins can delete any event
       allow delete: if isAdmin();
     }
