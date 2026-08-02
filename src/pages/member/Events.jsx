@@ -186,8 +186,10 @@ const runRedirectAction = (action, event, ctx) => {
 
 const useEventsQueries = (currentUser) => {
   // Approved plus the member's own pending requests. Distinct from the public
-  // ['upcomingEvents'] cache, but a prefix match of it, so the existing
-  // invalidate('upcomingEvents') calls still refresh both.
+  // ['upcomingEvents'] cache, but a prefix match of it, so invalidate()
+  // (fuzzy, exact: false) refreshes both. setQueryData is NOT fuzzy — it
+  // hashes the whole key array — so patchEventInCaches must name this key in
+  // full. See EVENT_LIST_KEYS.
   const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
     queryKey: ['upcomingEvents', 'withPending'],
     queryFn: () => getUpcomingEvents({ includePending: true }),
@@ -257,7 +259,11 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
 }
 
 // Caches holding the full event objects a register/waitlist click can change.
-const EVENT_LIST_KEYS = ['approvedEvents', 'upcomingEvents']
+// Full key arrays, not prefixes: setQueryData matches the hashed key exactly,
+// so ['upcomingEvents'] would write an entry no query subscribes to. These must
+// stay in sync with the queryKey of every live list showing these events —
+// currently useEventsQueries above and member/Dashboard.jsx.
+const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents', 'withPending']]
 
 const withMember = (list, memberId) =>
   (list || []).includes(memberId) ? (list || []) : [...(list || []), memberId]
@@ -272,7 +278,7 @@ const withoutMember = (list, memberId) =>
 // nothing re-renders.
 const patchEventInCaches = (queryClient, eventId, patch) => {
   EVENT_LIST_KEYS.forEach(key => {
-    queryClient.setQueryData([key], events => {
+    queryClient.setQueryData(key, events => {
       if (!Array.isArray(events)) return events
       let matched = false
       const next = events.map(event => {
