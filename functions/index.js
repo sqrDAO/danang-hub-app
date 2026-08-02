@@ -1184,13 +1184,26 @@ function buildReminderMessages(segment, ctx) {
         body: `Bạn đang ở vị trí #${position} trong danh sách chờ ${title}.`},
     };
   }
+  // A full event has no spots to advertise — point at the waitlist instead,
+  // or the copy contradicts itself ("spots open ... 50 of 50 spots taken").
+  if (capacity && taken >= capacity) {
+    return {
+      en: {title: "Event tomorrow — waitlist open",
+        body: `${title} starts tomorrow at ${time}. ` +
+          `All ${capacity} spots are taken — join the waitlist.`},
+      vi: {title: "Sự kiện ngày mai — còn danh sách chờ",
+        body: `${title} bắt đầu vào ngày mai lúc ${time}. ` +
+          `Đã kín ${capacity} chỗ — tham gia danh sách chờ.`},
+    };
+  }
   const spotsEn = capacity ? ` ${taken} of ${capacity} spots taken.` : "";
   const spotsVi = capacity ? ` Đã nhận ${taken}/${capacity} chỗ.` : "";
   return {
     en: {title: "Event tomorrow — spots open",
-      body: `${title} starts tomorrow at ${time}.${spotsEn}`},
+      body: `${title} starts tomorrow at ${time}.${spotsEn} Register now.`},
     vi: {title: "Sự kiện ngày mai — còn chỗ",
-      body: `${title} bắt đầu vào ngày mai lúc ${time}.${spotsVi}`},
+      body: `${title} bắt đầu vào ngày mai lúc ${time}.` +
+        `${spotsVi} Đăng ký ngay.`},
   };
 }
 

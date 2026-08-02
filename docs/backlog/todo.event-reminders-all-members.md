@@ -27,6 +27,7 @@ to sign up or join the waitlist.
 - [ ] A member in `waitlist` gets copy naming their 1-based waitlist position.
 - [ ] Every other member gets copy naming spots taken vs capacity and inviting them to join.
 - [ ] A member at an event already at capacity is still notified, with waitlist-oriented copy.
+- [ ] Full-event copy never claims spots are open, on either channel or in either locale.
 - [ ] Members with `preferences.eventReminders === false` get nothing on any channel.
 - [ ] Only `status === 'approved'` events produce reminders.
 - [ ] Re-running the schedule for the same event delivers nothing a second time.
@@ -45,7 +46,9 @@ to sign up or join the waitlist.
   notifications, none for the opted-out member
 - emulator: run the schedule twice → second run creates no new `notifications` docs
 - emulator: seed a `pending` and a `rejected` event in the same window → no notifications
-- emulator: seed an event with `attendees.length >= capacity` → non-attendees still notified
+- emulator: seed an event with `attendees.length >= capacity` → non-attendees still notified,
+  and the notification carries `attendeeCount >= capacity` (the flag both the push builder
+  and the bell branch on) — assert the copy, not just that a notification arrived
 - i18n parity: `en.json`/`vi.json` key sets identical
 - regression: `autoCheckoutExpiredBookings`, `cleanupPushNotificationMarkers` and
   `autoPromoteWaitlist` unchanged

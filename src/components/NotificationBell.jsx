@@ -68,7 +68,12 @@ const getBookingApprovedCopy = (notification, t) => ({
 })
 
 // Reminder copy depends on the recipient's relationship to the event, which
-// the function stamps onto the notification as `segment`.
+// the function stamps onto the notification as `segment`. A non-attendee at a
+// full event is pointed at the waitlist rather than told spots are open.
+const isEventFullForReminder = (notification) => (
+  !!notification.capacity && notification.attendeeCount >= notification.capacity
+)
+
 const getEventReminderBody = (notification, t) => {
   if (notification.segment === 'waitlisted') {
     return t('notifications.eventReminderWaitlistedBody', {
@@ -77,7 +82,10 @@ const getEventReminderBody = (notification, t) => {
     })
   }
   if (notification.segment === 'other' && notification.capacity) {
-    return t('notifications.eventReminderOpenBody', {
+    const key = isEventFullForReminder(notification)
+      ? 'notifications.eventReminderFullBody'
+      : 'notifications.eventReminderOpenBody'
+    return t(key, {
       title: notification.eventTitle,
       time: notification.eventTime,
       taken: notification.attendeeCount,
@@ -90,10 +98,15 @@ const getEventReminderBody = (notification, t) => {
   })
 }
 
+const getEventReminderTitle = (notification, t) => {
+  if (notification.segment !== 'other') return t('notifications.eventReminderTitle')
+  return isEventFullForReminder(notification)
+    ? t('notifications.eventReminderFullTitle')
+    : t('notifications.eventReminderOpenTitle')
+}
+
 const getEventReminderCopy = (notification, t) => ({
-  title: notification.segment === 'other'
-    ? t('notifications.eventReminderOpenTitle')
-    : t('notifications.eventReminderTitle'),
+  title: getEventReminderTitle(notification, t),
   body: getEventReminderBody(notification, t)
 })
 
