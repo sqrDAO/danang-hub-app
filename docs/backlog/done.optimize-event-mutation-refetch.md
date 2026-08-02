@@ -41,33 +41,33 @@ account.
 ### Reopened 2026-08-02 — Acceptance not met (finding M-1, 2026-07-27 weekly review)
 
 Shipped in PR #50, renamed `done.*` in PR #55, reopened the same day. The read-cost win
-above is real and unaffected; the **cache patch reaches only one of the two lists it
-targets**, so Acceptance bullets 1 and 2 are false for the second one.
+above is real and unaffected; the **cache patch reached only one of the two lists it
+targets**, so Acceptance bullets 1 and 2 were false for the second one.
 
-`patchEventInCaches` (line ~272) calls `queryClient.setQueryData([key], …)` for each of
+`patchEventInCaches` (line ~272) called `queryClient.setQueryData([key], …)` for each of
 `EVENT_LIST_KEYS = ['approvedEvents', 'upcomingEvents']` (line 260). But this page's
-Upcoming Events list subscribes to `['upcomingEvents', 'withPending']` (line 192), and so
-does `src/pages/member/Dashboard.jsx`. `setQueryData` hashes the **full key array** and
-matches exactly — unlike `invalidateQueries`, whose default `exact: false` prefix match
-covered both keys before PR #50 replaced those calls. The patch writes a cache entry under
-the literal `['upcomingEvents']` that no active query reads.
-
-The comment at lines 189-190 still claims a prefix match covers this. It described the
-pre-#50 `invalidate` calls correctly and was not updated when they were replaced —
-correct it in the same change.
+Upcoming Events list subscribes to `['upcomingEvents', 'withPending']` (line 192), as does
+`src/pages/member/Dashboard.jsx`. `setQueryData` hashes the **full key array** and matches
+exactly — unlike `invalidateQueries`, whose default `exact: false` prefix match covered
+both keys before PR #50 replaced those calls. The patch wrote a cache entry under the
+literal `['upcomingEvents']` that no active query read, and the comment at lines 189-190
+still claimed a prefix match covered it.
 
 Concrete failure: register for an approved event, get the success toast, and the button
 still reads "Register for Event" with a stale attendee count in the Upcoming Events
 section (and on `/member` Dashboard) until a window refocus or remount. Same for
 unregister and waitlist join/leave. Not a data-integrity issue — the write is an
-idempotent `arrayUnion`/`arrayRemove` and a refresh shows correct state.
+idempotent `arrayUnion`/`arrayRemove`. The 2026-07-26 emulator verification missed it
+because it measured request counts and watched the **event card**, which reads
+`['approvedEvents']` — the key that did patch correctly.
 
-Why the 2026-07-26 emulator verification missed it: it measured request counts and watched
-the **event card**, which reads `['approvedEvents']` — the key that does patch correctly.
+### Closed 2026-08-02
 
-Fix and remaining Acceptance are specified in `todo.fix-event-cache-patch-key.md`; this
-spec stays `todo.*` until that one lands. Re-verify bullets 1 and 2 against the Upcoming
-Events section and the Dashboard, not just the card.
+`done.fix-event-cache-patch-key.md` landed in PR #59. `EVENT_LIST_KEYS`
+(`src/pages/member/Events.jsx:266`) is now `[['approvedEvents'], ['upcomingEvents',
+'withPending']]`, so `patchEventInCaches` reaches both lists, and the stale prefix-match
+comment (lines 189-192) was corrected in the same change. Acceptance bullets 1 and 2 hold
+for the Upcoming Events section and the Dashboard.
 
 ## Notes
 Low priority — pre-existing idiomatic invalidate-and-refetch, flagged for Firestore read cost (approved set downloaded twice per click; scales with event count). `setQueryData` must return new array/object references so React re-renders.

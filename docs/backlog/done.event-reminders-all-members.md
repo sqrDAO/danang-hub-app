@@ -25,7 +25,7 @@ to sign up or join the waitlist.
 ## Acceptance
 - [ ] A member already in `attendees` gets reminder copy with no call to register.
 - [ ] A member in `waitlist` gets copy naming their 1-based waitlist position.
-- [ ] Every other member gets copy naming spots taken vs capacity and inviting them to join.
+- [ ] Every other member, while spots remain, gets copy naming spots taken vs capacity and inviting them to join.
 - [ ] A member at an event already at capacity is still notified, with waitlist-oriented copy.
 - [ ] Full-event copy never claims spots are open, on either channel or in either locale.
 - [ ] Members with `preferences.eventReminders === false` get nothing on any channel.
@@ -60,8 +60,8 @@ Option A (delete, matching PR #47's precedent) was rejected.
 
 Dedupe is free: `createNotificationIfAbsent` builds the id `${type}_${uid}_${eventId}` and
 `reservePushRecipient` uses the same shape, so one member gets at most one reminder per
-event however often the schedule reruns. Each event enters the 24–25h window exactly once
-anyway; the markers guard retries and overlapping runs.
+event however often the schedule reruns. The 24–25h bounds are inclusive on both ends, so
+consecutive hourly runs can overlap on an event; the markers make that — and retries — idempotent.
 
 **Status is filtered in memory, not in the query.** Adding `.where('status','==','approved')`
 to the existing date range needs a composite `(status ASC, date ASC)` index — the one in
@@ -70,4 +70,6 @@ manual-as-owner (CI lacks `datastore.indexes.*`), so a query-only change would f
 until someone deployed by hand. Events in a one-hour window are 0–2; the filter is free.
 
 `sendPushToMembers` takes one message pair per call and groups recipients by locale
-internally, so segmented copy means three calls, not a per-recipient loop.
+internally, so the attendee and other segments each go out as a single batched call.
+Waitlisted members are the exception: `waitlistPosition` differs per recipient, so their
+push is sent one call per member.

@@ -17,7 +17,7 @@ exFAT/SMB volume. Make the command work and the docs true.
 
 ## Acceptance
 - [ ] `npm test` exits 0 on a working tree containing `test/._*.test.js` sidecar files.
-- [ ] `npm test` still runs `test/mobilePushEligibility.test.js` (4 passing assertions).
+- [ ] `npm test` still runs `test/mobilePushEligibility.test.js` (4 passing tests).
 - [ ] No *current-state* doc claims the project has no test suite (`CLAUDE.md`, `README.md`, `.github/copilot-instructions.md`).
 - [ ] `README.md`'s Commands table lists `npm test`.
 - [ ] `CLAUDE.md`'s Checks section lists `npm test` alongside lint and build.
