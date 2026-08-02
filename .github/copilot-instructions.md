@@ -20,7 +20,9 @@ npm run serve        # Start functions emulator only
 npm run logs         # Tail function logs
 ```
 
-No test suite currently exists.
+`npm test` runs node's built-in test runner over `test/*.test.js`. It covers pure helpers
+only — there is no component, integration, or Firestore-rules coverage, so a green run does
+not mean a change is verified. Check behavior against the dev server or the emulators too.
 
 ## Architecture
 

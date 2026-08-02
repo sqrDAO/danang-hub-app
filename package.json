@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "test": "node --test $(find test -name '*.test.js')",
+    "test": "node --test $(find test -name '*.test.js' -not -name '._*')",
     "preview": "vite preview"
   },
   "dependencies": {

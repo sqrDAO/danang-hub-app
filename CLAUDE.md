@@ -15,7 +15,8 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 - `firebase deploy --only functions|firestore:rules|storage` — partial deploys
 - `firebase emulators:start` — local emulators (client opts in via `VITE_USE_EMULATORS=true`)
 - `firebase functions:log` — live function logs
-- No test suite. Verify via dev server or emulators; for functions, `cd functions && npm run serve`.
+- `npm test` — `node --test` over `test/*.test.js` (thin: pure helpers only, no component or Firestore coverage)
+- Behavioral verification is still manual: dev server or emulators; for functions, `cd functions && npm run serve`.
 
 ## Architecture (non-obvious)
 
@@ -44,7 +45,8 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 - `npm run lint` — eslint (warning ratchet, see below)
 - `npm run build` — vite production build (catches import/JSX errors; closest thing to CI)
 - `cd functions && npm run lint` — functions are linted separately (Google style, build-blocking on deploy)
-- No test suite. Verify behavior in `npm run dev` or `firebase emulators:start`.
+- `npm test` — node's built-in runner over `test/*.test.js`
+- The suite covers pure helpers only, so it proves little on its own — still verify behavior in `npm run dev` or `firebase emulators:start`.
 
 ### Clean-code caps (`.eslintrc.cjs`, scoped to `src/**`)
 
