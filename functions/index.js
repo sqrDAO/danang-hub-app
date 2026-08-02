@@ -1120,8 +1120,150 @@ exports.cleanupPushNotificationMarkers = onSchedule(
       }
     });
 
-// Send event reminders (respects member preferences.eventReminders). Delivery
-// is still a TODO; this keeps the existing scheduled reminder scan in place.
+/**
+ * Formats an event start as a hub-timezone 24h clock time (e.g. "18:00").
+ * @param {*} date Firestore Timestamp, Date, or date-like value
+ * @return {string} HH:mm in Asia/Ho_Chi_Minh, or "" when unparseable
+ */
+function formatHubTime(date) {
+  const asDate = date && typeof date.toDate === "function" ?
+    date.toDate() :
+    new Date(date);
+  if (Number.isNaN(asDate.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: HUB_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(asDate);
+}
+
+/**
+ * Splits members into reminder segments for one event. Members who opted out
+ * via preferences.eventReminders are dropped entirely.
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} memberDocs Members
+ * @param {Array<string>} attendees Event attendee uids
+ * @param {Array<string>} waitlist Event waitlist uids (order is position)
+ * @return {Object} {attendee, waitlisted, other} arrays of member docs
+ */
+function segmentReminderRecipients(memberDocs, attendees, waitlist) {
+  const attendeeSet = new Set(attendees);
+  const waitlistSet = new Set(waitlist);
+  const segments = {attendee: [], waitlisted: [], other: []};
+  memberDocs.forEach((doc) => {
+    const prefs = doc.data().preferences || {};
+    if (prefs.eventReminders === false) return;
+    if (attendeeSet.has(doc.id)) segments.attendee.push(doc);
+    else if (waitlistSet.has(doc.id)) segments.waitlisted.push(doc);
+    else segments.other.push(doc);
+  });
+  return segments;
+}
+
+/**
+ * Builds the localized push copy for one segment of one event.
+ * @param {string} segment "attendee" | "waitlisted" | "other"
+ * @param {Object} ctx {title, time, taken, capacity, position}
+ * @return {Object} Locale-keyed {title, body} map
+ */
+function buildReminderMessages(segment, ctx) {
+  const {title, time, taken, capacity, position} = ctx;
+  if (segment === "attendee") {
+    return {
+      en: {title: "Event tomorrow",
+        body: `${title} starts tomorrow at ${time}.`},
+      vi: {title: "Sự kiện ngày mai",
+        body: `${title} bắt đầu vào ngày mai lúc ${time}.`},
+    };
+  }
+  if (segment === "waitlisted") {
+    return {
+      en: {title: "Event tomorrow",
+        body: `You're #${position} on the waitlist for ${title}.`},
+      vi: {title: "Sự kiện ngày mai",
+        body: `Bạn đang ở vị trí #${position} trong danh sách chờ ${title}.`},
+    };
+  }
+  // A full event has no spots to advertise — point at the waitlist instead,
+  // or the copy contradicts itself ("spots open ... 50 of 50 spots taken").
+  if (capacity && taken >= capacity) {
+    return {
+      en: {title: "Event tomorrow — waitlist open",
+        body: `${title} starts tomorrow at ${time}. ` +
+          `All ${capacity} spots are taken — join the waitlist.`},
+      vi: {title: "Sự kiện ngày mai — còn danh sách chờ",
+        body: `${title} bắt đầu vào ngày mai lúc ${time}. ` +
+          `Đã kín ${capacity} chỗ — tham gia danh sách chờ.`},
+    };
+  }
+  const spotsEn = capacity ? ` ${taken} of ${capacity} spots taken.` : "";
+  const spotsVi = capacity ? ` Đã nhận ${taken}/${capacity} chỗ.` : "";
+  return {
+    en: {title: "Event tomorrow — spots open",
+      body: `${title} starts tomorrow at ${time}.${spotsEn} Register now.`},
+    vi: {title: "Sự kiện ngày mai — còn chỗ",
+      body: `${title} bắt đầu vào ngày mai lúc ${time}.` +
+        `${spotsVi} Đăng ký ngay.`},
+  };
+}
+
+/**
+ * Delivers in-app + push reminders to one segment for one event.
+ * @param {string} segment "attendee" | "waitlisted" | "other"
+ * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} docs Segment members
+ * @param {Object} ctx {eventId, title, time, taken, capacity, waitlist}
+ * @return {Promise<number>} Count of members newly notified in-app
+ */
+async function deliverReminderSegment(segment, docs, ctx) {
+  if (!docs.length) return 0;
+  const created = await Promise.all(docs.map((doc) => {
+    const position = segment === "waitlisted" ?
+      ctx.waitlist.indexOf(doc.id) + 1 :
+      null;
+    return createNotificationIfAbsent(doc.id, "event_reminder", ctx.eventId, {
+      eventId: ctx.eventId,
+      eventTitle: ctx.title,
+      eventTime: ctx.time,
+      segment,
+      attendeeCount: ctx.taken,
+      capacity: ctx.capacity || null,
+      waitlistPosition: position,
+      link: "/member/events",
+    });
+  }));
+
+  // Push copy differs per segment, and a waitlisted member's position differs
+  // per member, so waitlisted push is sent one member at a time. The other two
+  // segments share copy and go out as a single locale-grouped batch each.
+  try {
+    if (segment === "waitlisted") {
+      for (const doc of docs) {
+        await sendPushToMembers([doc], {
+          messages: buildReminderMessages(segment, {
+            ...ctx, position: ctx.waitlist.indexOf(doc.id) + 1,
+          }),
+          link: "/member/events",
+          type: "event_reminder",
+          subjectId: ctx.eventId,
+        });
+      }
+    } else {
+      await sendPushToMembers(docs, {
+        messages: buildReminderMessages(segment, ctx),
+        link: "/member/events",
+        type: "event_reminder",
+        subjectId: ctx.eventId,
+      });
+    }
+  } catch (pushError) {
+    console.error("Error sending event reminder push:", pushError);
+  }
+  return created.filter(Boolean).length;
+}
+
+// Remind every member about approved events starting in ~24h, so people who
+// have not registered still hear about it in time to join or waitlist.
+// Members who set preferences.eventReminders = false are excluded.
 exports.sendEventReminders = onSchedule(
     "every 1 hours",
     async () => {
@@ -1134,50 +1276,58 @@ exports.sendEventReminders = onSchedule(
             now.toMillis() + 25 * 60 * 60 * 1000,
         );
 
+        // Status is filtered below rather than in the query: adding an
+        // equality on `status` to this range needs a composite
+        // (status ASC, date ASC) index, and firestore.indexes.json only has
+        // (status ASC, date DESC). Index deploys are manual-as-owner, so a
+        // query-only change would fail in prod until someone deployed it.
         const upcomingEvents = await db.collection("events")
             .where("date", ">=", in24Hours)
             .where("date", "<=", in25Hours)
             .get();
 
-        let reminderCount = 0;
-
-        for (const eventDoc of upcomingEvents.docs) {
-          const eventData = eventDoc.data();
-          const attendees = eventData.attendees || [];
-          const waitlist = eventData.waitlist || [];
-
-          const uniqueAttendeeIds = [...new Set(attendees)];
-          const membersToRemind = [];
-          if (uniqueAttendeeIds.length > 0) {
-            const memberRefs = uniqueAttendeeIds.map((id) =>
-              db.collection("members").doc(id));
-            const memberDocs = await db.getAll(...memberRefs);
-            for (const memberDoc of memberDocs) {
-              const member = memberDoc.exists ? memberDoc.data() : null;
-              const prefs = (member && member.preferences) || {};
-              if (prefs.eventReminders !== false) {
-                membersToRemind.push({
-                  memberId: memberDoc.id,
-                  email: member && member.email ? member.email : null,
-                  displayName: member && member.displayName ?
-                    member.displayName : null,
-                });
-              }
-            }
-          }
-
-          console.log(`Event reminder for ${eventData.title}:`, {
-            eventId: eventDoc.id,
-            attendees: attendees.length,
-            membersToRemind: membersToRemind.length,
-            waitlist: waitlist.length,
-            date: eventData.date,
-          });
-
-          reminderCount++;
+        const approved = upcomingEvents.docs
+            .filter((doc) => doc.data().status === "approved");
+        if (!approved.length) {
+          console.log("No approved events in the reminder window");
+          return null;
         }
 
-        console.log(`Sent ${reminderCount} event reminders`);
+        const memberDocs = (await db.collection("members").get()).docs;
+        let notifiedCount = 0;
+
+        for (const eventDoc of approved) {
+          const eventData = eventDoc.data();
+          const attendees = [...new Set(eventData.attendees || [])];
+          const waitlist = [...new Set(eventData.waitlist || [])];
+          const ctx = {
+            eventId: eventDoc.id,
+            title: eventData.title || eventData.name || "",
+            time: formatHubTime(eventData.date),
+            taken: attendees.length,
+            capacity: eventData.capacity || null,
+            waitlist,
+          };
+
+          const segments = segmentReminderRecipients(
+              memberDocs, attendees, waitlist,
+          );
+          for (const segment of ["attendee", "waitlisted", "other"]) {
+            notifiedCount += await deliverReminderSegment(
+                segment, segments[segment], ctx,
+            );
+          }
+
+          console.log(`Event reminder sent for ${ctx.title}`, {
+            eventId: ctx.eventId,
+            attendees: segments.attendee.length,
+            waitlisted: segments.waitlisted.length,
+            other: segments.other.length,
+          });
+        }
+
+        console.log(`Reminded ${notifiedCount} members across ` +
+          `${approved.length} events`);
         return null;
       } catch (error) {
         console.error("Error sending event reminders:", error);

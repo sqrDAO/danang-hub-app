@@ -67,6 +67,49 @@ const getBookingApprovedCopy = (notification, t) => ({
   body: getBookingApprovedBody(notification, t)
 })
 
+// Reminder copy depends on the recipient's relationship to the event, which
+// the function stamps onto the notification as `segment`. A non-attendee at a
+// full event is pointed at the waitlist rather than told spots are open.
+const isEventFullForReminder = (notification) => (
+  !!notification.capacity && notification.attendeeCount >= notification.capacity
+)
+
+const getEventReminderBody = (notification, t) => {
+  if (notification.segment === 'waitlisted') {
+    return t('notifications.eventReminderWaitlistedBody', {
+      position: notification.waitlistPosition,
+      title: notification.eventTitle
+    })
+  }
+  if (notification.segment === 'other' && notification.capacity) {
+    const key = isEventFullForReminder(notification)
+      ? 'notifications.eventReminderFullBody'
+      : 'notifications.eventReminderOpenBody'
+    return t(key, {
+      title: notification.eventTitle,
+      time: notification.eventTime,
+      taken: notification.attendeeCount,
+      capacity: notification.capacity
+    })
+  }
+  return t('notifications.eventReminderBody', {
+    title: notification.eventTitle,
+    time: notification.eventTime
+  })
+}
+
+const getEventReminderTitle = (notification, t) => {
+  if (notification.segment !== 'other') return t('notifications.eventReminderTitle')
+  return isEventFullForReminder(notification)
+    ? t('notifications.eventReminderFullTitle')
+    : t('notifications.eventReminderOpenTitle')
+}
+
+const getEventReminderCopy = (notification, t) => ({
+  title: getEventReminderTitle(notification, t),
+  body: getEventReminderBody(notification, t)
+})
+
 const getDefaultNotificationCopy = (t) => ({
   title: t('notifications.defaultTitle'),
   body: t('notifications.defaultBody')
@@ -76,7 +119,8 @@ const NOTIFICATION_COPY_BY_TYPE = {
   event_status: getEventStatusCopy,
   event_pending_review: getEventPendingReviewCopy,
   booking_pending_review: getBookingPendingReviewCopy,
-  booking_approved: getBookingApprovedCopy
+  booking_approved: getBookingApprovedCopy,
+  event_reminder: getEventReminderCopy
 }
 
 const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
@@ -107,7 +151,8 @@ const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
   event_pending_review: '/admin/events',
   booking_pending_review: '/admin/bookings',
   booking_approved: '/member/bookings',
-  event_status: '/member/events'
+  event_status: '/member/events',
+  event_reminder: '/member/events'
 }
 
 const getNotificationPath = (notification) => (

@@ -143,9 +143,14 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
 - **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
   and the waitlist is non-empty, promotes FIFO up to the free spots. Manual equivalent:
   `promoteFromWaitlist()` in the service.
-- **`sendEventReminders`** (hourly) — finds events 24–25h out, batch-resolves attendees
-  with `db.getAll`, filters by `preferences.eventReminders` — but actual sending is TODO
-  (logs only).
+- **`sendEventReminders`** (hourly) — finds **approved** events 24–25h out (status is
+  filtered in memory; the range query would otherwise need a composite index CI cannot
+  deploy), then notifies **every** member except those with
+  `preferences.eventReminders === false`. Members are split into attendee / waitlisted /
+  other and each segment gets its own copy, so non-attendees are invited to register or
+  waitlist rather than "reminded" about something they never joined. In-app via
+  `createNotificationIfAbsent` plus browser push via `sendPushToMembers`; both key their
+  dedupe on `event_reminder` + uid + eventId, so reruns deliver nothing twice.
 - **Event-space hours** are validated client-side by `validateEventSpaceTime()`
   (`src/services/amenities.js`): weekdays from 18:00, weekends from 9:00, all days end
   22:00 (`EVENT_SPACE_AVAILABILITY`).
@@ -172,7 +177,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
-| `sendEventReminders` | schedule, hourly | Resolve upcoming event reminder recipients (log-only delivery stub) |
+| `sendEventReminders` | schedule, hourly | All-member reminder for approved events ~24h out (in-app + push, segmented copy) |
 
 ---
 
