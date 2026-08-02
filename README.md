@@ -230,7 +230,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests and sends review push for opted-in admins |
 | `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications, optional email, and status push for opted-in organizers when an event is approved or rejected |
 | `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
-| `sendEventReminders` | Scheduled (hourly) | Resolves upcoming event reminder recipients and logs delivery details |
+| `sendEventReminders` | Scheduled (hourly) | Reminds every member about approved events ~24h out (in-app + push), with copy per attendee/waitlisted/other |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
 
 **IAM note for wallet sign-in** — `createCustomToken` requires the `serviceAccountTokenCreator` role:
