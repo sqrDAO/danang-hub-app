@@ -55,16 +55,18 @@ const getCandidateState = (cell, startMs, endMs, cells, status) => {
   )
 }
 
-const getSingleCellCandidateState = (cell, cells) => {
-  const isAvailable = isRangeAvailable(cell.startMs, cell.endMs, cells)
+const getUnhighlightedCandidateState = (cell, startMs, endMs, cells) => {
+  const isAvailable = isRangeAvailable(startMs, endMs, cells)
   return rangeState(
-    isAvailable ? 'range-start-candidate' : 'range-blocked',
-    isAvailable ? { startMs: cell.startMs, endMs: cell.endMs } : null
+    isAvailable ? 'available' : 'range-blocked',
+    isAvailable ? { startMs, endMs } : null
   )
 }
 
 const getSelectedCellState = (cell, selection, cells) => {
   const { startMs, endMs } = selection
+  const startCell = cells.find(candidate => candidate.startMs === startMs)
+  const isSingleCellSelection = startCell?.endMs === endMs
 
   if (cell.startMs === startMs && cell.endMs === endMs) {
     return rangeState('range-single', { startMs: null, endMs: null })
@@ -75,7 +77,6 @@ const getSelectedCellState = (cell, selection, cells) => {
   }
 
   if (cell.endMs === endMs) {
-    const startCell = cells.find(candidate => candidate.startMs === startMs)
     return rangeState('range-end', {
       startMs,
       endMs: startCell?.endMs ?? startMs,
@@ -83,14 +84,16 @@ const getSelectedCellState = (cell, selection, cells) => {
   }
 
   if (cell.endMs <= startMs) {
-    return getSingleCellCandidateState(cell, cells)
+    return getDefaultCellState(cell)
   }
 
   if (cell.startMs < endMs) {
     return rangeState('range-selected', { startMs, endMs: cell.endMs })
   }
 
-  return getCandidateState(cell, startMs, cell.endMs, cells, 'range-end-candidate')
+  return isSingleCellSelection
+    ? getCandidateState(cell, startMs, cell.endMs, cells, 'range-end-candidate')
+    : getUnhighlightedCandidateState(cell, startMs, cell.endMs, cells)
 }
 
 export const getCellState = (cell, selection, cells) => {

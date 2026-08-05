@@ -740,6 +740,7 @@ const BookingRangeStatus = ({ form, handlers, t, locale }) => {
 const BookingStepCalendar = ({ form, handlers }) => (
   <div className="booking-step booking-range-step">
     <BookingCalendar
+      className="booking-calendar--compact"
       amenity={form.selectedAmenity}
       onRangeChange={handlers.handleRangeChange}
       selectedStartTime={form.selectedStartTime}
@@ -1126,6 +1127,7 @@ const MemberBookings = () => {
         <Modal
           isOpen={form.isModalOpen}
           onClose={form.resetBookingForm}
+          className="booking-modal"
           title={
             form.selectedAmenity
               ? t('memberBookings.modal.titleWithAmenity', { name: form.selectedAmenity.name })

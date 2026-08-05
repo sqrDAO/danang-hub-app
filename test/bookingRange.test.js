@@ -38,7 +38,7 @@ test('a later cell expands the range while an earlier cell resets it to 30 minut
   assert.deepEqual(
     getCellState(cells[0], { startMs: at(9, 30), endMs: at(10) }, cells),
     {
-      status: 'range-start-candidate',
+      status: 'available',
       nextRange: { startMs: at(9), endMs: at(9, 30) },
     }
   )
@@ -61,11 +61,11 @@ test('a complete range can be cleared, shortened, extended, or reset to an earli
     nextRange: { startMs: at(9), endMs: at(9, 30) },
   })
   assert.deepEqual(getCellState(cells[0], selection, cells), {
-    status: 'range-start-candidate',
+    status: 'available',
     nextRange: { startMs: at(8, 30), endMs: at(9) },
   })
   assert.deepEqual(getCellState(cells[4], selection, cells), {
-    status: 'range-end-candidate',
+    status: 'available',
     nextRange: { startMs: at(9), endMs: at(11) },
   })
 })

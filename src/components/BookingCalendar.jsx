@@ -22,6 +22,8 @@ const CLICKABLE_CELL_STATUSES = new Set([
 // separate configuration and must not turn the visual time grid into points.
 const CALENDAR_CELL_MINUTES = 30
 
+const ACTIVE_BOOKING_STATUSES = new Set(['pending', 'approved', 'checked-in'])
+
 const CELL_TITLE_KEYS = {
   booked: 'calendar.booked',
   past: 'calendar.past',
@@ -35,20 +37,20 @@ const CELL_TITLE_KEYS = {
   unavailable: 'calendar.closed',
 }
 
-const CELL_MARKER_KEYS = {
-  'range-end': 'calendar.endMarker',
-  'range-single': 'calendar.singleMarker',
-  'range-start': 'calendar.startMarker',
+const TIME_ROW_SIZES = {
+  cell: 'var(--calendar-cell-height)',
+  'cell-gap': 'var(--calendar-cell-gap)',
+  'hour-guide': 'var(--calendar-guide-row-height)',
 }
 
-const TimeCell = ({ cell, onSelect, style }) => {
+const TimeCell = ({ cell, onSelect, gridStyle }) => {
   const clickable = CLICKABLE_CELL_STATUSES.has(cell.status)
 
   return (
     <button
       type="button"
       className={`time-slot ${cell.status}`}
-      style={style}
+      style={gridStyle}
       onClick={clickable ? () => onSelect(cell.nextRange) : undefined}
       disabled={!clickable}
       title={cell.title}
@@ -64,25 +66,43 @@ const getCellTitle = (status, time, t) => {
   return key ? t(key, { time }) : t('calendar.availableAt', { time })
 }
 
+const getCellMarker = (status, cell) => {
+  if (status === 'range-single' || status === 'range-start') return cell.time
+  if (status === 'range-end') return cell.endTime
+  return null
+}
+
 const makeDateAtTime = (date, hour, minute) => {
   const slotDate = new Date(date)
   slotDate.setHours(hour, minute, 0, 0)
   return slotDate.getTime()
 }
 
+const getTimeParts = (totalMinutes) => {
+  const hour = Math.floor(totalMinutes / 60)
+  const minute = totalMinutes % 60
+  return {
+    hour,
+    minute,
+    time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+  }
+}
+
 const getTimeCells = (availability) => {
   const cells = []
   const startMinutes = availability.startHour * 60
   const endMinutes = availability.endHour * 60
-  for (let minuteOfDay = startMinutes; minuteOfDay < endMinutes; minuteOfDay += CALENDAR_CELL_MINUTES) {
-    const hour = Math.floor(minuteOfDay / 60)
-    const minute = minuteOfDay % 60
-    const cellEndMinutes = Math.min(minuteOfDay + CALENDAR_CELL_MINUTES, endMinutes)
-    const endHour = Math.floor(cellEndMinutes / 60)
-    const endMinute = cellEndMinutes % 60
-    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-    const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
-    cells.push({ hour, minute, time, endHour, endMinute, endTime })
+  for (let startMinutesOfDay = startMinutes; startMinutesOfDay < endMinutes; startMinutesOfDay += CALENDAR_CELL_MINUTES) {
+    const start = getTimeParts(startMinutesOfDay)
+    const end = getTimeParts(Math.min(startMinutesOfDay + CALENDAR_CELL_MINUTES, endMinutes))
+    cells.push({
+      hour: start.hour,
+      minute: start.minute,
+      time: start.time,
+      endHour: end.hour,
+      endMinute: end.minute,
+      endTime: end.time,
+    })
   }
   return cells
 }
@@ -92,7 +112,7 @@ const getHourGroups = ({ startHour, endHour }) => {
   for (let hour = startHour; hour < endHour; hour++) {
     groups.push({
       hour,
-      label: `${hour.toString().padStart(2, '0')}:00`,
+      label: getTimeParts(hour * 60).time,
     })
   }
   return groups
@@ -102,15 +122,22 @@ const buildTimeLayout = (hourGroups, timeCells) => {
   const rows = []
   const cellRows = []
   const labels = []
+  const cellsByHour = new Map()
 
-  hourGroups.forEach((group, groupIndex) => {
+  timeCells.forEach((cell, index) => {
+    const cells = cellsByHour.get(cell.hour) || []
+    cells.push(index)
+    cellsByHour.set(cell.hour, cells)
+  })
+
+  hourGroups.forEach(group => {
+    rows.push({ type: 'hour-guide', key: `guide-${group.label}` })
     const groupStart = rows.length
-    const cellsInGroup = timeCells.filter(cell => cell.hour === group.hour)
+    const cellsInGroup = cellsByHour.get(group.hour) || []
 
-    cellsInGroup.forEach((cell, cellIndex) => {
-      const timeCellIndex = timeCells.indexOf(cell)
+    cellsInGroup.forEach((index, cellIndex) => {
       rows.push({ type: 'cell' })
-      cellRows[timeCellIndex] = rows.length
+      cellRows[index] = rows.length
       if (cellIndex < cellsInGroup.length - 1) rows.push({ type: 'cell-gap' })
     })
 
@@ -120,13 +147,14 @@ const buildTimeLayout = (hourGroups, timeCells) => {
       rowSpan: rows.length - groupStart,
     })
 
-    if (groupIndex < hourGroups.length - 1) {
-      rows.push({ type: 'hour-guide', key: `guide-${group.label}` })
-    }
   })
-
   return { rows, cellRows, labels }
 }
+
+const getCalendarGridStyle = (dayCount, rows) => ({
+  '--calendar-day-count': dayCount,
+  '--calendar-time-rows': rows.map(({ type }) => TIME_ROW_SIZES[type]).join(' '),
+})
 
 const getWeekStart = (value) => {
   const date = new Date(value)
@@ -148,6 +176,7 @@ const BookingCalendar = ({
   selectedEndTime = null,
   viewMode = 'week',
   disabled = false,
+  className = '',
 }) => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
@@ -199,7 +228,7 @@ const BookingCalendar = ({
     const capacity = typeof amenity?.capacity === 'number' && amenity.capacity > 0 ? amenity.capacity : 1
     const isSharedDesk = amenity?.type === 'desk' && capacity > 1
     const bookingRanges = allBookings
-      .filter(({ status }) => ['pending', 'approved', 'checked-in'].includes(status))
+      .filter(({ status }) => ACTIVE_BOOKING_STATUSES.has(status))
       .map(({ startTime, endTime }) => [new Date(startTime).getTime(), new Date(endTime).getTime()])
 
     return displayDates.map(date => {
@@ -221,21 +250,16 @@ const BookingCalendar = ({
         dayAvailable,
         cells: cells.map(cell => {
           const state = getCellState(cell, selection, cells)
-          const markerKey = CELL_MARKER_KEYS[state.status]
           return {
             ...cell,
             ...state,
-            marker: markerKey ? t(markerKey) : null,
+            marker: getCellMarker(state.status, cell),
             title: getCellTitle(state.status, cell.timeRange, t),
           }
         }),
       }
     })
   }, [allBookings, amenity?.capacity, amenity?.type, availability, displayDates, selectedEndTime, selectedStartTime, t, timeCells])
-
-  const updateCurrentDate = (nextDate) => {
-    setCurrentDate(nextDate)
-  }
 
   const handleCellSelect = (nextRange) => {
     if (disabled || !nextRange) return
@@ -248,44 +272,36 @@ const BookingCalendar = ({
   const handlePrevWeek = () => {
     const nextDate = new Date(currentDate)
     nextDate.setDate(nextDate.getDate() + (effectiveViewMode === 'week' ? -7 : -1))
-    updateCurrentDate(nextDate)
+    setCurrentDate(nextDate)
   }
 
   const handleNextWeek = () => {
     const nextDate = new Date(currentDate)
     nextDate.setDate(nextDate.getDate() + (effectiveViewMode === 'week' ? 7 : 1))
-    updateCurrentDate(nextDate)
+    setCurrentDate(nextDate)
   }
 
-  const formatDateHeader = (date, dayAvailable) => {
+  const formatDateHeader = (date) => {
     const isToday = date.toDateString() === new Date().toDateString()
     return (
-      <div className={`calendar-date-header ${isToday ? 'today' : ''} ${!dayAvailable ? 'weekend' : ''}`}>
+      <div className={`calendar-date-header ${isToday ? 'today' : ''}`}>
         <div className="date-day-name">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
         <div className="date-day-number">{date.getDate()}</div>
         <div className="date-month">{date.toLocaleDateString(locale, { month: 'short' })}</div>
-        {!dayAvailable && <div className="weekend-label">{t('calendar.closed')}</div>}
       </div>
     )
   }
 
   if (isLoading) return <CalendarSkeleton />
 
-  const calendarGridStyle = {
-    '--calendar-day-count': displayDates.length,
-    '--calendar-time-rows': timeLayout.rows.map(row => {
-      if (row.type === 'cell') return 'var(--calendar-cell-height)'
-      if (row.type === 'cell-gap') return 'var(--calendar-grid-gap)'
-      return 'var(--calendar-guide-space)'
-    }).join(' '),
-  }
+  const calendarGridStyle = getCalendarGridStyle(displayDates.length, timeLayout.rows)
 
   return (
-    <div className="booking-calendar">
+    <div className={`booking-calendar ${className}`.trim()}>
       <div className="calendar-header">
         <div className="calendar-nav">
           <button type="button" className="btn btn-secondary btn-sm" onClick={handlePrevWeek}>{t('calendar.prev')}</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => updateCurrentDate(new Date())}>{t('calendar.today')}</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setCurrentDate(new Date())}>{t('calendar.today')}</button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleNextWeek}>{t('calendar.next')}</button>
         </div>
         <div className="calendar-title">
@@ -302,7 +318,7 @@ const BookingCalendar = ({
         <div className="calendar-date-headers">
           {dateSlots.map(({ date, dayAvailable }) => (
             <div key={date.toISOString()} className={`calendar-date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
-              {formatDateHeader(date, dayAvailable)}
+              {formatDateHeader(date)}
             </div>
           ))}
         </div>
@@ -322,7 +338,7 @@ const BookingCalendar = ({
             <div
               key={row.key}
               className="calendar-hour-guide"
-              style={{ gridColumn: '2 / -1', gridRow: index + 1 }}
+              style={{ gridColumn: '1 / -1', gridRow: index + 1 }}
               aria-hidden="true"
             />
           ))}
@@ -333,7 +349,7 @@ const BookingCalendar = ({
                 key={`${date.toISOString()}-${cell.startMs}`}
                 cell={cell}
                 onSelect={handleCellSelect}
-                style={{ gridColumn: dateIndex + 2, gridRow: timeLayout.cellRows[cellIndex] }}
+                gridStyle={{ gridColumn: dateIndex + 2, gridRow: timeLayout.cellRows[cellIndex] }}
               />
             ))
           )}
