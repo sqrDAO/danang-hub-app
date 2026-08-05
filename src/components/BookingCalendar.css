@@ -1,4 +1,11 @@
 .booking-calendar {
+  --calendar-cell-height: 30px;
+  --calendar-grid-gap: 3px;
+  --calendar-column-gap: var(--spacing-sm);
+  --calendar-time-column-width: 60px;
+  --calendar-day-min-width: 100px;
+  --calendar-guide-thickness: 1px;
+  --calendar-guide-space: 7px; /* 3px clearance + 1px guide + 3px clearance. */
   width: 100%;
   background: var(--card-bg);
   backdrop-filter: blur(10px);
@@ -44,9 +51,11 @@
 }
 
 .calendar-grid {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
+  display: grid;
+  grid-template-columns: var(--calendar-time-column-width) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: var(--calendar-column-gap);
+  row-gap: var(--spacing-sm);
   overflow-x: auto;
   padding-bottom: var(--spacing-md);
 }
@@ -56,40 +65,31 @@
   pointer-events: none;
 }
 
-.time-column {
-  min-width: 60px;
-  flex-shrink: 0;
-  padding-top: 105px; /* Offset to align with time-slots below date headers */
-}
-
-.time-labels {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.calendar-date-headers {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(
+    var(--calendar-day-count),
+    minmax(var(--calendar-day-min-width), 1fr)
+  );
+  gap: var(--calendar-column-gap);
 }
 
 .time-label {
-  height: 30px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
 
-.time-spacer {
-  height: 30px;
-}
-
-.date-column {
-  flex: 1;
-  min-width: 100px;
+.calendar-date-column {
+  min-width: 0;
 }
 
 .calendar-date-header {
   text-align: center;
   padding: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
   border-radius: var(--border-radius);
   background: var(--form-section-bg);
   border: 1px solid var(--card-border);
@@ -113,7 +113,7 @@
   text-transform: uppercase;
 }
 
-.date-column.unavailable-day {
+.calendar-date-column.unavailable-day {
   opacity: 0.5;
 }
 
@@ -137,15 +137,29 @@
   text-transform: uppercase;
 }
 
-.time-slots {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.calendar-time-grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: var(--calendar-time-column-width) repeat(
+    var(--calendar-day-count),
+    minmax(var(--calendar-day-min-width), 1fr)
+  );
+  grid-template-rows: var(--calendar-time-rows);
+  column-gap: var(--calendar-column-gap);
+  position: relative;
+}
+
+.calendar-hour-guide {
+  align-self: center;
+  height: var(--calendar-guide-thickness);
+  background: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .time-slot {
-  height: 30px;
-  min-height: 30px;
+  height: var(--calendar-cell-height);
+  min-height: var(--calendar-cell-height);
   width: 100%;
   padding: 0;
   border-radius: 4px;
@@ -225,12 +239,14 @@
 }
 
 .time-slot-marker {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   overflow: hidden;
   padding: 0 0.2rem;
   font-size: 0.65rem;
   font-weight: 700;
-  line-height: 28px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -248,18 +264,10 @@
   opacity: 0.55;
 }
 
-.time-slot.closing {
-  border-top: 1px dashed var(--accent-primary);
-  border-radius: 0;
-  cursor: default;
-  opacity: 0.75;
-}
-
 .time-slot.unavailable,
 .time-slot.past,
 .time-slot.booked,
-.time-slot.range-blocked,
-.time-slot.closing {
+.time-slot.range-blocked {
   pointer-events: none;
 }
 
@@ -279,26 +287,21 @@
 
 .time-slot.unavailable:hover,
 .time-slot.past:hover,
-.time-slot.range-blocked:hover,
-.time-slot.closing:hover {
+.time-slot.range-blocked:hover {
   transform: none;
 }
 
 @media (max-width: 768px) {
+  .booking-calendar {
+    --calendar-cell-height: 44px;
+    --calendar-column-gap: var(--spacing-xs);
+    --calendar-time-column-width: 50px;
+    --calendar-day-min-width: 120px;
+  }
+
   .calendar-grid {
-    gap: var(--spacing-xs);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-  }
-  
-  .date-column {
-    min-width: 120px;
-    scroll-snap-align: start;
-  }
-  
-  .time-column {
-    min-width: 50px;
   }
   
   .calendar-header {
@@ -306,18 +309,8 @@
     align-items: flex-start;
   }
 
-  .time-slot {
-    min-height: 44px;
-    height: 44px;
-  }
-
   .time-label {
-    height: 44px;
     font-size: 0.7rem;
-  }
-
-  .time-spacer {
-    height: 44px;
   }
 
   .calendar-date-header {
@@ -330,8 +323,8 @@
 }
 
 @media (max-width: 480px) {
-  .date-column {
-    min-width: 100px;
+  .booking-calendar {
+    --calendar-day-min-width: 100px;
   }
 
   .calendar-title {

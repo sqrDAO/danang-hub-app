@@ -316,46 +316,11 @@
   padding-top: 0;
 }
 
-.booking-range-steps {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.booking-range-steps span {
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--card-border);
-  border-radius: 99px;
-}
-
-.booking-range-steps .is-active {
-  border-color: var(--accent-primary);
-  color: var(--text-primary);
-}
-
-.booking-range-steps .is-complete {
-  background: rgba(255, 164, 6, 0.12);
-  border-color: rgba(255, 164, 6, 0.45);
-  color: var(--text-primary);
-}
-
 .booking-range-status {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-md);
-  margin-top: var(--spacing-md);
-  padding: var(--spacing-md);
-  background: var(--surface-color);
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .booking-range-status.is-empty {

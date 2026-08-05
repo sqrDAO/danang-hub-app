@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ToastContainer from './components/Toast'
 import PushOptInBanner from './components/PushOptInBanner'
 import Home from './pages/Home'
+import { isLocalBookingDev } from './utils/localBookingMode'
 
 // Lazy-loaded routes — these are not the landing path and benefit from code splitting
 const Login = lazy(() => import('./pages/auth/Login'))
@@ -26,13 +27,24 @@ const RouteFallback = () => (
 )
 
 function App() {
+  const memberBookingsRoute = isLocalBookingDev ? (
+    <MemberBookings />
+  ) : (
+    <ProtectedRoute requireProfileComplete>
+      <MemberBookings />
+    </ProtectedRoute>
+  )
+
   return (
     <ThemeProvider>
       <AuthProvider>
         <Suspense fallback={<RouteFallback />}>
         <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={isLocalBookingDev ? <Navigate to="/member/bookings?preview=booking" replace /> : <Home />}
+        />
         <Route path="/login" element={<Login />} />
         
         {/* Admin Routes (require Company + Role for profile completion) */}
@@ -96,11 +108,7 @@ function App() {
         />
         <Route
           path="/member/bookings"
-          element={
-            <ProtectedRoute requireProfileComplete>
-              <MemberBookings />
-            </ProtectedRoute>
-          }
+          element={memberBookingsRoute}
         />
         <Route
           path="/member/events"

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import './Modal.css'
 
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children, footer = null }) => {
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -45,6 +45,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         <div className="modal-body">
           {children}
         </div>
+        {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
   )

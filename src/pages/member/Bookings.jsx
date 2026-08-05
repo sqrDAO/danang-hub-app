@@ -14,6 +14,7 @@ import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
+import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
@@ -106,17 +107,18 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   // Check for amenityId in URL params and auto-open booking modal
   useEffect(() => {
     const amenityId = searchParams.get('amenityId')
-    if (amenityId && amenities.length > 0 && !isModalOpen) {
-      const amenity = amenities.find(a => a.id === amenityId)
-      if (amenity) {
-        setSelectedAmenity(amenity)
-        setIsModalOpen(true)
-        setBookingStep(1)
-        // Remove amenityId from URL params after opening modal
-        const newParams = new URLSearchParams(searchParams)
-        newParams.delete('amenityId')
-        setSearchParams(newParams, { replace: true })
-      }
+    const previewRequested = isLocalBookingDev && searchParams.get('preview') === 'booking'
+    const amenity = amenities.find(a => a.id === amenityId) || (previewRequested && amenities[0])
+    if (!amenity || isModalOpen) return
+
+    setSelectedAmenity(amenity)
+    setIsModalOpen(true)
+    setBookingStep(1)
+    if (amenityId || previewRequested) {
+      const newParams = new URLSearchParams(searchParams)
+      newParams.delete('amenityId')
+      newParams.delete('preview')
+      setSearchParams(newParams, { replace: true })
     }
   }, [amenities, searchParams, isModalOpen, setSearchParams])
 
@@ -700,25 +702,11 @@ const BookingRangeStatus = ({ form, handlers, t, locale }) => {
   const start = form.selectedStartTime
   const end = form.selectedEndTime
 
-  if (!start) {
+  if (!start || !end) {
     return (
       <div className="booking-range-status is-empty">
         <strong>{t('memberBookings.modal.selectStartTitle')}</strong>
         <p>{t('memberBookings.modal.selectStartHint')}</p>
-      </div>
-    )
-  }
-
-  if (!end) {
-    return (
-      <div className="booking-range-status">
-        <div>
-          <strong>{t('memberBookings.modal.startSelected', { start: formatDateTimeForDisplay(start, locale, t) })}</strong>
-          <p>{t('memberBookings.modal.selectEndHint')}</p>
-        </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={handlers.handleClearRange}>
-          {t('memberBookings.modal.clearRange')}
-        </button>
       </div>
     )
   }
@@ -749,13 +737,8 @@ const BookingRangeStatus = ({ form, handlers, t, locale }) => {
   )
 }
 
-const BookingStepCalendar = ({ form, handlers, t, locale }) => (
+const BookingStepCalendar = ({ form, handlers }) => (
   <div className="booking-step booking-range-step">
-    <div className="booking-range-steps" aria-label={t('memberBookings.modal.rangePickerLabel')}>
-      <span className={form.selectedStartTime ? 'is-complete' : 'is-active'}>1. {t('memberBookings.modal.rangeStepStart')}</span>
-      <span className={form.selectedEndTime ? 'is-complete' : form.selectedStartTime ? 'is-active' : ''}>2. {t('memberBookings.modal.rangeStepEnd')}</span>
-    </div>
-
     <BookingCalendar
       amenity={form.selectedAmenity}
       onRangeChange={handlers.handleRangeChange}
@@ -764,8 +747,6 @@ const BookingStepCalendar = ({ form, handlers, t, locale }) => (
       viewMode="week"
       disabled={form.isCheckingConflict}
     />
-
-    <BookingRangeStatus form={form} handlers={handlers} t={t} locale={locale} />
 
     {form.conflictError && (
       <div className="conflict-error">
@@ -950,7 +931,7 @@ const BookingModalContent = ({ form, handlers, mutations, t, locale }) => {
   return (
     <>
       {form.bookingStep === 1 && (
-        <BookingStepCalendar form={form} handlers={handlers} t={t} locale={locale} />
+        <BookingStepCalendar form={form} handlers={handlers} />
       )}
       {form.bookingStep === 2 && (
         <BookingStepConfirm form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
@@ -1073,10 +1054,13 @@ const MemberBookings = () => {
     enabled: !!currentUser?.uid
   })
 
-  const { data: amenities = [], isLoading: amenitiesLoading } = useQuery({
+  const { data: remoteAmenities = [], isLoading: amenitiesLoading } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
+  const amenities = remoteAmenities.length > 0 ? remoteAmenities : (
+    isLocalBookingDev ? LOCAL_PREVIEW_AMENITIES : remoteAmenities
+  )
 
   const form = useBookingForm(amenities, searchParams, setSearchParams)
   const fd = useFixedDeskForm()
@@ -1147,6 +1131,9 @@ const MemberBookings = () => {
               ? t('memberBookings.modal.titleWithAmenity', { name: form.selectedAmenity.name })
               : t('memberBookings.modal.titleFallback')
           }
+          footer={form.bookingStep === 1 ? (
+            <BookingRangeStatus form={form} handlers={handlers} t={t} locale={locale} />
+          ) : null}
         >
           <BookingModalContent form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
         </Modal>
