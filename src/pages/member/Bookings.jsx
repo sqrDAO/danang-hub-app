@@ -9,7 +9,7 @@ import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
-import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
+import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
@@ -17,13 +17,6 @@ import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import './Bookings.css'
-
-const DEFAULT_DURATION_HOURS = {
-  'desk': 2,
-  'meeting-room': 2,
-  'podcast-room': 2,
-  'event-space': 2
-}
 
 const getLocale = (i18n) =>
   i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
@@ -40,44 +33,12 @@ const getMemberBookingsWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-const computeSlotRange = (slotTime, duration) => {
-  const startTime = new Date(slotTime)
-  const endTime = new Date(startTime)
-  // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-  endTime.setTime(startTime.getTime() + duration * 60 * 60 * 1000)
-  return { startTime, endTime }
-}
-
-// Client-side check: end time must not exceed the amenity's closing hour
-const isBeyondClosingHour = (amenity, endTime) => {
-  const amenityEndHour = typeof amenity.endHour === 'number'
-    ? amenity.endHour
-    : DEFAULT_AVAILABILITY.endHour
-  const endHours = endTime.getHours() + endTime.getMinutes() / 60
-  return endHours > amenityEndHour
-}
-
-const generateAlternativeSlots = (originalStart, originalEnd, durationHours) => {
-  const alternatives = []
-  const sameDay = new Date(originalStart)
-  sameDay.setHours(9, 0, 0, 0) // Start from 9 AM
-
-  // Generate slots every 2 hours
-  for (let hour = 9; hour <= 20; hour += 2) {
-    const altStart = new Date(sameDay)
-    altStart.setHours(hour, 0, 0, 0)
-
-    const altEnd = new Date(altStart)
-    // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-    altEnd.setTime(altStart.getTime() + durationHours * 60 * 60 * 1000)
-
-    // Don't suggest the original time
-    if (altStart.getTime() !== originalStart.getTime()) {
-      alternatives.push({ start: altStart, end: altEnd })
-    }
-  }
-
-  return alternatives.slice(0, 3) // Return top 3 alternatives
+const formatBookingDuration = (startTime, endTime, t) => {
+  if (!startTime || !endTime) return t('common.na')
+  const minutes = (new Date(endTime) - new Date(startTime)) / (1000 * 60)
+  return minutes >= 60
+    ? t('memberBookings.modal.durationHours', { count: minutes / 60 })
+    : t('memberBookings.modal.durationMinutes', { count: minutes })
 }
 
 const formatDateTimeForDisplay = (value, locale, t) => {
@@ -134,13 +95,10 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
   const [bookingStep, setBookingStep] = useState(1) // 1: calendar, 2: confirm, 3: recurring
-  const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedStartTime, setSelectedStartTime] = useState(null)
   const [selectedEndTime, setSelectedEndTime] = useState(null)
-  const [duration, setDuration] = useState(2) // hours
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
-  const [alternativeSlots, setAlternativeSlots] = useState([])
   const [isCheckingConflict, setIsCheckingConflict] = useState(false)
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const isSubmittingRef = useRef(false)
@@ -152,8 +110,6 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
       const amenity = amenities.find(a => a.id === amenityId)
       if (amenity) {
         setSelectedAmenity(amenity)
-        setDuration(DEFAULT_DURATION_HOURS[amenity.type] || 2)
-        setSelectedDate(new Date())
         setIsModalOpen(true)
         setBookingStep(1)
         // Remove amenityId from URL params after opening modal
@@ -164,33 +120,22 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     }
   }, [amenities, searchParams, isModalOpen, setSearchParams])
 
-  // Recalculate end time when duration changes and start time is already selected
-  useEffect(() => {
-    if (selectedStartTime && duration) {
-      const newEndTime = new Date(selectedStartTime)
-      // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-      newEndTime.setTime(selectedStartTime.getTime() + duration * 60 * 60 * 1000)
-      setSelectedEndTime(newEndTime)
-    }
-  }, [duration, selectedStartTime])
-
   const resetBookingForm = () => {
     setIsModalOpen(false)
     setSelectedAmenity(null)
     setBookingStep(1)
-    setSelectedDate(new Date())
     setSelectedStartTime(null)
     setSelectedEndTime(null)
-    setDuration(2)
     setRecurrence(null)
     setConflictError(null)
-    setAlternativeSlots([])
   }
 
   const openForAmenity = (amenity) => {
     setSelectedAmenity(amenity)
-    setDuration(DEFAULT_DURATION_HOURS[amenity.type] || 2)
-    setSelectedDate(new Date())
+    setSelectedStartTime(null)
+    setSelectedEndTime(null)
+    setRecurrence(null)
+    setConflictError(null)
     setIsModalOpen(true)
     setBookingStep(1)
   }
@@ -200,20 +145,14 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     selectedAmenity,
     bookingStep,
     setBookingStep,
-    selectedDate,
-    setSelectedDate,
     selectedStartTime,
     setSelectedStartTime,
     selectedEndTime,
     setSelectedEndTime,
-    duration,
-    setDuration,
     recurrence,
     setRecurrence,
     conflictError,
     setConflictError,
-    alternativeSlots,
-    setAlternativeSlots,
     isCheckingConflict,
     setIsCheckingConflict,
     isSubmittingBooking,
@@ -370,57 +309,37 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
     form.openForAmenity(amenity)
   }
 
-  const applyConflictCheckError = (error) => {
-    if (error?.code === 'functions/invalid-argument') {
-      form.setConflictError(error.message || t('memberBookings.outsideHoursError'))
-    } else {
-      console.warn('Could not check conflicts:', error)
-      form.setConflictError(t('memberBookings.conflictCheckFailed'))
-    }
-    form.setAlternativeSlots([])
-  }
-
-  const handleTimeSlotSelect = async (slotTime, advance = false) => {
-    if (!form.selectedAmenity) return
-
-    const { startTime, endTime } = computeSlotRange(slotTime, form.duration)
+  const handleRangeChange = ({ startTime, endTime }) => {
     form.setSelectedStartTime(startTime)
     form.setSelectedEndTime(endTime)
+    form.setConflictError(null)
+  }
 
-    if (isBeyondClosingHour(form.selectedAmenity, endTime)) {
-      form.setConflictError(t('memberBookings.outsideHoursError'))
-      form.setAlternativeSlots([])
-      return
-    }
+  const handleClearRange = () => {
+    handleRangeChange({ startTime: null, endTime: null })
+  }
 
+  const handleContinueToConfirm = async () => {
+    if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
     form.setIsCheckingConflict(true)
 
-    // Check for conflicts
     try {
       const conflictCheck = await checkBookingConflicts(
         form.selectedAmenity.id,
-        startTime.toISOString(),
-        endTime.toISOString()
+        form.selectedStartTime.toISOString(),
+        form.selectedEndTime.toISOString()
       )
-
       if (conflictCheck.hasConflicts) {
         form.setConflictError(t('memberBookings.conflictError'))
-        // Suggest alternatives (same day, different times)
-        form.setAlternativeSlots(generateAlternativeSlots(startTime, endTime, form.duration))
       } else {
-        form.setConflictError(null)
-        form.setAlternativeSlots([])
-        if (advance) form.setBookingStep(2)
+        form.setBookingStep(2)
       }
     } catch (error) {
-      applyConflictCheckError(error)
+      console.warn('Could not check conflicts:', error)
+      form.setConflictError(t('memberBookings.conflictCheckFailed'))
     } finally {
       form.setIsCheckingConflict(false)
     }
-  }
-
-  const handleUseAlternative = (altSlot) => {
-    handleTimeSlotSelect(altSlot.start, true)
   }
 
   const finishSubmitting = () => {
@@ -530,8 +449,9 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
 
   return {
     handleBookAmenity,
-    handleTimeSlotSelect,
-    handleUseAlternative,
+    handleRangeChange,
+    handleClearRange,
+    handleContinueToConfirm,
     handleConfirmBooking,
     handleRecurringToggle,
     handleRecurringSubmit,
@@ -776,79 +696,80 @@ const FixedDeskPlansSection = ({ plans, amenities, t, onCancelPlan, cancellingId
   )
 }
 
+const BookingRangeStatus = ({ form, handlers, t, locale }) => {
+  const start = form.selectedStartTime
+  const end = form.selectedEndTime
+
+  if (!start) {
+    return (
+      <div className="booking-range-status is-empty">
+        <strong>{t('memberBookings.modal.selectStartTitle')}</strong>
+        <p>{t('memberBookings.modal.selectStartHint')}</p>
+      </div>
+    )
+  }
+
+  if (!end) {
+    return (
+      <div className="booking-range-status">
+        <div>
+          <strong>{t('memberBookings.modal.startSelected', { start: formatDateTimeForDisplay(start, locale, t) })}</strong>
+          <p>{t('memberBookings.modal.selectEndHint')}</p>
+        </div>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={handlers.handleClearRange}>
+          {t('memberBookings.modal.clearRange')}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="booking-range-status is-complete">
+      <div>
+        <strong>{t('memberBookings.modal.selectedRange', {
+          start: formatDateTimeForDisplay(start, locale, t),
+          end: formatDateTimeForDisplay(end, locale, t)
+        })}</strong>
+        <p>{formatBookingDuration(start, end, t)}</p>
+      </div>
+      <div className="booking-range-actions">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={handlers.handleClearRange}>
+          {t('memberBookings.modal.clearRange')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={handlers.handleContinueToConfirm}
+          disabled={form.isCheckingConflict}
+        >
+          {form.isCheckingConflict ? t('memberBookings.modal.checking') : t('memberBookings.modal.continue')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const BookingStepCalendar = ({ form, handlers, t, locale }) => (
-  <div className="booking-step">
-    <div className="form-group">
-      <label className="form-label">
-        {t('memberBookings.modal.duration')}
-      </label>
-      <select
-        className="form-field"
-        value={form.duration}
-        onChange={(e) => form.setDuration(parseFloat(e.target.value))}
-      >
-        <option value="0.5">{t('memberBookings.modal.duration30')}</option>
-        <option value="1">{t('memberBookings.modal.duration1h')}</option>
-        <option value="1.5">{t('memberBookings.modal.duration1h30')}</option>
-        <option value="2">{t('memberBookings.modal.duration2h')}</option>
-        <option value="2.5">{t('memberBookings.modal.duration2h30')}</option>
-        <option value="3">{t('memberBookings.modal.duration3h')}</option>
-        <option value="4">{t('memberBookings.modal.duration4h')}</option>
-        <option value="5">{t('memberBookings.modal.duration5h')}</option>
-        <option value="6">{t('memberBookings.modal.duration6h')}</option>
-        <option value="9">{t('memberBookings.modal.durationFullDay')}</option>
-      </select>
+  <div className="booking-step booking-range-step">
+    <div className="booking-range-steps" aria-label={t('memberBookings.modal.rangePickerLabel')}>
+      <span className={form.selectedStartTime ? 'is-complete' : 'is-active'}>1. {t('memberBookings.modal.rangeStepStart')}</span>
+      <span className={form.selectedEndTime ? 'is-complete' : form.selectedStartTime ? 'is-active' : ''}>2. {t('memberBookings.modal.rangeStepEnd')}</span>
     </div>
 
     <BookingCalendar
-      amenityId={form.selectedAmenity.id}
-      selectedDate={form.selectedDate}
-      onDateChange={form.setSelectedDate}
-      onTimeSlotSelect={handlers.handleTimeSlotSelect}
+      amenity={form.selectedAmenity}
+      onRangeChange={handlers.handleRangeChange}
       selectedStartTime={form.selectedStartTime}
       selectedEndTime={form.selectedEndTime}
       viewMode="week"
       disabled={form.isCheckingConflict}
     />
 
+    <BookingRangeStatus form={form} handlers={handlers} t={t} locale={locale} />
+
     {form.conflictError && (
       <div className="conflict-error">
         <p className="error-message">{form.conflictError}</p>
-        {form.alternativeSlots.length > 0 && (
-          <div className="alternative-slots">
-            <p>{t('memberBookings.modal.alternativesLabel')}</p>
-            {form.alternativeSlots.map((alt, index) => (
-              <button
-                key={index}
-                className="btn btn-secondary btn-sm"
-                onClick={() => handlers.handleUseAlternative(alt)}
-              >
-                {alt.start.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })} -{' '}
-                {alt.end.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-
-    {form.selectedStartTime && !form.conflictError && (
-      <div className="selected-time-info">
-        <p>
-          {t('memberBookings.modal.selectedRange', {
-            start: formatDateTimeForDisplay(form.selectedStartTime, locale, t),
-            end: formatDateTimeForDisplay(form.selectedEndTime, locale, t)
-          })}
-        </p>
-        <button
-          className="btn btn-primary"
-          onClick={() => handlers.handleTimeSlotSelect(form.selectedStartTime, true)}
-          disabled={form.isCheckingConflict}
-        >
-          {form.isCheckingConflict
-            ? t('memberBookings.modal.checking')
-            : t('memberBookings.modal.continue')}
-        </button>
       </div>
     )}
   </div>
@@ -870,9 +791,7 @@ const BookingSummary = ({ form, t, locale }) => (
     </div>
     <div className="summary-item">
       <strong>{t('memberBookings.modal.summaryDuration')}</strong>{' '}
-      {form.duration >= 1
-        ? t('memberBookings.modal.durationHours', { count: form.duration })
-        : t('memberBookings.modal.durationMinutes', { count: form.duration * 60 })}
+      {formatBookingDuration(form.selectedStartTime, form.selectedEndTime, t)}
     </div>
   </div>
 )

@@ -312,23 +312,72 @@
   padding: var(--spacing-md) 0;
 }
 
-.selected-time-info {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: rgba(255, 230, 187, 0.1);
-  border: 1px solid rgba(255, 230, 187, 0.3);
-  border-radius: var(--border-radius);
+.booking-range-step {
+  padding-top: 0;
 }
 
-[data-theme="light"] .selected-time-info {
-  background: rgba(255, 164, 6, 0.08);
-  border-color: rgba(255, 164, 6, 0.25);
-}
-
-.selected-time-info p {
+.booking-range-steps {
+  display: flex;
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.booking-range-steps span {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--card-border);
+  border-radius: 99px;
+}
+
+.booking-range-steps .is-active {
+  border-color: var(--accent-primary);
   color: var(--text-primary);
-  font-weight: 500;
+}
+
+.booking-range-steps .is-complete {
+  background: rgba(255, 164, 6, 0.12);
+  border-color: rgba(255, 164, 6, 0.45);
+  color: var(--text-primary);
+}
+
+.booking-range-status {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--surface-color);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.booking-range-status.is-empty {
+  display: block;
+  color: var(--text-secondary);
+}
+
+.booking-range-status strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.booking-range-status p {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.booking-range-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--spacing-sm);
 }
 
 .conflict-error {
@@ -371,19 +420,20 @@
   margin-bottom: var(--spacing-sm);
 }
 
-.alternative-slots {
-  margin-top: var(--spacing-md);
-}
+@media (max-width: 768px) {
+  .booking-range-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
 
-.alternative-slots p {
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-sm);
-  font-size: 0.9rem;
-}
+  .booking-range-actions,
+  .booking-range-status > .btn {
+    width: 100%;
+  }
 
-.alternative-slots .btn {
-  margin-right: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  .booking-range-actions .btn {
+    flex: 1;
+  }
 }
 
 .booking-summary {
