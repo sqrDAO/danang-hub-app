@@ -119,3 +119,21 @@ export function toDatetimeLocalHub(date) {
   const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
+
+/**
+ * Convert a Date to "YYYY-MM-DD" for date inputs in the hub timezone.
+ * @param {Date|string} date
+ * @returns {string}
+ */
+export function toDateInputHub(date) {
+  if (!date) return ''
+  const d = date instanceof Date ? date : new Date(date)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: HUB_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d)
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}

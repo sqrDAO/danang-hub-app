@@ -645,7 +645,6 @@
     "rangeUnavailable": "This time range is unavailable",
     "startSelected": "Start cell selected: {{time}}. Click to clear the selection.",
     "endSelected": "End cell selected: {{time}}.",
-    "selectEndAt": "Select {{time}} as the end time",
     "adjustEndAt": "Extend the booking through {{time}}",
     "adjustStartAt": "Move the booking start to {{time}}",
     "singleSelected": "Selected: {{time}}. Click to clear it.",

@@ -16,7 +16,7 @@ import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
 import { useTranslation } from 'react-i18next'
-import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { formatDateDDMMYYYY, toDateInputHub } from '../../utils/timezone'
 import './Bookings.css'
 
 const getLocale = (i18n) =>
@@ -96,15 +96,14 @@ const buildFixedDeskPlans = (deduplicatedBookings) => {
 }
 
 const getTodayString = () => {
-  const d = new Date()
-  return d.toISOString().split('T')[0]
+  return toDateInputHub(new Date())
 }
 
 const getMinRecurringEndDate = (selectedDate) => {
   const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
   base.setMonth(base.getMonth() + 1)
   base.setHours(0, 0, 0, 0)
-  return base.toISOString().split('T')[0]
+  return toDateInputHub(base)
 }
 
 const useBookingForm = (amenities, searchParams, setSearchParams) => {
@@ -883,8 +882,12 @@ const BookingStepConfirm = ({ form, handlers, mutations, t, locale }) => {
   )
 }
 
-const BookingStepRecurring = ({ form, handlers, t }) => (
-  <div className="booking-step">
+const BookingStepRecurring = ({ form, handlers, t }) => {
+  const recurringBaseDate = form.selectedBookingDate || form.selectedStartTime
+  const minEndDate = getMinRecurringEndDate(recurringBaseDate)
+
+  return (
+    <div className="booking-step">
     <h3>{t('memberBookings.modal.recurringOptionsTitle')}</h3>
     <form onSubmit={handlers.handleRecurringSubmit}>
       <div className="form-group">
@@ -927,8 +930,8 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
           type="date"
           name="endDate"
           className="form-field"
-          min={getMinRecurringEndDate(form.selectedBookingDate)}
-          defaultValue={getMinRecurringEndDate(form.selectedBookingDate)}
+          min={minEndDate}
+          defaultValue={minEndDate}
         />
       </div>
       <div className="form-group">
@@ -959,8 +962,9 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
         </button>
       </div>
     </form>
-  </div>
-)
+    </div>
+  )
+}
 
 const BookingModalContent = ({ form, handlers, mutations, t, locale, isMobile }) => {
   if (!form.selectedAmenity) return null

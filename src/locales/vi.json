@@ -645,7 +645,6 @@
     "rangeUnavailable": "Khoảng thời gian này không khả dụng",
     "startSelected": "Đã chọn ô bắt đầu: {{time}}. Nhấn để bỏ toàn bộ lựa chọn.",
     "endSelected": "Đã chọn ô kết thúc: {{time}}.",
-    "selectEndAt": "Chọn kết thúc lúc {{time}}",
     "adjustEndAt": "Mở rộng khoảng đặt đến hết ô {{time}}",
     "adjustStartAt": "Chuyển thời gian bắt đầu đến ô {{time}}",
     "singleSelected": "Đã chọn: {{time}}. Nhấn để bỏ chọn.",
