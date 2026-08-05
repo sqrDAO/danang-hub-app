@@ -176,6 +176,93 @@
   padding: 0.35rem 0.7rem;
 }
 
+.mobile-date-selector {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.mobile-date-selector-header,
+.mobile-time-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.mobile-date-selector-header h4,
+.mobile-time-header h4 {
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.mobile-date-selector-header p,
+.mobile-time-header p {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0;
+}
+
+.mobile-date-carousel {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.25rem calc(50% - 38px) var(--spacing-sm);
+  scroll-padding-inline: calc(50% - 38px);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-date-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-date-option {
+  display: grid;
+  place-items: center;
+  flex: 0 0 76px;
+  min-height: 94px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  background: var(--form-section-bg);
+  color: var(--text-primary);
+  scroll-snap-align: center;
+  transition: var(--transition);
+}
+
+.mobile-date-option:hover:not(:disabled),
+.mobile-date-option.selected {
+  border-color: var(--accent-primary);
+  background: rgba(255, 164, 6, 0.16);
+  box-shadow: 0 0 12px rgba(255, 164, 6, 0.2);
+}
+
+.mobile-date-option.selected {
+  transform: scale(1.06);
+}
+
+.mobile-date-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.mobile-date-option-weekday,
+.mobile-date-option-month {
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mobile-date-option-day {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .time-slot {
   height: var(--calendar-cell-height);
   min-height: var(--calendar-cell-height);
@@ -247,9 +334,9 @@
 .time-slot.range-selected,
 .time-slot.range-start,
 .time-slot.range-end {
-  background: rgba(255, 230, 187, 0.3);
-  border-color: rgba(255, 230, 187, 0.5);
-  box-shadow: 0 0 8px rgba(255, 230, 187, 0.3);
+  background: rgba(255, 222, 164, 0.3);
+  border-color: rgba(255, 222, 164, 0.5);
+  box-shadow: 0 0 8px rgba(255, 204, 112, 0.3);
 }
 
 [data-theme="light"] .time-slot.range-selected,
@@ -315,46 +402,44 @@
 
 @media (max-width: 768px) {
   .booking-calendar {
-    --calendar-cell-height: 44px;
-    --calendar-column-gap: var(--spacing-xs);
-    --calendar-time-column-width: 50px;
-    --calendar-day-min-width: 120px;
+    --calendar-cell-height: 42px;
+    --calendar-column-gap: 0.25rem;
+    --calendar-time-column-width: 44px;
+    --calendar-day-min-width: 0px;
+    padding: var(--spacing-md);
   }
 
   .calendar-grid {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    padding-bottom: 0;
   }
-  
-  .calendar-header {
-    flex-direction: column;
-    align-items: flex-start;
+
+  .calendar-grid--mobile {
+    grid-template-rows: minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .booking-calendar--compact {
+    padding: 0.75rem;
+  }
+
+  .mobile-time-header {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .mobile-time-header .btn-sm {
+    min-height: 36px;
+    padding: 0.35rem 0.65rem;
+    white-space: nowrap;
   }
 
   .time-label {
     font-size: 0.7rem;
   }
-
-  .calendar-date-header {
-    padding: 0.4rem 0.25rem;
-  }
-
-  .date-day-number {
-    font-size: 1.05rem;
-  }
 }
 
 @media (max-width: 480px) {
-  .booking-calendar {
-    --calendar-day-min-width: 100px;
-  }
-
-  .calendar-title {
-    font-size: 1rem;
-  }
-
-  .calendar-hours-info {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.75rem;
+  .mobile-date-selector-header {
+    align-items: flex-start;
   }
 }

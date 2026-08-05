@@ -501,6 +501,9 @@
     "modal": {
       "titleWithAmenity": "Book {{name}}",
       "titleFallback": "Book amenity",
+      "selectDateTitle": "Choose a booking date",
+      "selectDateHint": "Swipe to browse available dates.",
+      "changeDate": "Change date",
       "selectStartTitle": "Choose a time slot",
       "selectStartHint": "Each cell is 30 minutes. Select another available cell to extend the booking.",
       "clearRange": "Choose again",

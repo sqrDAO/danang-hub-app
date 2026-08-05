@@ -386,9 +386,30 @@
 }
 
 @media (max-width: 768px) {
+  .booking-modal .modal-title {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .booking-modal .modal-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+  }
+
   .booking-range-status {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .booking-range-status strong {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  .booking-range-status p {
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
   }
 
   .booking-range-actions,
@@ -398,6 +419,9 @@
 
   .booking-range-actions .btn {
     flex: 1;
+    min-height: 38px;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.78rem;
   }
 }
 

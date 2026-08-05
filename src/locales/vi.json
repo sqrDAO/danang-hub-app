@@ -501,6 +501,9 @@
     "modal": {
       "titleWithAmenity": "Đặt chỗ {{name}}",
       "titleFallback": "Đặt tiện ích",
+      "selectDateTitle": "Chọn ngày đặt chỗ",
+      "selectDateHint": "Vuốt để xem các ngày khả dụng.",
+      "changeDate": "Đổi ngày",
       "selectStartTitle": "Chọn khung giờ",
       "selectStartHint": "Mỗi ô tương ứng 30 phút. Chọn thêm một ô khả dụng để mở rộng khoảng đặt chỗ.",
       "clearRange": "Chọn lại",

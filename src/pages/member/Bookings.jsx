@@ -22,6 +22,21 @@ import './Bookings.css'
 const getLocale = (i18n) =>
   i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
 
+const isMobileViewport = () =>
+  typeof window !== 'undefined' && window.innerWidth <= 768
+
+const useMobileViewport = () => {
+  const [isMobile, setIsMobile] = useState(isMobileViewport)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(isMobileViewport())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  return isMobile
+}
+
 // Member's own bookings: 90 days back (past activity) + 365 days forward
 // (recurring/fixed-desk plans can extend up to a year out).
 const getMemberBookingsWindow = () => {
@@ -98,6 +113,10 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   const [bookingStep, setBookingStep] = useState(1) // 1: calendar, 2: confirm, 3: recurring
   const [selectedStartTime, setSelectedStartTime] = useState(null)
   const [selectedEndTime, setSelectedEndTime] = useState(null)
+  const [selectedBookingDate, setSelectedBookingDate] = useState(null)
+  const [mobileCalendarStage, setMobileCalendarStage] = useState(() =>
+    isMobileViewport() ? 'date' : 'time'
+  )
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
   const [isCheckingConflict, setIsCheckingConflict] = useState(false)
@@ -114,6 +133,8 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     setSelectedAmenity(amenity)
     setIsModalOpen(true)
     setBookingStep(1)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
     if (amenityId || previewRequested) {
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('amenityId')
@@ -128,6 +149,8 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     setBookingStep(1)
     setSelectedStartTime(null)
     setSelectedEndTime(null)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
     setRecurrence(null)
     setConflictError(null)
   }
@@ -136,6 +159,8 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     setSelectedAmenity(amenity)
     setSelectedStartTime(null)
     setSelectedEndTime(null)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
     setRecurrence(null)
     setConflictError(null)
     setIsModalOpen(true)
@@ -151,6 +176,10 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     setSelectedStartTime,
     selectedEndTime,
     setSelectedEndTime,
+    selectedBookingDate,
+    setSelectedBookingDate,
+    mobileCalendarStage,
+    setMobileCalendarStage,
     recurrence,
     setRecurrence,
     conflictError,
@@ -314,6 +343,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
   const handleRangeChange = ({ startTime, endTime }) => {
     form.setSelectedStartTime(startTime)
     form.setSelectedEndTime(endTime)
+    if (startTime) form.setSelectedBookingDate(new Date(startTime))
     form.setConflictError(null)
   }
 
@@ -737,7 +767,7 @@ const BookingRangeStatus = ({ form, handlers, t, locale }) => {
   )
 }
 
-const BookingStepCalendar = ({ form, handlers }) => (
+const BookingStepCalendar = ({ form, handlers, isMobile }) => (
   <div className="booking-step booking-range-step">
     <BookingCalendar
       className="booking-calendar--compact"
@@ -745,6 +775,11 @@ const BookingStepCalendar = ({ form, handlers }) => (
       onRangeChange={handlers.handleRangeChange}
       selectedStartTime={form.selectedStartTime}
       selectedEndTime={form.selectedEndTime}
+      selectedDate={form.selectedBookingDate}
+      onSelectedDateChange={form.setSelectedBookingDate}
+      mobileMode={isMobile}
+      mobileStage={form.mobileCalendarStage}
+      onMobileStageChange={form.setMobileCalendarStage}
       viewMode="week"
       disabled={form.isCheckingConflict}
     />
@@ -892,8 +927,8 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
           type="date"
           name="endDate"
           className="form-field"
-          min={getMinRecurringEndDate(form.selectedDate)}
-          defaultValue={getMinRecurringEndDate(form.selectedDate)}
+          min={getMinRecurringEndDate(form.selectedBookingDate)}
+          defaultValue={getMinRecurringEndDate(form.selectedBookingDate)}
         />
       </div>
       <div className="form-group">
@@ -927,12 +962,12 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
   </div>
 )
 
-const BookingModalContent = ({ form, handlers, mutations, t, locale }) => {
+const BookingModalContent = ({ form, handlers, mutations, t, locale, isMobile }) => {
   if (!form.selectedAmenity) return null
   return (
     <>
       {form.bookingStep === 1 && (
-        <BookingStepCalendar form={form} handlers={handlers} />
+        <BookingStepCalendar form={form} handlers={handlers} isMobile={isMobile} />
       )}
       {form.bookingStep === 2 && (
         <BookingStepConfirm form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
@@ -1046,6 +1081,7 @@ const MemberBookings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const locale = getLocale(i18n)
+  const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
@@ -1078,7 +1114,7 @@ const MemberBookings = () => {
   const fixedDeskPlans = useMemo(() => buildFixedDeskPlans(deduplicatedBookings), [deduplicatedBookings])
 
   return (
-    <Layout>
+    <Layout hideChatbot={form.isModalOpen}>
       <div className="container">
         <div className="page-header">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
@@ -1133,11 +1169,11 @@ const MemberBookings = () => {
               ? t('memberBookings.modal.titleWithAmenity', { name: form.selectedAmenity.name })
               : t('memberBookings.modal.titleFallback')
           }
-          footer={form.bookingStep === 1 ? (
+          footer={form.bookingStep === 1 && (!isMobile || form.mobileCalendarStage === 'time') ? (
             <BookingRangeStatus form={form} handlers={handlers} t={t} locale={locale} />
           ) : null}
         >
-          <BookingModalContent form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
+          <BookingModalContent form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} isMobile={isMobile} />
         </Modal>
 
         {/* Fixed Desk Registration Modal */}

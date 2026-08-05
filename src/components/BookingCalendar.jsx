@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getBookings } from '../services/bookings'
@@ -21,6 +21,7 @@ const CLICKABLE_CELL_STATUSES = new Set([
 // The calendar is always drawn in half-hour cells. Amenity slot duration is
 // separate configuration and must not turn the visual time grid into points.
 const CALENDAR_CELL_MINUTES = 30
+const MOBILE_CAROUSEL_DAY_COUNT = 366
 
 const ACTIVE_BOOKING_STATUSES = new Set(['pending', 'approved', 'checked-in'])
 
@@ -72,6 +73,36 @@ const getCellMarker = (status, cell) => {
   return null
 }
 
+const isSameCalendarDay = (firstDate, secondDate) =>
+  firstDate.getFullYear() === secondDate.getFullYear() &&
+  firstDate.getMonth() === secondDate.getMonth() &&
+  firstDate.getDate() === secondDate.getDate()
+
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
+const isDateBeforeToday = (date) => {
+  return date < getStartOfToday()
+}
+
+const getMobileCarouselDates = () => {
+  const startDate = getStartOfToday()
+  return Array.from(
+    { length: MOBILE_CAROUSEL_DAY_COUNT },
+    (_, index) => {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + index)
+      return date
+    }
+  )
+}
+
+const isSelectableDate = (date, availability) =>
+  !isDateBeforeToday(date) && availability.availableDays.includes(date.getDay())
+
 const makeDateAtTime = (date, hour, minute) => {
   const slotDate = new Date(date)
   slotDate.setHours(hour, minute, 0, 0)
@@ -87,6 +118,61 @@ const getTimeParts = (totalMinutes) => {
     time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
   }
 }
+
+const MobileDateSelector = ({
+  dates,
+  currentDate,
+  availability,
+  locale,
+  t,
+  onSelect,
+  selectedDateRef,
+}) => (
+  <section className="mobile-date-selector" aria-labelledby="mobile-date-selector-title">
+    <div className="mobile-date-selector-header">
+      <div>
+        <h4 id="mobile-date-selector-title">{t('memberBookings.modal.selectDateTitle')}</h4>
+        <p>{t('memberBookings.modal.selectDateHint')}</p>
+      </div>
+    </div>
+
+    <div className="mobile-date-carousel" aria-label={t('memberBookings.modal.selectDateTitle')}>
+      {dates.map(date => {
+        const selectable = isSelectableDate(date, availability)
+        const selected = isSameCalendarDay(date, currentDate)
+        const label = date.toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric' })
+        return (
+          <button
+            key={date.toISOString()}
+            ref={selected ? selectedDateRef : null}
+            type="button"
+            className={`mobile-date-option${selected ? ' selected' : ''}`}
+            onClick={() => onSelect(date)}
+            disabled={!selectable}
+            aria-pressed={selected}
+            aria-label={label}
+          >
+            <span className="mobile-date-option-weekday">{date.toLocaleDateString(locale, { weekday: 'short' })}</span>
+            <span className="mobile-date-option-day">{date.getDate()}</span>
+            <span className="mobile-date-option-month">{date.toLocaleDateString(locale, { month: 'short' })}</span>
+          </button>
+        )
+      })}
+    </div>
+  </section>
+)
+
+const MobileTimeHeader = ({ date, availability, locale, t, onChangeDate }) => (
+  <div className="mobile-time-header">
+    <div>
+      <h4>{date.toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
+      <p>{t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00</p>
+    </div>
+    <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>
+      {t('memberBookings.modal.changeDate')}
+    </button>
+  </div>
+)
 
 const getTimeCells = (availability) => {
   const cells = []
@@ -169,19 +255,133 @@ const getWeekDates = (weekStart) => Array.from({ length: 7 }, (_, index) => {
   return date
 })
 
+const getEffectiveViewMode = (mobileMode, viewMode) => mobileMode ? 'day' : viewMode
+
+const isMobileDateStage = (mobileMode, mobileStage) =>
+  mobileMode && mobileStage === 'date'
+
+const CalendarDateHeader = ({ date, locale }) => {
+  const isToday = date.toDateString() === new Date().toDateString()
+  return (
+    <div className={`calendar-date-header ${isToday ? 'today' : ''}`}>
+      <div className="date-day-name">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
+      <div className="date-day-number">{date.getDate()}</div>
+      <div className="date-month">{date.toLocaleDateString(locale, { month: 'short' })}</div>
+    </div>
+  )
+}
+
+const CalendarHeader = ({
+  mobileMode,
+  currentDate,
+  availability,
+  effectiveViewMode,
+  weekStart,
+  locale,
+  t,
+  onPrevious,
+  onToday,
+  onNext,
+  onChangeDate,
+}) => {
+  if (mobileMode) {
+    return <MobileTimeHeader date={currentDate} availability={availability} locale={locale} t={t} onChangeDate={onChangeDate} />
+  }
+
+  return (
+    <div className="calendar-header">
+      <div className="calendar-nav">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onPrevious}>{t('calendar.prev')}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onToday}>{t('calendar.today')}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onNext}>{t('calendar.next')}</button>
+      </div>
+      <div className="calendar-title">
+        {effectiveViewMode === 'week'
+          ? weekStart.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+          : currentDate.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' })}
+      </div>
+      <div className="calendar-hours-info">
+        {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {t('calendar.monFri')}
+      </div>
+    </div>
+  )
+}
+
+const getCalendarGridClassName = (mobileMode, disabled) =>
+  `calendar-grid${mobileMode ? ' calendar-grid--mobile' : ''}${disabled ? ' calendar-grid--disabled' : ''}`
+
+const CalendarGrid = ({
+  mobileMode,
+  disabled,
+  gridStyle,
+  dateSlots,
+  locale,
+  timeLayout,
+  onSelect,
+}) => (
+  <div className={getCalendarGridClassName(mobileMode, disabled)} style={gridStyle}>
+    {!mobileMode && (
+      <div className="calendar-date-headers">
+        {dateSlots.map(({ date, dayAvailable }) => (
+          <div key={date.toISOString()} className={`calendar-date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
+            <CalendarDateHeader date={date} locale={locale} />
+          </div>
+        ))}
+      </div>
+    )}
+
+    <div className="calendar-time-grid">
+      {timeLayout.labels.map(({ label, rowStart, rowSpan }) => (
+        <div
+          key={label}
+          className="time-label"
+          style={{ gridColumn: 1, gridRow: `${rowStart} / span ${rowSpan}` }}
+        >
+          {label}
+        </div>
+      ))}
+
+      {timeLayout.rows.map((row, index) => row.type === 'hour-guide' && (
+        <div
+          key={row.key}
+          className="calendar-hour-guide"
+          style={{ gridColumn: '1 / -1', gridRow: index + 1 }}
+          aria-hidden="true"
+        />
+      ))}
+
+      {dateSlots.flatMap(({ date, cells }, dateIndex) =>
+        cells.map((cell, cellIndex) => (
+          <TimeCell
+            key={`${date.toISOString()}-${cell.startMs}`}
+            cell={cell}
+            onSelect={onSelect}
+            gridStyle={{ gridColumn: dateIndex + 2, gridRow: timeLayout.cellRows[cellIndex] }}
+          />
+        ))
+      )}
+    </div>
+  </div>
+)
+
 const BookingCalendar = ({
   amenity,
   onRangeChange,
   selectedStartTime = null,
   selectedEndTime = null,
+  selectedDate = null,
+  onSelectedDateChange,
   viewMode = 'week',
   disabled = false,
   className = '',
+  mobileMode = false,
+  mobileStage = 'time',
+  onMobileStageChange,
 }) => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [isMobile, setIsMobile] = useState(false)
+  const [currentDate, setCurrentDate] = useState(() => selectedDate ? new Date(selectedDate) : new Date())
+  const selectedDateRef = useRef(null)
   const availability = useMemo(() => ({
     startHour: amenity?.startHour ?? DEFAULT_AVAILABILITY.startHour,
     endHour: amenity?.endHour ?? DEFAULT_AVAILABILITY.endHour,
@@ -192,11 +392,13 @@ const BookingCalendar = ({
   const hourGroups = useMemo(() => getHourGroups(availability), [availability])
   const timeLayout = useMemo(() => buildTimeLayout(hourGroups, timeCells), [hourGroups, timeCells])
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart])
-  const effectiveViewMode = isMobile ? 'day' : viewMode
+  const effectiveViewMode = getEffectiveViewMode(mobileMode, viewMode)
+  const showMobileDatePicker = isMobileDateStage(mobileMode, mobileStage)
   const displayDates = useMemo(
     () => (effectiveViewMode === 'week' ? weekDates : [currentDate]),
     [effectiveViewMode, weekDates, currentDate]
   )
+  const carouselDates = useMemo(() => getMobileCarouselDates(), [])
   const bookingWindow = useMemo(() => {
     const startDate = new Date(weekStart)
     startDate.setDate(startDate.getDate() - 7)
@@ -213,11 +415,10 @@ const BookingCalendar = ({
   })
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768)
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    if (showMobileDatePicker) {
+      selectedDateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [currentDate, showMobileDatePicker])
 
   const dateSlots = useMemo(() => {
     const now = Date.now()
@@ -269,6 +470,16 @@ const BookingCalendar = ({
     })
   }
 
+  const handleMobileDateSelect = (date) => {
+    const selectedRangeDate = selectedStartTime ? new Date(selectedStartTime) : null
+    if (selectedRangeDate && !isSameCalendarDay(selectedRangeDate, date)) {
+      onRangeChange?.({ startTime: null, endTime: null })
+    }
+    setCurrentDate(date)
+    onSelectedDateChange?.(date)
+    onMobileStageChange?.('time')
+  }
+
   const handlePrevWeek = () => {
     const nextDate = new Date(currentDate)
     nextDate.setDate(nextDate.getDate() + (effectiveViewMode === 'week' ? -7 : -1))
@@ -281,13 +492,18 @@ const BookingCalendar = ({
     setCurrentDate(nextDate)
   }
 
-  const formatDateHeader = (date) => {
-    const isToday = date.toDateString() === new Date().toDateString()
+  if (showMobileDatePicker) {
     return (
-      <div className={`calendar-date-header ${isToday ? 'today' : ''}`}>
-        <div className="date-day-name">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
-        <div className="date-day-number">{date.getDate()}</div>
-        <div className="date-month">{date.toLocaleDateString(locale, { month: 'short' })}</div>
+      <div className={`booking-calendar booking-calendar--mobile-date-picker ${className}`.trim()}>
+        <MobileDateSelector
+          dates={carouselDates}
+          currentDate={currentDate}
+          availability={availability}
+          locale={locale}
+          t={t}
+          onSelect={handleMobileDateSelect}
+          selectedDateRef={selectedDateRef}
+        />
       </div>
     )
   }
@@ -298,63 +514,28 @@ const BookingCalendar = ({
 
   return (
     <div className={`booking-calendar ${className}`.trim()}>
-      <div className="calendar-header">
-        <div className="calendar-nav">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handlePrevWeek}>{t('calendar.prev')}</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setCurrentDate(new Date())}>{t('calendar.today')}</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handleNextWeek}>{t('calendar.next')}</button>
-        </div>
-        <div className="calendar-title">
-          {effectiveViewMode === 'week'
-            ? weekStart.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-            : currentDate.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' })}
-        </div>
-        <div className="calendar-hours-info">
-          {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {t('calendar.monFri')}
-        </div>
-      </div>
-
-      <div className={`calendar-grid${disabled ? ' calendar-grid--disabled' : ''}`} style={calendarGridStyle}>
-        <div className="calendar-date-headers">
-          {dateSlots.map(({ date, dayAvailable }) => (
-            <div key={date.toISOString()} className={`calendar-date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
-              {formatDateHeader(date)}
-            </div>
-          ))}
-        </div>
-
-        <div className="calendar-time-grid">
-          {timeLayout.labels.map(({ label, rowStart, rowSpan }) => (
-            <div
-              key={label}
-              className="time-label"
-              style={{ gridColumn: 1, gridRow: `${rowStart} / span ${rowSpan}` }}
-            >
-              {label}
-            </div>
-          ))}
-
-          {timeLayout.rows.map((row, index) => row.type === 'hour-guide' && (
-            <div
-              key={row.key}
-              className="calendar-hour-guide"
-              style={{ gridColumn: '1 / -1', gridRow: index + 1 }}
-              aria-hidden="true"
-            />
-          ))}
-
-          {dateSlots.flatMap(({ date, cells }, dateIndex) =>
-            cells.map((cell, cellIndex) => (
-              <TimeCell
-                key={`${date.toISOString()}-${cell.startMs}`}
-                cell={cell}
-                onSelect={handleCellSelect}
-                gridStyle={{ gridColumn: dateIndex + 2, gridRow: timeLayout.cellRows[cellIndex] }}
-              />
-            ))
-          )}
-        </div>
-      </div>
+      <CalendarHeader
+        mobileMode={mobileMode}
+        currentDate={currentDate}
+        availability={availability}
+        effectiveViewMode={effectiveViewMode}
+        weekStart={weekStart}
+        locale={locale}
+        t={t}
+        onPrevious={handlePrevWeek}
+        onToday={() => setCurrentDate(new Date())}
+        onNext={handleNextWeek}
+        onChangeDate={() => onMobileStageChange?.('date')}
+      />
+      <CalendarGrid
+        mobileMode={mobileMode}
+        disabled={disabled}
+        gridStyle={calendarGridStyle}
+        dateSlots={dateSlots}
+        locale={locale}
+        timeLayout={timeLayout}
+        onSelect={handleCellSelect}
+      />
 
     </div>
   )
