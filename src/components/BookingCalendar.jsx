@@ -5,6 +5,17 @@ import { getBookings } from '../services/bookings'
 import { DEFAULT_AVAILABILITY } from '../services/amenities'
 import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
 import { isLocalBookingDev } from '../utils/localBookingMode'
+import {
+  addHubDays,
+  formatHubDate,
+  getHubDayOfMonth,
+  getHubDayOfWeek,
+  getHubStartOfDay,
+  getHubStartOfToday,
+  isSameHubDay,
+  makeHubDateAtTime,
+  toDateInputHub,
+} from '../utils/timezone'
 import { CalendarSkeleton } from './LoadingSkeleton'
 import './BookingCalendar.css'
 
@@ -31,7 +42,7 @@ const CELL_TITLE_KEYS = {
   'range-blocked': 'calendar.rangeUnavailable',
   'range-end': 'calendar.endSelected',
   'range-end-candidate': 'calendar.adjustEndAt',
-  'range-selected': 'calendar.adjustEndAt',
+  'range-selected': 'calendar.shortenEndAt',
   'range-start': 'calendar.startSelected',
   'range-start-candidate': 'calendar.adjustStartAt',
   'range-single': 'calendar.singleSelected',
@@ -73,40 +84,34 @@ const getCellMarker = (status, cell) => {
   return null
 }
 
-const isSameCalendarDay = (firstDate, secondDate) =>
-  firstDate.getFullYear() === secondDate.getFullYear() &&
-  firstDate.getMonth() === secondDate.getMonth() &&
-  firstDate.getDate() === secondDate.getDate()
-
-const getStartOfToday = () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
-
-const isDateBeforeToday = (date) => {
-  return date < getStartOfToday()
-}
+const isDateBeforeToday = (date) => getHubStartOfDay(date) < getHubStartOfToday()
 
 const getMobileCarouselDates = () => {
-  const startDate = getStartOfToday()
+  const startDate = getHubStartOfToday()
   return Array.from(
     { length: MOBILE_CAROUSEL_DAY_COUNT },
-    (_, index) => {
-      const date = new Date(startDate)
-      date.setDate(date.getDate() + index)
-      return date
-    }
+    (_, index) => addHubDays(startDate, index)
   )
 }
 
 const isSelectableDate = (date, availability) =>
-  !isDateBeforeToday(date) && availability.availableDays.includes(date.getDay())
+  !isDateBeforeToday(date) && availability.availableDays.includes(getHubDayOfWeek(date))
 
-const makeDateAtTime = (date, hour, minute) => {
-  const slotDate = new Date(date)
-  slotDate.setHours(hour, minute, 0, 0)
-  return slotDate.getTime()
+// Weekday names for the availability label, taken from a known Sunday so the
+// index maps straight onto `availableDays` (0 = Sunday).
+const getWeekdayName = (day, locale) =>
+  new Date(Date.UTC(2024, 0, 7 + day)).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
+
+const isContiguous = (days) =>
+  days.every((day, index) => index === 0 || day === days[index - 1] + 1)
+
+const getAvailableDaysLabel = (availableDays, locale) => {
+  const days = [...new Set(availableDays)].sort((first, second) => first - second)
+  if (days.length === 0 || days.length === 7) return ''
+  const names = days.map(day => getWeekdayName(day, locale))
+  return days.length >= 3 && isContiguous(days)
+    ? `(${names[0]}–${names[names.length - 1]})`
+    : `(${names.join(', ')})`
 }
 
 const getTimeParts = (totalMinutes) => {
@@ -139,8 +144,8 @@ const MobileDateSelector = ({
     <div className="mobile-date-carousel" aria-label={t('memberBookings.modal.selectDateTitle')}>
       {dates.map(date => {
         const selectable = isSelectableDate(date, availability)
-        const selected = isSameCalendarDay(date, currentDate)
-        const label = date.toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric' })
+        const selected = isSameHubDay(date, currentDate)
+        const label = formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })
         return (
           <button
             key={date.toISOString()}
@@ -152,9 +157,9 @@ const MobileDateSelector = ({
             aria-pressed={selected}
             aria-label={label}
           >
-            <span className="mobile-date-option-weekday">{date.toLocaleDateString(locale, { weekday: 'short' })}</span>
-            <span className="mobile-date-option-day">{date.getDate()}</span>
-            <span className="mobile-date-option-month">{date.toLocaleDateString(locale, { month: 'short' })}</span>
+            <span className="mobile-date-option-weekday">{formatHubDate(date, locale, { weekday: 'short' })}</span>
+            <span className="mobile-date-option-day">{getHubDayOfMonth(date)}</span>
+            <span className="mobile-date-option-month">{formatHubDate(date, locale, { month: 'short' })}</span>
           </button>
         )
       })}
@@ -165,7 +170,7 @@ const MobileDateSelector = ({
 const MobileTimeHeader = ({ date, availability, locale, t, onChangeDate }) => (
   <div className="mobile-time-header">
     <div>
-      <h4>{date.toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
+      <h4>{formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
       <p>{t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00</p>
     </div>
     <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>
@@ -243,17 +248,12 @@ const getCalendarGridStyle = (dayCount, rows) => ({
 })
 
 const getWeekStart = (value) => {
-  const date = new Date(value)
-  const day = date.getDay()
-  date.setDate(date.getDate() - day + (day === 0 ? -6 : 1))
-  return date
+  const day = getHubDayOfWeek(value)
+  return addHubDays(value, -day + (day === 0 ? -6 : 1))
 }
 
-const getWeekDates = (weekStart) => Array.from({ length: 7 }, (_, index) => {
-  const date = new Date(weekStart)
-  date.setDate(weekStart.getDate() + index)
-  return date
-})
+const getWeekDates = (weekStart) =>
+  Array.from({ length: 7 }, (_, index) => addHubDays(weekStart, index))
 
 const getEffectiveViewMode = (mobileMode, viewMode) => mobileMode ? 'day' : viewMode
 
@@ -261,12 +261,12 @@ const isMobileDateStage = (mobileMode, mobileStage) =>
   mobileMode && mobileStage === 'date'
 
 const CalendarDateHeader = ({ date, locale }) => {
-  const isToday = date.toDateString() === new Date().toDateString()
+  const isToday = isSameHubDay(date, new Date())
   return (
     <div className={`calendar-date-header ${isToday ? 'today' : ''}`}>
-      <div className="date-day-name">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
-      <div className="date-day-number">{date.getDate()}</div>
-      <div className="date-month">{date.toLocaleDateString(locale, { month: 'short' })}</div>
+      <div className="date-day-name">{formatHubDate(date, locale, { weekday: 'short' })}</div>
+      <div className="date-day-number">{getHubDayOfMonth(date)}</div>
+      <div className="date-month">{formatHubDate(date, locale, { month: 'short' })}</div>
     </div>
   )
 }
@@ -297,11 +297,11 @@ const CalendarHeader = ({
       </div>
       <div className="calendar-title">
         {effectiveViewMode === 'week'
-          ? weekStart.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-          : currentDate.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' })}
+          ? formatHubDate(weekStart, locale, { month: 'long', year: 'numeric' })
+          : formatHubDate(currentDate, locale, { month: 'long', day: 'numeric', year: 'numeric' })}
       </div>
       <div className="calendar-hours-info">
-        {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {t('calendar.monFri')}
+        {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {getAvailableDaysLabel(availability.availableDays, locale)}
       </div>
     </div>
   )
@@ -380,7 +380,9 @@ const BookingCalendar = ({
 }) => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
-  const [currentDate, setCurrentDate] = useState(() => selectedDate ? new Date(selectedDate) : new Date())
+  const [currentDate, setCurrentDate] = useState(
+    () => getHubStartOfDay(selectedDate ?? new Date())
+  )
   const selectedDateRef = useRef(null)
   const availability = useMemo(() => ({
     startHour: amenity?.startHour ?? DEFAULT_AVAILABILITY.startHour,
@@ -399,19 +401,16 @@ const BookingCalendar = ({
     [effectiveViewMode, weekDates, currentDate]
   )
   const carouselDates = useMemo(() => getMobileCarouselDates(), [])
-  const bookingWindow = useMemo(() => {
-    const startDate = new Date(weekStart)
-    startDate.setDate(startDate.getDate() - 7)
-    startDate.setHours(0, 0, 0, 0)
-    const endDate = new Date(weekStart)
-    endDate.setDate(endDate.getDate() + 14)
-    endDate.setHours(23, 59, 59, 999)
-    return { startDate, endDate }
-  }, [weekStart])
+  const bookingWindow = useMemo(() => ({
+    startDate: addHubDays(weekStart, -7),
+    endDate: new Date(addHubDays(weekStart, 15).getTime() - 1),
+  }), [weekStart])
   const { data: allBookings = [], isLoading } = useQuery({
-    queryKey: ['bookings', amenity?.id, weekStart.toISOString().split('T')[0]],
+    queryKey: ['bookings', amenity?.id, toDateInputHub(weekStart)],
     queryFn: () => getBookings({ amenityId: amenity.id, ...bookingWindow }),
     enabled: !!amenity?.id && !isLocalBookingDev,
+    refetchOnWindowFocus: false,
+    retry: 1,
   })
 
   useEffect(() => {
@@ -433,11 +432,11 @@ const BookingCalendar = ({
       .map(({ startTime, endTime }) => [new Date(startTime).getTime(), new Date(endTime).getTime()])
 
     return displayDates.map(date => {
-      const dayAvailable = availability.availableDays.includes(date.getDay())
+      const dayAvailable = availability.availableDays.includes(getHubDayOfWeek(date))
       const context = { dayAvailable, now, bookingRanges, isSharedDesk, capacity }
       const cells = timeCells.map(slot => {
-        const key = makeDateAtTime(date, slot.hour, slot.minute)
-        const endKey = makeDateAtTime(date, slot.endHour, slot.endMinute)
+        const key = makeHubDateAtTime(date, slot.hour, slot.minute).getTime()
+        const endKey = makeHubDateAtTime(date, slot.endHour, slot.endMinute).getTime()
         return {
           ...slot,
           startMs: key,
@@ -471,8 +470,7 @@ const BookingCalendar = ({
   }
 
   const handleMobileDateSelect = (date) => {
-    const selectedRangeDate = selectedStartTime ? new Date(selectedStartTime) : null
-    if (selectedRangeDate && !isSameCalendarDay(selectedRangeDate, date)) {
+    if (selectedStartTime && !isSameHubDay(selectedStartTime, date)) {
       onRangeChange?.({ startTime: null, endTime: null })
     }
     setCurrentDate(date)
@@ -480,16 +478,9 @@ const BookingCalendar = ({
     onMobileStageChange?.('time')
   }
 
-  const handlePrevWeek = () => {
-    const nextDate = new Date(currentDate)
-    nextDate.setDate(nextDate.getDate() + (effectiveViewMode === 'week' ? -7 : -1))
-    setCurrentDate(nextDate)
-  }
-
-  const handleNextWeek = () => {
-    const nextDate = new Date(currentDate)
-    nextDate.setDate(nextDate.getDate() + (effectiveViewMode === 'week' ? 7 : 1))
-    setCurrentDate(nextDate)
+  const shiftCurrentDate = (direction) => {
+    const step = effectiveViewMode === 'week' ? 7 : 1
+    setCurrentDate(addHubDays(currentDate, direction * step))
   }
 
   if (showMobileDatePicker) {
@@ -522,9 +513,9 @@ const BookingCalendar = ({
         weekStart={weekStart}
         locale={locale}
         t={t}
-        onPrevious={handlePrevWeek}
-        onToday={() => setCurrentDate(new Date())}
-        onNext={handleNextWeek}
+        onPrevious={() => shiftCurrentDate(-1)}
+        onToday={() => setCurrentDate(getHubStartOfToday())}
+        onNext={() => shiftCurrentDate(1)}
         onChangeDate={() => onMobileStageChange?.('date')}
       />
       <CalendarGrid

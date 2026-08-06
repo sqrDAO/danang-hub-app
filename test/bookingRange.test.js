@@ -1,8 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { getBaseSlotStatus, getCellState } from '../src/utils/bookingRange.js'
+import { parseHubDateTime } from '../src/utils/timezone.js'
 
-const at = (hour, minute = 0) => new Date(2026, 7, 10, hour, minute).getTime()
+// Cells are hub-day offsets, not browser-local times: under a browser timezone
+// far from +07:00 the same wall-clock hours would land on two different hub
+// days and getCellState would rightly treat the selection as cross-day.
+const HUB_DAY_START = parseHubDateTime('2026-08-10').getTime()
+const at = (hour, minute = 0) => HUB_DAY_START + (hour * 60 + minute) * 60_000
 
 const createCell = (hour, minute = 0, options = {}) => ({
   startMs: at(hour, minute),

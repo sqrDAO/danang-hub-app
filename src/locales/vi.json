@@ -45,7 +45,8 @@
     "continue": "Tiếp tục",
     "on": "Bật",
     "off": "Tắt",
-    "signup": "Đăng ký"
+    "signup": "Đăng ký",
+    "telegramChatbot": "Trò chuyện với bot Telegram của chúng tôi"
   },
   "notifications": {
     "title": "Thông báo",
@@ -636,7 +637,6 @@
     "today": "Hôm nay",
     "next": "Sau →",
     "hours": "Giờ:",
-    "monFri": "(T2-T6)",
     "closed": "Đóng cửa",
     "past": "Đã qua",
     "booked": "Đã đặt",
@@ -646,6 +646,7 @@
     "startSelected": "Đã chọn ô bắt đầu: {{time}}. Nhấn để bỏ toàn bộ lựa chọn.",
     "endSelected": "Đã chọn ô kết thúc: {{time}}.",
     "adjustEndAt": "Mở rộng khoảng đặt đến hết ô {{time}}",
+    "shortenEndAt": "Rút ngắn khoảng đặt để kết thúc tại ô {{time}}",
     "adjustStartAt": "Chuyển thời gian bắt đầu đến ô {{time}}",
     "singleSelected": "Đã chọn: {{time}}. Nhấn để bỏ chọn.",
     "errorLoadingBookings": "Lỗi khi tải lịch đặt chỗ: {{message}}",

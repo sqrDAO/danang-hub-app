@@ -18,7 +18,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #229ED9;
+  background: var(--tg-float-bg);
+  color: var(--tg-float-icon);
   display: flex;
   align-items: center;
   justify-content: center;

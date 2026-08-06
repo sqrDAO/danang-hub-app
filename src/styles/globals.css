@@ -98,6 +98,10 @@
   --bottom-nav-bg: rgba(35, 31, 32, 0.88);
   --bottom-nav-border: rgba(255, 164, 6, 0.15);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Floating Telegram button — Telegram brand colors, identical in both themes */
+  --tg-float-bg: #229ED9;
+  --tg-float-icon: #ffffff;
 }
 
 [data-theme="light"] {

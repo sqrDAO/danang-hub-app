@@ -1,5 +1,6 @@
-const isSameCalendarDay = (firstMs, secondMs) =>
-  new Date(firstMs).toDateString() === new Date(secondMs).toDateString()
+// Extension is required: test/bookingRange.test.js loads this through Node's ESM
+// loader, which does not resolve extensionless specifiers the way Vite does.
+import { isSameHubDay } from './timezone.js'
 
 const rangeState = (status, nextRange = null) => ({ status, nextRange })
 
@@ -98,7 +99,7 @@ const getSelectedCellState = (cell, selection, cells) => {
 
 export const getCellState = (cell, selection, cells) => {
   const { startMs, endMs } = selection
-  const selectionOnAnotherDay = startMs !== null && !isSameCalendarDay(cell.startMs, startMs)
+  const selectionOnAnotherDay = startMs !== null && !isSameHubDay(cell.startMs, startMs)
 
   if (startMs === null || endMs === null || selectionOnAnotherDay) {
     return getDefaultCellState(cell)

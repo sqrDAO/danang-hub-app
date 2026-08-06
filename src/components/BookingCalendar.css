@@ -6,6 +6,8 @@
   --calendar-day-min-width: 100px;
   --calendar-guide-thickness: 1px;
   --calendar-guide-row-height: 7px; /* 3px clearance + 1px guide + 3px clearance. */
+  --calendar-guide-muted: rgba(255, 255, 255, 0.16);
+  --calendar-guide-strong: rgba(255, 255, 255, 0.42);
   width: 100%;
   background: var(--card-bg);
   backdrop-filter: blur(10px);
@@ -13,6 +15,11 @@
   border-radius: var(--border-radius);
   padding: var(--spacing-lg);
   box-shadow: var(--card-shadow, none);
+}
+
+[data-theme="light"] .booking-calendar {
+  --calendar-guide-muted: rgba(35, 31, 32, 0.12);
+  --calendar-guide-strong: rgba(35, 31, 32, 0.3);
 }
 
 .calendar-header {
@@ -145,10 +152,10 @@
   max-height: var(--calendar-guide-thickness);
   background: linear-gradient(
     to right,
-    rgba(255, 255, 255, 0.16) 0,
-    rgba(255, 255, 255, 0.16) calc(var(--calendar-time-column-width) + var(--calendar-column-gap)),
-    rgba(255, 255, 255, 0.42) calc(var(--calendar-time-column-width) + var(--calendar-column-gap)),
-    rgba(255, 255, 255, 0.42) 100%
+    var(--calendar-guide-muted) 0,
+    var(--calendar-guide-muted) calc(var(--calendar-time-column-width) + var(--calendar-column-gap)),
+    var(--calendar-guide-strong) calc(var(--calendar-time-column-width) + var(--calendar-column-gap)),
+    var(--calendar-guide-strong) 100%
   );
   pointer-events: none;
   z-index: 1;
@@ -406,6 +413,7 @@
     --calendar-column-gap: 0.25rem;
     --calendar-time-column-width: 44px;
     --calendar-day-min-width: 0px;
+
     padding: var(--spacing-md);
   }
 

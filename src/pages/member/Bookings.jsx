@@ -100,10 +100,13 @@ const getTodayString = () => {
 }
 
 const getMinRecurringEndDate = (selectedDate) => {
-  const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
-  base.setMonth(base.getMonth() + 1)
-  base.setHours(0, 0, 0, 0)
-  return toDateInputHub(base)
+  const base = selectedDate instanceof Date ? selectedDate : new Date()
+  // Shift a month on the hub calendar. Browser-local setMonth/setHours would
+  // land a day early for anyone east of +07:00. `month` is 1-based here, so
+  // passing it as the 0-based argument is the +1 month, and Date.UTC folds the
+  // December and end-of-month overflow the same way setMonth does.
+  const [year, month, day] = toDateInputHub(base).split('-').map(Number)
+  return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
 }
 
 const useBookingForm = (amenities, searchParams, setSearchParams) => {
@@ -1097,7 +1100,9 @@ const MemberBookings = () => {
 
   const { data: remoteAmenities = [], isLoading: amenitiesLoading } = useQuery({
     queryKey: ['amenities'],
-    queryFn: getAmenities
+    queryFn: getAmenities,
+    refetchOnWindowFocus: false,
+    retry: 1
   })
   const amenities = remoteAmenities.length > 0 ? remoteAmenities : (
     isLocalBookingDev ? LOCAL_PREVIEW_AMENITIES : remoteAmenities
