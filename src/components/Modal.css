@@ -17,7 +17,9 @@
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: modalSlideIn 0.3s ease;
   padding: var(--spacing-lg);
 }
@@ -116,5 +118,39 @@
 }
 
 .modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
   padding: var(--spacing-md) 0 0 0;
+}
+
+.modal-footer {
+  flex: 0 0 auto;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--form-divider);
+}
+
+/* The booking calendar already has its own compact header and spacing. */
+.modal-content.booking-modal {
+  padding: var(--spacing-md);
+}
+
+.booking-modal .modal-header {
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+}
+
+.booking-modal .modal-body {
+  padding-top: 0;
+}
+
+.booking-modal .modal-footer {
+  margin-top: var(--spacing-md);
+}
+
+@media (max-width: 480px) {
+  .modal-content.booking-modal {
+    padding: var(--spacing-sm);
+  }
 }

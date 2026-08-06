@@ -9,27 +9,38 @@ import BookingCalendar from '../../components/BookingCalendar'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
-import { getAmenities, DEFAULT_AVAILABILITY } from '../../services/amenities'
+import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
+import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
 import { useTranslation } from 'react-i18next'
-import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import './Bookings.css'
-
-const DEFAULT_DURATION_HOURS = {
-  'desk': 2,
-  'meeting-room': 2,
-  'podcast-room': 2,
-  'event-space': 2
-}
 
 const getLocale = (i18n) =>
   i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
 
+const isMobileViewport = () =>
+  typeof window !== 'undefined' && window.innerWidth <= 768
+
+const useMobileViewport = () => {
+  const [isMobile, setIsMobile] = useState(isMobileViewport)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(isMobileViewport())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  return isMobile
+}
+
 // Member's own bookings: 90 days back (past activity) + 365 days forward
-// (recurring/fixed-desk plans can extend up to a year out).
+// (recurring/fixed-desk plans can extend up to a year out). Deliberately
+// browser-local: this is only a generously padded fetch window, never a booking
+// time, so a few hours of drift at either edge changes nothing.
 const getMemberBookingsWindow = () => {
   const start = new Date()
   start.setDate(start.getDate() - 90)
@@ -40,51 +51,26 @@ const getMemberBookingsWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-const computeSlotRange = (slotTime, duration) => {
-  const startTime = new Date(slotTime)
-  const endTime = new Date(startTime)
-  // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-  endTime.setTime(startTime.getTime() + duration * 60 * 60 * 1000)
-  return { startTime, endTime }
-}
-
-// Client-side check: end time must not exceed the amenity's closing hour
-const isBeyondClosingHour = (amenity, endTime) => {
-  const amenityEndHour = typeof amenity.endHour === 'number'
-    ? amenity.endHour
-    : DEFAULT_AVAILABILITY.endHour
-  const endHours = endTime.getHours() + endTime.getMinutes() / 60
-  return endHours > amenityEndHour
-}
-
-const generateAlternativeSlots = (originalStart, originalEnd, durationHours) => {
-  const alternatives = []
-  const sameDay = new Date(originalStart)
-  sameDay.setHours(9, 0, 0, 0) // Start from 9 AM
-
-  // Generate slots every 2 hours
-  for (let hour = 9; hour <= 20; hour += 2) {
-    const altStart = new Date(sameDay)
-    altStart.setHours(hour, 0, 0, 0)
-
-    const altEnd = new Date(altStart)
-    // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-    altEnd.setTime(altStart.getTime() + durationHours * 60 * 60 * 1000)
-
-    // Don't suggest the original time
-    if (altStart.getTime() !== originalStart.getTime()) {
-      alternatives.push({ start: altStart, end: altEnd })
-    }
-  }
-
-  return alternatives.slice(0, 3) // Return top 3 alternatives
+const formatBookingDuration = (startTime, endTime, t) => {
+  if (!startTime || !endTime) return t('common.na')
+  const minutes = (new Date(endTime) - new Date(startTime)) / (1000 * 60)
+  return minutes >= 60
+    ? t('memberBookings.modal.durationHours', { count: minutes / 60 })
+    : t('memberBookings.modal.durationMinutes', { count: minutes })
 }
 
 const formatDateTimeForDisplay = (value, locale, t) => {
   if (!value) return t('common.na')
   const d = value instanceof Date ? value : new Date(value)
   const datePart = formatDateDDMMYYYY(d)
-  const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  // Both halves must be the hub's. formatDateDDMMYYYY pins the timezone, so a
+  // browser-local time here would pair a hub date with a local clock time and
+  // render a combination that never existed.
+  const timePart = d.toLocaleTimeString(locale, {
+    timeZone: HUB_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   return `${datePart} ${timePart}`
 }
 
@@ -119,28 +105,31 @@ const buildFixedDeskPlans = (deduplicatedBookings) => {
 }
 
 const getTodayString = () => {
-  const d = new Date()
-  return d.toISOString().split('T')[0]
+  return toDateInputHub(new Date())
 }
 
 const getMinRecurringEndDate = (selectedDate) => {
-  const base = selectedDate instanceof Date ? new Date(selectedDate) : new Date()
-  base.setMonth(base.getMonth() + 1)
-  base.setHours(0, 0, 0, 0)
-  return base.toISOString().split('T')[0]
+  const base = selectedDate instanceof Date ? selectedDate : new Date()
+  // Shift a month on the hub calendar. Browser-local setMonth/setHours would
+  // land a day early for anyone east of +07:00. `month` is 1-based here, so
+  // passing it as the 0-based argument is the +1 month, and Date.UTC folds the
+  // December and end-of-month overflow the same way setMonth does.
+  const [year, month, day] = toDateInputHub(base).split('-').map(Number)
+  return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
 }
 
 const useBookingForm = (amenities, searchParams, setSearchParams) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
   const [bookingStep, setBookingStep] = useState(1) // 1: calendar, 2: confirm, 3: recurring
-  const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedStartTime, setSelectedStartTime] = useState(null)
   const [selectedEndTime, setSelectedEndTime] = useState(null)
-  const [duration, setDuration] = useState(2) // hours
+  const [selectedBookingDate, setSelectedBookingDate] = useState(null)
+  const [mobileCalendarStage, setMobileCalendarStage] = useState(() =>
+    isMobileViewport() ? 'date' : 'time'
+  )
   const [recurrence, setRecurrence] = useState(null)
   const [conflictError, setConflictError] = useState(null)
-  const [alternativeSlots, setAlternativeSlots] = useState([])
   const [isCheckingConflict, setIsCheckingConflict] = useState(false)
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const isSubmittingRef = useRef(false)
@@ -148,49 +137,43 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   // Check for amenityId in URL params and auto-open booking modal
   useEffect(() => {
     const amenityId = searchParams.get('amenityId')
-    if (amenityId && amenities.length > 0 && !isModalOpen) {
-      const amenity = amenities.find(a => a.id === amenityId)
-      if (amenity) {
-        setSelectedAmenity(amenity)
-        setDuration(DEFAULT_DURATION_HOURS[amenity.type] || 2)
-        setSelectedDate(new Date())
-        setIsModalOpen(true)
-        setBookingStep(1)
-        // Remove amenityId from URL params after opening modal
-        const newParams = new URLSearchParams(searchParams)
-        newParams.delete('amenityId')
-        setSearchParams(newParams, { replace: true })
-      }
+    const previewRequested = isLocalBookingDev && searchParams.get('preview') === 'booking'
+    const amenity = amenities.find(a => a.id === amenityId) || (previewRequested && amenities[0])
+    if (!amenity || isModalOpen) return
+
+    setSelectedAmenity(amenity)
+    setIsModalOpen(true)
+    setBookingStep(1)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
+    if (amenityId || previewRequested) {
+      const newParams = new URLSearchParams(searchParams)
+      newParams.delete('amenityId')
+      newParams.delete('preview')
+      setSearchParams(newParams, { replace: true })
     }
   }, [amenities, searchParams, isModalOpen, setSearchParams])
-
-  // Recalculate end time when duration changes and start time is already selected
-  useEffect(() => {
-    if (selectedStartTime && duration) {
-      const newEndTime = new Date(selectedStartTime)
-      // Use setTime with milliseconds to properly handle fractional hours (e.g., 1.5 hours)
-      newEndTime.setTime(selectedStartTime.getTime() + duration * 60 * 60 * 1000)
-      setSelectedEndTime(newEndTime)
-    }
-  }, [duration, selectedStartTime])
 
   const resetBookingForm = () => {
     setIsModalOpen(false)
     setSelectedAmenity(null)
     setBookingStep(1)
-    setSelectedDate(new Date())
     setSelectedStartTime(null)
     setSelectedEndTime(null)
-    setDuration(2)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
     setRecurrence(null)
     setConflictError(null)
-    setAlternativeSlots([])
   }
 
   const openForAmenity = (amenity) => {
     setSelectedAmenity(amenity)
-    setDuration(DEFAULT_DURATION_HOURS[amenity.type] || 2)
-    setSelectedDate(new Date())
+    setSelectedStartTime(null)
+    setSelectedEndTime(null)
+    setSelectedBookingDate(null)
+    setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
+    setRecurrence(null)
+    setConflictError(null)
     setIsModalOpen(true)
     setBookingStep(1)
   }
@@ -200,20 +183,18 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     selectedAmenity,
     bookingStep,
     setBookingStep,
-    selectedDate,
-    setSelectedDate,
     selectedStartTime,
     setSelectedStartTime,
     selectedEndTime,
     setSelectedEndTime,
-    duration,
-    setDuration,
+    selectedBookingDate,
+    setSelectedBookingDate,
+    mobileCalendarStage,
+    setMobileCalendarStage,
     recurrence,
     setRecurrence,
     conflictError,
     setConflictError,
-    alternativeSlots,
-    setAlternativeSlots,
     isCheckingConflict,
     setIsCheckingConflict,
     isSubmittingBooking,
@@ -370,57 +351,44 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
     form.openForAmenity(amenity)
   }
 
-  const applyConflictCheckError = (error) => {
-    if (error?.code === 'functions/invalid-argument') {
-      form.setConflictError(error.message || t('memberBookings.outsideHoursError'))
-    } else {
-      console.warn('Could not check conflicts:', error)
-      form.setConflictError(t('memberBookings.conflictCheckFailed'))
-    }
-    form.setAlternativeSlots([])
+  // Normalize to Date here so the rest of the flow — conflict checks, the
+  // summary, the mutation payload — can rely on `.toISOString()` existing. A
+  // string slipping through would otherwise surface as `conflictCheckFailed`,
+  // blaming the service for a type error.
+  const handleRangeChange = ({ startTime, endTime }) => {
+    const start = startTime ? new Date(startTime) : null
+    const end = endTime ? new Date(endTime) : null
+    form.setSelectedStartTime(start)
+    form.setSelectedEndTime(end)
+    if (start) form.setSelectedBookingDate(start)
+    form.setConflictError(null)
   }
 
-  const handleTimeSlotSelect = async (slotTime, advance = false) => {
-    if (!form.selectedAmenity) return
+  const handleClearRange = () => {
+    handleRangeChange({ startTime: null, endTime: null })
+  }
 
-    const { startTime, endTime } = computeSlotRange(slotTime, form.duration)
-    form.setSelectedStartTime(startTime)
-    form.setSelectedEndTime(endTime)
-
-    if (isBeyondClosingHour(form.selectedAmenity, endTime)) {
-      form.setConflictError(t('memberBookings.outsideHoursError'))
-      form.setAlternativeSlots([])
-      return
-    }
-
+  const handleContinueToConfirm = async () => {
+    if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
     form.setIsCheckingConflict(true)
 
-    // Check for conflicts
     try {
       const conflictCheck = await checkBookingConflicts(
         form.selectedAmenity.id,
-        startTime.toISOString(),
-        endTime.toISOString()
+        form.selectedStartTime.toISOString(),
+        form.selectedEndTime.toISOString()
       )
-
       if (conflictCheck.hasConflicts) {
         form.setConflictError(t('memberBookings.conflictError'))
-        // Suggest alternatives (same day, different times)
-        form.setAlternativeSlots(generateAlternativeSlots(startTime, endTime, form.duration))
       } else {
-        form.setConflictError(null)
-        form.setAlternativeSlots([])
-        if (advance) form.setBookingStep(2)
+        form.setBookingStep(2)
       }
     } catch (error) {
-      applyConflictCheckError(error)
+      console.warn('Could not check conflicts:', error)
+      form.setConflictError(t('memberBookings.conflictCheckFailed'))
     } finally {
       form.setIsCheckingConflict(false)
     }
-  }
-
-  const handleUseAlternative = (altSlot) => {
-    handleTimeSlotSelect(altSlot.start, true)
   }
 
   const finishSubmitting = () => {
@@ -530,8 +498,9 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
 
   return {
     handleBookAmenity,
-    handleTimeSlotSelect,
-    handleUseAlternative,
+    handleRangeChange,
+    handleClearRange,
+    handleContinueToConfirm,
     handleConfirmBooking,
     handleRecurringToggle,
     handleRecurringSubmit,
@@ -776,79 +745,65 @@ const FixedDeskPlansSection = ({ plans, amenities, t, onCancelPlan, cancellingId
   )
 }
 
-const BookingStepCalendar = ({ form, handlers, t, locale }) => (
-  <div className="booking-step">
-    <div className="form-group">
-      <label className="form-label">
-        {t('memberBookings.modal.duration')}
-      </label>
-      <select
-        className="form-field"
-        value={form.duration}
-        onChange={(e) => form.setDuration(parseFloat(e.target.value))}
-      >
-        <option value="0.5">{t('memberBookings.modal.duration30')}</option>
-        <option value="1">{t('memberBookings.modal.duration1h')}</option>
-        <option value="1.5">{t('memberBookings.modal.duration1h30')}</option>
-        <option value="2">{t('memberBookings.modal.duration2h')}</option>
-        <option value="2.5">{t('memberBookings.modal.duration2h30')}</option>
-        <option value="3">{t('memberBookings.modal.duration3h')}</option>
-        <option value="4">{t('memberBookings.modal.duration4h')}</option>
-        <option value="5">{t('memberBookings.modal.duration5h')}</option>
-        <option value="6">{t('memberBookings.modal.duration6h')}</option>
-        <option value="9">{t('memberBookings.modal.durationFullDay')}</option>
-      </select>
-    </div>
+const BookingRangeStatus = ({ form, handlers, t, locale }) => {
+  const start = form.selectedStartTime
+  const end = form.selectedEndTime
 
+  if (!start || !end) {
+    return (
+      <div className="booking-range-status is-empty">
+        <strong>{t('memberBookings.modal.selectStartTitle')}</strong>
+        <p>{t('memberBookings.modal.selectStartHint')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="booking-range-status is-complete">
+      <div>
+        <strong>{t('memberBookings.modal.selectedRange', {
+          start: formatDateTimeForDisplay(start, locale, t),
+          end: formatDateTimeForDisplay(end, locale, t)
+        })}</strong>
+        <p>{formatBookingDuration(start, end, t)}</p>
+      </div>
+      <div className="booking-range-actions">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={handlers.handleClearRange}>
+          {t('memberBookings.modal.clearRange')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={handlers.handleContinueToConfirm}
+          disabled={form.isCheckingConflict}
+        >
+          {form.isCheckingConflict ? t('memberBookings.modal.checking') : t('memberBookings.modal.continue')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const BookingStepCalendar = ({ form, handlers, isMobile }) => (
+  <div className="booking-step booking-range-step">
     <BookingCalendar
-      amenityId={form.selectedAmenity.id}
-      selectedDate={form.selectedDate}
-      onDateChange={form.setSelectedDate}
-      onTimeSlotSelect={handlers.handleTimeSlotSelect}
+      className="booking-calendar--compact"
+      amenity={form.selectedAmenity}
+      onRangeChange={handlers.handleRangeChange}
       selectedStartTime={form.selectedStartTime}
       selectedEndTime={form.selectedEndTime}
+      selectedDate={form.selectedBookingDate}
+      onSelectedDateChange={form.setSelectedBookingDate}
+      mobileMode={isMobile}
+      mobileStage={form.mobileCalendarStage}
+      onMobileStageChange={form.setMobileCalendarStage}
       viewMode="week"
       disabled={form.isCheckingConflict}
     />
 
     {form.conflictError && (
-      <div className="conflict-error">
+      <div className="conflict-error" role="alert">
         <p className="error-message">{form.conflictError}</p>
-        {form.alternativeSlots.length > 0 && (
-          <div className="alternative-slots">
-            <p>{t('memberBookings.modal.alternativesLabel')}</p>
-            {form.alternativeSlots.map((alt, index) => (
-              <button
-                key={index}
-                className="btn btn-secondary btn-sm"
-                onClick={() => handlers.handleUseAlternative(alt)}
-              >
-                {alt.start.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })} -{' '}
-                {alt.end.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-
-    {form.selectedStartTime && !form.conflictError && (
-      <div className="selected-time-info">
-        <p>
-          {t('memberBookings.modal.selectedRange', {
-            start: formatDateTimeForDisplay(form.selectedStartTime, locale, t),
-            end: formatDateTimeForDisplay(form.selectedEndTime, locale, t)
-          })}
-        </p>
-        <button
-          className="btn btn-primary"
-          onClick={() => handlers.handleTimeSlotSelect(form.selectedStartTime, true)}
-          disabled={form.isCheckingConflict}
-        >
-          {form.isCheckingConflict
-            ? t('memberBookings.modal.checking')
-            : t('memberBookings.modal.continue')}
-        </button>
       </div>
     )}
   </div>
@@ -870,9 +825,7 @@ const BookingSummary = ({ form, t, locale }) => (
     </div>
     <div className="summary-item">
       <strong>{t('memberBookings.modal.summaryDuration')}</strong>{' '}
-      {form.duration >= 1
-        ? t('memberBookings.modal.durationHours', { count: form.duration })
-        : t('memberBookings.modal.durationMinutes', { count: form.duration * 60 })}
+      {formatBookingDuration(form.selectedStartTime, form.selectedEndTime, t)}
     </div>
   </div>
 )
@@ -947,8 +900,12 @@ const BookingStepConfirm = ({ form, handlers, mutations, t, locale }) => {
   )
 }
 
-const BookingStepRecurring = ({ form, handlers, t }) => (
-  <div className="booking-step">
+const BookingStepRecurring = ({ form, handlers, t }) => {
+  const recurringBaseDate = form.selectedBookingDate || form.selectedStartTime
+  const minEndDate = getMinRecurringEndDate(recurringBaseDate)
+
+  return (
+    <div className="booking-step">
     <h3>{t('memberBookings.modal.recurringOptionsTitle')}</h3>
     <form onSubmit={handlers.handleRecurringSubmit}>
       <div className="form-group">
@@ -991,8 +948,7 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
           type="date"
           name="endDate"
           className="form-field"
-          min={getMinRecurringEndDate(form.selectedDate)}
-          defaultValue={getMinRecurringEndDate(form.selectedDate)}
+          min={minEndDate}
         />
       </div>
       <div className="form-group">
@@ -1023,15 +979,16 @@ const BookingStepRecurring = ({ form, handlers, t }) => (
         </button>
       </div>
     </form>
-  </div>
-)
+    </div>
+  )
+}
 
-const BookingModalContent = ({ form, handlers, mutations, t, locale }) => {
+const BookingModalContent = ({ form, handlers, mutations, t, locale, isMobile }) => {
   if (!form.selectedAmenity) return null
   return (
     <>
       {form.bookingStep === 1 && (
-        <BookingStepCalendar form={form} handlers={handlers} t={t} locale={locale} />
+        <BookingStepCalendar form={form} handlers={handlers} isMobile={isMobile} />
       )}
       {form.bookingStep === 2 && (
         <BookingStepConfirm form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
@@ -1145,6 +1102,7 @@ const MemberBookings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
   const locale = getLocale(i18n)
+  const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
@@ -1154,10 +1112,15 @@ const MemberBookings = () => {
     enabled: !!currentUser?.uid
   })
 
-  const { data: amenities = [], isLoading: amenitiesLoading } = useQuery({
+  const { data: remoteAmenities = [], isLoading: amenitiesLoading } = useQuery({
     queryKey: ['amenities'],
-    queryFn: getAmenities
+    queryFn: getAmenities,
+    refetchOnWindowFocus: false,
+    retry: 1
   })
+  const amenities = remoteAmenities.length > 0 ? remoteAmenities : (
+    isLocalBookingDev ? LOCAL_PREVIEW_AMENITIES : remoteAmenities
+  )
 
   const form = useBookingForm(amenities, searchParams, setSearchParams)
   const fd = useFixedDeskForm()
@@ -1174,7 +1137,7 @@ const MemberBookings = () => {
   const fixedDeskPlans = useMemo(() => buildFixedDeskPlans(deduplicatedBookings), [deduplicatedBookings])
 
   return (
-    <Layout>
+    <Layout hideChatbot={form.isModalOpen}>
       <div className="container">
         <div className="page-header">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
@@ -1223,13 +1186,17 @@ const MemberBookings = () => {
         <Modal
           isOpen={form.isModalOpen}
           onClose={form.resetBookingForm}
+          className="booking-modal"
           title={
             form.selectedAmenity
               ? t('memberBookings.modal.titleWithAmenity', { name: form.selectedAmenity.name })
               : t('memberBookings.modal.titleFallback')
           }
+          footer={form.bookingStep === 1 && (!isMobile || form.mobileCalendarStage === 'time') ? (
+            <BookingRangeStatus form={form} handlers={handlers} t={t} locale={locale} />
+          ) : null}
         >
-          <BookingModalContent form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} />
+          <BookingModalContent form={form} handlers={handlers} mutations={mutations} t={t} locale={locale} isMobile={isMobile} />
         </Modal>
 
         {/* Fixed Desk Registration Modal */}

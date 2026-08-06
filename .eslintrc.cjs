@@ -27,6 +27,12 @@ module.exports = {
       env: { node: true },
     },
     {
+      // Node context: the test suite runs under `node --test` and sets
+      // process.env.TZ to prove hub-timezone helpers ignore the local zone.
+      files: ['test/**/*.js'],
+      env: { node: true },
+    },
+    {
       // Clean-code caps, scoped to app code. Build-blocking: the lint script
       // runs with --max-warnings 0.
       files: ['src/**/*.{js,jsx}'],
