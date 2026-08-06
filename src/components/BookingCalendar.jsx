@@ -25,7 +25,6 @@ const CLICKABLE_CELL_STATUSES = new Set([
   'range-end',
   'range-selected',
   'range-end-candidate',
-  'range-start-candidate',
   'range-single',
 ])
 
@@ -44,7 +43,6 @@ const CELL_TITLE_KEYS = {
   'range-end-candidate': 'calendar.adjustEndAt',
   'range-selected': 'calendar.shortenEndAt',
   'range-start': 'calendar.startSelected',
-  'range-start-candidate': 'calendar.adjustStartAt',
   'range-single': 'calendar.singleSelected',
   unavailable: 'calendar.closed',
 }
@@ -98,9 +96,12 @@ const isSelectableDate = (date, availability) =>
   !isDateBeforeToday(date) && availability.availableDays.includes(getHubDayOfWeek(date))
 
 // Weekday names for the availability label, taken from a known Sunday so the
-// index maps straight onto `availableDays` (0 = Sunday).
+// index maps straight onto `availableDays` (0 = Sunday). These are plain
+// weekday names, so they are read in UTC rather than through the hub helpers.
+const WEEKDAY_LABEL_DATES = Array.from({ length: 7 }, (_, day) => new Date(Date.UTC(2024, 0, 7 + day)))
+
 const getWeekdayName = (day, locale) =>
-  new Date(Date.UTC(2024, 0, 7 + day)).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
+  WEEKDAY_LABEL_DATES[day].toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
 
 const isContiguous = (days) =>
   days.every((day, index) => index === 0 || day === days[index - 1] + 1)
@@ -307,6 +308,18 @@ const CalendarHeader = ({
   )
 }
 
+const CalendarError = ({ message, onRetry, t }) => (
+  <div className="calendar-error" role="alert">
+    <p className="calendar-error-message">
+      {t('calendar.errorLoadingBookings', { message: message || t('calendar.unknownError') })}
+    </p>
+    <p className="calendar-error-hint">{t('calendar.errorSelectionBlocked')}</p>
+    <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry}>
+      {t('calendar.retry')}
+    </button>
+  </div>
+)
+
 const getCalendarGridClassName = (mobileMode, disabled) =>
   `calendar-grid${mobileMode ? ' calendar-grid--mobile' : ''}${disabled ? ' calendar-grid--disabled' : ''}`
 
@@ -405,7 +418,7 @@ const BookingCalendar = ({
     startDate: addHubDays(weekStart, -7),
     endDate: new Date(addHubDays(weekStart, 15).getTime() - 1),
   }), [weekStart])
-  const { data: allBookings = [], isLoading } = useQuery({
+  const { data: allBookings = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['bookings', amenity?.id, toDateInputHub(weekStart)],
     queryFn: () => getBookings({ amenityId: amenity.id, ...bookingWindow }),
     enabled: !!amenity?.id && !isLocalBookingDev,
@@ -500,6 +513,12 @@ const BookingCalendar = ({
   }
 
   if (isLoading) return <CalendarSkeleton />
+
+  // Never fall back to an empty booking list: `allBookings = []` would paint
+  // every cell as free, and neither `checkBookingConflicts` (advisory, returns
+  // no-conflict on error) nor `firestore.rules` (no overlap check) would catch
+  // the resulting double booking. Block selection instead.
+  if (isError) return <CalendarError message={error?.message} onRetry={refetch} t={t} />
 
   const calendarGridStyle = getCalendarGridStyle(displayDates.length, timeLayout.rows)
 

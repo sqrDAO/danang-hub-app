@@ -16,7 +16,7 @@ import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
 import { useTranslation } from 'react-i18next'
-import { formatDateDDMMYYYY, toDateInputHub } from '../../utils/timezone'
+import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import './Bookings.css'
 
 const getLocale = (i18n) =>
@@ -38,7 +38,9 @@ const useMobileViewport = () => {
 }
 
 // Member's own bookings: 90 days back (past activity) + 365 days forward
-// (recurring/fixed-desk plans can extend up to a year out).
+// (recurring/fixed-desk plans can extend up to a year out). Deliberately
+// browser-local: this is only a generously padded fetch window, never a booking
+// time, so a few hours of drift at either edge changes nothing.
 const getMemberBookingsWindow = () => {
   const start = new Date()
   start.setDate(start.getDate() - 90)
@@ -61,7 +63,14 @@ const formatDateTimeForDisplay = (value, locale, t) => {
   if (!value) return t('common.na')
   const d = value instanceof Date ? value : new Date(value)
   const datePart = formatDateDDMMYYYY(d)
-  const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  // Both halves must be the hub's. formatDateDDMMYYYY pins the timezone, so a
+  // browser-local time here would pair a hub date with a local clock time and
+  // render a combination that never existed.
+  const timePart = d.toLocaleTimeString(locale, {
+    timeZone: HUB_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   return `${datePart} ${timePart}`
 }
 

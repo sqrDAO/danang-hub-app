@@ -22,6 +22,29 @@
   --calendar-guide-strong: rgba(35, 31, 32, 0.3);
 }
 
+.calendar-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--border-radius);
+}
+
+.calendar-error-message {
+  color: var(--color-error);
+  font-weight: 600;
+  margin: 0;
+}
+
+.calendar-error-hint {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
 .calendar-header {
   display: flex;
   justify-content: space-between;
@@ -300,15 +323,13 @@
   transform: scale(1.02);
 }
 
-.time-slot.range-end-candidate,
-.time-slot.range-start-candidate {
+.time-slot.range-end-candidate {
   border-style: dashed;
   border-color: rgba(255, 164, 6, 0.65);
   background: rgba(255, 164, 6, 0.08);
 }
 
-.time-slot.range-end-candidate:hover,
-.time-slot.range-start-candidate:hover {
+.time-slot.range-end-candidate:hover {
   background: rgba(255, 164, 6, 0.16);
   border-style: solid;
   transform: scale(1.02);

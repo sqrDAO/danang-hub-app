@@ -133,12 +133,7 @@ export function toDatetimeLocalHub(date) {
 export function toDateInputHub(date) {
   if (!date) return ''
   const d = date instanceof Date ? date : new Date(date)
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: HUB_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(d)
+  const parts = HUB_DATE_PARTS_FORMATTER.formatToParts(d)
   const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}`
 }
@@ -154,6 +149,33 @@ const HUB_DAY_MS = 24 * 60 * 60 * 1000
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const pad2 = (value) => String(value).padStart(2, '0')
+
+// Constructing an Intl.DateTimeFormat is far more expensive than formatting with
+// one, and the mobile date carousel formats hundreds of dates per render. Build
+// each (locale, options) formatter once and reuse it.
+const formatterCache = new Map()
+
+const getFormatter = (locale, options) => {
+  const key = `${locale ?? ''}|${JSON.stringify(options)}`
+  let formatter = formatterCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options)
+    formatterCache.set(key, formatter)
+  }
+  return formatter
+}
+
+const HUB_DATE_PARTS_FORMATTER = getFormatter('en-CA', {
+  timeZone: HUB_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const HUB_WEEKDAY_FORMATTER = getFormatter('en-US', {
+  timeZone: HUB_TIMEZONE,
+  weekday: 'short',
+})
 
 /**
  * Snap a Date to 00:00 of its hub calendar day.
@@ -189,11 +211,7 @@ export function addHubDays(date, days) {
  */
 export function getHubDayOfWeek(date) {
   const d = date instanceof Date ? date : new Date(date)
-  const weekday = new Intl.DateTimeFormat('en-US', {
-    timeZone: HUB_TIMEZONE,
-    weekday: 'short',
-  }).format(d)
-  return WEEKDAY_NAMES.indexOf(weekday)
+  return WEEKDAY_NAMES.indexOf(HUB_WEEKDAY_FORMATTER.format(d))
 }
 
 /**
@@ -235,5 +253,7 @@ export function makeHubDateAtTime(date, hour, minute) {
  */
 export function formatHubDate(date, locale, options = {}) {
   const d = date instanceof Date ? date : new Date(date)
-  return d.toLocaleDateString(locale, { timeZone: HUB_TIMEZONE, ...options })
+  // timeZone last: the function's contract is that the result is the hub day,
+  // so a caller's own timeZone must not be able to override it.
+  return getFormatter(locale, { ...options, timeZone: HUB_TIMEZONE }).format(d)
 }

@@ -516,7 +516,9 @@
       "summaryStart": "Start:",
       "summaryEnd": "End:",
       "summaryDuration": "Duration:",
+      "durationHours_one": "{{count}} hour",
       "durationHours": "{{count}} hours",
+      "durationMinutes_one": "{{count}} minute",
       "durationMinutes": "{{count}} minutes",
       "recurringLabel": "Make this a recurring booking",
       "recurringSummary": "Recurring: {{frequency}}",
@@ -647,9 +649,11 @@
     "endSelected": "End cell selected: {{time}}.",
     "adjustEndAt": "Extend the booking through {{time}}",
     "shortenEndAt": "Shorten the booking to end at {{time}}",
-    "adjustStartAt": "Move the booking start to {{time}}",
     "singleSelected": "Selected: {{time}}. Click to clear it.",
     "errorLoadingBookings": "Error loading bookings: {{message}}",
+    "errorSelectionBlocked": "Booking selection is disabled until the existing bookings load, so you can't book a time that is already taken.",
+    "unknownError": "unknown error",
+    "retry": "Try again",
     "errorLoadingEvents": "Error loading events: {{message}}"
   },
   "fixedDesk": {

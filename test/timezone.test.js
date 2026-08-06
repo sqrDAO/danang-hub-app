@@ -1,5 +1,9 @@
 // The browser timezone is deliberately not the hub timezone here: every helper
 // under test must resolve to the same hub calendar day regardless of it.
+// Note ESM hoists the imports below above this statement — that is fine because
+// nothing in timezone.js reads the zone at module-evaluation time. The stronger
+// proof is running the whole suite under an external zone, e.g.
+// `TZ=Pacific/Auckland npm test`, which the spec's Verify section lists.
 process.env.TZ = 'America/Los_Angeles'
 
 import test from 'node:test'
@@ -74,4 +78,27 @@ test('formats calendar labels on the hub day', () => {
   const instant = new Date('2026-08-05T00:30:00.000Z')
   assert.equal(formatHubDate(instant, 'en-US', { weekday: 'short' }), 'Wed')
   assert.equal(formatHubDate(instant, 'en-US', { month: 'short' }), 'Aug')
+})
+
+test('formatHubDate ignores a caller-supplied timeZone', () => {
+  const instant = new Date('2026-08-05T00:30:00.000Z')
+  // Still Aug 4 in Los Angeles, but this helper only ever reports the hub day.
+  assert.equal(
+    formatHubDate(instant, 'en-US', { timeZone: 'America/Los_Angeles', day: 'numeric' }),
+    '5'
+  )
+})
+
+test('reuses formatters across repeated calls', () => {
+  const instant = new Date('2026-08-05T00:30:00.000Z')
+  const first = formatHubDate(instant, 'en-US', { weekday: 'short' })
+  const second = formatHubDate(instant, 'en-US', { weekday: 'short' })
+  assert.equal(first, second)
+  // The carousel formats hundreds of dates per render; this must stay cheap.
+  const startedAt = process.hrtime.bigint()
+  for (let index = 0; index < 366; index++) {
+    formatHubDate(new Date(instant.getTime() + index * 86400000), 'en-US', { weekday: 'short' })
+  }
+  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6
+  assert.ok(elapsedMs < 100, `366 formats took ${elapsedMs.toFixed(1)}ms, expected well under 100ms`)
 })
