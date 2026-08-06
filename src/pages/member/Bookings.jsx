@@ -351,10 +351,16 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
     form.openForAmenity(amenity)
   }
 
+  // Normalize to Date here so the rest of the flow — conflict checks, the
+  // summary, the mutation payload — can rely on `.toISOString()` existing. A
+  // string slipping through would otherwise surface as `conflictCheckFailed`,
+  // blaming the service for a type error.
   const handleRangeChange = ({ startTime, endTime }) => {
-    form.setSelectedStartTime(startTime)
-    form.setSelectedEndTime(endTime)
-    if (startTime) form.setSelectedBookingDate(new Date(startTime))
+    const start = startTime ? new Date(startTime) : null
+    const end = endTime ? new Date(endTime) : null
+    form.setSelectedStartTime(start)
+    form.setSelectedEndTime(end)
+    if (start) form.setSelectedBookingDate(start)
     form.setConflictError(null)
   }
 
@@ -796,7 +802,7 @@ const BookingStepCalendar = ({ form, handlers, isMobile }) => (
     />
 
     {form.conflictError && (
-      <div className="conflict-error">
+      <div className="conflict-error" role="alert">
         <p className="error-message">{form.conflictError}</p>
       </div>
     )}
@@ -943,7 +949,6 @@ const BookingStepRecurring = ({ form, handlers, t }) => {
           name="endDate"
           className="form-field"
           min={minEndDate}
-          defaultValue={minEndDate}
         />
       </div>
       <div className="form-group">

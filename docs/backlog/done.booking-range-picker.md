@@ -43,6 +43,7 @@ Replace the member duration dropdown with a cell-based calendar range picker: me
 - [ ] Booking times are both stored and displayed in hub time, so the confirm screen shows the cell the member picked.
 - [ ] The hours label names the amenity's own available days instead of a hardcoded Mon–Fri.
 - [ ] A failed bookings query blocks selection instead of rendering every cell as free.
+- [ ] The recurring end date stays optional, so an occurrences-only series is not capped by a defaulted date.
 - [ ] The alternative-slot suggestions (`generateAlternativeSlots`, `handleUseAlternative`) are removed along with the duration dropdown that produced them.
 - [ ] Conflict-check failures show the generic `conflictCheckFailed` message; the `functions/invalid-argument` branch that surfaced the server's own text is removed with the client-side closing-hour check.
 - [ ] NOT: Change booking data shape, availability rules, fixed-desk booking, or admin booking.
