@@ -13,6 +13,8 @@ Serve the calendar's occupancy from a callable that returns anonymized busy rang
 - `functions/index.js` (edited) — new `getAmenityBookingRanges` callable
 - `firestore.indexes.json` (edited) — composite index for `amenityId + status + startTime`
 - `src/services/functions.js` (edited) — client wrapper; throws on error, never fails open
+- `src/utils/bookingRanges.js` (new) — payload shape guard, testable without the firebase SDK
+- `test/bookingRanges.test.js` (new) — covers the malformed-payload cases
 - `src/components/BookingCalendar.jsx` (edited) — query the callable instead of `getBookings`
 
 ## Acceptance
@@ -24,6 +26,7 @@ Serve the calendar's occupancy from a callable that returns anonymized busy rang
 - [ ] The calendar still shows the error panel with retry when the callable fails
 - [ ] The calendar's queryKey stays prefixed with `'bookings'` so `invalidate('bookings')` still refreshes it
 - [ ] `firestore.rules` ends this spec with the bookings read rule back to owner-or-admin
+- [ ] A malformed availability payload throws rather than reporting an empty calendar
 - [ ] NOT: `memberId`, booking ids, or any other booking field reach a member client
 - [ ] NOT: the calendar treats a failed availability read as "everything free"
 

@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
+import { parseBookingRanges } from '../utils/bookingRanges'
 
 // Check for booking conflicts before creating a booking
 export const checkBookingConflicts = async (amenityId, startTime, endTime, excludeBookingId = null) => {
@@ -35,9 +36,6 @@ export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => 
     startTime: new Date(startTime).toISOString(),
     endTime: new Date(endTime).toISOString()
   })
-  return (result.data?.ranges || []).map(range => ({
-    startTime: new Date(range.startTime),
-    endTime: new Date(range.endTime),
-    status: range.status
-  }))
+  // Throws on a malformed payload rather than reporting an empty calendar.
+  return parseBookingRanges(result.data)
 }
