@@ -50,6 +50,16 @@ service cloud.firestore {
     
     // Bookings collection
     match /bookings/{bookingId} {
+      // TEMPORARY STOPGAP — remove once getAmenityBookingRanges is deployed.
+      // BookingCalendar lists bookings by amenityId to paint occupied slots.
+      // Rules are evaluated against the query, not the results, so an
+      // amenity-scoped list cannot satisfy the owner rule below and every
+      // non-admin was denied — the calendar showed an error panel instead of
+      // the grid and no member could book. This trades the schedule of who
+      // booked what, when (bookings hold no notes or purpose) for a working
+      // booking flow, until the callable serves anonymized ranges instead.
+      // See docs/backlog/todo.booking-calendar-availability-read.md
+      allow read: if isAuthenticated();
       // Users can read their own bookings
       allow read: if isAuthenticated() && isOwner(resource.data.memberId);
       // Admins can read all bookings
