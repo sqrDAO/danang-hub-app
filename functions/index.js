@@ -357,6 +357,100 @@ exports.checkSlotAvailability = onCall(
     },
 );
 
+// Statuses that occupy a slot on the booking calendar.
+const OCCUPYING_STATUSES = ["pending", "approved", "checked-in"];
+
+// The calendar pads its visible week by -7/+15 days; anything beyond a
+// couple of months is a scrape, not a calendar.
+const MAX_RANGE_WINDOW_DAYS = 60;
+const MAX_RANGE_WINDOW_MS = MAX_RANGE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+/**
+ * @param {*} value Firestore Timestamp or date-like value
+ * @return {string} ISO-8601 string
+ */
+function toIsoString(value) {
+  const date = value && typeof value.toDate === "function" ?
+    value.toDate() : new Date(value);
+  return date.toISOString();
+}
+
+// Occupancy for the booking calendar, stripped of who booked what.
+//
+// Members cannot run this query themselves: firestore.rules scopes their
+// booking reads to their own documents, and rules are evaluated against the
+// query rather than its results, so an amenity-scoped list is denied outright.
+// The calendar needs other members' busy ranges to grey out taken slots, so it
+// reads them here — start, end, and status only, never memberId or booking id.
+exports.getAmenityBookingRanges = onCall(
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError(
+            "unauthenticated",
+            "User must be authenticated",
+        );
+      }
+
+      const {amenityId, startTime, endTime} = request.data || {};
+
+      if (typeof amenityId !== "string" || !amenityId) {
+        throw new HttpsError("invalid-argument", "amenityId is required");
+      }
+
+      const windowStart = new Date(startTime);
+      const windowEnd = new Date(endTime);
+
+      if (isNaN(windowStart.getTime()) || isNaN(windowEnd.getTime())) {
+        throw new HttpsError(
+            "invalid-argument",
+            "startTime and endTime must be valid dates",
+        );
+      }
+      if (windowEnd <= windowStart) {
+        throw new HttpsError(
+            "invalid-argument",
+            "endTime must be after startTime",
+        );
+      }
+      if (windowEnd - windowStart > MAX_RANGE_WINDOW_MS) {
+        throw new HttpsError(
+            "invalid-argument",
+            `Requested window exceeds ${MAX_RANGE_WINDOW_DAYS} days`,
+        );
+      }
+
+      try {
+        // Filters on startTime, matching the query the client used to run:
+        // a booking starting just before the window is covered by the
+        // calendar's own -7 day padding.
+        const snapshot = await db.collection("bookings")
+            .where("amenityId", "==", amenityId)
+            .where("status", "in", OCCUPYING_STATUSES)
+            .where("startTime", ">=", Timestamp.fromDate(windowStart))
+            .where("startTime", "<=", Timestamp.fromDate(windowEnd))
+            .get();
+
+        const ranges = [];
+        snapshot.forEach((doc) => {
+          const booking = doc.data();
+          ranges.push({
+            startTime: toIsoString(booking.startTime),
+            endTime: toIsoString(booking.endTime),
+            status: booking.status,
+          });
+        });
+
+        return {ranges};
+      } catch (error) {
+        console.error("Error loading amenity booking ranges:", error);
+        throw new HttpsError(
+            "internal",
+            "Error loading availability",
+        );
+      }
+    },
+);
+
 // Firestore doc ids used for notifications/push markers must be path-safe.
 // Matches booking planGroupId rules (letters, digits, _-, length-capped).
 const SAFE_DOC_ID_PART = /^[A-Za-z0-9_-]{1,128}$/;
