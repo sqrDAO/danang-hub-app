@@ -50,6 +50,13 @@ service cloud.firestore {
     
     // Bookings collection
     match /bookings/{bookingId} {
+      // A member may read only their own bookings. The booking calendar needs
+      // other members' busy slots to grey them out, and cannot get them here:
+      // rules are evaluated against the query rather than its results, so an
+      // amenity-scoped list can never prove ownership. That occupancy comes
+      // from the getAmenityBookingRanges callable, which returns start, end,
+      // and status with no member identity attached. Widening this rule to
+      // every signed-in user would hand out the whole booking schedule.
       // Users can read their own bookings
       allow read: if isAuthenticated() && isOwner(resource.data.memberId);
       // Admins can read all bookings

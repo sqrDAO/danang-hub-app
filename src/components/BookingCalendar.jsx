@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { getBookings } from '../services/bookings'
+import { getAmenityBookingRanges } from '../services/functions'
 import { DEFAULT_AVAILABILITY } from '../services/amenities'
 import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
 import { isLocalBookingDev } from '../utils/localBookingMode'
@@ -418,9 +418,15 @@ const BookingCalendar = ({
     startDate: addHubDays(weekStart, -7),
     endDate: new Date(addHubDays(weekStart, 15).getTime() - 1),
   }), [weekStart])
+  // Keyed under 'bookings' so the mutations' invalidate('bookings') still
+  // refreshes the grid after a booking is created or cancelled.
   const { data: allBookings = [], isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['bookings', amenity?.id, toDateInputHub(weekStart)],
-    queryFn: () => getBookings({ amenityId: amenity.id, ...bookingWindow }),
+    queryKey: ['bookings', 'ranges', amenity?.id, toDateInputHub(weekStart)],
+    queryFn: () => getAmenityBookingRanges(
+      amenity.id,
+      bookingWindow.startDate,
+      bookingWindow.endDate
+    ),
     enabled: !!amenity?.id && !isLocalBookingDev,
     refetchOnWindowFocus: false,
     retry: 1,
