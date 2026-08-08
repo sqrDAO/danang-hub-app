@@ -10,6 +10,7 @@ import {
   orderBy
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getHubDayOfWeek, toDatetimeLocalHub } from '../utils/timezone'
 
 const AMENITIES_COLLECTION = 'amenities'
 
@@ -64,13 +65,43 @@ export const EVENT_SPACE_AVAILABILITY = {
 export const getDefaultAvailability = (type) =>
   type === 'event-space' ? EVENT_SPACE_AVAILABILITY : DEFAULT_AVAILABILITY
 
+export const getDayAvailability = (dayOfWeek, amenity) => {
+  const defaults = getDefaultAvailability(amenity?.type)
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+
+  let startHour = amenity?.startHour ?? defaults.startHour
+  if (amenity?.type === 'event-space' || defaults.weekdayStartHour !== undefined) {
+    if (!isWeekend) {
+      startHour = amenity?.weekdayStartHour ?? defaults.weekdayStartHour ?? startHour
+    }
+  }
+
+  const endHour = amenity?.endHour ?? defaults.endHour
+  const availableDays = amenity?.availableDays ?? defaults.availableDays
+  const isDayAvailable = availableDays.includes(dayOfWeek)
+
+  return {
+    startHour,
+    endHour,
+    availableDays,
+    isDayAvailable,
+  }
+}
+
+
 // Returns a translation key if the date/duration violates event-space hours, null if valid.
 export const validateEventSpaceTime = (dateValue, durationMinutes = 60) => {
   if (!dateValue) return null
   const date = new Date(dateValue)
-  const dayOfWeek = date.getDay()
+  if (Number.isNaN(date.getTime())) return null
+
+  const dayOfWeek = getHubDayOfWeek(date)
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-  const startHour = date.getHours() + date.getMinutes() / 60
+
+  const localStr = toDatetimeLocalHub(date)
+  const timePart = localStr.split('T')[1] || '00:00'
+  const [hours, minutes] = timePart.split(':').map(Number)
+  const startHour = hours + minutes / 60
   const endHour = startHour + durationMinutes / 60
 
   if (!isWeekend && startHour < EVENT_SPACE_AVAILABILITY.weekdayStartHour) {

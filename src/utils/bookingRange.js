@@ -19,8 +19,16 @@ const getPeakBookingCount = (cell, bookingRanges) => {
   ))
 }
 
+const isOutsideOperatingHours = (cell, startHour, endHour) => {
+  if (typeof startHour !== 'number' || typeof endHour !== 'number') return false
+  const slotStart = cell.hour + cell.minute / 60
+  const slotEnd = cell.endHour + (cell.endMinute ?? 0) / 60
+  return slotStart < startHour || slotEnd > endHour
+}
+
 export const getBaseSlotStatus = (cell, context) => {
   if (!context.dayAvailable) return 'unavailable'
+  if (isOutsideOperatingHours(cell, context.dayStartHour, context.dayEndHour)) return 'unavailable'
   if (cell.startMs < context.now) return 'past'
 
   const overlappingBookings = context.bookingRanges.filter(range => overlapsCell(cell, range))
