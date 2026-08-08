@@ -14,7 +14,6 @@ import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
-import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import './Bookings.css'
@@ -137,8 +136,7 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   // Check for amenityId in URL params and auto-open booking modal
   useEffect(() => {
     const amenityId = searchParams.get('amenityId')
-    const previewRequested = isLocalBookingDev && searchParams.get('preview') === 'booking'
-    const amenity = amenities.find(a => a.id === amenityId) || (previewRequested && amenities[0])
+    const amenity = amenities.find(a => a.id === amenityId)
     if (!amenity || isModalOpen) return
 
     setSelectedAmenity(amenity)
@@ -146,10 +144,9 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
     setBookingStep(1)
     setSelectedBookingDate(null)
     setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
-    if (amenityId || previewRequested) {
+    if (amenityId) {
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('amenityId')
-      newParams.delete('preview')
       setSearchParams(newParams, { replace: true })
     }
   }, [amenities, searchParams, isModalOpen, setSearchParams])
@@ -1118,9 +1115,7 @@ const MemberBookings = () => {
     refetchOnWindowFocus: false,
     retry: 1
   })
-  const amenities = remoteAmenities.length > 0 ? remoteAmenities : (
-    isLocalBookingDev ? LOCAL_PREVIEW_AMENITIES : remoteAmenities
-  )
+  const amenities = remoteAmenities
 
   const form = useBookingForm(amenities, searchParams, setSearchParams)
   const fd = useFixedDeskForm()

@@ -2,9 +2,8 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getAmenityBookingRanges } from '../services/functions'
-import { DEFAULT_AVAILABILITY } from '../services/amenities'
+import { getDefaultAvailability, getDayAvailability } from '../services/amenities'
 import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
-import { isLocalBookingDev } from '../utils/localBookingMode'
 import {
   addHubDays,
   formatHubDate,
@@ -168,17 +167,23 @@ const MobileDateSelector = ({
   </section>
 )
 
-const MobileTimeHeader = ({ date, availability, locale, t, onChangeDate }) => (
-  <div className="mobile-time-header">
-    <div>
-      <h4>{formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
-      <p>{t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00</p>
+const MobileTimeHeader = ({ date, amenity, locale, t, onChangeDate }) => {
+  const dayOfWeek = getHubDayOfWeek(date)
+  const dayAvail = getDayAvailability(dayOfWeek, amenity)
+  const startStr = dayAvail.startHour.toString().padStart(2, '0')
+  const endStr = dayAvail.endHour.toString().padStart(2, '0')
+  return (
+    <div className="mobile-time-header">
+      <div>
+        <h4>{formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
+        <p>{t('calendar.hours')} {startStr}:00 - {endStr}:00</p>
+      </div>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>
+        {t('memberBookings.modal.changeDate')}
+      </button>
     </div>
-    <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>
-      {t('memberBookings.modal.changeDate')}
-    </button>
-  </div>
-)
+  )
+}
 
 const getTimeCells = (availability) => {
   const cells = []
@@ -272,9 +277,38 @@ const CalendarDateHeader = ({ date, locale }) => {
   )
 }
 
+const formatEventSpaceHours = (amenity, defaults, availableDays, locale) => {
+  const weekdayStart = amenity?.weekdayStartHour ?? defaults.weekdayStartHour ?? 18
+  const weekendStart = amenity?.startHour ?? defaults.startHour ?? 9
+  const endHour = amenity?.endHour ?? defaults.endHour ?? 22
+  const weekdays = availableDays.filter(day => day >= 1 && day <= 5)
+  const weekends = availableDays.filter(day => day === 0 || day === 6)
+
+  const hourRange = (start) => `${start.toString().padStart(2, '0')}:00 - ${endHour.toString().padStart(2, '0')}:00`
+  const ranges = []
+  if (weekdays.length) ranges.push(`${hourRange(weekdayStart)} ${getAvailableDaysLabel(weekdays, locale)}`)
+  if (weekends.length) ranges.push(`${hourRange(weekendStart)} ${getAvailableDaysLabel(weekends, locale)}`)
+
+  return ranges.join(', ')
+}
+
+const getFormattedHoursInfo = (amenity, availability, locale) => {
+  const defaults = availability.defaults || getDefaultAvailability(amenity?.type)
+  const isEventSpace = amenity?.type === 'event-space' || defaults.weekdayStartHour !== undefined
+
+  if (isEventSpace) {
+    return formatEventSpaceHours(amenity, defaults, availability.availableDays, locale)
+  }
+
+  const start = availability.baseStartHour ?? availability.startHour
+  const end = availability.baseEndHour ?? availability.endHour
+  return `${start}:00 - ${end}:00 ${getAvailableDaysLabel(availability.availableDays, locale)}`
+}
+
 const CalendarHeader = ({
   mobileMode,
   currentDate,
+  amenity,
   availability,
   effectiveViewMode,
   weekStart,
@@ -286,7 +320,7 @@ const CalendarHeader = ({
   onChangeDate,
 }) => {
   if (mobileMode) {
-    return <MobileTimeHeader date={currentDate} availability={availability} locale={locale} t={t} onChangeDate={onChangeDate} />
+    return <MobileTimeHeader date={currentDate} amenity={amenity} availability={availability} locale={locale} t={t} onChangeDate={onChangeDate} />
   }
 
   return (
@@ -302,7 +336,7 @@ const CalendarHeader = ({
           : formatHubDate(currentDate, locale, { month: 'long', day: 'numeric', year: 'numeric' })}
       </div>
       <div className="calendar-hours-info">
-        {t('calendar.hours')} {availability.startHour}:00 - {availability.endHour}:00 {getAvailableDaysLabel(availability.availableDays, locale)}
+        {t('calendar.hours')} {getFormattedHoursInfo(amenity, availability, locale)}
       </div>
     </div>
   )
@@ -397,11 +431,29 @@ const BookingCalendar = ({
     () => getHubStartOfDay(selectedDate ?? new Date())
   )
   const selectedDateRef = useRef(null)
-  const availability = useMemo(() => ({
-    startHour: amenity?.startHour ?? DEFAULT_AVAILABILITY.startHour,
-    endHour: amenity?.endHour ?? DEFAULT_AVAILABILITY.endHour,
-    availableDays: amenity?.availableDays ?? DEFAULT_AVAILABILITY.availableDays,
-  }), [amenity])
+  const availability = useMemo(() => {
+    const defaults = getDefaultAvailability(amenity?.type)
+    const baseStartHour = amenity?.startHour ?? defaults.startHour
+    const baseEndHour = amenity?.endHour ?? defaults.endHour
+    const availableDays = amenity?.availableDays ?? defaults.availableDays
+
+    let minStartHour = baseStartHour
+    let maxEndHour = baseEndHour
+
+    if (amenity?.type === 'event-space' || defaults.weekdayStartHour !== undefined) {
+      const weekdayStart = amenity?.weekdayStartHour ?? defaults.weekdayStartHour ?? baseStartHour
+      minStartHour = Math.min(baseStartHour, weekdayStart)
+    }
+
+    return {
+      startHour: minStartHour,
+      endHour: maxEndHour,
+      availableDays,
+      baseStartHour,
+      baseEndHour,
+      defaults,
+    }
+  }, [amenity])
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate])
   const timeCells = useMemo(() => getTimeCells(availability), [availability])
   const hourGroups = useMemo(() => getHourGroups(availability), [availability])
@@ -427,7 +479,7 @@ const BookingCalendar = ({
       bookingWindow.startDate,
       bookingWindow.endDate
     ),
-    enabled: !!amenity?.id && !isLocalBookingDev,
+    enabled: !!amenity?.id,
     refetchOnWindowFocus: false,
     retry: 1,
   })
@@ -451,8 +503,18 @@ const BookingCalendar = ({
       .map(({ startTime, endTime }) => [new Date(startTime).getTime(), new Date(endTime).getTime()])
 
     return displayDates.map(date => {
-      const dayAvailable = availability.availableDays.includes(getHubDayOfWeek(date))
-      const context = { dayAvailable, now, bookingRanges, isSharedDesk, capacity }
+      const dayOfWeek = getHubDayOfWeek(date)
+      const dayAvail = getDayAvailability(dayOfWeek, amenity)
+      const dayAvailable = dayAvail.isDayAvailable
+      const context = {
+        dayAvailable,
+        dayStartHour: dayAvail.startHour,
+        dayEndHour: dayAvail.endHour,
+        now,
+        bookingRanges,
+        isSharedDesk,
+        capacity,
+      }
       const cells = timeCells.map(slot => {
         const key = makeHubDateAtTime(date, slot.hour, slot.minute).getTime()
         const endKey = makeHubDateAtTime(date, slot.endHour, slot.endMinute).getTime()
@@ -461,7 +523,7 @@ const BookingCalendar = ({
           startMs: key,
           endMs: endKey,
           timeRange: `${slot.time}–${slot.endTime}`,
-          baseStatus: getBaseSlotStatus({ startMs: key, endMs: endKey }, context),
+          baseStatus: getBaseSlotStatus({ ...slot, startMs: key, endMs: endKey }, context),
         }
       })
       return {
@@ -478,7 +540,7 @@ const BookingCalendar = ({
         }),
       }
     })
-  }, [allBookings, amenity?.capacity, amenity?.type, availability, displayDates, selectedEndTime, selectedStartTime, t, timeCells])
+  }, [allBookings, amenity, displayDates, selectedEndTime, selectedStartTime, t, timeCells])
 
   const handleCellSelect = (nextRange) => {
     if (disabled || !nextRange) return
@@ -533,6 +595,7 @@ const BookingCalendar = ({
       <CalendarHeader
         mobileMode={mobileMode}
         currentDate={currentDate}
+        amenity={amenity}
         availability={availability}
         effectiveViewMode={effectiveViewMode}
         weekStart={weekStart}
