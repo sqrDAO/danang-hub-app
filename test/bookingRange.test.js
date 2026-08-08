@@ -110,3 +110,38 @@ test('booking overlap is evaluated over the full cell, with desk capacity checke
     ],
   }), 'booked')
 })
+
+test('getBaseSlotStatus marks slots outside dayStartHour and dayEndHour as unavailable', () => {
+  const morningCell = { hour: 9, minute: 0, endHour: 9, endMinute: 30, startMs: at(9), endMs: at(9, 30) }
+  const eveningCell = { hour: 18, minute: 0, endHour: 18, endMinute: 30, startMs: at(18), endMs: at(18, 30) }
+  const lateCell = { hour: 22, minute: 0, endHour: 22, endMinute: 30, startMs: at(22), endMs: at(22, 30) }
+
+  const weekdayEventSpaceContext = {
+    dayAvailable: true,
+    dayStartHour: 18,
+    dayEndHour: 22,
+    now: at(8),
+    bookingRanges: [],
+    isSharedDesk: false,
+    capacity: 1,
+  }
+
+  assert.equal(getBaseSlotStatus(morningCell, weekdayEventSpaceContext), 'unavailable')
+  assert.equal(getBaseSlotStatus(eveningCell, weekdayEventSpaceContext), 'available')
+  assert.equal(getBaseSlotStatus(lateCell, weekdayEventSpaceContext), 'unavailable')
+
+  const weekendEventSpaceContext = {
+    dayAvailable: true,
+    dayStartHour: 9,
+    dayEndHour: 22,
+    now: at(8),
+    bookingRanges: [],
+    isSharedDesk: false,
+    capacity: 1,
+  }
+
+  assert.equal(getBaseSlotStatus(morningCell, weekendEventSpaceContext), 'available')
+  assert.equal(getBaseSlotStatus(eveningCell, weekendEventSpaceContext), 'available')
+  assert.equal(getBaseSlotStatus(lateCell, weekendEventSpaceContext), 'unavailable')
+})
+
