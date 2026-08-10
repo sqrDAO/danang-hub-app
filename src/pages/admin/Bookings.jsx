@@ -378,6 +378,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
   })
 
   const handleClose = () => {
+    if (assignMutation.isPending) return
     onClose()
     resetAssignForm()
   }
