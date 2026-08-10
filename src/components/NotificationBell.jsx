@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getUnreadNotifications, markNotificationRead, markNotificationsRead } from '../services/notifications'
+import { playDesktopNotificationSound } from '../utils/desktopNotificationSound'
 import { formatHubDateTimeCompact } from '../utils/timezone'
 import './NotificationBell.css'
 
@@ -184,10 +185,12 @@ const NotificationItem = ({ notification, onOpen, t, language }) => {
 const NotificationBell = ({ userId }) => {
   const [isOpen, setIsOpen] = useState(false)
   const panelRef = useRef(null)
+  const hasLoadedNotificationsRef = useRef(false)
+  const previousUnreadNotificationIdsRef = useRef(new Set())
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t, i18n } = useTranslation()
-  const { data: notifications = [] } = useQuery({
+  const { data: notifications = [], isSuccess, isError } = useQuery({
     queryKey: ['notifications', userId],
     queryFn: () => getUnreadNotifications(userId),
     enabled: Boolean(userId),
@@ -197,6 +200,29 @@ const NotificationBell = ({ userId }) => {
   const invalidateNotifications = () => queryClient.invalidateQueries({ queryKey: ['notifications', userId] })
   const readMutation = useMutation({ mutationFn: markNotificationRead, onSuccess: invalidateNotifications })
   const readAllMutation = useMutation({ mutationFn: markNotificationsRead, onSuccess: invalidateNotifications })
+
+  useEffect(() => {
+    hasLoadedNotificationsRef.current = false
+    previousUnreadNotificationIdsRef.current = new Set()
+
+    return () => {
+      hasLoadedNotificationsRef.current = false
+      previousUnreadNotificationIdsRef.current = new Set()
+    }
+  }, [userId])
+
+  useEffect(() => {
+    if (!isSuccess || isError) return
+
+    const unreadNotificationIds = new Set(notifications.map(notification => notification.id))
+    const hasNewUnreadNotification = hasLoadedNotificationsRef.current &&
+      [...unreadNotificationIds].some(id => !previousUnreadNotificationIdsRef.current.has(id))
+
+    if (hasNewUnreadNotification) playDesktopNotificationSound()
+
+    previousUnreadNotificationIdsRef.current = unreadNotificationIds
+    hasLoadedNotificationsRef.current = true
+  }, [notifications, isError, isSuccess])
 
   useEffect(() => {
     const closePanel = (event) => {
