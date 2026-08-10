@@ -5,11 +5,13 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
+import BookingCalendar from '../../components/BookingCalendar'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
 import { getBookings, updateBooking, deleteBooking, checkIn, checkOut, createBooking, createFixedDeskPlan } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
+import { checkBookingConflictsStrict } from '../../services/functions'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 
@@ -237,11 +239,29 @@ const EMPTY_ASSIGN_FORM = {
   memberId: '',
   amenityId: '',
   bookingType: 'standard',
-  date: '',
-  startTime: '',
-  endTime: '',
+  selectedStartTime: null,
+  selectedEndTime: null,
+  selectedDate: null,
   fdPeriod: 'weekly',
   fdStartDate: '',
+}
+
+const createAssignError = (code, message) => {
+  const error = new Error(message)
+  error.code = code
+  return error
+}
+
+const checkAssignAvailability = async (form) => {
+  try {
+    return await checkBookingConflictsStrict(
+      form.amenityId,
+      form.selectedStartTime,
+      form.selectedEndTime
+    )
+  } catch {
+    throw createAssignError('booking-conflict-check-failed', 'Booking conflict check failed')
+  }
 }
 
 const submitAssignForm = async (form) => {
@@ -254,11 +274,15 @@ const submitAssignForm = async (form) => {
       createdByAdmin: true,
     })
   }
+  const conflictCheck = await checkAssignAvailability(form)
+  if (conflictCheck.hasConflicts) {
+    throw createAssignError('booking-conflict', 'Booking slot is no longer available')
+  }
   return createBooking({
     memberId: form.memberId,
     amenityId: form.amenityId,
-    startTime: new Date(`${form.date}T${form.startTime}`).toISOString(),
-    endTime: new Date(`${form.date}T${form.endTime}`).toISOString(),
+    startTime: form.selectedStartTime.toISOString(),
+    endTime: form.selectedEndTime.toISOString(),
     status: 'approved',
   })
 }
@@ -266,13 +290,43 @@ const submitAssignForm = async (form) => {
 const isAssignFormIncomplete = (form) => (
   !form.memberId ||
   !form.amenityId ||
-  (form.bookingType === 'standard' && (!form.date || !form.startTime || !form.endTime)) ||
+  (form.bookingType === 'standard' && (!form.selectedStartTime || !form.selectedEndTime)) ||
   (form.bookingType === 'fixed-desk' && !form.fdStartDate)
 )
 
 const getMemberInputValue = (assignMemberQuery, memberId, members) => (
   assignMemberQuery || (memberId ? (members.find(m => m.id === memberId)?.displayName || members.find(m => m.id === memberId)?.email || '') : '')
 )
+
+const AssignStandardCalendar = ({ form, amenities, onRangeChange, onSelectedDateChange, disabled, conflictError, t }) => {
+  const amenity = amenities.find(item => item.id === form.amenityId)
+  const hasPrerequisites = Boolean(form.memberId && amenity)
+
+  return (
+    <div className="booking-range-step">
+      {hasPrerequisites ? (
+        <BookingCalendar
+          className="booking-calendar--compact"
+          amenity={amenity}
+          onRangeChange={onRangeChange}
+          selectedStartTime={form.selectedStartTime}
+          selectedEndTime={form.selectedEndTime}
+          selectedDate={form.selectedDate}
+          onSelectedDateChange={onSelectedDateChange}
+          viewMode="week"
+          disabled={disabled}
+        />
+      ) : (
+        <p className="form-hint">{t('adminBookings.calendarPrerequisite')}</p>
+      )}
+      {conflictError && (
+        <div className="conflict-error" role="alert">
+          <p className="error-message">{conflictError}</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned }) => {
   const { t } = useTranslation()
@@ -287,26 +341,73 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
     }
   }, [assignMemberOpen])
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM)
+  const [assignConflictError, setAssignConflictError] = useState(null)
+
+  const resetAssignForm = () => {
+    setAssignForm(EMPTY_ASSIGN_FORM)
+    setAssignMemberQuery('')
+    setAssignMemberOpen(false)
+    setAssignConflictError(null)
+  }
+
+  const clearStandardRange = (form) => ({
+    ...form,
+    selectedStartTime: null,
+    selectedEndTime: null,
+    selectedDate: null,
+  })
 
   const assignMutation = useMutation({
     mutationFn: submitAssignForm,
     onSuccess: () => {
       onAssigned()
-      setAssignForm(EMPTY_ASSIGN_FORM)
-      setAssignMemberQuery('')
-      setAssignMemberOpen(false)
+      resetAssignForm()
       showToast(t('toast.bookingAssigned'), 'success')
     },
-    onError: () => {
+    onError: (error) => {
+      if (error?.code === 'booking-conflict') {
+        setAssignConflictError(t('adminBookings.assignConflict'))
+        return
+      }
+      const errorMessage = error?.code === 'booking-conflict-check-failed'
+        ? t('adminBookings.assignConflictCheckFailed')
+        : t('adminBookings.assignCreateFailed')
+      setAssignConflictError(errorMessage)
       showToast(t('toast.bookingAssignFailed'), 'error')
     }
   })
 
   const handleClose = () => {
     onClose()
-    setAssignMemberQuery('')
-    setAssignMemberOpen(false)
+    resetAssignForm()
   }
+
+  const handleRangeChange = ({ startTime, endTime }) => {
+    const start = startTime ? new Date(startTime) : null
+    const end = endTime ? new Date(endTime) : null
+    setAssignForm(form => ({
+      ...form,
+      selectedStartTime: start,
+      selectedEndTime: end,
+      selectedDate: start || form.selectedDate,
+    }))
+    setAssignConflictError(null)
+  }
+
+  const handleBookingTypeChange = (bookingType) => {
+    setAssignForm(form => {
+      const next = clearStandardRange({ ...form, bookingType })
+      const selectedAmenity = amenities.find(a => a.id === next.amenityId)
+      return bookingType === 'fixed-desk' && selectedAmenity?.type !== 'desk'
+        ? { ...next, amenityId: '' }
+        : next
+    })
+    setAssignConflictError(null)
+  }
+
+  const availableAmenities = assignForm.bookingType === 'fixed-desk'
+    ? amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'desk')
+    : amenities.filter(amenity => amenity.isAvailable !== false)
 
   return (
     <Modal
@@ -326,13 +427,15 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
               value={getMemberInputValue(assignMemberQuery, assignForm.memberId, members)}
               onChange={e => {
                 setAssignMemberQuery(e.target.value)
-                setAssignForm(f => ({ ...f, memberId: '' }))
+                setAssignForm(f => clearStandardRange({ ...f, memberId: '' }))
+                setAssignConflictError(null)
                 setAssignMemberOpen(e.target.value.length > 0)
               }}
               onBlur={() => setTimeout(() => setAssignMemberOpen(false), 150)}
               autoComplete="off"
+              disabled={assignMutation.isPending}
             />
-            {assignMemberOpen && memberDropdownRect && createPortal(
+            {assignMemberOpen && !assignMutation.isPending && memberDropdownRect && createPortal(
               <ul
                 className="member-combobox-list"
                 style={{
@@ -354,7 +457,8 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
                       key={m.id}
                       className={`member-combobox-option${assignForm.memberId === m.id ? ' selected' : ''}`}
                       onMouseDown={() => {
-                        setAssignForm(f => ({ ...f, memberId: m.id }))
+                        setAssignForm(f => clearStandardRange({ ...f, memberId: m.id }))
+                        setAssignConflictError(null)
                         setAssignMemberQuery('')
                         setAssignMemberOpen(false)
                       }}
@@ -375,10 +479,14 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
           <select
             className="form-field"
             value={assignForm.amenityId}
-            onChange={e => setAssignForm(f => ({ ...f, amenityId: e.target.value }))}
+            disabled={assignMutation.isPending}
+            onChange={e => {
+              setAssignForm(f => clearStandardRange({ ...f, amenityId: e.target.value }))
+              setAssignConflictError(null)
+            }}
           >
             <option value="">{t('adminBookings.selectAmenity')}</option>
-            {amenities.map(a => (
+            {availableAmenities.map(a => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
@@ -390,7 +498,8 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
               <input
                 type="radio"
                 checked={assignForm.bookingType === 'standard'}
-                onChange={() => setAssignForm(f => ({ ...f, bookingType: 'standard' }))}
+                disabled={assignMutation.isPending}
+                onChange={() => handleBookingTypeChange('standard')}
               />
               <span>{t('adminBookings.typeStandard')}</span>
             </label>
@@ -398,7 +507,8 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
               <input
                 type="radio"
                 checked={assignForm.bookingType === 'fixed-desk'}
-                onChange={() => setAssignForm(f => ({ ...f, bookingType: 'fixed-desk' }))}
+                disabled={assignMutation.isPending}
+                onChange={() => handleBookingTypeChange('fixed-desk')}
               />
               <span>{t('adminBookings.typeFixedDesk')}</span>
             </label>
@@ -406,37 +516,15 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
         </div>
 
         {assignForm.bookingType === 'standard' && (
-          <>
-            <div className="form-group">
-              <label className="form-label">{t('adminBookings.assignDate')}</label>
-              <input
-                type="date"
-                className="form-field"
-                value={assignForm.date}
-                onChange={e => setAssignForm(f => ({ ...f, date: e.target.value }))}
-              />
-            </div>
-            <div className="assign-time-row">
-              <div className="form-group">
-                <label className="form-label">{t('adminBookings.assignStartTime')}</label>
-                <input
-                  type="time"
-                  className="form-field"
-                  value={assignForm.startTime}
-                  onChange={e => setAssignForm(f => ({ ...f, startTime: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('adminBookings.assignEndTime')}</label>
-                <input
-                  type="time"
-                  className="form-field"
-                  value={assignForm.endTime}
-                  onChange={e => setAssignForm(f => ({ ...f, endTime: e.target.value }))}
-                />
-              </div>
-            </div>
-          </>
+          <AssignStandardCalendar
+            form={assignForm}
+            amenities={amenities}
+            onRangeChange={handleRangeChange}
+            onSelectedDateChange={date => setAssignForm(form => ({ ...form, selectedDate: date }))}
+            disabled={assignMutation.isPending}
+            conflictError={assignConflictError}
+            t={t}
+          />
         )}
 
         {assignForm.bookingType === 'fixed-desk' && (
@@ -448,6 +536,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
                   <input
                     type="radio"
                     checked={assignForm.fdPeriod === 'weekly'}
+                    disabled={assignMutation.isPending}
                     onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'weekly' }))}
                   />
                   <span>{t('fixedDesk.weekly')}</span>
@@ -456,6 +545,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
                   <input
                     type="radio"
                     checked={assignForm.fdPeriod === 'monthly'}
+                    disabled={assignMutation.isPending}
                     onChange={() => setAssignForm(f => ({ ...f, fdPeriod: 'monthly' }))}
                   />
                   <span>{t('fixedDesk.monthly')}</span>
@@ -468,6 +558,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
                 type="date"
                 className="form-field"
                 value={assignForm.fdStartDate}
+                disabled={assignMutation.isPending}
                 onChange={e => setAssignForm(f => ({ ...f, fdStartDate: e.target.value }))}
               />
             </div>
@@ -480,6 +571,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
             type="button"
             className="btn btn-secondary"
             onClick={handleClose}
+            disabled={assignMutation.isPending}
           >
             {t('common.close')}
           </button>

@@ -362,6 +362,10 @@
     "assignDate": "Ngày",
     "assignStartTime": "Giờ bắt đầu",
     "assignEndTime": "Giờ kết thúc",
+    "calendarPrerequisite": "Chọn thành viên và tiện ích để chọn thời gian.",
+    "assignConflict": "Khung giờ này không còn trống. Vui lòng chọn khung giờ khác.",
+    "assignConflictCheckFailed": "Không thể kiểm tra tình trạng còn trống. Chưa tạo đặt chỗ.",
+    "assignCreateFailed": "Không thể tạo đặt chỗ. Hãy kiểm tra danh sách đặt chỗ trước khi thử lại.",
     "assignAndApprove": "Tạo & Duyệt",
     "noBookings": "Không có đặt chỗ nào khớp với bộ lọc."
   },
