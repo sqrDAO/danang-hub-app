@@ -26,6 +26,8 @@ approved or rejected edits become a revisioned pending resubmission.
 - `package-lock.json` (edited) — lock the rules-test dependency.
 - `README.md` (edited) — document callables and event revision fields.
 - `docs/knowledge/data-flow.md` (edited) — trace edit/resubmit/review, booking cleanup, notification, and rules flows.
+- `docs/knowledge/organizer-event-edit-verification.md` (new) — bounded automated checks and a reproducible emulator matrix with pass/fail evidence.
+- `docs/knowledge/README.md` (edited) — index the permanent verification procedure.
 
 ## Acceptance
 - [ ] An organizer can edit only their own event when both its stored start and proposed start are later than server time.
@@ -54,9 +56,8 @@ approved or rejected edits become a revisioned pending resubmission.
 - `npm test` → lifecycle unit tests and existing tests pass.
 - `cd functions && npm run lint` → Cloud Functions lint passes.
 - `firebase emulators:exec --only firestore "node --test test/firestore-event-edit.rules.test.js"` → organizer edit is denied directly; approved-only registration and `everApproved` delete cases pass.
-- `firebase emulators:start` → organizer/member/admin matrix in `plan.organizer-event-edit.md` passes, including linked booking cancellation/recreation, conflict/stale review, notification dedupe, and legacy event behavior.
-- regression: public/member/admin event lists, approved registration/unregistration, reminders, and auto waitlist promotion still work.
+- Follow `docs/knowledge/organizer-event-edit-verification.md` from setup through teardown → every organizer/member/admin matrix row is recorded as PASS with its required evidence.
 
 ## Notes
 
-`plan.organizer-event-edit.md` is temporary implementation guidance and is deleted manually after acceptance. Booking conflict detection remains advisory for concurrent competing writes; this PR validates Event Hall requests server-side but does not add a global slot lock or claim hard booking-overlap locking.
+The tracked verification guide remains after temporary implementation notes are removed. Booking conflict detection remains advisory for concurrent competing writes; this PR validates Event Hall requests server-side but does not add a global slot lock or claim hard booking-overlap locking.
