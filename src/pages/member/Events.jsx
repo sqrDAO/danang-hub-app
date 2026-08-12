@@ -976,6 +976,11 @@ const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOpted
     return true
   }
 
+  const setEventHallRequest = (shouldLinkAmenity) => {
+    setLinkAmenity(shouldLinkAmenity)
+    if (!shouldLinkAmenity) setDateError(null)
+  }
+
   const resetEventModal = () => {
     setIsModalOpen(false)
     setEditingEvent(null)
@@ -1034,7 +1039,7 @@ const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOpted
 
   return {
     isModalOpen, editingEvent, hasAcceptedGuidelines, linkAmenity, prefillAmenityId,
-    dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines, setLinkAmenity,
+    dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines, setEventHallRequest,
     setEventDuration, validateEventHallDate, resetEventModal, handleSubmit,
     handleOpenCreateModal, openCreateForAmenity, handleEditMyEvent, bannerInputRef,
     deleteMutation
@@ -1238,11 +1243,24 @@ const EventHallFields = ({ editingEvent, prefillAmenityId, amenities, t }) => {
   </>
 }
 
+const EventHallRequestToggle = ({ linkAmenity, setEventHallRequest, t }) => (
+  <div className="form-group">
+    <label className="form-checkbox">
+      <input
+        type="checkbox"
+        checked={linkAmenity}
+        onChange={(event) => setEventHallRequest(event.target.checked)}
+      />
+      <span>{t('memberEvents.modal.requestHallLabel')}</span>
+    </label>
+  </div>
+)
+
 const MemberEventFormModal = ({
   isModalOpen, editingEvent, hasAcceptedGuidelines, setHasAcceptedGuidelines,
   linkAmenity, prefillAmenityId, amenities, dateError, eventDuration,
   setEventDuration, validateEventHallDate, bannerInputRef, isSubmitting,
-  resetEventModal, handleSubmit, t
+  setEventHallRequest, resetEventModal, handleSubmit, t
 }) => {
   const isEdit = Boolean(editingEvent)
   const modalTitleKey = isEdit ? 'memberEvents.modal.editTitle' : 'memberEvents.modal.title'
@@ -1263,6 +1281,7 @@ const MemberEventFormModal = ({
         {!isEdit && <EventGuidelinesAcknowledgement hasAcceptedGuidelines={hasAcceptedGuidelines} setHasAcceptedGuidelines={setHasAcceptedGuidelines} t={t} />}
         <fieldset className="event-create-fieldset" disabled={!isEdit && !hasAcceptedGuidelines}>
           <EventDetailsFields editingEvent={editingEvent} dateError={dateError} eventDuration={eventDuration} setEventDuration={setEventDuration} validateEventHallDate={validateEventHallDate} bannerInputRef={bannerInputRef} linkAmenity={linkAmenity} t={t} />
+          {isEdit && <EventHallRequestToggle linkAmenity={linkAmenity} setEventHallRequest={setEventHallRequest} t={t} />}
           {linkAmenity && <EventHallFields editingEvent={editingEvent} prefillAmenityId={prefillAmenityId} amenities={amenities} t={t} />}
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={isSubmitting || !!dateError}>{t(submitLabelKey)}</button>
@@ -1295,7 +1314,7 @@ const MemberEvents = () => {
   const {
     isModalOpen, editingEvent, hasAcceptedGuidelines, linkAmenity, prefillAmenityId,
     dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines,
-    setEventDuration, validateEventHallDate, resetEventModal, handleSubmit,
+    setEventHallRequest, setEventDuration, validateEventHallDate, resetEventModal, handleSubmit,
     handleOpenCreateModal, openCreateForAmenity, handleEditMyEvent, bannerInputRef,
     deleteMutation
   } = useMemberEventModal({ t, currentUser, userProfile, amenities, pushOptedIn })
@@ -1409,6 +1428,7 @@ const MemberEvents = () => {
           validateEventHallDate={validateEventHallDate}
           bannerInputRef={bannerInputRef}
           isSubmitting={isSubmitting}
+          setEventHallRequest={setEventHallRequest}
           resetEventModal={resetEventModal}
           handleSubmit={handleSubmit}
           t={t}
