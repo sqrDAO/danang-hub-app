@@ -2050,7 +2050,13 @@ exports.notifyEventRevisionParticipants = onDocumentUpdated(
     async (event) => {
       const before = event.data.before.data();
       const after = event.data.after.data();
-      if (before.status === after.status || !after.everApproved) return null;
+      // `everApproved` is set as part of an initial approval, so inspecting the
+      // after snapshot would misclassify that first approval as a revision.
+      // The prior snapshot is the source of truth; `before.status` also covers
+      // legacy live events that predate the metadata field.
+      const wasPreviouslyApproved = before.everApproved === true ||
+          before.status === "approved";
+      if (before.status === after.status || !wasPreviouslyApproved) return null;
       const transition = after.status;
       if (!["pending", "approved", "rejected"].includes(transition)) {
         return null;
@@ -2265,6 +2271,11 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
           if (!snapshot.exists) return 0;
 
           const data = snapshot.data();
+          // An event can move back to pending while this trigger is queued.
+          // Registrations are frozen during review, so do not promote a
+          // waitlisted member until the current revision is live again.
+          if (data.status !== "approved") return 0;
+
           const attendees = data.attendees || [];
           const waitlist = data.waitlist || [];
           const capacity = data.capacity;
