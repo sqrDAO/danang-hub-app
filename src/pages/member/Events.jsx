@@ -208,12 +208,11 @@ const runRedirectAction = (action, event, ctx) => {
 const useEventsQueries = (currentUser) => {
   // Live events only. Own pending/rejected requests use the separate myEvents
   // query below and never become registerable cards.
-  // (fuzzy, exact: false) refreshes both. setQueryData is NOT fuzzy — it
-  // hashes the whole key array — so patchEventInCaches must name this key in
-  // full. See EVENT_LIST_KEYS.
+  // (fuzzy, exact: false) refreshes both. setQueryData is not fuzzy, so
+  // patchEventInCaches must name this key in full. See EVENT_LIST_KEYS.
   const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
-    queryKey: ['upcomingEvents', 'withPending'],
-    queryFn: getUpcomingEvents,
+    queryKey: ['upcomingEvents'],
+    queryFn: () => getUpcomingEvents(),
     refetchOnWindowFocus: true,
     refetchOnMount: true
   })
@@ -286,7 +285,7 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
     },
     onError: (error) => {
       setIsSubmitting(false)
-      showToast(error.message || t('toast.eventUpdateFailed'), 'error')
+      showToast(getEventEditErrorMessage(error, t), 'error')
     }
   })
 
@@ -295,10 +294,9 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
 
 // Caches holding the full event objects a register/waitlist click can change.
 // Full key arrays, not prefixes: setQueryData matches the hashed key exactly,
-// so ['upcomingEvents'] would write an entry no query subscribes to. These must
-// stay in sync with the queryKey of every live list showing these events —
+// Stay in sync with the queryKey of every live list showing these events —
 // currently useEventsQueries above and member/Dashboard.jsx.
-const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents', 'withPending']]
+const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents']]
 
 const withMember = (list, memberId) =>
   (list || []).includes(memberId) ? (list || []) : [...(list || []), memberId]
@@ -885,6 +883,24 @@ const uploadMemberEventBanner = async (file, currentBannerUrl, t) => {
   return uploadEventBanner(file)
 }
 
+const EVENT_EDIT_ERROR_KEYS = {
+  'functions/aborted': 'toast.eventEditStale',
+  'functions/failed-precondition': 'toast.eventEditUnavailable',
+  'functions/permission-denied': 'toast.eventEditPermissionDenied',
+  'functions/not-found': 'toast.eventEditNotFound',
+  'functions/invalid-argument': 'toast.eventEditInvalid',
+  aborted: 'toast.eventEditStale',
+  'failed-precondition': 'toast.eventEditUnavailable',
+  'permission-denied': 'toast.eventEditPermissionDenied',
+  'not-found': 'toast.eventEditNotFound',
+  'invalid-argument': 'toast.eventEditInvalid'
+}
+
+const getEventEditErrorMessage = (error, t) => {
+  const key = EVENT_EDIT_ERROR_KEYS[error?.code]
+  return t(key || 'toast.eventUpdateFailed')
+}
+
 const submitMemberEventForm = async ({
   event,
   form,
@@ -905,15 +921,15 @@ const submitMemberEventForm = async ({
     return
   }
   try {
+    if (event?.status === 'approved' && !window.confirm(t('memberEvents.confirmEditApproved'))) {
+      setIsSubmitting(false)
+      return
+    }
     const bannerUrl = await uploadMemberEventBanner(
       bannerInputRef.current?.files?.[0], event?.bannerUrl, t
     )
     const eventDate = parseHubDateTime(formData.get('date'))
     if (event) {
-      if (event.status === 'approved' && !window.confirm(t('memberEvents.confirmEditApproved'))) {
-        setIsSubmitting(false)
-        return
-      }
       editMutation.mutate({
         eventId: event.id,
         expectedRevision: event.revision || 1,

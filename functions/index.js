@@ -17,7 +17,7 @@ const bs58 = require("bs58");
 const nodemailer = require("nodemailer");
 const {
   getRevision, normalizeEditPayload, getBookingWindow,
-  getNotificationSubjectId,
+  getNotificationSubjectId, getEventSpaceValidationError,
 } = require("./eventLifecycle");
 
 initializeApp();
@@ -430,19 +430,28 @@ exports.reviewEvent = onCall(async (request) => {
           "aborted", "This event changed. Refresh and try again.");
     }
 
-    let availability = null;
     if (action === "approved" && initialData.requestedAmenityId) {
+      const initialDate = initialData.date.toDate();
       const window = getBookingWindow(
-          initialData.date.toDate(), initialData.duration || 60);
+          initialDate, initialData.duration || 60);
       const amenitySnap = await db.collection("amenities")
           .doc(initialData.requestedAmenityId).get();
       if (!amenitySnap.exists) {
         throw new HttpsError(
             "failed-precondition", "Requested amenity no longer exists.");
       }
-      availability = await computeBookingAvailability({
+      const amenity = amenitySnap.data();
+      const eventSpaceError = getEventSpaceValidationError({
+        eventDate: initialDate,
+        duration: initialData.duration || 60,
+        amenity,
+      });
+      if (eventSpaceError) {
+        throw new HttpsError("failed-precondition", eventSpaceError);
+      }
+      const availability = await computeBookingAvailability({
         amenityId: initialData.requestedAmenityId,
-        amenity: amenitySnap.data(),
+        amenity,
         startTime: window.startTime.toISOString(),
         endTime: window.endTime.toISOString(),
       });

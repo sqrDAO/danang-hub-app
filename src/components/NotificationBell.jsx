@@ -144,6 +144,10 @@ const getEventStatusTone = (status) => (
   status === 'rejected' ? 'rejected' : 'approved'
 )
 
+const getEventRevisionTone = (status) => (
+  status === 'pending' ? 'pending' : getEventStatusTone(status)
+)
+
 const getNotificationCopy = (notification, t) => {
   const copyFactory = getNotificationCopyFactory(notification.type)
   const copy = copyFactory ? copyFactory(notification, t) : getDefaultNotificationCopy(t)
@@ -153,7 +157,7 @@ const getNotificationCopy = (notification, t) => {
     tone: notification.type === 'event_status'
       ? getEventStatusTone(notification.status)
       : notification.type === 'event_revision'
-        ? getEventStatusTone(notification.reviewStatus)
+        ? getEventRevisionTone(notification.reviewStatus)
       : getNotificationTone(notification.type)
   }
 }

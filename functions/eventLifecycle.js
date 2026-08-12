@@ -5,6 +5,13 @@ const EDITABLE_EVENT_FIELDS = [
 
 const MAX_EVENT_CAPACITY = 50;
 const MIN_DURATION_MINUTES = 15;
+const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
+const EVENT_SPACE_DEFAULTS = {
+  weekdayStartHour: 18,
+  weekendStartHour: 9,
+  endHour: 22,
+  availableDays: [0, 1, 2, 3, 4, 5, 6],
+};
 
 const getRevision = (event) => (
   Number.isInteger(event.revision) && event.revision > 0 ? event.revision : 1
@@ -24,11 +31,78 @@ const asOptionalString = (value, name) => {
 };
 
 const asFutureDate = (value, now) => {
+  if (typeof value !== "string" ||
+      !/(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) {
+    throw new Error("Event start must include a timezone offset.");
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime()) || date <= now) {
     throw new Error("Event start must be in the future.");
   }
   return date;
+};
+
+const getHubParts = (date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: HUB_TIMEZONE,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type).value;
+  return {
+    weekday: get("weekday"),
+    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+    day: `${get("year")}-${get("month")}-${get("day")}`,
+  };
+};
+
+const getEventSpaceValidationError = ({eventDate, duration, amenity}) => {
+  if (!amenity || amenity.type !== "event-space" ||
+      amenity.isAvailable === false) {
+    return "Requested amenity is not an available Event Hall.";
+  }
+
+  const start = eventDate instanceof Date ? eventDate : new Date(eventDate);
+  const end = new Date(start.getTime() + duration * 60 * 1000);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "Event time is invalid.";
+  }
+
+  const startParts = getHubParts(start);
+  const endParts = getHubParts(end);
+  const availableDays = Array.isArray(amenity.availableDays) ?
+    amenity.availableDays : EVENT_SPACE_DEFAULTS.availableDays;
+  const dayNumber = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      .indexOf(startParts.weekday);
+  if (!availableDays.includes(dayNumber)) {
+    return "Event Hall is not available on this day.";
+  }
+  if (startParts.day !== endParts.day) {
+    return "Event must finish on the same Hub calendar day.";
+  }
+
+  const isWeekend = dayNumber === 0 || dayNumber === 6;
+  const policyStartHour = isWeekend ? EVENT_SPACE_DEFAULTS.weekendStartHour :
+    EVENT_SPACE_DEFAULTS.weekdayStartHour;
+  const configuredStart = isWeekend ? amenity.startHour :
+    amenity.weekdayStartHour;
+  const startHour = Math.max(
+      policyStartHour,
+      typeof configuredStart === "number" ? configuredStart : policyStartHour);
+  const configuredEnd = amenity.endHour;
+  const endHour = Math.min(
+      EVENT_SPACE_DEFAULTS.endHour,
+      typeof configuredEnd === "number" ? configuredEnd :
+        EVENT_SPACE_DEFAULTS.endHour);
+  if (startParts.minutes < startHour * 60 || endParts.minutes > endHour * 60) {
+    return "Event time is outside Event Hall availability.";
+  }
+  return null;
 };
 
 const asIntegerInRange = (value, name, min, max) => {
@@ -95,4 +169,5 @@ module.exports = {
   normalizeEditPayload,
   getBookingWindow,
   getNotificationSubjectId,
+  getEventSpaceValidationError,
 };

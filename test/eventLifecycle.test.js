@@ -7,7 +7,8 @@ const {
   getRevision,
   normalizeEditPayload,
   getBookingWindow,
-  getNotificationSubjectId
+  getNotificationSubjectId,
+  getEventSpaceValidationError
 } = require('../functions/eventLifecycle.js')
 
 const now = new Date('2026-08-12T00:00:00.000Z')
@@ -58,6 +59,87 @@ test('protected fields, past dates, and under-capacity edits are rejected', () =
   assert.throws(
     () => normalizeEditPayload({ ...payload, capacity: 1 }, event, now),
     /attendee count/
+  )
+  assert.throws(
+    () => normalizeEditPayload({ ...payload, date: '2026-08-22T11:00:00' }, event, now),
+    /timezone offset/
+  )
+})
+
+test('Event Hall validation follows Hub timezone and availability policy', () => {
+  const amenity = {
+    type: 'event-space',
+    isAvailable: true,
+    availableDays: [0, 1, 2, 3, 4, 5, 6],
+    startHour: 9,
+    endHour: 22
+  }
+  assert.equal(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-21T18:00:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    null
+  )
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-21T17:30:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    /outside Event Hall availability/
+  )
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-22T08:30:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    /outside Event Hall availability/
+  )
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-21T18:00:00+07:00'),
+      duration: 60,
+      amenity: {...amenity, type: 'meeting-room'}
+    }),
+    /not an available Event Hall/
+  )
+})
+
+test('Event Hall policy cannot be expanded by amenity-configured hours', () => {
+  const amenity = {
+    type: 'event-space',
+    isAvailable: true,
+    availableDays: [0, 1, 2, 3, 4, 5, 6],
+    startHour: 7,
+    weekdayStartHour: 9,
+    endHour: 23
+  }
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-21T17:30:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    /outside Event Hall availability/
+  )
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-22T08:30:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    /outside Event Hall availability/
+  )
+  assert.match(
+    getEventSpaceValidationError({
+      eventDate: new Date('2026-08-22T21:30:00+07:00'),
+      duration: 60,
+      amenity
+    }),
+    /outside Event Hall availability/
   )
 })
 

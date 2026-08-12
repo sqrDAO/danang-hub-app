@@ -58,4 +58,5 @@ approved or rejected edits become a revisioned pending resubmission.
 - regression: public/member/admin event lists, approved registration/unregistration, reminders, and auto waitlist promotion still work.
 
 ## Notes
-`plan.organizer-event-edit.md` is temporary implementation guidance and is deleted manually after acceptance. Booking conflict detection remains advisory for concurrent competing writes; this PR prevents event/own-booking partial writes but does not add a global slot lock.
+
+`plan.organizer-event-edit.md` is temporary implementation guidance and is deleted manually after acceptance. Booking conflict detection remains advisory for concurrent competing writes; this PR validates Event Hall requests server-side but does not add a global slot lock or claim hard booking-overlap locking.
