@@ -14,7 +14,7 @@ import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
-import { isLocalBookingDev, LOCAL_PREVIEW_AMENITIES } from '../../utils/localBookingMode'
+import { resolveBookingDeepLink } from '../../utils/bookingDeepLink'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import './Bookings.css'
@@ -118,7 +118,7 @@ const getMinRecurringEndDate = (selectedDate) => {
   return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
 }
 
-const useBookingForm = (amenities, searchParams, setSearchParams) => {
+const useBookingForm = (amenities, searchParams, setSearchParams, navigate) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAmenity, setSelectedAmenity] = useState(null)
   const [bookingStep, setBookingStep] = useState(1) // 1: calendar, 2: confirm, 3: recurring
@@ -137,22 +137,26 @@ const useBookingForm = (amenities, searchParams, setSearchParams) => {
   // Check for amenityId in URL params and auto-open booking modal
   useEffect(() => {
     const amenityId = searchParams.get('amenityId')
-    const previewRequested = isLocalBookingDev && searchParams.get('preview') === 'booking'
-    const amenity = amenities.find(a => a.id === amenityId) || (previewRequested && amenities[0])
-    if (!amenity || isModalOpen) return
+    const deepLink = resolveBookingDeepLink(amenities, amenityId)
+    if (!deepLink || isModalOpen) return
 
+    if (deepLink.redirectTo) {
+      navigate(deepLink.redirectTo, { replace: true })
+      return
+    }
+
+    const { amenity } = deepLink
     setSelectedAmenity(amenity)
     setIsModalOpen(true)
     setBookingStep(1)
     setSelectedBookingDate(null)
     setMobileCalendarStage(isMobileViewport() ? 'date' : 'time')
-    if (amenityId || previewRequested) {
+    if (amenityId) {
       const newParams = new URLSearchParams(searchParams)
       newParams.delete('amenityId')
-      newParams.delete('preview')
       setSearchParams(newParams, { replace: true })
     }
-  }, [amenities, searchParams, isModalOpen, setSearchParams])
+  }, [amenities, searchParams, isModalOpen, setSearchParams, navigate])
 
   const resetBookingForm = () => {
     setIsModalOpen(false)
@@ -1118,11 +1122,9 @@ const MemberBookings = () => {
     refetchOnWindowFocus: false,
     retry: 1
   })
-  const amenities = remoteAmenities.length > 0 ? remoteAmenities : (
-    isLocalBookingDev ? LOCAL_PREVIEW_AMENITIES : remoteAmenities
-  )
+  const amenities = remoteAmenities
 
-  const form = useBookingForm(amenities, searchParams, setSearchParams)
+  const form = useBookingForm(amenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()
   const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
   const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t })
