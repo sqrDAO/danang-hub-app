@@ -20,6 +20,22 @@ export const checkBookingConflicts = async (amenityId, startTime, endTime, exclu
   }
 }
 
+// Admin assignment must fail closed: a callable error means the availability
+// check could not be completed, so creating the booking would be unsafe.
+export const checkBookingConflictsStrict = async (amenityId, startTime, endTime, excludeBookingId = null) => {
+  const checkConflicts = httpsCallable(functions, 'checkBookingConflicts')
+  const result = await checkConflicts({
+    amenityId,
+    startTime: new Date(startTime).toISOString(),
+    endTime: new Date(endTime).toISOString(),
+    excludeBookingId
+  })
+  if (typeof result?.data?.hasConflicts !== 'boolean') {
+    throw new Error('Invalid booking conflict response')
+  }
+  return result.data
+}
+
 // Busy ranges for one amenity, used by BookingCalendar to grey out taken
 // slots. Members may not list bookings by amenity directly — firestore.rules
 // scopes their reads to their own documents — so occupancy comes from the

@@ -362,6 +362,10 @@
     "assignDate": "Date",
     "assignStartTime": "Start Time",
     "assignEndTime": "End Time",
+    "calendarPrerequisite": "Select a member and amenity to choose a time.",
+    "assignConflict": "This time is no longer available. Choose another time.",
+    "assignConflictCheckFailed": "Unable to verify availability. No booking was created.",
+    "assignCreateFailed": "Unable to create the booking. Check the booking list before trying again.",
     "assignAndApprove": "Assign & Approve",
     "noBookings": "No bookings match your filters."
   },
