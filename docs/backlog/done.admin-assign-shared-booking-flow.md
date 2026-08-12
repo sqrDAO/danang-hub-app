@@ -10,7 +10,7 @@ Replace only the standard-booking date/time controls in Admin Assign Booking wit
 - `src/pages/admin/Bookings.css` (edited) — style Admin-only assignment error feedback.
 - `src/locales/en.json` (edited) — add English instructions and conflict feedback.
 - `src/locales/vi.json` (edited) — add matching Vietnamese copy.
-- `docs/backlog/todo.admin-assign-shared-booking-flow.md` (edited) — define the corrected narrow scope.
+- `docs/backlog/done.admin-assign-shared-booking-flow.md` (edited) — record the completed narrow scope.
 
 ## Acceptance
 - [ ] Standard assignment has no free-form booking date, start-time, end-time, or duration controls.
