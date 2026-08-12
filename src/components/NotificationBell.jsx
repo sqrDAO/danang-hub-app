@@ -110,6 +110,14 @@ const getEventReminderCopy = (notification, t) => ({
   body: getEventReminderBody(notification, t)
 })
 
+const getEventRevisionCopy = (notification, t) => {
+  const key = `notifications.eventRevision${notification.reviewStatus}`
+  return {
+    title: t(`${key}Title`),
+    body: t(`${key}Body`, { title: notification.eventTitle })
+  }
+}
+
 const getDefaultNotificationCopy = (t) => ({
   title: t('notifications.defaultTitle'),
   body: t('notifications.defaultBody')
@@ -120,7 +128,8 @@ const NOTIFICATION_COPY_BY_TYPE = {
   event_pending_review: getEventPendingReviewCopy,
   booking_pending_review: getBookingPendingReviewCopy,
   booking_approved: getBookingApprovedCopy,
-  event_reminder: getEventReminderCopy
+  event_reminder: getEventReminderCopy,
+  event_revision: getEventRevisionCopy
 }
 
 const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
@@ -143,6 +152,8 @@ const getNotificationCopy = (notification, t) => {
     ...copy,
     tone: notification.type === 'event_status'
       ? getEventStatusTone(notification.status)
+      : notification.type === 'event_revision'
+        ? getEventStatusTone(notification.reviewStatus)
       : getNotificationTone(notification.type)
   }
 }
@@ -152,7 +163,8 @@ const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
   booking_pending_review: '/admin/bookings',
   booking_approved: '/member/bookings',
   event_status: '/member/events',
-  event_reminder: '/member/events'
+  event_reminder: '/member/events',
+  event_revision: '/member/events'
 }
 
 const getNotificationPath = (notification) => (

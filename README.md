@@ -28,7 +28,8 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Event Management
 - **Event Creation** — title, description, date, capacity, hosting project, banner image
-- **Approval Workflow** — admin review with rejection reasons surfaced to the organizer
+- **Revisioned Approval Workflow** — organizers can revise future events; approved or
+  rejected revisions return to pending review and safely replace any Event Hall booking
 - **Waitlist System** — automatic waitlist + promotion when spots open
 - **Organizer Profile Modal** — view host details inline on any event card
 - **Event Reminders** — scheduled email reminders sent 24 hours before events
@@ -221,14 +222,18 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 |----------|------|-------------|
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
 | `checkSlotAvailability` | Callable | Public slot availability check |
+| `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events and cancels a linked Event Hall booking |
+| `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; atomically creates or cancels the linked Event Hall booking |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
 | `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
-| `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for pending event requests and sends review push for opted-in admins |
+| `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
+| `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
 | `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications, optional email, and status push for opted-in organizers when an event is approved or rejected |
+| `notifyEventRevisionParticipants` | Firestore trigger (onUpdate) | Sends in-app status updates to retained attendees/waitlisted members after a previously approved event changes revision state |
 | `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `sendEventReminders` | Scheduled (hourly) | Reminds every member about approved events ~24h out (in-app + push), with copy per attendee/waitlisted/other |
 | `autoPromoteWaitlist` | Firestore trigger (onUpdate) | Promotes members from waitlist when spots open |
@@ -325,7 +330,7 @@ functions/
 | `members` | Profiles, membership type (admin/member), wallet address |
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
-| `events` | Events with approval status, attendees, waitlist, rejection reason |
+| `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and linked Event Hall metadata |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
@@ -341,7 +346,7 @@ functions/
 | `npm run dev` | Start dev server on port 3000 |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint (max-warnings 0) |
-| `npm test` | Node test runner over `test/*.test.js` (pure helpers only) |
+| `npm test` | Node test runner over `test/*.test.js` (Firestore rules tests skip unless the emulator host is configured) |
 | `npm run preview` | Preview production build |
 | `firebase deploy` | Deploy Firestore rules, Storage rules, Functions |
 | `firebase deploy --only functions` | Deploy Cloud Functions only |

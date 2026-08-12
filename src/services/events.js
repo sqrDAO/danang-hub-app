@@ -100,6 +100,8 @@ export const createEvent = async (data) => {
     date: Timestamp.fromDate(new Date(data.date)),
     attendees: data.attendees || [],
     status: data.status || 'pending', // pending, approved, rejected
+    revision: data.revision || 1,
+    everApproved: data.everApproved === true,
     createdAt: new Date().toISOString()
   })
   return docRef.id

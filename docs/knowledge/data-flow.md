@@ -117,9 +117,12 @@ cancels every pending/approved booking in the group.
 ## 3. Event lifecycle and notifications
 
 ```
-pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist[]
-   │                                              ▲
-   └──admin rejectEvent──▶ rejected     autoPromoteWaitlist (trigger)
+pending ──admin reviewEvent(approve)──▶ approved      attendees[] ⇄ waitlist[]
+   │                                      │                ▲
+   └──admin reviewEvent(reject)──▶ rejected │    autoPromoteWaitlist (trigger)
+            ▲                               │
+            └──── organizer edits a future approved/rejected event ────┘
+                      (new revision: pending; linked Event Hall booking cancelled)
 ```
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
@@ -127,8 +130,17 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
   so list views don't fan out; `notifyEventPendingReview` writes an in-app notification
   for each admin; `updateEvent()` re-fetches organizer details when `organizerId`
   changes.
-- **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls
-  `approveEvent`/`rejectEvent(reason)`. The status flip fires
+- **Edit / resubmit** — organizers edit only their own future events through the
+  authenticated `editOwnEvent` callable. The server accepts an allowlisted content payload
+  and matching `expectedRevision`; each successful edit increments `revision`. A pending
+  request stays pending without another review alert. An approved or rejected event becomes
+  pending, retains registrations, cancels active `bookings` with its `eventId`, clears the
+  linked-amenity metadata, and is re-notified to admins as a revision. `everApproved` keeps
+  previously live pending revisions from being deleted.
+- **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls the admin-only
+  `reviewEvent` callable with the expected revision. Approval rechecks Event Hall
+  availability and atomically creates at most one setup/teardown booking; rejection cancels
+  active linked bookings. The status flip fires
   **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
   `notifications` doc for the organizer and (2) sends a styled HTML email via
   **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
@@ -136,8 +148,8 @@ pending ──admin approveEvent──▶ approved      attendees[] ⇄ waitlist
 - **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
   `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
   These are bare client writes with no callable fallback, so `firestore.rules` carries a
-  dedicated update path: any signed-in member may write an event whose diff touches
-  **only** `attendees`/`waitlist`. Field scoping is all rules can do — there is no
+  dedicated update path: any signed-in member may write an **approved** event whose diff
+  touches **only** `attendees`/`waitlist`. Field scoping is all rules can do — there is no
   array-diff primitive, so a member can still write *another* member's uid into those
   arrays. Capacity is enforced client-side before registering, not by rules.
 - **`autoPromoteWaitlist`** (onUpdate trigger) — when `attendees` shrinks below `capacity`
@@ -167,13 +179,17 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 |---|---|---|
 | `checkBookingConflicts` | callable (auth required) | Day/hours + overlap check, desk capacity-aware |
 | `checkSlotAvailability` | callable (public) | Same check for public availability views |
+| `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content and cancel linked booking atomically |
+| `reviewEvent` | callable (admin) | Revision-aware review; atomically approve/create or reject/cancel Event Hall booking |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
 | `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event; browser push for opted-in admins |
+| `notifyEventResubmission` | `events` onUpdate | Admin review notification for a pending revision from approved/rejected |
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + optional email + browser push on approve/reject |
+| `notifyEventRevisionParticipants` | `events` onUpdate | In-app update for retained participants when a previously approved event's revision state changes |
 | `autoPromoteWaitlist` | `events` onUpdate | FIFO waitlist → attendees when spots open |
 | `autoCheckoutExpiredBookings` | schedule, hourly | Auto-complete expired/past-day bookings |
 | `cleanupPushNotificationMarkers` | schedule, daily | Delete expired browser push dedupe markers |
@@ -190,7 +206,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `members` | owner or admin | owner create/update (**cannot change `membershipType`**); admin anything |
 | `amenities` | public | admin only |
 | `bookings` | owner or admin | owner create; owner update **only to keep status or set `cancelled`**; owner delete only while `pending`; admin anything |
-| `events` | public | organizer create own (**must be `pending`**); organizer update own **except `status`/`organizerId`/`approvedAt`/`rejectedAt`**; any member update when the diff touches **only `attendees`/`waitlist`**; organizer delete own **only while `pending`**; admin anything |
+| `events` | public | organizer create own (**must be `pending`**); organizer content updates only through `editOwnEvent`; any member may update **only `attendees`/`waitlist`** while the stored and result status are `approved`; organizer delete only a never-approved pending event; admin anything |
 | `projects` | public | admin only |
 | `notifications` | owner | owner may update **only the `read` field**; create/delete only via Admin SDK (Cloud Functions) |
 
@@ -216,7 +232,7 @@ those live in the callable / client and are advisory.
 | `members` | AuthContext auto-create (§1), Profile page, admin Members page | rules `isAdmin()`, everywhere |
 | `amenities` | admin Amenities page (`src/services/amenities.js`) | booking pages, Home, callables |
 | `bookings` | booking create/update (§2), schedulers (§2) | member/admin dashboards, conflict checks |
-| `events` | event create/approve (§3), waitlist triggers | Home, Events pages, reminder cron |
+| `events` | event create/edit/review (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
 | `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
 | `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking/event review and status |

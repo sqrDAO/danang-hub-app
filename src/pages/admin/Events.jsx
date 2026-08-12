@@ -11,14 +11,13 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
-  approveEvent,
-  rejectEvent,
   promoteFromWaitlist
 } from '../../services/events'
 import { getMembers } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
+import { reviewEvent } from '../../services/functions'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
@@ -139,39 +138,6 @@ const createEventWithBooking = async (data, t) => {
   return eventId
 }
 
-const approveEventWithBooking = async (eventId, allEvents, pendingEvents) => {
-  const event = allEvents.find(e => e.id === eventId) || pendingEvents.find(e => e.id === eventId)
-  await approveEvent(eventId)
-
-  // If amenity was requested, create booking
-  if (!event?.requestedAmenityId) return
-  const eventDate = new Date(event.date)
-  const startTime = new Date(eventDate)
-  startTime.setHours(startTime.getHours() - 1)
-  const endTime = new Date(eventDate)
-  endTime.setHours(endTime.getHours() + 2)
-
-  try {
-    await createBooking({
-      memberId: event.organizerId,
-      amenityId: event.requestedAmenityId,
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      eventId: eventId,
-      status: 'approved'
-    })
-
-    // Update event with linked amenity
-    await updateEvent(eventId, {
-      linkedAmenityId: event.requestedAmenityId,
-      linkedAmenityStartTime: startTime.toISOString(),
-      linkedAmenityEndTime: endTime.toISOString()
-    })
-  } catch (error) {
-    console.error('Failed to create linked amenity booking:', error)
-  }
-}
-
 const submitCreateEvent = async (data, ctx) => {
   const bannerFile = ctx.bannerInputRef.current?.files?.[0]
   if (!bannerFile) {
@@ -234,7 +200,7 @@ const useAdminEventsData = () => {
   return { allEvents, pendingEvents, members, amenities, projects, isLoading }
 }
 
-const useAdminEventMutations = ({ t, allEvents, pendingEvents, setIsModalOpen, resetForm, setIsSubmitting }) => {
+const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting }) => {
   const invalidate = useInvalidateQueries()
 
   const closeFormWithToast = (toastKey) => {
@@ -268,7 +234,7 @@ const useAdminEventMutations = ({ t, allEvents, pendingEvents, setIsModalOpen, r
   })
 
   const approveMutation = useMutation({
-    mutationFn: (eventId) => approveEventWithBooking(eventId, allEvents, pendingEvents),
+    mutationFn: (payload) => reviewEvent({ ...payload, action: 'approved' }),
     onSuccess: () => {
       invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents', 'bookings')
       showToast(t('toast.eventApproved'), 'success')
@@ -279,7 +245,7 @@ const useAdminEventMutations = ({ t, allEvents, pendingEvents, setIsModalOpen, r
   })
 
   const rejectMutation = useMutation({
-    mutationFn: ({ eventId, reason }) => rejectEvent(eventId, reason),
+    mutationFn: (payload) => reviewEvent({ ...payload, action: 'rejected' }),
     onSuccess: () => {
       invalidate('events', 'pendingEvents', 'myEvents', 'upcomingEvents')
       showToast(t('toast.eventRejected'), 'info')
@@ -409,7 +375,7 @@ const EventCardActions = ({
       <>
         <button
           className="btn btn-primary btn-sm"
-          onClick={() => onApprove(event.id)}
+          onClick={() => onApprove(event)}
           disabled={approvePending}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -419,7 +385,7 @@ const EventCardActions = ({
         </button>
         <button
           className="btn btn-danger btn-sm"
-          onClick={() => onReject(event.id)}
+          onClick={() => onReject(event)}
           disabled={rejectPending}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -442,7 +408,7 @@ const EventCardActions = ({
         )}
         <button
           className="btn btn-danger btn-sm"
-          onClick={() => onReject(event.id, true)}
+          onClick={() => onReject(event, true)}
           disabled={rejectPending}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -482,6 +448,11 @@ const EventCard = ({ event, t, amenities, projects, onShowHost, ...actionProps }
       </span>
     </div>
     <EventCardInfo event={event} amenities={amenities} projects={projects} t={t} onShowHost={onShowHost} />
+    {event.status === 'pending' && event.resubmittedFromStatus && (
+      <p className="event-revision-note">
+        {t('adminEvents.resubmission', { revision: event.revision || 1, status: event.resubmittedFromStatus })}
+      </p>
+    )}
     <EventCardActions event={event} t={t} {...actionProps} />
   </div>
 )
@@ -890,7 +861,7 @@ const AdminEvents = () => {
     rejectMutation,
     promoteWaitlistMutation,
     deleteMutation
-  } = useAdminEventMutations({ t, allEvents, pendingEvents, setIsModalOpen, resetForm, setIsSubmitting })
+  } = useAdminEventMutations({ t, setIsModalOpen, resetForm, setIsSubmitting })
 
   const handleCreate = () => {
     setIsCreateMode(true)
@@ -917,19 +888,23 @@ const AdminEvents = () => {
     }
   }
 
-  const handleApprove = async (eventId) => {
-    if (isPendingFor(approveMutation, eventId)) return
+  const handleApprove = async (event) => {
+    if (isPendingFor(approveMutation, event.id)) return
     if (window.confirm(t('adminEvents.confirmApprove'))) {
-      await approveMutation.mutateAsync(eventId)
+      await approveMutation.mutateAsync({ eventId: event.id, expectedRevision: event.revision || 1 })
     }
   }
 
-  const handleReject = async (eventId, isApproved = false) => {
-    if (isPendingFor(rejectMutation, eventId)) return
+  const handleReject = async (event, isApproved = false) => {
+    if (isPendingFor(rejectMutation, event.id)) return
     if (isApproved && !window.confirm(t('adminEvents.confirmRejectApproved'))) return
     const reason = prompt(t('adminEvents.rejectReason'))
     if (reason !== null) {
-      await rejectMutation.mutateAsync({ eventId, reason })
+      await rejectMutation.mutateAsync({
+        eventId: event.id,
+        expectedRevision: event.revision || 1,
+        reason
+      })
     }
   }
 

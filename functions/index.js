@@ -15,6 +15,10 @@ const {ethers} = require("ethers");
 const nacl = require("tweetnacl");
 const bs58 = require("bs58");
 const nodemailer = require("nodemailer");
+const {
+  getRevision, normalizeEditPayload, getBookingWindow,
+  getNotificationSubjectId,
+} = require("./eventLifecycle");
 
 initializeApp();
 
@@ -297,6 +301,237 @@ exports.checkBookingConflicts = onCall(
       }
     },
 );
+
+const getEventError = (error) => {
+  if (error instanceof HttpsError) return error;
+  console.error("Event lifecycle error:", error);
+  return new HttpsError(
+      "invalid-argument", error.message || "Invalid event request.");
+};
+
+const requireAdmin = async (uid) => {
+  const member = await db.collection("members").doc(uid).get();
+  if (!member.exists || member.data().membershipType !== "admin") {
+    throw new HttpsError("permission-denied", "Admin access is required.");
+  }
+};
+
+const getActiveEventBookings = (snapshot) => snapshot.docs.filter((doc) => {
+  const status = doc.data().status;
+  return status === "pending" || status === "approved" ||
+      status === "checked-in";
+});
+
+// Organizer content writes go through this callable so the status transition,
+// revision check, and linked Event Hall cleanup are one server-authorized
+// action.
+exports.editOwnEvent = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+
+  const {eventId, expectedRevision, data} = request.data || {};
+  if (typeof eventId !== "string" || !eventId) {
+    throw new HttpsError("invalid-argument", "eventId is required.");
+  }
+
+  try {
+    return await db.runTransaction(async (tx) => {
+      const eventRef = db.collection("events").doc(eventId);
+      const eventSnap = await tx.get(eventRef);
+      if (!eventSnap.exists) {
+        throw new HttpsError("not-found", "Event not found.");
+      }
+
+      const event = eventSnap.data();
+      if (event.organizerId !== request.auth.uid) {
+        throw new HttpsError(
+            "permission-denied", "Only the organizer can edit this event.");
+      }
+      const revision = getRevision(event);
+      if (expectedRevision !== revision) {
+        throw new HttpsError(
+            "aborted", "This event changed. Refresh and try again.");
+      }
+
+      const normalized = normalizeEditPayload(data, event, new Date());
+      const resubmitted = event.status === "approved" ||
+          event.status === "rejected";
+      const update = {
+        ...normalized,
+        date: Timestamp.fromDate(normalized.date),
+        revision: revision + 1,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (resubmitted) {
+        update.status = "pending";
+        update.resubmittedAt = new Date().toISOString();
+        update.resubmittedFromStatus = event.status;
+        update.approvedAt = FieldValue.delete();
+        update.approvedRevision = FieldValue.delete();
+        update.rejectedAt = FieldValue.delete();
+        update.rejectionReason = FieldValue.delete();
+      }
+      if (event.status === "approved") update.everApproved = true;
+
+      if (event.status === "approved") {
+        const bookingQuery = db.collection("bookings")
+            .where("eventId", "==", eventId);
+        const bookingSnapshot = await tx.get(bookingQuery);
+        getActiveEventBookings(bookingSnapshot).forEach((booking) => {
+          tx.update(booking.ref, {
+            status: "cancelled",
+            updatedAt: new Date().toISOString(),
+          });
+        });
+        update.linkedAmenityId = FieldValue.delete();
+        update.linkedAmenityStartTime = FieldValue.delete();
+        update.linkedAmenityEndTime = FieldValue.delete();
+      }
+
+      tx.update(eventRef, update);
+      return {
+        eventId,
+        status: update.status || event.status,
+        revision: revision + 1,
+        resubmitted,
+      };
+    });
+  } catch (error) {
+    throw getEventError(error);
+  }
+});
+
+// Approval/rejection is a server-side transaction so Event Hall bookings cannot
+// be best-effort follow-up writes after the event status has changed.
+exports.reviewEvent = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const {eventId, expectedRevision, action, reason = ""} = request.data || {};
+  if (typeof eventId !== "string" || !eventId ||
+      !["approved", "rejected"].includes(action)) {
+    throw new HttpsError(
+        "invalid-argument", "A valid event review is required.");
+  }
+
+  try {
+    await requireAdmin(request.auth.uid);
+    const eventRef = db.collection("events").doc(eventId);
+    const initial = await eventRef.get();
+    if (!initial.exists) {
+      throw new HttpsError("not-found", "Event not found.");
+    }
+    const initialData = initial.data();
+    const initialRevision = getRevision(initialData);
+    if (expectedRevision !== initialRevision) {
+      throw new HttpsError(
+          "aborted", "This event changed. Refresh and try again.");
+    }
+
+    let availability = null;
+    if (action === "approved" && initialData.requestedAmenityId) {
+      const window = getBookingWindow(
+          initialData.date.toDate(), initialData.duration || 60);
+      const amenitySnap = await db.collection("amenities")
+          .doc(initialData.requestedAmenityId).get();
+      if (!amenitySnap.exists) {
+        throw new HttpsError(
+            "failed-precondition", "Requested amenity no longer exists.");
+      }
+      availability = await computeBookingAvailability({
+        amenityId: initialData.requestedAmenityId,
+        amenity: amenitySnap.data(),
+        startTime: window.startTime.toISOString(),
+        endTime: window.endTime.toISOString(),
+      });
+      if (availability.hasConflicts) {
+        throw new HttpsError(
+            "failed-precondition",
+            "The requested Event Hall time is no longer available.");
+      }
+    }
+
+    return await db.runTransaction(async (tx) => {
+      const eventSnap = await tx.get(eventRef);
+      if (!eventSnap.exists) {
+        throw new HttpsError("not-found", "Event not found.");
+      }
+      const event = eventSnap.data();
+      const revision = getRevision(event);
+      if (revision !== expectedRevision) {
+        throw new HttpsError(
+            "aborted", "This event changed. Refresh and try again.");
+      }
+
+      const eventDate = event.date.toDate();
+      if (eventDate <= new Date()) {
+        throw new HttpsError(
+            "failed-precondition", "Past events cannot be reviewed.");
+      }
+      if (action === "approved" && event.status !== "pending") {
+        throw new HttpsError(
+            "failed-precondition", "Only pending events can be approved.");
+      }
+      if (action === "rejected" &&
+          !["pending", "approved"].includes(event.status)) {
+        throw new HttpsError(
+            "failed-precondition", "This event cannot be rejected.");
+      }
+
+      const bookingQuery = db.collection("bookings")
+          .where("eventId", "==", eventId);
+      const bookingSnapshot = await tx.get(bookingQuery);
+      const activeBookings = getActiveEventBookings(bookingSnapshot);
+      const update = {status: action, updatedAt: new Date().toISOString()};
+
+      if (action === "approved") {
+        update.approvedAt = new Date().toISOString();
+        update.approvedRevision = revision;
+        update.everApproved = true;
+        update.rejectedAt = FieldValue.delete();
+        update.rejectionReason = FieldValue.delete();
+        if (event.requestedAmenityId) {
+          const window = getBookingWindow(eventDate, event.duration || 60);
+          const existing = activeBookings[0];
+          if (!existing) {
+            const bookingRef = db.collection("bookings").doc();
+            tx.create(bookingRef, {
+              memberId: event.organizerId,
+              amenityId: event.requestedAmenityId,
+              startTime: Timestamp.fromDate(window.startTime),
+              endTime: Timestamp.fromDate(window.endTime),
+              eventId,
+              status: "approved",
+              createdAt: new Date().toISOString(),
+            });
+          }
+          update.linkedAmenityId = event.requestedAmenityId;
+          update.linkedAmenityStartTime = window.startTime.toISOString();
+          update.linkedAmenityEndTime = window.endTime.toISOString();
+        }
+      } else {
+        getActiveEventBookings(bookingSnapshot).forEach((booking) => {
+          tx.update(booking.ref, {
+            status: "cancelled",
+            updatedAt: new Date().toISOString(),
+          });
+        });
+        update.rejectionReason = typeof reason === "string" ?
+          reason.trim() : "";
+        update.rejectedAt = new Date().toISOString();
+        update.linkedAmenityId = FieldValue.delete();
+        update.linkedAmenityStartTime = FieldValue.delete();
+        update.linkedAmenityEndTime = FieldValue.delete();
+      }
+      tx.update(eventRef, update);
+      return {eventId, status: action, revision};
+    });
+  } catch (error) {
+    throw getEventError(error);
+  }
+});
 
 // Check slot availability - no auth (for chatbot, public availability)
 exports.checkSlotAvailability = onCall(
@@ -1538,56 +1773,75 @@ exports.notifyBookingApproval = onDocumentUpdated(
       }
     });
 
-// Notify admins when a member submits a new event for review.
+const notifyEventReviewRequest = async (eventId, eventData) => {
+  const eventTitle = eventData.title || eventData.name || "";
+  const revision = getRevision(eventData);
+  const subjectId = getNotificationSubjectId(eventId, revision, "pending");
+  const [organizerName, admins] = await Promise.all([
+    eventData.organizerDisplayName ?
+      Promise.resolve(eventData.organizerDisplayName) :
+      getMemberName(eventData.organizerId),
+    db.collection("members").where("membershipType", "==", "admin").get(),
+  ]);
+  await notifyAdmins("event_pending_review", subjectId, {
+    eventId,
+    eventTitle,
+    organizerName,
+    revision,
+    resubmittedFromStatus: eventData.resubmittedFromStatus || null,
+    link: "/admin/events",
+  }, admins.docs);
+  const orgEn = organizerName || "A member";
+  const orgVi = organizerName || "Một thành viên";
+  try {
+    await notifyAdminsPush(subjectId, {
+      messages: {
+        en: {
+          title: "Event needs review",
+          body: `${orgEn} submitted "${eventTitle}" for approval.`,
+        },
+        vi: {
+          title: "Sự kiện cần được duyệt",
+          body: `${orgVi} đã gửi "${eventTitle}" để duyệt.`,
+        },
+      },
+      link: "/admin/events",
+      type: "event_pending_review",
+    }, admins.docs);
+  } catch (pushError) {
+    console.error("Error sending event review push:", pushError);
+  }
+};
+
+// Notify admins when a member creates or resubmits an event for review.
 exports.notifyEventPendingReview = onDocumentCreated(
     "events/{eventId}",
     async (event) => {
       const snap = event.data;
-      if (!snap) return null;
-      const eventData = snap.data();
-      if (eventData.status !== "pending") return null;
-
+      if (!snap || snap.data().status !== "pending") return null;
       try {
-        const eventId = event.params.eventId;
-        const eventTitle = eventData.title || eventData.name || "";
-        const [organizerName, admins] = await Promise.all([
-          eventData.organizerDisplayName ?
-            Promise.resolve(eventData.organizerDisplayName) :
-            getMemberName(eventData.organizerId),
-          db.collection("members")
-              .where("membershipType", "==", "admin").get(),
-        ]);
-        await notifyAdmins("event_pending_review", eventId, {
-          eventId,
-          eventTitle,
-          organizerName,
-          link: "/admin/events",
-        }, admins.docs);
-        const orgEn = organizerName || "A member";
-        const orgVi = organizerName || "Một thành viên";
-        try {
-          await notifyAdminsPush(eventId, {
-            messages: {
-              en: {
-                title: "Event needs review",
-                body: `${orgEn} submitted "${eventTitle}" for approval.`,
-              },
-              vi: {
-                title: "Sự kiện cần được duyệt",
-                body: `${orgVi} đã gửi "${eventTitle}" để duyệt.`,
-              },
-            },
-            link: "/admin/events",
-            type: "event_pending_review",
-          }, admins.docs);
-        } catch (pushError) {
-          console.error("Error sending event review push:", pushError);
-        }
-        return null;
+        await notifyEventReviewRequest(event.params.eventId, snap.data());
       } catch (error) {
         console.error("Error notifying event review:", error);
+      }
+      return null;
+    });
+
+exports.notifyEventResubmission = onDocumentUpdated(
+    "events/{eventId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+      if (after.status !== "pending" ||
+          !["approved", "rejected"].includes(before.status)) {
         return null;
       }
+      try {
+        await notifyEventReviewRequest(event.params.eventId, after);
+      } catch (error) {
+        console.error("Error notifying event resubmission:", error);
+      }
+      return null;
     });
 
 // Notify event organizer when event status changes to approved or rejected.
@@ -1605,7 +1859,9 @@ exports.notifyEventStatusChange = onDocumentUpdated(
       const eventTitle = after.title || after.name || "";
       const isApproved = after.status === "approved";
       const rejectionReason = after.rejectionReason || "";
-      const subjectId = `${eventId}_${after.status}`;
+      const subjectId = getNotificationSubjectId(
+          eventId, getRevision(after), after.status,
+      );
 
       try {
         await createNotificationIfAbsent(
@@ -1775,6 +2031,44 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         console.error("Error in notifyEventStatusChange:", error);
         return null;
       }
+    });
+
+// Existing participants need to know when a previously live event is taken down
+// for revision and when that revision is approved or rejected. This is in-app
+// only; organizer email/push remains owned by notifyEventStatusChange above.
+exports.notifyEventRevisionParticipants = onDocumentUpdated(
+    "events/{eventId}",
+    async (event) => {
+      const before = event.data.before.data();
+      const after = event.data.after.data();
+      if (before.status === after.status || !after.everApproved) return null;
+      const transition = after.status;
+      if (!["pending", "approved", "rejected"].includes(transition)) {
+        return null;
+      }
+
+      const recipients = [...new Set([
+        ...(after.attendees || []), ...(after.waitlist || []),
+      ])].filter((uid) => uid !== after.organizerId);
+      if (!recipients.length) return null;
+
+      const eventId = event.params.eventId;
+      const revision = getRevision(after);
+      const subjectId = getNotificationSubjectId(eventId, revision, transition);
+      try {
+        await Promise.all(recipients.map((userId) => createNotificationIfAbsent(
+            userId, "event_revision", subjectId, {
+              eventId,
+              eventTitle: after.title || after.name || "",
+              reviewStatus: transition,
+              revision,
+              link: "/member/events",
+            },
+        )));
+      } catch (error) {
+        console.error("Error notifying event revision participants:", error);
+      }
+      return null;
     });
 
 // Wallet address shapes, by chain. The address doubles as the nonces/{address}
