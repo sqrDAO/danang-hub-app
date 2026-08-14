@@ -21,10 +21,11 @@ import { getMember } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
 import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
+import { editOwnEvent } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
-import { parseHubDateTime, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
@@ -95,6 +96,8 @@ const clampCapacity = (rawValue) => {
     : Math.min(Math.max(rawCapacity, 1), MAX_EVENT_CAPACITY)
 }
 
+const isFutureEvent = (event) => new Date(event.date) > new Date()
+
 const applyOptionalEventFields = (data, formData, linkAmenity) => {
   // Handle hosting projects (text input)
   const hostingProjects = formData.get('hostingProjects')
@@ -136,6 +139,19 @@ const buildEventData = ({ formData, eventDate, currentUser, userProfile, bannerU
   return data
 }
 
+const buildEditableEventData = ({ formData, eventDate, bannerUrl, linkAmenity }) => ({
+  title: formData.get('title'),
+  description: formData.get('description'),
+  date: eventDate.toISOString(),
+  capacity: clampCapacity(formData.get('capacity')),
+  duration: parseInt(formData.get('duration'), 10) || 60,
+  bannerUrl,
+  hostingProjects: formData.get('hostingProjects') || '',
+  eventLink: formData.get('eventLink') || '',
+  requestedAmenityId: linkAmenity ? formData.get('linkedAmenityId') || '' : '',
+  amenityNote: linkAmenity ? formData.get('amenityNote') || '' : ''
+})
+
 // Try to find event in loaded data; flag as missing when data is loaded but
 // the event doesn't exist.
 const resolveRedirectEvent = (eventId, upcomingEventsData, approvedEvents) => {
@@ -146,6 +162,11 @@ const resolveRedirectEvent = (eventId, upcomingEventsData, approvedEvents) => {
 
 const runRedirectAction = (action, event, ctx) => {
   const { currentUser, t, searchParams, setSearchParams, processedActionRef } = ctx
+  if (event.status !== 'approved') {
+    showToast(t('toast.eventNotAvailable'), 'info')
+    clearActionParams(searchParams, setSearchParams)
+    return
+  }
   const payload = { eventId: event.id, memberId: currentUser.uid }
   if (action === 'register') {
     // Only register if not already registered
@@ -185,14 +206,13 @@ const runRedirectAction = (action, event, ctx) => {
 }
 
 const useEventsQueries = (currentUser) => {
-  // Approved plus the member's own pending requests. Distinct from the public
-  // ['upcomingEvents'] cache, but a prefix match of it, so invalidate()
-  // (fuzzy, exact: false) refreshes both. setQueryData is NOT fuzzy — it
-  // hashes the whole key array — so patchEventInCaches must name this key in
-  // full. See EVENT_LIST_KEYS.
+  // Live events only. Own pending/rejected requests use the separate myEvents
+  // query below and never become registerable cards.
+  // (fuzzy, exact: false) refreshes both. setQueryData is not fuzzy, so
+  // patchEventInCaches must name this key in full. See EVENT_LIST_KEYS.
   const { data: upcomingEventsData = [], isLoading: isLoadingEvents, error: eventsError } = useQuery({
-    queryKey: ['upcomingEvents', 'withPending'],
-    queryFn: () => getUpcomingEvents({ includePending: true }),
+    queryKey: ['upcomingEvents'],
+    queryFn: () => getUpcomingEvents(),
     refetchOnWindowFocus: true,
     refetchOnMount: true
   })
@@ -255,15 +275,28 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
     }
   })
 
-  return { createMutation, deleteMutation }
+  const editMutation = useMutation({
+    mutationFn: editOwnEvent,
+    onSuccess: (result) => {
+      invalidate('myEvents', 'approvedEvents', 'pendingEvents', 'upcomingEvents', 'bookings', 'notifications')
+      setIsModalOpen(false)
+      setIsSubmitting(false)
+      showToast(t(result.resubmitted ? 'toast.eventResubmitted' : 'toast.eventUpdated'), 'success')
+    },
+    onError: (error) => {
+      setIsSubmitting(false)
+      showToast(getEventEditErrorMessage(error, t), 'error')
+    }
+  })
+
+  return { createMutation, deleteMutation, editMutation }
 }
 
 // Caches holding the full event objects a register/waitlist click can change.
 // Full key arrays, not prefixes: setQueryData matches the hashed key exactly,
-// so ['upcomingEvents'] would write an entry no query subscribes to. These must
-// stay in sync with the queryKey of every live list showing these events —
+// Stay in sync with the queryKey of every live list showing these events —
 // currently useEventsQueries above and member/Dashboard.jsx.
-const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents', 'withPending']]
+const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents']]
 
 const withMember = (list, memberId) =>
   (list || []).includes(memberId) ? (list || []) : [...(list || []), memberId]
@@ -443,7 +476,7 @@ const EventLinkLine = ({ eventLink, t }) => {
   )
 }
 
-const MyEventCard = ({ event, projects, onDelete, deletePending, t }) => (
+const MyEventCard = ({ event, projects, onDelete, onEdit, deletePending, t }) => (
   <div className={`event-card my-event ${event.status}`}>
     <EventBanner url={event.bannerUrl} />
     <div className="event-header">
@@ -474,7 +507,12 @@ const MyEventCard = ({ event, projects, onDelete, deletePending, t }) => (
       )}
     </div>
     <div className="event-actions">
-      {event.status === 'pending' && (
+      {isFutureEvent(event) && (
+        <button className="btn btn-secondary btn-full-width" onClick={() => onEdit(event)}>
+          {event.status === 'rejected' ? t('memberEvents.editResubmit') : t('common.edit')}
+        </button>
+      )}
+      {event.status === 'pending' && !event.everApproved && (
         <button
           className="btn btn-danger btn-full-width"
           onClick={() => onDelete(event.id)}
@@ -490,7 +528,7 @@ const MyEventCard = ({ event, projects, onDelete, deletePending, t }) => (
   </div>
 )
 
-const MyEventsSection = ({ myEvents, projects, onDelete, deletingId, t }) => {
+const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, deletingId, t }) => {
   if (myEvents.length === 0) return null
   return (
     <div className="events-section glass">
@@ -505,6 +543,7 @@ const MyEventsSection = ({ myEvents, projects, onDelete, deletingId, t }) => {
             event={event}
             projects={projects}
             onDelete={onDelete}
+            onEdit={onEdit}
             deletePending={deletingId === event.id}
             t={t}
           />
@@ -833,20 +872,95 @@ const HostProfileModal = ({ member, onClose, t }) => (
   </Modal>
 )
 
-const MemberEvents = () => {
-  const { t } = useTranslation()
-  const { currentUser, userProfile } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+const validateEventSubmission = ({ linkAmenity, linkedAmenityId, formData, validate }) => {
+  if (!linkAmenity || !linkedAmenityId) return true
+  return validate(formData.get('date'), parseInt(formData.get('duration'), 10) || 60)
+}
+
+const uploadMemberEventBanner = async (file, currentBannerUrl, t) => {
+  if (!file && currentBannerUrl) return currentBannerUrl
+  if (!file) throw new Error(t('toast.eventBannerRequired'))
+  return uploadEventBanner(file)
+}
+
+const EVENT_EDIT_ERROR_KEYS = {
+  'functions/aborted': 'toast.eventEditStale',
+  'functions/failed-precondition': 'toast.eventEditUnavailable',
+  'functions/permission-denied': 'toast.eventEditPermissionDenied',
+  'functions/not-found': 'toast.eventEditNotFound',
+  'functions/invalid-argument': 'toast.eventEditInvalid',
+  aborted: 'toast.eventEditStale',
+  'failed-precondition': 'toast.eventEditUnavailable',
+  'permission-denied': 'toast.eventEditPermissionDenied',
+  'not-found': 'toast.eventEditNotFound',
+  'invalid-argument': 'toast.eventEditInvalid'
+}
+
+const getEventEditErrorMessage = (error, t) => {
+  const key = EVENT_EDIT_ERROR_KEYS[error?.code]
+  return t(key || 'toast.eventUpdateFailed')
+}
+
+const submitMemberEventForm = async ({
+  event,
+  form,
+  linkAmenity,
+  currentUser,
+  userProfile,
+  createMutation,
+  editMutation,
+  setIsSubmitting,
+  validate,
+  bannerInputRef,
+  t
+}) => {
+  const formData = new FormData(form)
+  const linkedAmenityId = formData.get('linkedAmenityId')
+  if (!validateEventSubmission({ linkAmenity, linkedAmenityId, formData, validate })) {
+    setIsSubmitting(false)
+    return
+  }
+  try {
+    if (event?.status === 'approved' && !window.confirm(t('memberEvents.confirmEditApproved'))) {
+      setIsSubmitting(false)
+      return
+    }
+    const bannerUrl = await uploadMemberEventBanner(
+      bannerInputRef.current?.files?.[0], event?.bannerUrl, t
+    )
+    const eventDate = parseHubDateTime(formData.get('date'))
+    if (event) {
+      editMutation.mutate({
+        eventId: event.id,
+        expectedRevision: event.revision || 1,
+        data: buildEditableEventData({ formData, eventDate, bannerUrl, linkAmenity })
+      })
+      return
+    }
+    createMutation.mutate(buildEventData({ formData, eventDate, currentUser, userProfile, bannerUrl, linkAmenity }))
+  } catch (error) {
+    showToast(error.message || t('toast.eventBannerUploadFailed'), 'error')
+    setIsSubmitting(false)
+  }
+}
+
+const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOptedIn }) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [hostModalMember, setHostModalMember] = useState(null)
+  const [editingEvent, setEditingEvent] = useState(null)
   const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false)
   const [linkAmenity, setLinkAmenity] = useState(true)
   const [prefillAmenityId, setPrefillAmenityId] = useState(null)
   const [dateError, setDateError] = useState(null)
   const [eventDuration, setEventDuration] = useState(60)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const processedActionRef = useRef(null)
   const bannerInputRef = useRef(null)
+  const { createMutation, deleteMutation, editMutation } = useEventFormMutations({
+    t,
+    setIsModalOpen,
+    setIsSubmitting,
+    uid: currentUser?.uid,
+    pushOptedIn
+  })
 
   const validateEventHallDate = (dateValue, durationMinutes = eventDuration) => {
     if (!linkAmenity || !dateValue) {
@@ -862,6 +976,329 @@ const MemberEvents = () => {
     return true
   }
 
+  const setEventHallRequest = (shouldLinkAmenity) => {
+    setLinkAmenity(shouldLinkAmenity)
+    if (!shouldLinkAmenity) setDateError(null)
+  }
+
+  const resetEventModal = () => {
+    setIsModalOpen(false)
+    setEditingEvent(null)
+    setHasAcceptedGuidelines(false)
+    setLinkAmenity(false)
+    setPrefillAmenityId(null)
+    setDateError(null)
+    setEventDuration(60)
+    if (bannerInputRef.current) bannerInputRef.current.value = ''
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    submitMemberEventForm({
+      event: editingEvent,
+      form: event.target,
+      linkAmenity,
+      currentUser,
+      userProfile,
+      createMutation,
+      editMutation,
+      setIsSubmitting,
+      validate: validateEventHallDate,
+      bannerInputRef,
+      t
+    })
+  }
+
+  const handleOpenCreateModal = () => {
+    const eventSpaces = amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'event-space')
+    const defaultAmenity = eventSpaces.find(amenity => /event hall|event space|main hall/i.test(amenity.name)) || eventSpaces[0]
+    setLinkAmenity(true)
+    setPrefillAmenityId(defaultAmenity?.id || null)
+    setEditingEvent(null)
+    setIsModalOpen(true)
+  }
+
+  const openCreateForAmenity = (amenityId) => {
+    setLinkAmenity(true)
+    setPrefillAmenityId(amenityId)
+    setEditingEvent(null)
+    setIsModalOpen(true)
+  }
+
+  const handleEditMyEvent = (event) => {
+    if (!isFutureEvent(event)) return
+    setEditingEvent(event)
+    setLinkAmenity(Boolean(event.requestedAmenityId))
+    setPrefillAmenityId(event.requestedAmenityId || null)
+    setEventDuration(event.duration || 60)
+    setDateError(null)
+    setIsModalOpen(true)
+  }
+
+  return {
+    isModalOpen, editingEvent, hasAcceptedGuidelines, linkAmenity, prefillAmenityId,
+    dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines, setEventHallRequest,
+    setEventDuration, validateEventHallDate, resetEventModal, handleSubmit,
+    handleOpenCreateModal, openCreateForAmenity, handleEditMyEvent, bannerInputRef,
+    deleteMutation
+  }
+}
+
+const useMemberEventInteractions = ({
+  t, currentUser, processedActionRef, searchParams, setSearchParams, pushOptedIn,
+  deleteMutation
+}) => {
+  const [hostModalMember, setHostModalMember] = useState(null)
+  const actions = useEventActionMutations({
+    t,
+    currentUser,
+    processedActionRef,
+    searchParams,
+    setSearchParams,
+    pushOptedIn
+  })
+
+  const handleDeleteMyEvent = async (eventId) => {
+    if (isPendingFor(deleteMutation, eventId)) return
+    if (window.confirm(t('memberEvents.confirmDelete'))) {
+      await deleteMutation.mutateAsync(eventId)
+    }
+  }
+
+  const handleOpenHostModal = async (organizerId) => {
+    if (!organizerId) return
+    setHostModalMember(null)
+    try {
+      const member = await getMember(organizerId)
+      if (member) setHostModalMember(member)
+    } catch (error) {
+      console.warn('Failed to load organizer profile:', error)
+    }
+  }
+
+  return { ...actions, hostModalMember, setHostModalMember, handleDeleteMyEvent, handleOpenHostModal }
+}
+
+const useMemberEventQueryActions = ({
+  currentUser, searchParams, setSearchParams, openCreateForAmenity, t,
+  isLoadingEvents, upcomingEventsData, approvedEvents, processedActionRef, actions
+}) => {
+  useEffect(() => {
+    const action = searchParams.get('action')
+    const amenityId = searchParams.get('amenityId')
+    if (action !== 'create' || !amenityId || !currentUser) return
+    openCreateForAmenity(amenityId)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('action')
+    nextParams.delete('amenityId')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    const eventId = searchParams.get('eventId')
+    if (!action || !eventId || !currentUser || action === 'create') {
+      processedActionRef.current = null
+      return
+    }
+    const actionKey = `${action}-${eventId}`
+    if (processedActionRef.current === actionKey || isLoadingEvents) return
+    const { event, missing } = resolveRedirectEvent(eventId, upcomingEventsData, approvedEvents)
+    if (missing) {
+      processedActionRef.current = actionKey
+      showToast(t('toast.eventNotFound'), 'error')
+      clearActionParams(searchParams, setSearchParams)
+      return
+    }
+    if (!event) return
+    processedActionRef.current = actionKey
+    runRedirectAction(action, event, {
+      currentUser, t, searchParams, setSearchParams, processedActionRef,
+      registerMutation: actions.registerMutation,
+      unregisterMutation: actions.unregisterMutation,
+      waitlistMutation: actions.waitlistMutation,
+      removeWaitlistMutation: actions.removeWaitlistMutation
+    })
+  }, [
+    actions.registerMutation,
+    actions.removeWaitlistMutation,
+    actions.unregisterMutation,
+    actions.waitlistMutation,
+    approvedEvents,
+    currentUser,
+    isLoadingEvents,
+    processedActionRef,
+    searchParams,
+    setSearchParams,
+    t,
+    upcomingEventsData
+  ])
+}
+
+const EventGuidelinesAcknowledgement = ({ hasAcceptedGuidelines, setHasAcceptedGuidelines, t }) => (
+  <div className="form-group event-guidelines-ack">
+    <label className="form-checkbox">
+      <input type="checkbox" checked={hasAcceptedGuidelines} onChange={(event) => setHasAcceptedGuidelines(event.target.checked)} />
+      <span>{t('memberEvents.modal.guidelinesPrefix')} <a href="https://www.danangblockchainhub.com/event-guidelines.html" target="_blank" rel="noopener noreferrer">{t('memberEvents.modal.guidelinesLink')}</a>.</span>
+    </label>
+    <small className="form-hint">{t('memberEvents.modal.guidelinesHint')}</small>
+  </div>
+)
+
+const getMemberEventFormDefaults = (event) => ({
+  title: event?.title ?? '',
+  description: event?.description ?? '',
+  date: event?.date ? toDatetimeLocalHub(event.date) : '',
+  capacity: String(event?.capacity ?? MAX_EVENT_CAPACITY),
+  hostingProjects: event?.hostingProjects ?? '',
+  eventLink: event?.eventLink ?? ''
+})
+
+const EventTextFields = ({ defaults, t }) => <>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.titleLabel')}</label>
+      <input type="text" name="title" className="form-field" placeholder={t('memberEvents.modal.titlePlaceholder')} defaultValue={defaults.title} required />
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.descriptionLabel')}</label>
+      <textarea name="description" className="form-field" placeholder={t('memberEvents.modal.descriptionPlaceholder')} defaultValue={defaults.description} rows="3" required aria-required />
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.hostingProjectsLabel')}</label>
+      <input type="text" name="hostingProjects" className="form-field" placeholder={t('memberEvents.modal.hostingProjectsPlaceholder')} defaultValue={defaults.hostingProjects} />
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.eventLinkLabel')}</label>
+      <input type="url" name="eventLink" className="form-field" placeholder={t('memberEvents.modal.eventLinkPlaceholder')} defaultValue={defaults.eventLink} />
+    </div>
+  </>
+
+const EventBannerField = ({ bannerInputRef, isEdit, t }) => {
+  const bannerLabelKey = isEdit
+    ? 'memberEvents.modal.bannerUploadReplaceLabel'
+    : 'memberEvents.modal.bannerUploadLabel'
+  return <div className="form-group">
+    <label className="form-label">{t('memberEvents.modal.bannerLabel')}</label>
+    <div className="event-banner-upload">
+      <input ref={bannerInputRef} type="file" name="banner" id="member-event-banner-input" className="event-banner-input" accept="image/jpeg,image/jpg,image/png,image/webp" required={!isEdit} aria-required={!isEdit} />
+      <span className="event-banner-upload-label">{t(bannerLabelKey)}</span>
+    </div>
+    <small className="form-hint">{t('memberEvents.modal.bannerHint')}</small>
+  </div>
+}
+
+const EventScheduleFields = ({
+  dateError, dateValue, eventDuration, setEventDuration, validateEventHallDate,
+  linkAmenity, capacity, t
+}) => <>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.dateTimeLabel')}</label>
+      <input type="datetime-local" name="date" className={`form-field ${dateError ? 'form-field-error' : ''}`} defaultValue={dateValue} onChange={(event) => validateEventHallDate(event.target.value)} required />
+      {linkAmenity && <small className="form-hint">{t('memberEvents.modal.availabilityHint')}</small>}
+      {dateError && <p className="form-error">{dateError}</p>}
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.durationLabel')}</label>
+      <input type="number" name="duration" className="form-field" value={eventDuration} onChange={(event) => setEventDuration(parseInt(event.target.value, 10) || 60)} min="15" step="15" required />
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.capacityLabel')}</label>
+      <input type="number" name="capacity" className="form-field" defaultValue={capacity} min="1" max={MAX_EVENT_CAPACITY} required />
+      <small className="form-hint">{t('memberEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}</small>
+    </div>
+  </>
+
+const EventDetailsFields = ({
+  editingEvent, dateError, eventDuration, setEventDuration, validateEventHallDate,
+  bannerInputRef, linkAmenity, t
+}) => {
+  const defaults = getMemberEventFormDefaults(editingEvent)
+  return <>
+    <EventTextFields defaults={defaults} t={t} />
+    <EventBannerField bannerInputRef={bannerInputRef} isEdit={Boolean(editingEvent)} t={t} />
+    <EventScheduleFields dateError={dateError} dateValue={defaults.date} eventDuration={eventDuration} setEventDuration={setEventDuration} validateEventHallDate={validateEventHallDate} linkAmenity={linkAmenity} capacity={defaults.capacity} t={t} />
+  </>
+}
+
+const EventHallFields = ({ editingEvent, prefillAmenityId, amenities, t }) => {
+  const eventSpaces = amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'event-space')
+  const defaultAmenity = eventSpaces.find(amenity => /event hall|event space|main hall/i.test(amenity.name)) || eventSpaces[0]
+  const selectedAmenityId = editingEvent?.requestedAmenityId || prefillAmenityId || defaultAmenity?.id || ''
+
+  return <>
+    <div className="event-hall-notice"><p><strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong></p><ul><li>{t('memberEvents.modal.parkingFeeRequirement')}</li></ul></div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.preferredAmenityLabel')}</label>
+      <select name="linkedAmenityId" className="form-field" defaultValue={selectedAmenityId}>
+        <option value="">{t('memberEvents.modal.preferredAmenityPlaceholder')}</option>
+        {eventSpaces.map(amenity => <option key={amenity.id} value={amenity.id}>{amenity.name} ({amenity.type})</option>)}
+      </select>
+    </div>
+    <div className="form-group">
+      <label className="form-label">{t('memberEvents.modal.additionalNotesLabel')}</label>
+      <input type="text" name="amenityNote" className="form-field" placeholder={t('memberEvents.modal.additionalNotesPlaceholder')} defaultValue={editingEvent?.amenityNote || ''} />
+    </div>
+  </>
+}
+
+const EventHallRequestToggle = ({ linkAmenity, setEventHallRequest, t }) => (
+  <div className="form-group">
+    <label className="form-checkbox">
+      <input
+        type="checkbox"
+        checked={linkAmenity}
+        onChange={(event) => setEventHallRequest(event.target.checked)}
+      />
+      <span>{t('memberEvents.modal.requestHallLabel')}</span>
+    </label>
+  </div>
+)
+
+const MemberEventFormModal = ({
+  isModalOpen, editingEvent, hasAcceptedGuidelines, setHasAcceptedGuidelines,
+  linkAmenity, prefillAmenityId, amenities, dateError, eventDuration,
+  setEventDuration, validateEventHallDate, bannerInputRef, isSubmitting,
+  setEventHallRequest, resetEventModal, handleSubmit, t
+}) => {
+  const isEdit = Boolean(editingEvent)
+  const modalTitleKey = isEdit ? 'memberEvents.modal.editTitle' : 'memberEvents.modal.title'
+  const descriptionKey = isEdit ? 'memberEvents.modal.editDescription' : 'memberEvents.modal.description'
+  const submitLabelKey = isSubmitting
+    ? 'memberEvents.modal.submitting'
+    : isEdit ? 'memberEvents.modal.save' : 'memberEvents.modal.submit'
+  return (
+    <Modal
+      isOpen={isModalOpen}
+      onClose={resetEventModal}
+      title={t(modalTitleKey)}
+    >
+      <p className="modal-description">
+        {t(descriptionKey)}
+      </p>
+      <form onSubmit={handleSubmit}>
+        {!isEdit && <EventGuidelinesAcknowledgement hasAcceptedGuidelines={hasAcceptedGuidelines} setHasAcceptedGuidelines={setHasAcceptedGuidelines} t={t} />}
+        <fieldset className="event-create-fieldset" disabled={!isEdit && !hasAcceptedGuidelines}>
+          <EventDetailsFields editingEvent={editingEvent} dateError={dateError} eventDuration={eventDuration} setEventDuration={setEventDuration} validateEventHallDate={validateEventHallDate} bannerInputRef={bannerInputRef} linkAmenity={linkAmenity} t={t} />
+          {isEdit && <EventHallRequestToggle linkAmenity={linkAmenity} setEventHallRequest={setEventHallRequest} t={t} />}
+          {linkAmenity && <EventHallFields editingEvent={editingEvent} prefillAmenityId={prefillAmenityId} amenities={amenities} t={t} />}
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting || !!dateError}>{t(submitLabelKey)}</button>
+          </div>
+        </fieldset>
+        <div className="form-actions form-actions-outside"><button type="button" className="btn btn-secondary" onClick={resetEventModal}>{t('common.close')}</button></div>
+      </form>
+    </Modal>
+  )
+}
+
+const MemberEvents = () => {
+  const { t } = useTranslation()
+  const { currentUser, userProfile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const processedActionRef = useRef(null)
+
   const {
     upcomingEventsData,
     isLoadingEvents,
@@ -874,12 +1311,35 @@ const MemberEvents = () => {
 
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
-  const { createMutation, deleteMutation } = useEventFormMutations({
+  const {
+    isModalOpen, editingEvent, hasAcceptedGuidelines, linkAmenity, prefillAmenityId,
+    dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines,
+    setEventHallRequest, setEventDuration, validateEventHallDate, resetEventModal, handleSubmit,
+    handleOpenCreateModal, openCreateForAmenity, handleEditMyEvent, bannerInputRef,
+    deleteMutation
+  } = useMemberEventModal({ t, currentUser, userProfile, amenities, pushOptedIn })
+
+  const interactions = useMemberEventInteractions({
     t,
-    setIsModalOpen,
-    setIsSubmitting,
-    uid: currentUser?.uid,
-    pushOptedIn
+    currentUser,
+    processedActionRef,
+    searchParams,
+    setSearchParams,
+    pushOptedIn,
+    deleteMutation
+  })
+
+  useMemberEventQueryActions({
+    currentUser,
+    searchParams,
+    setSearchParams,
+    openCreateForAmenity,
+    t,
+    isLoadingEvents,
+    upcomingEventsData,
+    approvedEvents,
+    processedActionRef,
+    actions: interactions
   })
 
   const {
@@ -890,143 +1350,12 @@ const MemberEvents = () => {
     handleRegister,
     handleUnregister,
     handleJoinWaitlist,
-    handleLeaveWaitlist
-  } = useEventActionMutations({
-    t,
-    currentUser,
-    processedActionRef,
-    searchParams,
-    setSearchParams,
-    pushOptedIn
-  })
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (isSubmitting) return
-    setIsSubmitting(true)
-    const formData = new FormData(e.target)
-    const eventDate = parseHubDateTime(formData.get('date'))
-    const linkedAmenityId = formData.get('linkedAmenityId')
-
-    if (linkAmenity && linkedAmenityId) {
-      const duration = parseInt(formData.get('duration')) || 60
-      if (!validateEventHallDate(formData.get('date'), duration)) {
-        setIsSubmitting(false)
-        return
-      }
-    }
-
-    const bannerFile = bannerInputRef.current?.files?.[0]
-    if (!bannerFile) {
-      showToast(t('toast.eventBannerRequired'), 'error')
-      setIsSubmitting(false)
-      return
-    }
-    let bannerUrl
-    try {
-      bannerUrl = await uploadEventBanner(bannerFile)
-    } catch (err) {
-      showToast(err.message || t('toast.eventBannerUploadFailed'), 'error')
-      setIsSubmitting(false)
-      return
-    }
-
-    createMutation.mutate(buildEventData({ formData, eventDate, currentUser, userProfile, bannerUrl, linkAmenity }))
-  }
-
-  const handleOpenCreateModal = () => {
-    const eventSpaceAmenities = amenities.filter(a => a.isAvailable !== false && a.type === 'event-space')
-    const defaultAmenity = eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name)) || eventSpaceAmenities[0]
-    setLinkAmenity(true)
-    setPrefillAmenityId(defaultAmenity?.id || null)
-    setIsModalOpen(true)
-  }
-
-  const handleDeleteMyEvent = async (eventId) => {
-    if (isPendingFor(deleteMutation, eventId)) return
-    if (window.confirm(t('memberEvents.confirmDelete'))) {
-      await deleteMutation.mutateAsync(eventId)
-    }
-  }
-
-  // On-demand fetch for the host modal. Avoids the bulk-members fetch by only
-  // hitting Firestore when the user actually clicks an organizer name.
-  const handleOpenHostModal = async (organizerId) => {
-    if (!organizerId) return
-    setHostModalMember(null)
-    try {
-      const member = await getMember(organizerId)
-      if (member) setHostModalMember(member)
-    } catch (err) {
-      console.warn('Failed to load organizer profile:', err)
-    }
-  }
-
-  // Handle action=create with amenityId (from Event Hall Book Now)
-  useEffect(() => {
-    const action = searchParams.get('action')
-    const amenityId = searchParams.get('amenityId')
-    if (action === 'create' && amenityId && currentUser) {
-      setLinkAmenity(true)
-      setPrefillAmenityId(amenityId)
-      setIsModalOpen(true)
-      const newParams = new URLSearchParams(searchParams)
-      newParams.delete('action')
-      newParams.delete('amenityId')
-      setSearchParams(newParams, { replace: true })
-    }
-  }, [searchParams, currentUser, setSearchParams])
-
-  // Handle redirect actions from public Events page or Home page
-  useEffect(() => {
-    const action = searchParams.get('action')
-    const eventId = searchParams.get('eventId')
-
-    // Skip if no action/eventId or no user (or if action is 'create' - handled above)
-    if (!action || !eventId || !currentUser || action === 'create') {
-      processedActionRef.current = null
-      return
-    }
-
-    // Prevent duplicate processing of the same action
-    const actionKey = `${action}-${eventId}`
-    if (processedActionRef.current === actionKey) {
-      return
-    }
-
-    // Wait for data to be loaded - don't proceed if still loading
-    if (isLoadingEvents) return
-
-    const { event, missing } = resolveRedirectEvent(eventId, upcomingEventsData, approvedEvents)
-
-    // If event not found and we have data loaded, event doesn't exist
-    if (missing) {
-      processedActionRef.current = actionKey
-      showToast(t('toast.eventNotFound'), 'error')
-      clearActionParams(searchParams, setSearchParams)
-      return
-    }
-
-    // If event not found yet, wait for more data
-    if (!event) return
-
-    // Mark as processed to prevent duplicate calls
-    processedActionRef.current = actionKey
-
-    // Process the action
-    runRedirectAction(action, event, {
-      currentUser,
-      t,
-      searchParams,
-      setSearchParams,
-      processedActionRef,
-      registerMutation,
-      unregisterMutation,
-      waitlistMutation,
-      removeWaitlistMutation
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.toString(), currentUser?.uid, isLoadingEvents, upcomingEventsData.length, approvedEvents.length])
+    handleLeaveWaitlist,
+    hostModalMember,
+    setHostModalMember,
+    handleDeleteMyEvent,
+    handleOpenHostModal
+  } = interactions
 
   const upcomingEvents = filterUpcomingEvents(upcomingEventsData)
   const pastEvents = filterPastEvents(approvedEvents)
@@ -1049,6 +1378,7 @@ const MemberEvents = () => {
           myEvents={myEvents}
           projects={projects}
           onDelete={handleDeleteMyEvent}
+          onEdit={handleEditMyEvent}
           deletingId={pendingTargetId(deleteMutation)}
           t={t}
         />
@@ -1084,256 +1414,25 @@ const MemberEvents = () => {
           t={t}
         />
 
-        {/* Create Event Modal */}
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setHasAcceptedGuidelines(false)
-            setLinkAmenity(false)
-            setPrefillAmenityId(null)
-            setDateError(null)
-            setEventDuration(60)
-            if (bannerInputRef.current) bannerInputRef.current.value = ''
-          }}
-          title={t('memberEvents.modal.title')}
-        >
-          <p className="modal-description">
-            {t('memberEvents.modal.description')}
-          </p>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group event-guidelines-ack">
-              <label className="form-checkbox">
-                <input
-                  type="checkbox"
-                  checked={hasAcceptedGuidelines}
-                  onChange={(e) => setHasAcceptedGuidelines(e.target.checked)}
-                />
-                <span>
-                  {t('memberEvents.modal.guidelinesPrefix')}{' '}
-                  <a
-                    href="https://www.danangblockchainhub.com/event-guidelines.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {t('memberEvents.modal.guidelinesLink')}
-                  </a>
-                  .
-                </span>
-              </label>
-              <small className="form-hint">
-                {t('memberEvents.modal.guidelinesHint')}
-              </small>
-            </div>
-            <fieldset className="event-create-fieldset" disabled={!hasAcceptedGuidelines}>
-              <div className="form-group">
-                <label className="form-label">
-                  {t('memberEvents.modal.titleLabel')}
-                </label>
-              <input
-                type="text"
-                name="title"
-                className="form-field"
-                placeholder={t('memberEvents.modal.titlePlaceholder')}
-                required
-              />
-            </div>
-            <div className="form-group">
-                <label className="form-label">
-                  {t('memberEvents.modal.descriptionLabel')}
-                </label>
-              <textarea
-                name="description"
-                className="form-field"
-                placeholder={t('memberEvents.modal.descriptionPlaceholder')}
-                rows="3"
-                required
-                aria-required
-              />
-            </div>
-            <div className="form-group">
-                <label className="form-label">
-                  {t('memberEvents.modal.bannerLabel')}
-                </label>
-              <div className="event-banner-upload">
-                <input
-                  ref={bannerInputRef}
-                  type="file"
-                  name="banner"
-                  id="member-event-banner-input"
-                  className="event-banner-input"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  required
-                  aria-required
-                />
-                <span className="event-banner-upload-label">
-                  {t('memberEvents.modal.bannerUploadLabel')}
-                </span>
-              </div>
-              <small className="form-hint">
-                {t('memberEvents.modal.bannerHint')}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('memberEvents.modal.dateTimeLabel')}
-              </label>
-              <input
-                type="datetime-local"
-                name="date"
-                className={`form-field ${dateError ? 'form-field-error' : ''}`}
-                onChange={(e) => validateEventHallDate(e.target.value)}
-                required
-              />
-              {linkAmenity && (
-                <small className="form-hint">{t('memberEvents.modal.availabilityHint')}</small>
-              )}
-              {dateError && (
-                <p className="form-error">{dateError}</p>
-              )}
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('memberEvents.modal.durationLabel')}
-              </label>
-              <input
-                type="number"
-                name="duration"
-                className="form-field"
-                placeholder={t('memberEvents.modal.durationPlaceholder')}
-                value={eventDuration}
-                onChange={(e) => {
-                  const mins = parseInt(e.target.value) || 60
-                  setEventDuration(mins)
-                }}
-                min="15"
-                step="15"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('memberEvents.modal.capacityLabel')}
-              </label>
-              <input
-                type="number"
-                name="capacity"
-                className="form-field"
-                defaultValue={String(MAX_EVENT_CAPACITY)}
-                min="1"
-                max={MAX_EVENT_CAPACITY}
-                required
-              />
-              <small className="form-hint">
-                {t('memberEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('memberEvents.modal.hostingProjectsLabel')}
-              </label>
-              <input
-                type="text"
-                name="hostingProjects"
-                className="form-field"
-                placeholder={t('memberEvents.modal.hostingProjectsPlaceholder')}
-              />
-              <small className="form-hint">
-                {t('memberEvents.modal.hostingProjectsHint')}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('memberEvents.modal.eventLinkLabel')}
-              </label>
-              <input
-                type="url"
-                name="eventLink"
-                className="form-field"
-                placeholder={t('memberEvents.modal.eventLinkPlaceholder')}
-              />
-              <small className="form-hint">
-                {t('memberEvents.modal.eventLinkHint')}
-              </small>
-            </div>
-            <div className="form-group">
-              <label className="form-checkbox">
-                <input
-                  type="checkbox"
-                  checked={true}
-                  disabled
-                  readOnly
-                />
-                <span>{t('memberEvents.modal.requestHallLabel')}</span>
-              </label>
-            </div>
-            {linkAmenity && (() => {
-              const eventSpaceAmenities = amenities.filter(a => a.isAvailable !== false && a.type === 'event-space')
-              const defaultAmenity = prefillAmenityId
-                ? eventSpaceAmenities.find(a => a.id === prefillAmenityId)
-                : eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name)) || eventSpaceAmenities[0]
-              return (
-              <>
-                <div className="event-hall-notice">
-                  <p>
-                    <strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong>
-                  </p>
-                  <ul>
-                    <li>{t('memberEvents.modal.parkingFeeRequirement')}</li>
-                  </ul>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    {t('memberEvents.modal.preferredAmenityLabel')}
-                  </label>
-                  <select name="linkedAmenityId" className="form-field" defaultValue={defaultAmenity?.id ?? ''}>
-                    <option value="">{t('memberEvents.modal.preferredAmenityPlaceholder')}</option>
-                    {eventSpaceAmenities.map(amenity => (
-                      <option key={amenity.id} value={amenity.id}>
-                        {amenity.name} ({amenity.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    {t('memberEvents.modal.additionalNotesLabel')}
-                  </label>
-                  <input
-                    type="text"
-                    name="amenityNote"
-                    className="form-field"
-                    placeholder={t('memberEvents.modal.additionalNotesPlaceholder')}
-                  />
-                </div>
-              </>
-              )
-            })()}
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting || !!dateError}
-              >
-                {isSubmitting
-                  ? t('memberEvents.modal.submitting')
-                  : t('memberEvents.modal.submit')}
-              </button>
-            </div>
-            </fieldset>
-            <div className="form-actions form-actions-outside">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setIsModalOpen(false)
-                }}
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <MemberEventFormModal
+          isModalOpen={isModalOpen}
+          editingEvent={editingEvent}
+          hasAcceptedGuidelines={hasAcceptedGuidelines}
+          setHasAcceptedGuidelines={setHasAcceptedGuidelines}
+          linkAmenity={linkAmenity}
+          prefillAmenityId={prefillAmenityId}
+          amenities={amenities}
+          dateError={dateError}
+          eventDuration={eventDuration}
+          setEventDuration={setEventDuration}
+          validateEventHallDate={validateEventHallDate}
+          bannerInputRef={bannerInputRef}
+          isSubmitting={isSubmitting}
+          setEventHallRequest={setEventHallRequest}
+          resetEventModal={resetEventModal}
+          handleSubmit={handleSubmit}
+          t={t}
+        />
 
         <HostProfileModal member={hostModalMember} onClose={() => setHostModalMember(null)} t={t} />
       </div>

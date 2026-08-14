@@ -55,3 +55,15 @@ export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => 
   // Throws on a malformed payload rather than reporting an empty calendar.
   return parseBookingRanges(result.data)
 }
+
+export const editOwnEvent = async ({ eventId, expectedRevision, data }) => {
+  const editEvent = httpsCallable(functions, 'editOwnEvent')
+  const result = await editEvent({ eventId, expectedRevision, data })
+  return result.data
+}
+
+export const reviewEvent = async ({ eventId, expectedRevision, action, reason = '' }) => {
+  const review = httpsCallable(functions, 'reviewEvent')
+  const result = await review({ eventId, expectedRevision, action, reason })
+  return result.data
+}

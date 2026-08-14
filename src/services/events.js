@@ -100,6 +100,8 @@ export const createEvent = async (data) => {
     date: Timestamp.fromDate(new Date(data.date)),
     attendees: data.attendees || [],
     status: data.status || 'pending', // pending, approved, rejected
+    revision: data.revision || 1,
+    everApproved: data.everApproved === true,
     createdAt: new Date().toISOString()
   })
   return docRef.id
@@ -304,7 +306,28 @@ export const updateEvent = async (id, data) => {
   }
 
   updateData.updatedAt = new Date().toISOString()
-  await updateDoc(eventRef, updateData)
+
+  // Admin content edits share the revision stream used by organizer edits and
+  // reviewEvent. Reading and incrementing in a transaction means a reviewer or
+  // organizer holding an older revision receives the expected stale response
+  // instead of overwriting the admin's changes. Legacy events start at revision
+  // one, so their first admin edit becomes revision two.
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(eventRef)
+    if (!snapshot.exists()) {
+      throw new Error('Event not found')
+    }
+
+    const currentRevision = snapshot.data().revision
+    const revision = Number.isInteger(currentRevision) && currentRevision > 0
+      ? currentRevision
+      : 1
+
+    transaction.update(eventRef, {
+      ...updateData,
+      revision: revision + 1
+    })
+  })
 }
 
 export const deleteEvent = async (id) => {

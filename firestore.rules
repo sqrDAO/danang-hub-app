@@ -9,6 +9,7 @@ service cloud.firestore {
     // Helper function to check if user is admin
     function isAdmin() {
       return isAuthenticated() && 
+             exists(/databases/$(database)/documents/members/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/members/$(request.auth.uid)).data.membershipType == 'admin';
     }
     
@@ -105,15 +106,9 @@ service cloud.firestore {
                        request.resource.data.status == 'pending';
       // Admins can create an event in any status
       allow create: if isAdmin();
-      // Organizers can update their own events, but approval state is not
-      // theirs to set — that is what the admin rule below is for.
-      allow update: if isAuthenticated() &&
-                       isOwner(resource.data.organizerId) &&
-                       !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['status', 'organizerId',
-                                  'approvedAt', 'rejectedAt']);
+      // Organizer content editing is only through the editOwnEvent callable.
       // Any signed-in member may register / unregister / join / leave the
-      // waitlist, which means writing only these two arrays.
+      // waitlist only while the event is live (approved).
       //
       // SCOPE: this restricts WHICH FIELDS a write may touch, never WHICH
       // ELEMENT changed inside them — rules have no array-diff primitive, so
@@ -122,6 +117,8 @@ service cloud.firestore {
       // while status/capacity/date/organizerId stay locked. Closing it means
       // moving attendee writes behind a callable that checks request.auth.uid.
       allow update: if isAuthenticated() &&
+                       resource.data.status == 'approved' &&
+                       request.resource.data.status == 'approved' &&
                        request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['attendees', 'waitlist']);
       // Admins can update any event
@@ -133,7 +130,9 @@ service cloud.firestore {
       // renders delete for pending events, but the rule is the enforcement
       // layer — a direct client write must not get past this.
       allow delete: if isAuthenticated() && isOwner(resource.data.organizerId) &&
-                       resource.data.status == 'pending';
+                       resource.data.status == 'pending' &&
+                       (!('everApproved' in resource.data) ||
+                        resource.data.everApproved == false);
       // Admins can delete any event
       allow delete: if isAdmin();
     }

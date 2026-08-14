@@ -17,6 +17,9 @@ module.exports = {
     "no-restricted-globals": ["error", "name", "length"],
     "prefer-arrow-callback": "error",
     "quotes": ["error", "double", {"allowTemplateLiterals": true}],
+    // The repository is checked out with CRLF on Windows; don't make
+    // predeploy lint depend on the developer's Git line-ending setting.
+    "linebreak-style": "off",
   },
   overrides: [
     {

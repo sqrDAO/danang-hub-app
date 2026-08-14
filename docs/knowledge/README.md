@@ -19,6 +19,7 @@ lives** so the always-loaded files stay lean:
 | Doc | Status | What it covers |
 |---|---|---|
 | [`data-flow.md`](./data-flow.md) | complete | End-to-end trace: auth (incl. wallet custom-token flow) → booking lifecycle → event lifecycle → Cloud Functions wiring → security rules, with real file paths |
+| [`organizer-event-edit-verification.md`](./organizer-event-edit-verification.md) | complete | Bounded checks and the emulator-backed organizer/member/admin acceptance matrix for event revisions |
 | [`architecture.md`](./architecture.md) | stub | System shape: service layer, route protection, region pin, timezone strategy, theming, i18n, PWA, emulators |
 
 ## Conventions
