@@ -76,13 +76,16 @@ service cloud.firestore {
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
       // Users can update their own bookings (limited fields);
-      // planGroupId is identity: may not be added, changed, or removed
+      // planGroupId is identity: may not be added, changed, or removed.
+      // cancelledReason marks a cancellation made *for* the member by an admin
+      // or script, and drives their cancellation notification — an owner who
+      // could write it could forge that notice to themselves.
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
                        (!('status' in request.resource.data) || 
                         request.resource.data.status == resource.data.status ||
                         request.resource.data.status == 'cancelled') &&
                        !request.resource.data.diff(resource.data)
-                           .affectedKeys().hasAny(['planGroupId']);
+                           .affectedKeys().hasAny(['planGroupId', 'cancelledReason']);
       // Admins can update any booking; planGroupId format still enforced when set
       allow update: if isAdmin() &&
                        (!('planGroupId' in request.resource.data) ||

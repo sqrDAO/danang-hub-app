@@ -68,6 +68,25 @@ const getBookingApprovedCopy = (notification, t) => ({
   body: getBookingApprovedBody(notification, t)
 })
 
+// A closure cancellation says why; anything else stays generic, since the raw
+// `cancelledReason` is an internal marker and not member-facing copy.
+const getBookingCancelledBody = (notification, t) => {
+  const args = { amenity: notification.amenityName }
+  if (notification.isHubClosure) {
+    return notification.planType === 'fixed-desk'
+      ? t('notifications.fixedDeskCancelledClosureBody', args)
+      : t('notifications.bookingCancelledClosureBody', args)
+  }
+  return notification.planType === 'fixed-desk'
+    ? t('notifications.fixedDeskCancelledBody', args)
+    : t('notifications.bookingCancelledBody', args)
+}
+
+const getBookingCancelledCopy = (notification, t) => ({
+  title: t('notifications.bookingCancelledTitle'),
+  body: getBookingCancelledBody(notification, t)
+})
+
 // Reminder copy depends on the recipient's relationship to the event, which
 // the function stamps onto the notification as `segment`. A non-attendee at a
 // full event is pointed at the waitlist rather than told spots are open.
@@ -129,6 +148,7 @@ const NOTIFICATION_COPY_BY_TYPE = {
   event_pending_review: getEventPendingReviewCopy,
   booking_pending_review: getBookingPendingReviewCopy,
   booking_approved: getBookingApprovedCopy,
+  booking_cancelled: getBookingCancelledCopy,
   event_reminder: getEventReminderCopy,
   event_revision: getEventRevisionCopy
 }
@@ -137,6 +157,7 @@ const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
 
 const getNotificationTone = (type) => {
   if (type === 'booking_approved') return 'approved'
+  if (type === 'booking_cancelled') return 'rejected'
   if (type === 'event_rejected') return 'rejected'
   return 'pending'
 }
@@ -167,6 +188,7 @@ const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
   event_pending_review: '/admin/events',
   booking_pending_review: '/admin/bookings',
   booking_approved: '/member/bookings',
+  booking_cancelled: '/member/bookings',
   event_status: '/member/events',
   event_reminder: '/member/events',
   event_revision: '/member/events'

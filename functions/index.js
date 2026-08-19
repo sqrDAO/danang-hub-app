@@ -20,6 +20,7 @@ const {
   getNotificationSubjectId, getEventSpaceValidationError,
 } = require("./eventLifecycle");
 const {rangeOverlapsClosure} = require("./hubClosures");
+const {getCancellationNotice} = require("./bookingNotifications");
 
 initializeApp();
 
@@ -1334,6 +1335,68 @@ async function notifyBookingApproved(booking, bookingId) {
   }
 }
 
+/**
+ * Push copy for a cancellation, in both locales.
+ * @param {string} amenityName Resolved amenity name
+ * @param {Object} notice Result of getCancellationNotice
+ * @return {Object} {en, vi} title/body pair
+ */
+function getCancellationPushMessages(amenityName, notice) {
+  const subjectEn = notice.isFixedDesk ?
+    `Your fixed desk plan for "${amenityName}"` :
+    `Your booking for "${amenityName}"`;
+  const subjectVi = notice.isFixedDesk ?
+    `Gói bàn cố định cho "${amenityName}"` :
+    `Đặt chỗ "${amenityName}"`;
+  const tailEn = notice.isHubClosure ?
+    " has been cancelled — the Hub is closed on that date." :
+    " has been cancelled.";
+  const tailVi = notice.isHubClosure ?
+    " đã bị huỷ — Hub đóng cửa vào ngày đó." :
+    " đã bị huỷ.";
+  return {
+    en: {title: "Booking cancelled", body: `${subjectEn}${tailEn}`},
+    vi: {title: "Đặt chỗ đã bị huỷ", body: `${subjectVi}${tailVi}`},
+  };
+}
+
+/**
+ * Tells a member that someone else cancelled their booking. Fixed-desk plans
+ * collapse to one message via the shared planGroupId subject, so cancelling
+ * three days of a plan notifies once.
+ * @param {Object} booking Booking document data after the write
+ * @param {string} bookingId Booking document id
+ * @param {Object} notice Result of getCancellationNotice
+ * @return {Promise<void>}
+ */
+async function notifyBookingCancelled(booking, bookingId, notice) {
+  const amenityName = await getAmenityName(booking.amenityId);
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  await createNotificationIfAbsent(
+      booking.memberId,
+      "booking_cancelled",
+      subjectId,
+      {
+        bookingId,
+        amenityName,
+        planType: booking.planType || "standard",
+        cancelledReason: notice.reason,
+        isHubClosure: notice.isHubClosure,
+        link: "/member/bookings",
+      },
+  );
+  try {
+    await notifyMemberPush(booking.memberId, {
+      messages: getCancellationPushMessages(amenityName, notice),
+      link: "/member/bookings",
+      type: "booking_cancelled",
+      subjectId,
+    });
+  } catch (error) {
+    console.error("Error sending booking cancellation push:", error);
+  }
+}
+
 const HUB_UTC_OFFSET_HOURS = 7;
 
 /**
@@ -1783,26 +1846,41 @@ exports.autoApproveDeskBooking = onDocumentCreated(
       }
     });
 
-// Notify members when an existing booking becomes approved. Fixed-desk plan
-// bookings share a deterministic notification document, so bulk approval is
-// represented by one message rather than one per working day.
+// Notify members when an existing booking becomes approved, or when someone
+// else cancels it. Fixed-desk plan bookings share a deterministic notification
+// document, so a bulk approval or a multi-day cancellation is represented by
+// one message rather than one per working day.
+//
+// Both status changes live in this one trigger on purpose. A separate export
+// would be a first-of-kind deploy, and the CI service account cannot set the
+// Cloud Run invoker policy — that is how editOwnEvent and reviewEvent shipped
+// unreachable on 2026-08-14. Extending an existing function keeps CI able to
+// deploy this unaided.
 exports.notifyBookingApproval = onDocumentUpdated(
     "bookings/{bookingId}",
     async (event) => {
       const before = event.data.before.data();
       const after = event.data.after.data();
+      const bookingId = event.params.bookingId;
 
-      if (before.status === after.status || after.status !== "approved") {
+      if (before.status !== after.status && after.status === "approved") {
+        try {
+          await notifyBookingApproved(after, bookingId);
+        } catch (error) {
+          console.error("Error notifying booking approval:", error);
+        }
         return null;
       }
+
+      const notice = getCancellationNotice(before, after);
+      if (!notice) return null;
 
       try {
-        await notifyBookingApproved(after, event.params.bookingId);
-        return null;
+        await notifyBookingCancelled(after, bookingId, notice);
       } catch (error) {
-        console.error("Error notifying booking approval:", error);
-        return null;
+        console.error("Error notifying booking cancellation:", error);
       }
+      return null;
     });
 
 const notifyEventReviewRequest = async (eventId, eventData) => {

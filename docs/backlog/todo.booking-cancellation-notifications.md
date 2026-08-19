@@ -9,12 +9,14 @@ were never told. Notify a member when someone else cancels their booking.
 
 ## Files
 - `functions/index.js` (edited) — extend the existing `notifyBookingApproval` trigger to also handle `→ cancelled`; add `notifyBookingCancelled` helper beside `notifyBookingApproved`.
+- `functions/bookingNotifications.js` (new) — pure `getCancellationNotice` decision, testable without firebase-admin (same split as `eventLifecycle.js`).
 - `src/components/NotificationBell.jsx` (edited) — `booking_cancelled` copy factory, fallback path, and `rejected` tone.
 - `src/pages/admin/Bookings.jsx` (edited) — admin cancellation sets `cancelledReason: 'admin'`.
 - `firestore.rules` (edited) — owners may not write `cancelledReason`, so its presence reliably means "cancelled by someone else".
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — cancellation title/body, plus a fixed-desk body variant.
 - `functions/scripts/backfill-closure-cancellation-notices.cjs` (new) — one-off backfill for the 10 bookings already cancelled with `cancelledReason: 'hub-closure-independence-day-2026'`. Lives under `functions/` so `firebase-admin` resolves without a `NODE_PATH` override.
 - `test/bookingCancellationNotice.test.js` (new) — pure-helper coverage for the notify/skip decision.
+- `test/firestore-booking-cancel.rules.test.js` (new) — emulator rules coverage for the `cancelledReason` hardening.
 
 ## Acceptance
 - [ ] A booking going `approved → cancelled` with `cancelledReason` set creates one `booking_cancelled` notification for its `memberId`.

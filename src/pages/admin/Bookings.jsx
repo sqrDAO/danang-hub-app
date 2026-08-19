@@ -672,9 +672,14 @@ const AdminBookings = () => {
     deletePending: isPendingFor(deleteMutation, id),
   })
 
+  // `cancelledReason` is what tells notifyBookingApproval that the member did
+  // not do this to themselves — without it an admin cancellation is silent.
   const handleStatusChange = async (id, newStatus) => {
     if (isPendingFor(updateMutation, id)) return
-    await updateMutation.mutateAsync({ id, data: { status: newStatus } })
+    const data = newStatus === 'cancelled'
+      ? { status: newStatus, cancelledReason: 'admin' }
+      : { status: newStatus }
+    await updateMutation.mutateAsync({ id, data })
   }
 
   const handleCheckIn = async (id) => {
