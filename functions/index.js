@@ -971,15 +971,31 @@ function isUnrecoverablePushTokenError(error) {
 async function deleteStalePushToken(recipientId, failedToken) {
   const tokenRef = db.collection("push_tokens").doc(recipientId);
   const tokenDoc = await tokenRef.get();
-  if (!tokenDoc.exists) return;
+  const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
 
-  const tokenData = tokenDoc.data();
-  if (tokenData && tokenData.token === failedToken) {
-    await tokenRef.delete();
+  // A newer token may already have replaced the one that just failed — leave
+  // that one alone.
+  if (tokenData && tokenData.token !== failedToken) return;
+
+  if (tokenDoc.exists) await tokenRef.delete();
+  // Cleared even when the token doc was already gone. Returning early there
+  // used to strand the member on preferences.pushNotifications = true with no
+  // token: Profile renders the checkbox ticked, getPushToken returns "" for
+  // ever, and re-enabling is a no-op because the preference never changed.
+  try {
     await db.collection("members").doc(recipientId).update({
       "preferences.pushNotifications": false,
     });
+  } catch (error) {
+    // Member doc deleted since the send was queued. Never fail the whole
+    // multicast batch over a recipient that no longer exists.
+    console.warn("Unable to clear push preference", {
+      recipientId,
+      code: error.code,
+    });
+    return;
   }
+  console.log("Cleared stale push registration", {recipientId});
 }
 
 // Push copy is localized per recipient. i18n lives in the browser
@@ -1105,6 +1121,19 @@ async function sendPushToRecipients(recipients, data) {
       throw error;
     }
     results.push(response);
+    // Push sends were previously silent in both directions, so a member getting
+    // nothing was indistinguishable in the logs from a delivered notification.
+    console.log("Push batch sent", {
+      type: batchRecipients[0].type,
+      subjectId: batchRecipients[0].subjectId,
+      attempted: batchRecipients.length,
+      succeeded: response.successCount,
+      failed: response.failureCount,
+      failureCodes: response.responses
+          .filter((sendResult) => !sendResult.success)
+          .map((sendResult) => (sendResult.error && sendResult.error.code) ||
+            "unknown"),
+    });
 
     const followUps = response.responses.map((sendResult, index) => {
       const recipient = batchRecipients[index];
@@ -1173,7 +1202,17 @@ async function sendPushToMembers(docs, payload) {
     return null;
   }))).filter(Boolean);
 
-  if (!recipients.length) return [];
+  if (!recipients.length) {
+    // Either nobody opted in, everyone's token is gone, or the dedupe marker
+    // already claimed this subject. Silence here reads identically to a
+    // successful send, which is what made stale-token failures invisible.
+    console.log("Push skipped: no eligible recipients", {
+      type,
+      subjectId,
+      candidates: docs.length,
+    });
+    return [];
+  }
 
   const baseData = {
     link: String(payload.link || "/"),
