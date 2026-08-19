@@ -775,6 +775,33 @@ async function createNotificationIfAbsent(userId, type, subjectId, data) {
 }
 
 /**
+ * Writes a notification, re-surfacing it as unread if it already exists.
+ *
+ * Deliberately not createNotificationIfAbsent: that uses .create() and swallows
+ * ALREADY_EXISTS, which is right for a once-per-subject event like approval but
+ * wrong for cancellation. A fixed-desk plan can be cancelled in more than one
+ * batch — three closure days now, the remaining days later — and the second
+ * batch must still reach the member. Sharing the subject id keeps one batch
+ * collapsed to a single message; the overwrite keeps later batches audible.
+ * @param {string} userId Recipient member id
+ * @param {string} type Notification type
+ * @param {string} subjectId Booking or plan identifier
+ * @param {Object} data Notification payload
+ * @return {Promise<void>}
+ */
+async function upsertNotification(userId, type, subjectId, data) {
+  const safeSubjectId = toSafeSubjectId(subjectId);
+  const notificationId = `${type}_${userId}_${safeSubjectId}`;
+  await db.collection("notifications").doc(notificationId).set({
+    ...data,
+    userId,
+    type,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Sends the same notification to every current admin.
  * @param {string} type Notification type
  * @param {string} subjectId Event, booking, or plan identifier
@@ -1342,21 +1369,35 @@ async function notifyBookingApproved(booking, bookingId) {
  * @return {Object} {en, vi} title/body pair
  */
 function getCancellationPushMessages(amenityName, notice) {
-  const subjectEn = notice.isFixedDesk ?
-    `Your fixed desk plan for "${amenityName}"` :
-    `Your booking for "${amenityName}"`;
-  const subjectVi = notice.isFixedDesk ?
-    `Gói bàn cố định cho "${amenityName}"` :
-    `Đặt chỗ "${amenityName}"`;
-  const tailEn = notice.isHubClosure ?
-    " has been cancelled — the Hub is closed on that date." :
-    " has been cancelled.";
-  const tailVi = notice.isHubClosure ?
-    " đã bị huỷ — Hub đóng cửa vào ngày đó." :
-    " đã bị huỷ.";
+  const key = `${notice.isFixedDesk ? "plan" : "booking"}` +
+    `${notice.isHubClosure ? "Closure" : ""}`;
+  const bodies = {
+    booking: {
+      en: `Your booking for "${amenityName}" has been cancelled.`,
+      vi: `Đặt chỗ "${amenityName}" của bạn đã bị huỷ.`,
+    },
+    bookingClosure: {
+      en: `Your booking for "${amenityName}" has been cancelled — ` +
+        "the Hub is closed on that date.",
+      vi: `Đặt chỗ "${amenityName}" của bạn đã bị huỷ — ` +
+        "Hub đóng cửa vào ngày đó.",
+    },
+    plan: {
+      en: `Some days of your fixed desk plan for "${amenityName}" ` +
+        "have been cancelled.",
+      vi: `Một số ngày trong gói bàn cố định cho "${amenityName}" ` +
+        "đã bị huỷ.",
+    },
+    planClosure: {
+      en: `Some days of your fixed desk plan for "${amenityName}" ` +
+        "have been cancelled — the Hub is closed.",
+      vi: `Một số ngày trong gói bàn cố định cho "${amenityName}" ` +
+        "đã bị huỷ — Hub đóng cửa.",
+    },
+  };
   return {
-    en: {title: "Booking cancelled", body: `${subjectEn}${tailEn}`},
-    vi: {title: "Đặt chỗ đã bị huỷ", body: `${subjectVi}${tailVi}`},
+    en: {title: "Booking cancelled", body: bodies[key].en},
+    vi: {title: "Đặt chỗ đã bị huỷ", body: bodies[key].vi},
   };
 }
 
@@ -1372,7 +1413,7 @@ function getCancellationPushMessages(amenityName, notice) {
 async function notifyBookingCancelled(booking, bookingId, notice) {
   const amenityName = await getAmenityName(booking.amenityId);
   const subjectId = getBookingSubjectId(booking, bookingId);
-  await createNotificationIfAbsent(
+  await upsertNotification(
       booking.memberId,
       "booking_cancelled",
       subjectId,
