@@ -1,3 +1,5 @@
+const {rangeOverlapsClosure} = require("./hubClosures");
+
 const EDITABLE_EVENT_FIELDS = [
   "title", "description", "date", "duration", "capacity", "bannerUrl",
   "hostingProjects", "eventLink", "requestedAmenityId", "amenityNote",
@@ -71,6 +73,12 @@ const getEventSpaceValidationError = ({eventDate, duration, amenity}) => {
   const end = new Date(start.getTime() + duration * 60 * 1000);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return "Event time is invalid.";
+  }
+
+  const closure = rangeOverlapsClosure(start, end);
+  if (closure) {
+    return `The Hub is closed ${closure.start} to ${closure.end} ` +
+      `(${closure.label}).`;
   }
 
   const startParts = getHubParts(start);

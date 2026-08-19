@@ -19,6 +19,7 @@ const {
   getRevision, normalizeEditPayload, getBookingWindow,
   getNotificationSubjectId, getEventSpaceValidationError,
 } = require("./eventLifecycle");
+const {rangeOverlapsClosure} = require("./hubClosures");
 
 initializeApp();
 
@@ -259,6 +260,19 @@ exports.checkBookingConflicts = onCall(
       }
 
       const {amenityId, startTime, endTime, excludeBookingId} = request.data;
+
+      // Closures shut the whole Hub, so they are checked before any
+      // per-amenity availability and regardless of amenity type. Kept outside
+      // the try: its catch rewrites every error to "internal", which would
+      // hide the reason the booking was refused.
+      const closure = rangeOverlapsClosure(startTime, endTime);
+      if (closure) {
+        throw new HttpsError(
+            "invalid-argument",
+            `The Hub is closed ${closure.start} to ${closure.end} ` +
+            `(${closure.label}).`,
+        );
+      }
 
       try {
         const amenityRef = db.collection("amenities").doc(amenityId);
@@ -552,6 +566,15 @@ exports.checkSlotAvailability = onCall(
             "invalid-argument",
             "amenityId, startTime, and endTime are required",
         );
+      }
+
+      const closure = rangeOverlapsClosure(startTime, endTime);
+      if (closure) {
+        return {
+          available: false,
+          error: `The Hub is closed ${closure.start} to ${closure.end} ` +
+            `(${closure.label}).`,
+        };
       }
 
       try {

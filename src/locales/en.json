@@ -510,6 +510,7 @@
     "confirmDelete": "Are you sure you want to delete this booking?",
     "conflictError": "This time slot conflicts with an existing booking.",
     "conflictCheckFailed": "Could not verify availability. Please try again.",
+    "hubClosedError": "The Hub is closed on that date. Please pick another day.",
     "modal": {
       "titleWithAmenity": "Book {{name}}",
       "titleFallback": "Book amenity",
@@ -637,7 +638,8 @@
       "availabilityHint": "Weekdays: after 6:00 PM · Weekends: 9:00 AM – 10:00 PM",
       "weekdayHoursError": "Events on weekdays must start after 6:00 PM.",
       "weekendHoursError": "Events on weekends must start from 9:00 AM.",
-      "endTimeError": "Event must end by 10:00 PM."
+      "endTimeError": "Event must end by 10:00 PM.",
+      "hubClosedError": "The Hub is closed on that date. Please pick another day."
     }
   },
   "publicEvents": {
@@ -657,6 +659,7 @@
     "next": "Next →",
     "hours": "Hours:",
     "closed": "Closed",
+    "hubClosed": "Hub closed at {{time}}",
     "past": "Past",
     "booked": "Booked",
     "availableAt": "Available - {{time}}",
@@ -672,6 +675,14 @@
     "unknownError": "unknown error",
     "retry": "Try again",
     "errorLoadingEvents": "Error loading events: {{message}}"
+  },
+  "closures": {
+    "noticeTitle": "Hub closure",
+    "dateRange": "closed {{start}} – {{end}}",
+    "noticeHint": "Bookings and events cannot be made on these dates.",
+    "adminHint": "Bookings already made on these dates are flagged below — cancel them if the closure stands.",
+    "badge": "Hub closed",
+    "independenceDay2026": "Vietnam's Independence Day"
   },
   "fixedDesk": {
     "title": "Fixed Desk Plans",

@@ -1,0 +1,40 @@
+.hub-closure-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 12px;
+  background: var(--color-warning-bg);
+  backdrop-filter: blur(10px);
+}
+
+.hub-closure-notice-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.hub-closure-notice-body {
+  min-width: 0;
+}
+
+.hub-closure-notice-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hub-closure-notice-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.hub-closure-notice-hint {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}

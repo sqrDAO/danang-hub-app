@@ -12,6 +12,7 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { isHubClosed } from '../utils/hubClosures'
 
 const BOOKINGS_COLLECTION = 'bookings'
 
@@ -323,6 +324,11 @@ const calculateAvailableSlots = (bookings, date) => {
 const isAllowedWeekday = (allowedWeekdays, date) =>
   !allowedWeekdays || allowedWeekdays.includes(date.getDay())
 
+// Whether the Hub is open at all that day. Separate from the weekday check so a
+// closure skips the date without consuming an occurrence, exactly as a
+// non-working weekday does.
+const isOpenDate = (date) => !isHubClosed(date)
+
 // Check for conflicts before creating if function provided
 const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, bookingEnd) => {
   if (!checkConflictsFn) return false
@@ -400,7 +406,7 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
     const bookingEnd = new Date(bookingStart)
     bookingEnd.setTime(bookingStart.getTime() + durationMs)
 
-    if (isAllowedWeekday(allowedWeekdays, bookingStart)) {
+    if (isAllowedWeekday(allowedWeekdays, bookingStart) && isOpenDate(bookingStart)) {
       const created = await tryCreateOccurrence({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn })
       if (created) {
         createdIds.push(created.id)

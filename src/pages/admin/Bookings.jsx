@@ -14,8 +14,23 @@ import { getAmenities } from '../../services/amenities'
 import { checkBookingConflictsStrict } from '../../services/functions'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { rangeOverlapsClosure } from '../../utils/hubClosures'
+import HubClosureNotice from '../../components/HubClosureNotice'
 
 const PAGE_SIZE = 10
+
+// Bookings made before a closure was announced still sit in the collection.
+// They are flagged, never touched: cancelling is an admin decision, and it
+// already notifies the member through the normal status-change path.
+const ClosureBadge = ({ booking, t }) => {
+  const closure = rangeOverlapsClosure(booking.startTime, booking.endTime)
+  if (!closure) return null
+  return (
+    <span className="closure-badge-admin" title={t(closure.labelKey)}>
+      {t('closures.badge')}
+    </span>
+  )
+}
 
 // Admin "view all" intent — fetch a generous ±365 day window rather than
 // the entire bookings collection (which is unbounded over time).
@@ -744,6 +759,8 @@ const AdminBookings = () => {
   return (
     <Layout isAdmin>
       <div className="container">
+        <HubClosureNotice hintKey="closures.adminHint" />
+
         <div className="page-header">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
           <div className="page-actions">
@@ -829,6 +846,7 @@ const AdminBookings = () => {
                     {booking.planType === 'fixed-desk' && (
                       <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
                     )}
+                    <ClosureBadge booking={booking} t={t} />
                   </td>
                   <td>{booking.startTime ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
                   <td>{booking.endTime ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
@@ -865,6 +883,7 @@ const AdminBookings = () => {
                     {booking.planType === 'fixed-desk' && (
                       <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
                     )}
+                    <ClosureBadge booking={booking} t={t} />
                   </div>
                   <span className={`status-badge ${booking.status}`}>
                     {t(`status.${booking.status || 'pending'}`)}
