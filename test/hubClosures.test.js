@@ -78,6 +78,12 @@ test('the functions mirror declares the same closure days', () => {
     assert.equal(mirrored.id, closure.id)
     assert.equal(mirrored.start, closure.start)
     assert.equal(mirrored.end, closure.end)
+    // The server interpolates `label` into user-facing errors while the client
+    // carries `labelKey`. A client entry copy-pasted into the mirror would
+    // otherwise pass every check above and render "(undefined)" to an admin.
+    assert.equal(typeof mirrored.label, 'string', `${closure.id} is missing its server label`)
+    assert.ok(mirrored.label.length > 0, `${closure.id} has an empty server label`)
+    assert.equal(typeof closure.labelKey, 'string', `${closure.id} is missing its client labelKey`)
   })
 })
 

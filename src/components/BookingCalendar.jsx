@@ -182,7 +182,11 @@ const MobileTimeHeader = ({ date, amenity, locale, t, onChangeDate }) => {
       <div>
         <h4>{formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
         {closure
-          ? <p className="mobile-time-header-closed">{t(closure.labelKey)}</p>
+          ? (
+            <p className="mobile-time-header-closed">
+              {t('closures.badge')} — {t(closure.labelKey)}
+            </p>
+          )
           : <p>{t('calendar.hours')} {startStr}:00 - {endStr}:00</p>}
       </div>
       <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>

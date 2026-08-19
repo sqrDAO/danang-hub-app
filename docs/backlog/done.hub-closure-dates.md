@@ -27,7 +27,8 @@ The Hub is closed 31 Aug – 2 Sep 2026 for Vietnam's Independence Day, but noth
 - [ ] `checkSlotAvailability` returns `available: false` with a closure reason for a closed day.
 - [ ] `createFixedDeskPlan` spanning 31 Aug creates no booking for 31 Aug, 1 Sep or 2 Sep.
 - [ ] Skipping a closed day does not consume a recurring booking's occurrence count.
-- [ ] `getEventSpaceValidationError` rejects an event starting on a closed day.
+- [ ] `getEventSpaceValidationError` rejects an Event Hall event starting on a closed day.
+- [ ] NOT: events that do not request the Event Hall (online / off-site) are not blocked by a closure.
 - [ ] The member bookings page shows the upcoming closure with its date range.
 - [ ] The admin bookings page badges existing bookings that fall inside a closure.
 - [ ] Both `en.json` and `vi.json` carry every new key.

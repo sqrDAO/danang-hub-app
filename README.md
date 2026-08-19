@@ -25,7 +25,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Bulk Approval** — admins can approve all pending bookings in one click
 - **Booking Status Workflow** — `pending → approved → checked-in → completed`
 - **Event-Space Restrictions** — event space requires bookings outside office hours (weekdays: after 6 PM; weekends: 8 AM – 10 PM, must end by 10 PM)
-- **Hub Closures** — declared holiday/shutdown dates close every amenity for whole days, block new bookings and events, and are skipped by recurring and fixed-desk plans (`src/utils/hubClosures.js`, mirrored in `functions/hubClosures.js`)
+- **Hub Closures** — declared holiday/shutdown dates close every amenity for whole days: no new bookings, no Event Hall events, and recurring/fixed-desk plans skip those days. Events that do not request the Event Hall (online or off-site) are unaffected (`src/utils/hubClosures.js`, mirrored in `functions/hubClosures.js`)
 
 ### Event Management
 - **Event Creation** — title, description, date, capacity, hosting project, banner image

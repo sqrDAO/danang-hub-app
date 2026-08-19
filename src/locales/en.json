@@ -659,7 +659,7 @@
     "next": "Next →",
     "hours": "Hours:",
     "closed": "Closed",
-    "hubClosed": "Hub closed at {{time}}",
+    "hubClosed": "Hub closed",
     "past": "Past",
     "booked": "Booked",
     "availableAt": "Available - {{time}}",
@@ -781,6 +781,8 @@
     "fixedDeskFailed": "Failed to create fixed desk plan. Please try again.",
     "fixedDeskCancelled": "Fixed desk plan cancelled.",
     "bookingAssigned": "Booking assigned and approved!",
+    "fixedDeskAssigned": "Fixed desk assigned — {{count}} booking(s) created!",
+    "fixedDeskAssignedNone": "No bookings were created — every day in that range is a weekend or a Hub closure.",
     "bookingAssignFailed": "Failed to assign booking. Please try again."
   }
 }

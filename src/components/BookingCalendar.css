@@ -135,6 +135,13 @@
   opacity: 0.5;
 }
 
+/* Without its own rule this inherits the styling of the ordinary "Hours:
+   09:00 - 18:00" line, which reads as routine date info rather than a closure. */
+.mobile-time-header-closed {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
 /* A Hub closure is not the same as "this amenity does not open today", so the
    column keeps full contrast and states the reason instead of fading out. */
 .calendar-date-column.closed-day {
