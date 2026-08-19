@@ -8,6 +8,8 @@ import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
+import { deleteField } from 'firebase/firestore'
+import { useAuth } from '../../hooks/useAuth'
 import { getBookings, updateBooking, deleteBooking, checkIn, checkOut, createBooking, createFixedDeskPlan } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
@@ -100,14 +102,14 @@ const BookingRowActions = ({
         <>
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => onStatusChange(booking.id, 'approved')}
+            onClick={() => onStatusChange(booking, 'approved')}
             disabled={statusPending}
           >
             {t('common.approve')}
           </button>
           <button
             className="btn btn-danger btn-sm"
-            onClick={() => onStatusChange(booking.id, 'cancelled')}
+            onClick={() => onStatusChange(booking, 'cancelled')}
             disabled={statusPending}
           >
             {t('common.reject')}
@@ -631,6 +633,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
 
 const AdminBookings = () => {
   const { t, i18n } = useTranslation()
+  const { currentUser } = useAuth()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const {
     statusFilter,
@@ -672,9 +675,25 @@ const AdminBookings = () => {
     deletePending: isPendingFor(deleteMutation, id),
   })
 
-  const handleStatusChange = async (id, newStatus) => {
-    if (isPendingFor(updateMutation, id)) return
-    await updateMutation.mutateAsync({ id, data: { status: newStatus } })
+  // `cancelledReason` tells notifyBookingApproval that the member did not do
+  // this to themselves, and selects the closure wording. Null means "stay
+  // silent": an admin cancelling their own booking does not need telling.
+  const getCancellationReason = (booking) => {
+    if (booking.memberId === currentUser?.uid) return null
+    const closure = rangeOverlapsClosure(booking.startTime, booking.endTime)
+    return closure ? `hub-closure-${closure.id}` : 'admin'
+  }
+
+  // Cleared on every other transition. A cancel-then-reapprove would otherwise
+  // leave the marker behind, and the member's own later cancellation would tell
+  // them someone else did it.
+  const handleStatusChange = async (booking, newStatus) => {
+    if (isPendingFor(updateMutation, booking.id)) return
+    const reason = newStatus === 'cancelled' ? getCancellationReason(booking) : null
+    await updateMutation.mutateAsync({
+      id: booking.id,
+      data: { status: newStatus, cancelledReason: reason ?? deleteField() },
+    })
   }
 
   const handleCheckIn = async (id) => {

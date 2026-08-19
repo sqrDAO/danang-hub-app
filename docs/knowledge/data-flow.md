@@ -97,7 +97,19 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
-- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same four high-signal paths (`booking_pending_review`, `booking_approved`, `event_pending_review`, `event_status`) via `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved, and when someone else cancels it (see below). Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same five high-signal paths (`booking_pending_review`, `booking_approved`, `booking_cancelled`, `event_pending_review`, `event_status`) via `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
+- **Cancellation notifies only when `cancelledReason` is set.** `notifyBookingApproval`
+  handles both the `approved` and `cancelled` transitions — it is one trigger, not
+  two, because a new export cannot be deployed by CI (see the Cloud Functions
+  notes). `cancelledReason` is the actor signal: `firestore.rules` forbids owners
+  from writing it, so its presence means an admin or a script cancelled *for* the
+  member, and a member cancelling their own booking is correctly silent. The
+  admin page stamps `hub-closure-<id>` when the booking falls in a closure and
+  `admin` otherwise. Cancellations made by `editOwnEvent`/`reviewEvent` unlinking
+  an Event Hall booking set no reason and stay silent by design — the organizer
+  already acted. The notification is an upsert rather than create-if-absent, so a
+  fixed-desk plan cancelled in two batches notifies twice while one batch still
+  collapses to a single message.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
@@ -185,7 +197,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
 | `autoApproveDeskBooking` | `bookings` onCreate | Auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
-| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, grouped by fixed-desk plan; browser push follows for opted-in members |
+| `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, and on cancellation when `cancelledReason` is set; grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event; browser push for opted-in admins |
 | `notifyEventResubmission` | `events` onUpdate | Admin review notification for a pending revision from approved/rejected |
 | `notifyEventStatusChange` | `events` onUpdate | Organizer in-app notification + optional email + browser push on approve/reject |

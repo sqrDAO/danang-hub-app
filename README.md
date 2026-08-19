@@ -230,7 +230,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
 | `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
-| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved and sends booking approval push for opted-in members |
+| `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
 | `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications, optional email, and status push for opted-in organizers when an event is approved or rejected |
