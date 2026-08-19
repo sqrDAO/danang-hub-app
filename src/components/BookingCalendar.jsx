@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getAmenityBookingRanges } from '../services/functions'
 import { getDefaultAvailability, getDayAvailability } from '../services/amenities'
 import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
+import { getHubClosure } from '../utils/hubClosures'
 import {
   addHubDays,
   formatHubDate,
@@ -44,6 +45,7 @@ const CELL_TITLE_KEYS = {
   'range-start': 'calendar.startSelected',
   'range-single': 'calendar.singleSelected',
   unavailable: 'calendar.closed',
+  'hub-closed': 'calendar.hubClosed',
 }
 
 const TIME_ROW_SIZES = {
@@ -92,7 +94,9 @@ const getMobileCarouselDates = () => {
 }
 
 const isSelectableDate = (date, availability) =>
-  !isDateBeforeToday(date) && availability.availableDays.includes(getHubDayOfWeek(date))
+  !isDateBeforeToday(date) &&
+  !getHubClosure(date) &&
+  availability.availableDays.includes(getHubDayOfWeek(date))
 
 // Weekday names for the availability label, taken from a known Sunday so the
 // index maps straight onto `availableDays` (0 = Sunday). These are plain
@@ -172,11 +176,18 @@ const MobileTimeHeader = ({ date, amenity, locale, t, onChangeDate }) => {
   const dayAvail = getDayAvailability(dayOfWeek, amenity)
   const startStr = dayAvail.startHour.toString().padStart(2, '0')
   const endStr = dayAvail.endHour.toString().padStart(2, '0')
+  const closure = getHubClosure(date)
   return (
     <div className="mobile-time-header">
       <div>
         <h4>{formatHubDate(date, locale, { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
-        <p>{t('calendar.hours')} {startStr}:00 - {endStr}:00</p>
+        {closure
+          ? (
+            <p className="mobile-time-header-closed">
+              {t('closures.badge')} — {t(closure.labelKey)}
+            </p>
+          )
+          : <p>{t('calendar.hours')} {startStr}:00 - {endStr}:00</p>}
       </div>
       <button type="button" className="btn btn-secondary btn-sm" onClick={onChangeDate}>
         {t('memberBookings.modal.changeDate')}
@@ -369,9 +380,14 @@ const CalendarGrid = ({
   <div className={getCalendarGridClassName(mobileMode, disabled)} style={gridStyle}>
     {!mobileMode && (
       <div className="calendar-date-headers">
-        {dateSlots.map(({ date, dayAvailable }) => (
-          <div key={date.toISOString()} className={`calendar-date-column ${!dayAvailable ? 'unavailable-day' : ''}`}>
+        {dateSlots.map(({ date, dayAvailable, closureLabel }) => (
+          <div
+            key={date.toISOString()}
+            className={`calendar-date-column ${!dayAvailable ? 'unavailable-day' : ''}${closureLabel ? ' closed-day' : ''}`}
+            title={closureLabel || undefined}
+          >
             <CalendarDateHeader date={date} locale={locale} />
+            {closureLabel && <div className="calendar-date-closed">{closureLabel}</div>}
           </div>
         ))}
       </div>
@@ -505,7 +521,8 @@ const BookingCalendar = ({
     return displayDates.map(date => {
       const dayOfWeek = getHubDayOfWeek(date)
       const dayAvail = getDayAvailability(dayOfWeek, amenity)
-      const dayAvailable = dayAvail.isDayAvailable
+      const closure = getHubClosure(date)
+      const dayAvailable = dayAvail.isDayAvailable && !closure
       const context = {
         dayAvailable,
         dayStartHour: dayAvail.startHour,
@@ -529,13 +546,18 @@ const BookingCalendar = ({
       return {
         date,
         dayAvailable,
+        closureLabel: closure ? t(closure.labelKey) : null,
         cells: cells.map(cell => {
           const state = getCellState(cell, selection, cells)
+          // A closed day is unbookable for a different reason than "outside
+          // opening hours", and the tooltip has to say which.
+          const status = closure && state.status === 'unavailable' ? 'hub-closed' : state.status
           return {
             ...cell,
             ...state,
-            marker: getCellMarker(state.status, cell),
-            title: getCellTitle(state.status, cell.timeRange, t),
+            status,
+            marker: getCellMarker(status, cell),
+            title: getCellTitle(status, cell.timeRange, t),
           }
         }),
       }

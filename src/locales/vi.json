@@ -510,6 +510,7 @@
     "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
     "conflictError": "Khung giờ này trùng với một đặt chỗ hiện có.",
     "conflictCheckFailed": "Không thể xác minh khả năng đặt chỗ. Vui lòng thử lại.",
+    "hubClosedError": "Hub đóng cửa vào ngày đó. Vui lòng chọn ngày khác.",
     "modal": {
       "titleWithAmenity": "Đặt chỗ {{name}}",
       "titleFallback": "Đặt tiện ích",
@@ -635,7 +636,8 @@
       "availabilityHint": "Ngày thường: sau 18:00 · Cuối tuần: 9:00 – 22:00",
       "weekdayHoursError": "Sự kiện vào ngày thường phải bắt đầu sau 18:00.",
       "weekendHoursError": "Sự kiện vào cuối tuần phải bắt đầu từ 9:00 trở đi.",
-      "endTimeError": "Sự kiện phải kết thúc trước 22:00."
+      "endTimeError": "Sự kiện phải kết thúc trước 22:00.",
+      "hubClosedError": "Hub đóng cửa vào ngày đó. Vui lòng chọn ngày khác."
     }
   },
   "publicEvents": {
@@ -655,6 +657,7 @@
     "next": "Sau →",
     "hours": "Giờ:",
     "closed": "Đóng cửa",
+    "hubClosed": "Hub đóng cửa",
     "past": "Đã qua",
     "booked": "Đã đặt",
     "availableAt": "Khả dụng - {{time}}",
@@ -670,6 +673,14 @@
     "unknownError": "lỗi không xác định",
     "retry": "Thử lại",
     "errorLoadingEvents": "Lỗi khi tải sự kiện: {{message}}"
+  },
+  "closures": {
+    "noticeTitle": "Hub đóng cửa",
+    "dateRange": "đóng cửa {{start}} – {{end}}",
+    "noticeHint": "Không thể đặt chỗ hoặc tạo sự kiện trong những ngày này.",
+    "adminHint": "Các lượt đặt chỗ đã tạo trong những ngày này được đánh dấu bên dưới — hãy huỷ nếu Hub vẫn đóng cửa.",
+    "badge": "Hub đóng cửa",
+    "independenceDay2026": "Quốc khánh Việt Nam"
   },
   "fixedDesk": {
     "title": "Gói Bàn Cố Định",
@@ -768,6 +779,8 @@
     "fixedDeskFailed": "Không thể tạo gói bàn cố định. Vui lòng thử lại.",
     "fixedDeskCancelled": "Đã hủy gói bàn cố định.",
     "bookingAssigned": "Đã tạo và duyệt đặt chỗ!",
+    "fixedDeskAssigned": "Đã gán bàn cố định — tạo {{count}} lượt đặt chỗ!",
+    "fixedDeskAssignedNone": "Không có lượt đặt chỗ nào được tạo — mọi ngày trong khoảng đó đều là cuối tuần hoặc ngày Hub đóng cửa.",
     "bookingAssignFailed": "Không thể tạo đặt chỗ. Vui lòng thử lại."
   }
 }

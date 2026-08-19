@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import BookingCalendar from '../../components/BookingCalendar'
+import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
@@ -17,6 +18,7 @@ import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { resolveBookingDeepLink } from '../../utils/bookingDeepLink'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
+import { rangeOverlapsClosure } from '../../utils/hubClosures'
 import './Bookings.css'
 
 const getLocale = (i18n) =>
@@ -374,6 +376,13 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
 
   const handleContinueToConfirm = async () => {
     if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
+    // Fails closed here rather than relying on the callable: the
+    // checkBookingConflicts wrapper degrades to "no conflicts" on any error,
+    // so a server-side closure rejection would never reach this branch.
+    if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
+      form.setConflictError(t('memberBookings.hubClosedError'))
+      return
+    }
     form.setIsCheckingConflict(true)
 
     try {
@@ -402,6 +411,11 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
 
   const handleConfirmBooking = async () => {
     if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
+    if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
+      showToast(t('memberBookings.hubClosedError'), 'error')
+      form.setBookingStep(1)
+      return
+    }
     if (form.isSubmittingRef.current) return
     form.isSubmittingRef.current = true
     form.setIsSubmittingBooking(true)
@@ -1144,6 +1158,8 @@ const MemberBookings = () => {
         <div className="page-header">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
         </div>
+
+        <HubClosureNotice />
 
         <AmenitiesSection
           t={t}

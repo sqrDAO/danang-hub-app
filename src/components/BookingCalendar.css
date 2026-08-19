@@ -135,6 +135,31 @@
   opacity: 0.5;
 }
 
+/* Without its own rule this inherits the styling of the ordinary "Hours:
+   09:00 - 18:00" line, which reads as routine date info rather than a closure. */
+.mobile-time-header-closed {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+/* A Hub closure is not the same as "this amenity does not open today", so the
+   column keeps full contrast and states the reason instead of fading out. */
+.calendar-date-column.closed-day {
+  opacity: 1;
+}
+
+.calendar-date-closed {
+  margin-top: 4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
 .date-day-name {
   font-size: 0.65rem;
   color: var(--text-secondary);
@@ -402,10 +427,23 @@
 }
 
 .time-slot.unavailable,
+.time-slot.hub-closed,
 .time-slot.past,
 .time-slot.booked,
 .time-slot.range-blocked {
   pointer-events: none;
+}
+
+.time-slot.hub-closed {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-error-bg),
+    var(--color-error-bg) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  border-color: var(--color-error-border);
+  cursor: not-allowed;
 }
 
 .time-slot.unavailable,
@@ -423,6 +461,7 @@
 }
 
 .time-slot.unavailable:hover,
+.time-slot.hub-closed:hover,
 .time-slot.past:hover,
 .time-slot.range-blocked:hover {
   transform: none;
