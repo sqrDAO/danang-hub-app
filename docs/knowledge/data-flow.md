@@ -98,6 +98,14 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
 - **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved. Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same four high-signal paths (`booking_pending_review`, `booking_approved`, `event_pending_review`, `event_status`) via `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
+- **Cancellation notifies nobody.** `notifyBookingApproval` is the *only*
+  `bookings/{id}` update trigger, and it returns early unless the new status is
+  `approved` — there is no cancellation path, in-app or push. A booking cancelled
+  by an admin, by a script, or by `editOwnEvent`/`reviewEvent` unlinking an Event
+  Hall booking disappears silently from the member's list. Ten bookings were
+  cancelled this way for the Aug–Sep 2026 Hub closure and the four affected
+  members had to be told out of band. Do not assume a status write reaches the
+  member; see `docs/backlog/todo.booking-cancellation-notifications.md`.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
   client-side and same-calendar-day only.
 - **`autoCheckoutExpiredBookings`** (hourly schedule) sweeps three cases into `completed`:
