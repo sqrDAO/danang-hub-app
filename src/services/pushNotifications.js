@@ -5,9 +5,12 @@ import { firebaseVapidKey } from './firebaseConfig'
 import { updateMemberPreferences } from './members'
 import { isMobilePushEligible } from '../utils/mobilePushEligibility'
 import {
-  clearDeviceOptedIn,
-  isDeviceOptedIn,
+  DEVICE_OPTED_IN,
+  DEVICE_OPTED_OUT,
+  getDeviceOptInState,
   setDeviceOptedIn,
+  setDeviceOptedOut,
+  shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
 
@@ -298,18 +301,28 @@ export const enablePushNotifications = async (uid) => {
  *   the caller should refresh its cached profile
  */
 export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) => {
-  const deviceOptedIn = isDeviceOptedIn(uid)
-  if (!uid || !deviceOptedIn) return false
+  const state = getDeviceOptInState(uid)
+  if (state === DEVICE_OPTED_OUT) return false
 
-  const eligible = await isPushSupported()
   const permission = typeof Notification === 'undefined'
     ? 'default'
     : Notification.permission
+  // Devices that opted in before the marker shipped carry no marker at all.
+  // They are exactly the population already sitting on a dead token, so adopt
+  // them once from the preference plus a granted permission.
+  const deviceOptedIn = state === DEVICE_OPTED_IN ||
+    shouldAdoptLegacyOptIn({ state, preferenceEnabled, permission })
+  if (!deviceOptedIn) return false
+
+  const eligible = await isPushSupported()
   if (!shouldRefreshPushToken({ eligible, permission, deviceOptedIn })) return false
   if (!firebaseVapidKey) return false
 
   const token = await issuePushToken()
   await savePushToken(uid, token)
+  // Recorded only once the token write landed, mirroring enablePushNotifications:
+  // a half-failed adoption must not leave a device claiming an opt-in.
+  if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
   if (preferenceEnabled) return false
 
   // The server cleared this on a stale-token send. Heal it so the foreground
@@ -320,7 +333,7 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
 
 export const disablePushNotifications = async (uid) => {
   stopForegroundPushListener()
-  clearDeviceOptedIn(uid)
+  setDeviceOptedOut(uid)
   await removeStoredPushToken(uid)
   await updateMemberPreferences(uid, { pushNotifications: false })
   await deleteBrowserPushToken().catch(() => false)

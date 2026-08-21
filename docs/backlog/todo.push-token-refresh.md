@@ -9,11 +9,11 @@ authenticated launch of a device that opted in, and make the server's cleanup an
 logging honest so the dead state is both recoverable and visible.
 
 ## Files
-- `src/utils/pushDeviceOptIn.js` (new) — pure `shouldRefreshPushToken` predicate plus the per-uid localStorage opt-in marker.
-- `test/pushDeviceOptIn.test.js` (new) — cover the predicate's permission / marker / eligibility matrix.
+- `src/utils/pushDeviceOptIn.js` (new) — pure `shouldRefreshPushToken` and `shouldAdoptLegacyOptIn` predicates plus the tri-state per-uid localStorage opt-in marker.
+- `test/pushDeviceOptIn.test.js` (new) — cover both predicates' permission / marker / eligibility matrix.
 - `src/services/pushNotifications.js` (edited) — add `refreshPushToken(uid)`; set the device marker on enable, clear it on disable.
 - `src/contexts/AuthContext.jsx` (edited) — call `refreshPushToken` on authenticated launch, independent of the stored preference.
-- `functions/index.js` (edited) — clear the preference unconditionally in `deleteStalePushToken`; log push send outcomes in `sendPushToRecipients`.
+- `functions/index.js` (edited) — make `deleteStalePushToken` transactional and clear the preference unconditionally; log push send outcomes and batch failures in `sendPushToRecipients`.
 
 ## Acceptance
 - [x] `refreshPushToken(uid)` re-issues via `getToken` and rewrites `push_tokens/{uid}` when the device is push-eligible, `Notification.permission === 'granted'`, and the device marker is set.
@@ -22,7 +22,13 @@ logging honest so the dead state is both recoverable and visible.
 - [x] `refreshPushToken` returns false without touching Firestore when permission is `denied` or `default`.
 - [x] A successful refresh sets `preferences.pushNotifications = true`, so a server-side auto-disable heals on next launch.
 - [x] A successful refresh that changed the preference calls `refreshUserProfile` so the foreground listener effect re-runs.
-- [x] `enablePushNotifications` sets the device marker; `disablePushNotifications` clears it.
+- [x] `enablePushNotifications` sets the device marker; `disablePushNotifications` records an explicit opt-out.
+- [x] A device carrying no marker is adopted as opted in when the account preference is on and permission is granted, so devices that opted in before the marker shipped still refresh.
+- [x] A device that recorded an opt-out is never adopted, whatever the account preference says.
+- [x] An adopted device writes its marker only after the token write lands.
+- [x] `deleteStalePushToken` runs in a transaction, so a token written between the read and the delete is never destroyed.
+- [x] `deleteStalePushToken` leaves the batch intact and logs at error level when the cleanup itself fails.
+- [x] `sendPushToRecipients` logs the type, subjectId, size, and FCM code of a batch that never reached FCM.
 - [x] A member who explicitly turns push off in Profile is not re-enabled by a later launch.
 - [x] Every `refreshPushToken` failure is caught and logged; login and app boot never fail because of it.
 - [x] `deleteStalePushToken` sets `preferences.pushNotifications = false` even when `push_tokens/{uid}` is already absent.
@@ -41,11 +47,15 @@ logging honest so the dead state is both recoverable and visible.
 - [ ] manual, Android phone, installed PWA, production build: enable push from Profile → confirm `push_tokens/{uid}` written → force-close and relaunch the PWA → confirm `updatedAt` on `push_tokens/{uid}` advanced.
 - [ ] manual, same device: set `preferences.pushNotifications = false` in Firestore by hand → relaunch → confirm it returns to `true` and a booking approval reaches the lock screen.
 - [ ] manual, same device: turn push off in Profile → relaunch → confirm no token is written and the preference stays `false`.
+- [ ] manual, adoption path: clear `pushDeviceOptIn:<uid>` from localStorage while `preferences.pushNotifications` is `true` and permission is granted → relaunch → confirm the token is re-issued and the marker returns.
 - [ ] manual, desktop browser: relaunch while signed in → confirm no `push_tokens` write (blocked by `isMobilePushEligible`).
 - [ ] regression: post-booking opt-in banner still appears for a member who has never opted in; Profile toggle still enables and disables push.
 
 ## Notes
-- Gate the refresh on a device-local marker, not on `Notification.permission` alone: `disablePushNotifications` leaves permission granted, so a permission-only gate would resurrect an explicit opt-out.
+- Gate the refresh on a device-local marker, not on `Notification.permission` alone: `disablePushNotifications` leaves permission granted, so a permission-only gate would resurrect an explicit opt-out. The marker is tri-state for the same reason — an opt-out is recorded as `false`, never removed, so adoption can tell "said no" from "never asked".
+- The server-side unconditional clear only covers a race. `sendPushToMembers` drops any member whose `push_tokens/{uid}` is missing (`getPushToken` returns `""`), so `deleteStalePushToken` is unreachable for a member already stranded with no token doc — only the client-side refresh heals those, which is why adoption is required rather than optional.
+- A member whose preference the server already cleared, on a device with no marker, is not recoverable automatically: preference-off plus no marker is indistinguishable from a deliberate opt-out. They must re-enable in Profile once.
+- Disabling push is account-wide (the preference) but re-enabling is device-local. A second phone that still holds an opted-in marker will rewrite the token and flip the preference back on at its next launch. Fixing that needs the server to record *why* it cleared the preference; out of scope here.
 - The AuthContext push effect currently early-returns when `preferences.pushNotifications` is falsy (`AuthContext.jsx:214`). The refresh must run outside that gate — that gate is exactly what makes the server's auto-disable unrecoverable.
 - With one token per member, two phones that both opted in will overwrite each other on launch (last launch wins). That is today's behavior and stays out of scope.
 - Logging is the point of the last two acceptance bullets: production logs for `notifyBookingApproval`, `notifyEventStatusChange`, and `sendEventReminders` currently contain no push line at all, success or failure, so a silent no-send is indistinguishable from a delivered push.

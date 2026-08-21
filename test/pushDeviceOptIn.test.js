@@ -1,6 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { shouldRefreshPushToken } from '../src/utils/pushDeviceOptIn.js'
+import {
+  DEVICE_OPTED_IN,
+  DEVICE_OPTED_OUT,
+  DEVICE_OPT_IN_UNKNOWN,
+  shouldAdoptLegacyOptIn,
+  shouldRefreshPushToken
+} from '../src/utils/pushDeviceOptIn.js'
 
 const refresh = (overrides) => shouldRefreshPushToken({
   eligible: true,
@@ -33,4 +39,44 @@ test('never refreshes on a device that cannot register push', () => {
 test('defaults to not refreshing when inputs are missing', () => {
   assert.equal(shouldRefreshPushToken(), false)
   assert.equal(shouldRefreshPushToken({}), false)
+})
+
+const adopt = (overrides) => shouldAdoptLegacyOptIn({
+  state: DEVICE_OPT_IN_UNKNOWN,
+  preferenceEnabled: true,
+  permission: 'granted',
+  ...overrides
+})
+
+test('adopts a device that opted in before the marker existed', () => {
+  // No marker + account preference on + permission granted can only describe a
+  // device that opted in through the Profile toggle or the banner, both of
+  // which predate the marker. These are the members already sitting on a dead
+  // token, so without adoption the refresh reaches nobody who is broken today.
+  assert.equal(adopt({}), true)
+})
+
+test('never adopts a device that recorded an opt-out', () => {
+  assert.equal(adopt({ state: DEVICE_OPTED_OUT }), false)
+})
+
+test('never re-adopts a device already marked opted in', () => {
+  // Already opted in takes the normal path; adoption must not double-write.
+  assert.equal(adopt({ state: DEVICE_OPTED_IN }), false)
+})
+
+test('never adopts while the account preference is off', () => {
+  // The server clears the preference on a stale send, so preference-off is
+  // indistinguishable from a deliberate opt-out. Leave it alone.
+  assert.equal(adopt({ preferenceEnabled: false }), false)
+})
+
+test('never adopts without granted permission', () => {
+  assert.equal(adopt({ permission: 'default' }), false)
+  assert.equal(adopt({ permission: 'denied' }), false)
+})
+
+test('defaults to not adopting when inputs are missing', () => {
+  assert.equal(shouldAdoptLegacyOptIn(), false)
+  assert.equal(shouldAdoptLegacyOptIn({}), false)
 })

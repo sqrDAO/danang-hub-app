@@ -970,29 +970,47 @@ function isUnrecoverablePushTokenError(error) {
  */
 async function deleteStalePushToken(recipientId, failedToken) {
   const tokenRef = db.collection("push_tokens").doc(recipientId);
-  const tokenDoc = await tokenRef.get();
-  const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
+  const memberRef = db.collection("members").doc(recipientId);
 
-  // A newer token may already have replaced the one that just failed — leave
-  // that one alone.
-  if (tokenData && tokenData.token !== failedToken) return;
-
-  if (tokenDoc.exists) await tokenRef.delete();
-  // Cleared even when the token doc was already gone. Returning early there
-  // used to strand the member on preferences.pushNotifications = true with no
-  // token: Profile renders the checkbox ticked, getPushToken returns "" for
-  // ever, and re-enabling is a no-op because the preference never changed.
+  // Transactional because the launch-time refresh writes push_tokens/{uid}
+  // concurrently. Between a plain get() and delete(), a relaunching device can
+  // land a replacement token that this cleanup would then destroy, taking the
+  // member's preference down with it.
+  let outcome;
   try {
-    await db.collection("members").doc(recipientId).update({
-      "preferences.pushNotifications": false,
+    outcome = await db.runTransaction(async (tx) => {
+      const tokenDoc = await tx.get(tokenRef);
+      const memberDoc = await tx.get(memberRef);
+      const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
+
+      // A newer token already replaced the one that just failed — leave it.
+      if (tokenData && tokenData.token !== failedToken) return "superseded";
+
+      if (tokenDoc.exists) tx.delete(tokenRef);
+      // Cleared even when the token doc was already gone. Returning early
+      // there used to strand the member on preferences.pushNotifications =
+      // true with no token: Profile renders the checkbox ticked, getPushToken
+      // returns "" for ever, and re-enabling is a no-op because the preference
+      // never changed.
+      if (!memberDoc.exists) return "member-missing";
+      tx.update(memberRef, {"preferences.pushNotifications": false});
+      return "cleared";
     });
   } catch (error) {
-    // Member doc deleted since the send was queued. Never fail the whole
-    // multicast batch over a recipient that no longer exists.
-    console.warn("Unable to clear push preference", {
+    // Never fail the whole multicast batch over one recipient's cleanup. At
+    // error level because the member is left on pushNotifications = true with
+    // a dead token until their own device re-issues one.
+    console.error("Unable to clear stale push registration", {
       recipientId,
       code: error.code,
     });
+    return;
+  }
+
+  if (outcome === "superseded") return;
+  if (outcome === "member-missing") {
+    // Member deleted since the send was queued; the token is gone either way.
+    console.warn("Stale push token deleted, member doc missing", {recipientId});
     return;
   }
   console.log("Cleared stale push registration", {recipientId});
@@ -1111,6 +1129,14 @@ async function sendPushToRecipients(recipients, data) {
         webpush,
       });
     } catch (error) {
+      // The whole batch never reached FCM. Without this the throw below is the
+      // only trace, and it names no recipient, type, or failure code.
+      console.error("Push batch failed", {
+        type: batchRecipients[0].type,
+        subjectId: batchRecipients[0].subjectId,
+        attempted: batchRecipients.length,
+        code: error.code,
+      });
       await Promise.all(batchRecipients.map((recipient) =>
         releasePushRecipient(
             recipient.memberId,
