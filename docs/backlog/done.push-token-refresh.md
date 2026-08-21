@@ -52,6 +52,7 @@ logging honest so the dead state is both recoverable and visible.
 - [ ] regression: post-booking opt-in banner still appears for a member who has never opted in; Profile toggle still enables and disables push.
 
 ## Notes
+- The manual device bullets above stay unticked: they were never run. Marked done on 2026-08-21 on the human's explicit call, with hardware verification deferred to the merge itself.
 - Gate the refresh on a device-local marker, not on `Notification.permission` alone: `disablePushNotifications` leaves permission granted, so a permission-only gate would resurrect an explicit opt-out. The marker is tri-state for the same reason — an opt-out is recorded as `false`, never removed, so adoption can tell "said no" from "never asked".
 - The server-side unconditional clear only covers a race. `sendPushToMembers` drops any member whose `push_tokens/{uid}` is missing (`getPushToken` returns `""`), so `deleteStalePushToken` is unreachable for a member already stranded with no token doc — only the client-side refresh heals those, which is why adoption is required rather than optional.
 - A member whose preference the server already cleared, on a device with no marker, is not recoverable automatically: preference-off plus no marker is indistinguishable from a deliberate opt-out. They must re-enable in Profile once.
