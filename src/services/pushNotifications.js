@@ -1,4 +1,4 @@
-import { deleteDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging'
 import app, { db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
@@ -20,6 +20,8 @@ import { hashPushToken } from '../utils/pushDeviceToken'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
 export { hashPushToken } from '../utils/pushDeviceToken'
+
+export const MAX_PUSH_DEVICES_PER_MEMBER = 5
 
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
 const PUSH_PERMISSION_MESSAGE = 'Push notifications are blocked in your browser settings.'
@@ -98,10 +100,49 @@ const getPushTokenRef = async (uid, token) => {
   return doc(db, 'members', uid, 'push_tokens', tokenId)
 }
 
+const pruneOldestPushTokens = async (uid, currentTokenId) => {
+  try {
+    const tokensCol = collection(db, 'members', uid, 'push_tokens')
+    const snap = await getDocs(tokensCol)
+    if (snap.empty || snap.size < MAX_PUSH_DEVICES_PER_MEMBER) return
+
+    const docs = []
+    snap.forEach((d) => {
+      docs.push({ id: d.id, ref: d.ref, data: d.data() })
+    })
+
+    docs.sort((a, b) => {
+      const timeA = new Date(a.data.updatedAt || a.data.createdAt || 0).getTime()
+      const timeB = new Date(b.data.updatedAt || b.data.createdAt || 0).getTime()
+      return timeA - timeB
+    })
+
+    const isExisting = docs.some((d) => d.id === currentTokenId)
+    const excessCount = isExisting
+      ? docs.length - MAX_PUSH_DEVICES_PER_MEMBER
+      : (docs.length + 1) - MAX_PUSH_DEVICES_PER_MEMBER
+
+    if (excessCount > 0) {
+      const candidates = docs.filter((d) => d.id !== currentTokenId)
+      const toDelete = candidates.slice(0, excessCount)
+      await Promise.all(toDelete.map((d) => deleteDoc(d.ref)))
+    }
+  } catch (error) {
+    // Non-blocking: ensure push registration proceeds even if pruning fails
+    console.warn('Unable to prune excess push tokens', error)
+  }
+}
+
 const savePushToken = async (uid, token, { isRefresh = false } = {}) => {
   if (!uid || !token) return
   setStoredDeviceToken(uid, token)
-  const tokenRef = await getPushTokenRef(uid, token)
+  const tokenId = await hashPushToken(token)
+  const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
+
+  if (!isRefresh) {
+    await pruneOldestPushTokens(uid, tokenId)
+  }
+
   const now = new Date().toISOString()
   const payload = {
     token,

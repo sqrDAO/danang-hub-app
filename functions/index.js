@@ -831,7 +831,7 @@ function hasPushEnabled(member) {
   );
 }
 
-const MAX_PUSH_TOKENS_PER_MEMBER = 10;
+const MAX_PUSH_TOKENS_PER_MEMBER = 5;
 
 /**
  * @param {string} memberId Member document id
@@ -848,16 +848,23 @@ async function getPushTokens(memberId, member) {
       .collection("push_tokens")
       .get();
 
-  const tokenSet = new Set();
+  const tokenDocs = [];
   subSnap.forEach((doc) => {
     const tokenData = doc.data();
     if (tokenData && tokenData.token && typeof tokenData.token === "string") {
       const trimmed = tokenData.token.trim();
       if (trimmed) {
-        tokenSet.add(trimmed);
+        tokenDocs.push({
+          token: trimmed,
+          updatedAt: tokenData.updatedAt || tokenData.createdAt || "",
+        });
       }
     }
   });
+
+  // Sort newest first by updatedAt/createdAt
+  tokenDocs.sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1));
+  const tokenSet = new Set(tokenDocs.map((d) => d.token));
 
   // Legacy single-token fallback if no subcollection tokens exist
   if (tokenSet.size === 0) {

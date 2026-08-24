@@ -189,29 +189,81 @@ test('launch-time token refresh preserves account-level push off preference', ()
   assert.equal(updatedDeviceDoc.token, 'fresh_device_token')
 })
 
-test('getPushTokens caps tokens to maximum limit per member', () => {
-  const MAX_PUSH_TOKENS_PER_MEMBER = 10
-  const subcollectionDocs = Array.from({ length: 15 }, (_, i) => ({
-    data: () => ({ token: `token_device_${i + 1}`, platform: 'web' })
+test('getPushTokens caps tokens to maximum limit of 5 per member with recency sorting', () => {
+  const MAX_PUSH_TOKENS_PER_MEMBER = 5
+  const subcollectionDocs = Array.from({ length: 8 }, (_, i) => ({
+    data: () => ({
+      token: `token_device_${i + 1}`,
+      platform: 'web',
+      updatedAt: `2026-08-24T10:0${i}:00.000Z`
+    })
   }))
 
-  const tokenSet = new Set()
+  const tokenDocs = []
   subcollectionDocs.forEach((doc) => {
     const data = doc.data()
     if (data?.token && typeof data.token === 'string') {
       const trimmed = data.token.trim()
-      if (trimmed) tokenSet.add(trimmed)
+      if (trimmed) {
+        tokenDocs.push({
+          token: trimmed,
+          updatedAt: data.updatedAt || ''
+        })
+      }
     }
   })
+
+  tokenDocs.sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
+  const tokenSet = new Set(tokenDocs.map((d) => d.token))
 
   let tokens = Array.from(tokenSet)
   if (tokens.length > MAX_PUSH_TOKENS_PER_MEMBER) {
     tokens = tokens.slice(0, MAX_PUSH_TOKENS_PER_MEMBER)
   }
 
-  assert.equal(tokens.length, 10)
-  assert.equal(tokens[0], 'token_device_1')
-  assert.equal(tokens[9], 'token_device_10')
+  assert.equal(tokens.length, 5)
+  // Top 5 newest: device 8, 7, 6, 5, 4
+  assert.equal(tokens[0], 'token_device_8')
+  assert.equal(tokens[4], 'token_device_4')
+})
+
+test('pruning oldest tokens leaves exactly 5 devices when a 6th device registers', () => {
+  const MAX_PUSH_DEVICES_PER_MEMBER = 5
+  const existingDocs = [
+    { id: 'dev_1', data: { updatedAt: '2026-08-24T01:00:00.000Z' } },
+    { id: 'dev_2', data: { updatedAt: '2026-08-24T02:00:00.000Z' } },
+    { id: 'dev_3', data: { updatedAt: '2026-08-24T03:00:00.000Z' } },
+    { id: 'dev_4', data: { updatedAt: '2026-08-24T04:00:00.000Z' } },
+    { id: 'dev_5', data: { updatedAt: '2026-08-24T05:00:00.000Z' } }
+  ]
+
+  const newDeviceTokenId = 'dev_6'
+
+  // Simulate pruneOldestPushTokens
+  const docs = [...existingDocs]
+  docs.sort((a, b) => {
+    const timeA = new Date(a.data.updatedAt || 0).getTime()
+    const timeB = new Date(b.data.updatedAt || 0).getTime()
+    return timeA - timeB
+  })
+
+  const isExisting = docs.some((d) => d.id === newDeviceTokenId)
+  const excessCount = isExisting
+    ? docs.length - MAX_PUSH_DEVICES_PER_MEMBER
+    : (docs.length + 1) - MAX_PUSH_DEVICES_PER_MEMBER
+
+  const candidates = docs.filter((d) => d.id !== newDeviceTokenId)
+  const toDelete = candidates.slice(0, excessCount)
+
+  assert.equal(excessCount, 1)
+  assert.equal(toDelete.length, 1)
+  assert.equal(toDelete[0].id, 'dev_1') // Oldest device is deleted
+
+  const remaining = docs.filter((d) => !toDelete.some((td) => td.id === d.id))
+  remaining.push({ id: newDeviceTokenId, data: { updatedAt: '2026-08-24T06:00:00.000Z' } })
+
+  assert.equal(remaining.length, 5)
+  assert.deepEqual(remaining.map((d) => d.id), ['dev_2', 'dev_3', 'dev_4', 'dev_5', 'dev_6'])
 })
 
 test('multi-chunk recipient outcome aggregation preserves sent status across chunks', () => {
