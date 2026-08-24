@@ -189,3 +189,29 @@ test('launch-time token refresh preserves account-level push off preference', ()
   assert.equal(updatedDeviceDoc.token, 'fresh_device_token')
 })
 
+test('getPushTokens caps tokens to maximum limit per member', () => {
+  const MAX_PUSH_TOKENS_PER_MEMBER = 10
+  const subcollectionDocs = Array.from({ length: 15 }, (_, i) => ({
+    data: () => ({ token: `token_device_${i + 1}`, platform: 'web' })
+  }))
+
+  const tokenSet = new Set()
+  subcollectionDocs.forEach((doc) => {
+    const data = doc.data()
+    if (data?.token && typeof data.token === 'string') {
+      const trimmed = data.token.trim()
+      if (trimmed) tokenSet.add(trimmed)
+    }
+  })
+
+  let tokens = Array.from(tokenSet)
+  if (tokens.length > MAX_PUSH_TOKENS_PER_MEMBER) {
+    tokens = tokens.slice(0, MAX_PUSH_TOKENS_PER_MEMBER)
+  }
+
+  assert.equal(tokens.length, 10)
+  assert.equal(tokens[0], 'token_device_1')
+  assert.equal(tokens[9], 'token_device_10')
+})
+
+

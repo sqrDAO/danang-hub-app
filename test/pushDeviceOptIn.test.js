@@ -4,6 +4,9 @@ import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
   DEVICE_OPT_IN_UNKNOWN,
+  clearStoredDeviceToken,
+  getStoredDeviceToken,
+  setStoredDeviceToken,
   shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../src/utils/pushDeviceOptIn.js'
@@ -79,4 +82,16 @@ test('never adopts without granted permission', () => {
 test('defaults to not adopting when inputs are missing', () => {
   assert.equal(shouldAdoptLegacyOptIn(), false)
   assert.equal(shouldAdoptLegacyOptIn({}), false)
+})
+
+test('stored device token helpers handle non-browser and missing uid environments safely', () => {
+  assert.equal(getStoredDeviceToken(''), '')
+  assert.equal(getStoredDeviceToken(null), '')
+  assert.equal(getStoredDeviceToken(undefined), '')
+
+  // Safe execution with missing / falsy arguments
+  setStoredDeviceToken('', 'token123')
+  setStoredDeviceToken('uid', '')
+  clearStoredDeviceToken('')
+  clearStoredDeviceToken(null)
 })

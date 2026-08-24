@@ -7,9 +7,12 @@ import { isMobilePushEligible } from '../utils/mobilePushEligibility'
 import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
+  clearStoredDeviceToken,
   getDeviceOptInState,
+  getStoredDeviceToken,
   setDeviceOptedIn,
   setDeviceOptedOut,
+  setStoredDeviceToken,
   shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
@@ -97,6 +100,7 @@ const getPushTokenRef = async (uid, token) => {
 
 const savePushToken = async (uid, token) => {
   if (!uid || !token) return
+  setStoredDeviceToken(uid, token)
   const tokenRef = await getPushTokenRef(uid, token)
   await setDoc(tokenRef, {
     token,
@@ -338,15 +342,21 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
 export const disableDevicePushNotifications = async (uid) => {
   stopForegroundPushListener()
   setDeviceOptedOut(uid)
+  const cachedToken = getStoredDeviceToken(uid)
+  clearStoredDeviceToken(uid)
+
   try {
-    const messaging = await getMessagingInstance(false)
-    const serviceWorkerRegistration = await getServiceWorkerRegistration()
-    const token = await getToken(messaging, {
-      vapidKey: firebaseVapidKey,
-      serviceWorkerRegistration
-    })
-    if (token) {
-      await removeStoredPushToken(uid, token)
+    let tokenToDelete = cachedToken
+    if (!tokenToDelete) {
+      const messaging = await getMessagingInstance(false)
+      const serviceWorkerRegistration = await getServiceWorkerRegistration()
+      tokenToDelete = await getToken(messaging, {
+        vapidKey: firebaseVapidKey,
+        serviceWorkerRegistration
+      })
+    }
+    if (tokenToDelete) {
+      await removeStoredPushToken(uid, tokenToDelete)
     }
   } catch {
     // Ignore error fetching token for deletion
@@ -354,6 +364,10 @@ export const disableDevicePushNotifications = async (uid) => {
   await deleteBrowserPushToken().catch(() => false)
 }
 
+/**
+ * Legacy alias for backward compatibility.
+ * @deprecated Use disableDevicePushNotifications directly.
+ */
 export const disablePushNotifications = async (uid) => {
   await disableDevicePushNotifications(uid)
 }

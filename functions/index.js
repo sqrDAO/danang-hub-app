@@ -831,6 +831,8 @@ function hasPushEnabled(member) {
   );
 }
 
+const MAX_PUSH_TOKENS_PER_MEMBER = 10;
+
 /**
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
@@ -873,6 +875,15 @@ async function getPushTokens(memberId, member) {
         }
       }
     }
+  }
+
+  if (tokenSet.size > MAX_PUSH_TOKENS_PER_MEMBER) {
+    console.warn("Member exceeded max active push tokens; capping delivery", {
+      memberId,
+      totalTokens: tokenSet.size,
+      max: MAX_PUSH_TOKENS_PER_MEMBER,
+    });
+    return Array.from(tokenSet).slice(0, MAX_PUSH_TOKENS_PER_MEMBER);
   }
 
   return Array.from(tokenSet);

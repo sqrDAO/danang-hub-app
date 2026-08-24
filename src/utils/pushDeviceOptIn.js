@@ -15,6 +15,7 @@
 // every opt-out made before the marker existed.
 
 const DEVICE_OPT_IN_KEY = (uid) => `pushDeviceOptIn:${uid}`
+const DEVICE_TOKEN_KEY = (uid) => `pushDeviceToken:${uid}`
 
 export const DEVICE_OPTED_IN = 'in'
 export const DEVICE_OPTED_OUT = 'out'
@@ -89,5 +90,32 @@ export const setDeviceOptedOut = (uid) => {
   } catch {
     // Ignore write failures; getDeviceOptInState already reports a storage
     // error as an opt-out, so the refresh stays off either way.
+  }
+}
+
+export const getStoredDeviceToken = (uid) => {
+  if (!uid || typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(DEVICE_TOKEN_KEY(uid)) || ''
+  } catch {
+    return ''
+  }
+}
+
+export const setStoredDeviceToken = (uid, token) => {
+  if (!uid || !token || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(DEVICE_TOKEN_KEY(uid), token)
+  } catch {
+    // Ignore write failures
+  }
+}
+
+export const clearStoredDeviceToken = (uid) => {
+  if (!uid || typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(DEVICE_TOKEN_KEY(uid))
+  } catch {
+    // Ignore removal failures
   }
 }

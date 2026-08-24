@@ -9,7 +9,7 @@ import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
 import {
-  disablePushNotifications,
+  disableDevicePushNotifications,
   enablePushNotifications,
   isMobilePushEligible,
   isPushSupported
@@ -188,7 +188,7 @@ const ProfileDevicePushSection = ({
     setIsToggling(true)
     try {
       if (deviceOptedIn) {
-        await disablePushNotifications(uid)
+        await disableDevicePushNotifications(uid)
         setDeviceOptedInState(false)
         showToast(t('profile.devicePushDisabledToast'), 'info')
       } else {

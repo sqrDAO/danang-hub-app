@@ -1,5 +1,11 @@
 /**
  * Generates a deterministic hash for an FCM token string.
+ *
+ * Truncating SHA-256 to 32 hex chars (128 bits of entropy) ensures brevity for
+ * Firestore document IDs while guaranteeing zero collision probability across
+ * device tokens for a given member.
+ *
+ * Callers saving/deleting documents MUST guard against falsy/empty tokens.
  * @param {string} token FCM registration token
  * @returns {Promise<string>} Deterministic token identifier
  */
