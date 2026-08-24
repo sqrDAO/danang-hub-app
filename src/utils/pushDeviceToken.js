@@ -11,22 +11,24 @@
  */
 export const hashPushToken = async (token) => {
   if (!token) return 'default'
-  if (typeof crypto !== 'undefined' && crypto?.subtle) {
+  let subtleCrypto = typeof globalThis !== 'undefined' ? globalThis.crypto?.subtle : null
+
+  if (!subtleCrypto) {
     try {
-      const msgBuffer = new TextEncoder().encode(token)
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
-      const hashArray = Array.from(new Uint8Array(hashBuffer))
-      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+      const nodeCrypto = await import('node:crypto')
+      subtleCrypto = nodeCrypto.webcrypto?.subtle || nodeCrypto.default?.webcrypto?.subtle
     } catch {
-      // Fall through to fallback hash
+      // Ignore if not in Node environment
     }
   }
-  let hash = 0
-  for (let i = 0; i < token.length; i++) {
-    hash = (hash << 5) - hash + token.charCodeAt(i)
-    hash |= 0
+
+  if (subtleCrypto) {
+    const msgBuffer = new TextEncoder().encode(token)
+    const hashBuffer = await subtleCrypto.digest('SHA-256', msgBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
   }
-  return `token_${Math.abs(hash)}`
+  throw new Error('SHA-256 cryptographic hashing is unavailable in this environment.')
 }
 
 /**

@@ -98,16 +98,21 @@ const getPushTokenRef = async (uid, token) => {
   return doc(db, 'members', uid, 'push_tokens', tokenId)
 }
 
-const savePushToken = async (uid, token) => {
+const savePushToken = async (uid, token, { isRefresh = false } = {}) => {
   if (!uid || !token) return
   setStoredDeviceToken(uid, token)
   const tokenRef = await getPushTokenRef(uid, token)
-  await setDoc(tokenRef, {
+  const now = new Date().toISOString()
+  const payload = {
     token,
     platform: 'web',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-    updatedAt: new Date().toISOString()
-  }, { merge: true })
+    updatedAt: now
+  }
+  if (!isRefresh) {
+    payload.createdAt = now
+  }
+  await setDoc(tokenRef, payload, { merge: true })
 }
 
 const removeStoredPushToken = async (uid, token) => {
@@ -286,17 +291,22 @@ const issuePushToken = async () => {
   return token
 }
 
-export const enablePushNotifications = async (uid) => {
+export const enableDevicePushNotifications = async (uid) => {
   await ensurePushPermission()
   const token = await issuePushToken()
 
-  await savePushToken(uid, token)
-  await updateMemberPreferences(uid, { pushNotifications: true })
+  await savePushToken(uid, token, { isRefresh: false })
   // Marked only after the writes land, so a half-failed opt-in does not leave a
   // device claiming an opt-in it never completed.
   setDeviceOptedIn(uid)
   await ensureForegroundPushListener()
 
+  return token
+}
+
+export const enablePushNotifications = async (uid) => {
+  const token = await enableDevicePushNotifications(uid)
+  await updateMemberPreferences(uid, { pushNotifications: true })
   return token
 }
 
@@ -332,7 +342,7 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   if (!firebaseVapidKey) return false
 
   const token = await issuePushToken()
-  await savePushToken(uid, token)
+  await savePushToken(uid, token, { isRefresh: true })
   // Recorded only once the token write landed, mirroring enablePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
@@ -341,26 +351,28 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
 
 export const disableDevicePushNotifications = async (uid) => {
   stopForegroundPushListener()
-  setDeviceOptedOut(uid)
   const cachedToken = getStoredDeviceToken(uid)
-  clearStoredDeviceToken(uid)
 
-  try {
-    let tokenToDelete = cachedToken
-    if (!tokenToDelete) {
+  let tokenToDelete = cachedToken
+  if (!tokenToDelete) {
+    try {
       const messaging = await getMessagingInstance(false)
       const serviceWorkerRegistration = await getServiceWorkerRegistration()
       tokenToDelete = await getToken(messaging, {
         vapidKey: firebaseVapidKey,
         serviceWorkerRegistration
       })
+    } catch {
+      // Best-effort retrieval of browser token
     }
-    if (tokenToDelete) {
-      await removeStoredPushToken(uid, tokenToDelete)
-    }
-  } catch {
-    // Ignore error fetching token for deletion
   }
+
+  if (tokenToDelete) {
+    await removeStoredPushToken(uid, tokenToDelete)
+  }
+
+  setDeviceOptedOut(uid)
+  clearStoredDeviceToken(uid)
   await deleteBrowserPushToken().catch(() => false)
 }
 

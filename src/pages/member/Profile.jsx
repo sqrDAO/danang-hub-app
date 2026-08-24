@@ -10,7 +10,7 @@ import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
 import {
   disableDevicePushNotifications,
-  enablePushNotifications,
+  enableDevicePushNotifications,
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
@@ -192,7 +192,7 @@ const ProfileDevicePushSection = ({
         setDeviceOptedInState(false)
         showToast(t('profile.devicePushDisabledToast'), 'info')
       } else {
-        await enablePushNotifications(uid)
+        await enableDevicePushNotifications(uid)
         setDeviceOptedInState(true)
         showToast(t('profile.devicePushEnabledToast'), 'success')
       }

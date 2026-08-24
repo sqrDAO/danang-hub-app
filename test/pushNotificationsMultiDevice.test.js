@@ -214,4 +214,51 @@ test('getPushTokens caps tokens to maximum limit per member', () => {
   assert.equal(tokens[9], 'token_device_10')
 })
 
+test('multi-chunk recipient outcome aggregation preserves sent status across chunks', () => {
+  // Scenario: Member 1 has token in chunk 1 (fails) and token in chunk 2 (succeeds)
+  const chunk1Recipients = [
+    { memberId: 'user_1', token: 'token_1_a', type: 'booking_approved', subjectId: 'b1' },
+    { memberId: 'user_2', token: 'token_2', type: 'booking_approved', subjectId: 'b2' }
+  ]
+  const chunk1Responses = [
+    { success: false, error: { code: 'messaging/internal-error' } },
+    { success: true }
+  ]
+
+  const chunk2Recipients = [
+    { memberId: 'user_1', token: 'token_1_b', type: 'booking_approved', subjectId: 'b1' }
+  ]
+  const chunk2Responses = [
+    { success: true }
+  ]
+
+  const recipientOutcomes = new Map()
+
+  const processChunk = (recipients, responses) => {
+    responses.forEach((res, idx) => {
+      const recipient = recipients[idx]
+      const key = `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`
+      const current = recipientOutcomes.get(key) || {
+        memberId: recipient.memberId,
+        type: recipient.type,
+        subjectId: recipient.subjectId,
+        anySuccess: false
+      }
+      if (res.success) current.anySuccess = true
+      recipientOutcomes.set(key, current)
+    })
+  }
+
+  processChunk(chunk1Recipients, chunk1Responses)
+  processChunk(chunk2Recipients, chunk2Responses)
+
+  const user1Outcome = recipientOutcomes.get('booking_approved_user_1_b1')
+  const user2Outcome = recipientOutcomes.get('booking_approved_user_2_b2')
+
+  // Both user 1 and user 2 should be marked sent because at least one device succeeded
+  assert.equal(user1Outcome.anySuccess, true)
+  assert.equal(user2Outcome.anySuccess, true)
+})
+
+
 

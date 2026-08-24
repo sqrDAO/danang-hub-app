@@ -1155,6 +1155,12 @@ async function sendPushToRecipients(recipients, data) {
   const batchSize = 500;
   const webpush = buildWebPushConfig(data);
 
+  // Group recipient delivery outcomes across all chunks by dedupe key
+  // (type + recipientId + subjectId) so mixed device success/failure marks
+  // the marker as 'sent' without deleting it.
+  const recipientOutcomes = new Map();
+  const staleTokenDeletions = [];
+
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batchRecipients = recipients.slice(i, i + batchSize);
     let response;
@@ -1173,13 +1179,17 @@ async function sendPushToRecipients(recipients, data) {
         attempted: batchRecipients.length,
         code: error.code,
       });
-      await Promise.all(batchRecipients.map((recipient) =>
-        releasePushRecipient(
+      await Promise.all(batchRecipients.map((recipient) => {
+        const key =
+          `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`;
+        const outcome = recipientOutcomes.get(key);
+        if (outcome && outcome.anySuccess) return Promise.resolve();
+        return releasePushRecipient(
             recipient.memberId,
             recipient.type,
             recipient.subjectId,
-        ),
-      ));
+        );
+      }));
       throw error;
     }
     results.push(response);
@@ -1196,12 +1206,6 @@ async function sendPushToRecipients(recipients, data) {
           .map((sendResult) => (sendResult.error && sendResult.error.code) ||
             "unknown"),
     });
-
-    // Group recipient delivery outcomes by dedupe key
-    // (type + recipientId + subjectId) so mixed device success/failure marks
-    // the marker as 'sent' without deleting it.
-    const recipientOutcomes = new Map();
-    const staleTokenDeletions = [];
 
     response.responses.forEach((sendResult, index) => {
       const recipient = batchRecipients[index];
@@ -1228,26 +1232,26 @@ async function sendPushToRecipients(recipients, data) {
         );
       }
     });
+  }
 
-    const dedupeFollowUps = Array.from(recipientOutcomes.values()).map(
-        (outcome) => {
-          if (outcome.anySuccess) {
-            return markPushRecipient(
-                outcome.memberId,
-                outcome.type,
-                outcome.subjectId,
-            );
-          }
-          return releasePushRecipient(
+  const dedupeFollowUps = Array.from(recipientOutcomes.values()).map(
+      (outcome) => {
+        if (outcome.anySuccess) {
+          return markPushRecipient(
               outcome.memberId,
               outcome.type,
               outcome.subjectId,
           );
-        },
-    );
+        }
+        return releasePushRecipient(
+            outcome.memberId,
+            outcome.type,
+            outcome.subjectId,
+        );
+      },
+  );
 
-    await Promise.all([...dedupeFollowUps, ...staleTokenDeletions]);
-  }
+  await Promise.all([...dedupeFollowUps, ...staleTokenDeletions]);
 
   return results;
 }
