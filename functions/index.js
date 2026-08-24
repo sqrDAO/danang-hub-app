@@ -834,16 +834,48 @@ function hasPushEnabled(member) {
 /**
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
- * @return {Promise<string>} Stored browser push token, if available
+ * @return {Promise<Array<string>>} Stored browser push tokens, if available
  */
-async function getPushToken(memberId, member) {
-  if (!hasPushEnabled(member)) return "";
+async function getPushTokens(memberId, member) {
+  if (!hasPushEnabled(member)) return [];
 
-  const tokenDoc = await db.collection("push_tokens").doc(memberId).get();
-  if (!tokenDoc.exists) return "";
+  // Query subcollection members/{memberId}/push_tokens
+  const subSnap = await db
+      .collection("members")
+      .doc(memberId)
+      .collection("push_tokens")
+      .get();
 
-  const tokenData = tokenDoc.data();
-  return tokenData && tokenData.token ? tokenData.token : "";
+  const tokenSet = new Set();
+  subSnap.forEach((doc) => {
+    const tokenData = doc.data();
+    if (tokenData && tokenData.token && typeof tokenData.token === "string") {
+      const trimmed = tokenData.token.trim();
+      if (trimmed) {
+        tokenSet.add(trimmed);
+      }
+    }
+  });
+
+  // Legacy single-token fallback if no subcollection tokens exist
+  if (tokenSet.size === 0) {
+    const legacyDoc = await db.collection("push_tokens").doc(memberId).get();
+    if (legacyDoc.exists) {
+      const legacyData = legacyDoc.data();
+      if (
+        legacyData &&
+        legacyData.token &&
+        typeof legacyData.token === "string"
+      ) {
+        const trimmed = legacyData.token.trim();
+        if (trimmed) {
+          tokenSet.add(trimmed);
+        }
+      }
+    }
+  }
+
+  return Array.from(tokenSet);
 }
 
 const PUSH_MARKER_TTL_DAYS = 90;
@@ -969,51 +1001,44 @@ function isUnrecoverablePushTokenError(error) {
  * @return {Promise<void>}
  */
 async function deleteStalePushToken(recipientId, failedToken) {
-  const tokenRef = db.collection("push_tokens").doc(recipientId);
-  const memberRef = db.collection("members").doc(recipientId);
+  if (!recipientId || !failedToken) return;
 
-  // Transactional because the launch-time refresh writes push_tokens/{uid}
-  // concurrently. Between a plain get() and delete(), a relaunching device can
-  // land a replacement token that this cleanup would then destroy, taking the
-  // member's preference down with it.
-  let outcome;
   try {
-    outcome = await db.runTransaction(async (tx) => {
-      const tokenDoc = await tx.get(tokenRef);
-      const memberDoc = await tx.get(memberRef);
-      const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
+    const batch = db.batch();
+    let hasDeletions = false;
 
-      // A newer token already replaced the one that just failed — leave it.
-      if (tokenData && tokenData.token !== failedToken) return "superseded";
+    // 1. Query subcollection members/{recipientId}/push_tokens for failed token
+    const subSnap = await db
+        .collection("members")
+        .doc(recipientId)
+        .collection("push_tokens")
+        .where("token", "==", failedToken)
+        .get();
 
-      if (tokenDoc.exists) tx.delete(tokenRef);
-      // Cleared even when the token doc was already gone. Returning early
-      // there used to strand the member on preferences.pushNotifications =
-      // true with no token: Profile renders the checkbox ticked, getPushToken
-      // returns "" for ever, and re-enabling is a no-op because the preference
-      // never changed.
-      if (!memberDoc.exists) return "member-missing";
-      tx.update(memberRef, {"preferences.pushNotifications": false});
-      return "cleared";
+    subSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      hasDeletions = true;
     });
+
+    // 2. Also check legacy single-token document
+    const legacyRef = db.collection("push_tokens").doc(recipientId);
+    const legacyDoc = await legacyRef.get();
+    if (legacyDoc.exists && legacyDoc.data()?.token === failedToken) {
+      batch.delete(legacyRef);
+      hasDeletions = true;
+    }
+
+    if (hasDeletions) {
+      await batch.commit();
+      console.log("Pruned stale push token for recipient", {recipientId});
+    }
   } catch (error) {
-    // Never fail the whole multicast batch over one recipient's cleanup. At
-    // error level because the member is left on pushNotifications = true with
-    // a dead token until their own device re-issues one.
-    console.error("Unable to clear stale push registration", {
+    console.error("Unable to clear stale push token", {
       recipientId,
       code: error.code,
+      message: error.message,
     });
-    return;
   }
-
-  if (outcome === "superseded") return;
-  if (outcome === "member-missing") {
-    // Member deleted since the send was queued; the token is gone either way.
-    console.warn("Stale push token deleted, member doc missing", {recipientId});
-    return;
-  }
-  console.log("Cleared stale push registration", {recipientId});
 }
 
 // Push copy is localized per recipient. i18n lives in the browser
@@ -1161,32 +1186,56 @@ async function sendPushToRecipients(recipients, data) {
             "unknown"),
     });
 
-    const followUps = response.responses.map((sendResult, index) => {
+    // Group recipient delivery outcomes by dedupe key
+    // (type + recipientId + subjectId) so mixed device success/failure marks
+    // the marker as 'sent' without deleting it.
+    const recipientOutcomes = new Map();
+    const staleTokenDeletions = [];
+
+    response.responses.forEach((sendResult, index) => {
       const recipient = batchRecipients[index];
+      const key =
+        `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`;
+      const current = recipientOutcomes.get(key) || {
+        memberId: recipient.memberId,
+        type: recipient.type,
+        subjectId: recipient.subjectId,
+        anySuccess: false,
+      };
+
       if (sendResult.success) {
-        return markPushRecipient(
-            recipient.memberId,
-            recipient.type,
-            recipient.subjectId,
+        current.anySuccess = true;
+      }
+      recipientOutcomes.set(key, current);
+
+      if (
+        !sendResult.success &&
+        isUnrecoverablePushTokenError(sendResult.error)
+      ) {
+        staleTokenDeletions.push(
+            deleteStalePushToken(recipient.memberId, recipient.token),
         );
       }
-      if (isUnrecoverablePushTokenError(sendResult.error)) {
-        return Promise.all([
-          deleteStalePushToken(recipient.memberId, recipient.token),
-          releasePushRecipient(
-              recipient.memberId,
-              recipient.type,
-              recipient.subjectId,
-          ),
-        ]);
-      }
-      return releasePushRecipient(
-          recipient.memberId,
-          recipient.type,
-          recipient.subjectId,
-      );
     });
-    await Promise.all(followUps);
+
+    const dedupeFollowUps = Array.from(recipientOutcomes.values()).map(
+        (outcome) => {
+          if (outcome.anySuccess) {
+            return markPushRecipient(
+                outcome.memberId,
+                outcome.type,
+                outcome.subjectId,
+            );
+          }
+          return releasePushRecipient(
+              outcome.memberId,
+              outcome.type,
+              outcome.subjectId,
+          );
+        },
+    );
+
+    await Promise.all([...dedupeFollowUps, ...staleTokenDeletions]);
   }
 
   return results;
@@ -1202,11 +1251,11 @@ async function sendPushToMembers(docs, payload) {
   const type = payload.type || "notification";
   const subjectId = payload.subjectId || "";
 
-  const recipients = (await Promise.all(docs.map(async (doc) => {
+  const memberRecipients = await Promise.all(docs.map(async (doc) => {
     const member = doc.data();
-    const pushToken = await getPushToken(doc.id, member);
-    if (!pushToken) {
-      return null;
+    const pushTokens = await getPushTokens(doc.id, member);
+    if (!pushTokens || pushTokens.length === 0) {
+      return [];
     }
     // Fixed-desk plans generate one booking doc per working day. Use a
     // recipient/subject marker so push follows the same grouped behavior as
@@ -1217,16 +1266,19 @@ async function sendPushToMembers(docs, payload) {
         subjectId,
     );
     if (shouldSend) {
-      return {
+      const locale = resolvePushLocale(member);
+      return pushTokens.map((token) => ({
         memberId: doc.id,
-        token: pushToken,
+        token,
         type,
         subjectId,
-        locale: resolvePushLocale(member),
-      };
+        locale,
+      }));
     }
-    return null;
-  }))).filter(Boolean);
+    return [];
+  }));
+
+  const recipients = memberRecipients.flat();
 
   if (!recipients.length) {
     // Either nobody opted in, everyone's token is gone, or the dedupe marker

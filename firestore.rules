@@ -158,8 +158,14 @@ service cloud.firestore {
       // Only Cloud Functions (admin SDK) create notifications — no client-side create/delete
     }
 
-    // Browser push tokens are private client writes. Cloud Functions read them
-    // through the Admin SDK; no client should read tokens back from Firestore.
+    // Browser push tokens are private client writes per device. Cloud Functions
+    // read them through the Admin SDK; no client should read tokens back.
+    match /members/{userId}/push_tokens/{tokenId} {
+      allow read: if false;
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    // Legacy single-token collection for backward compatibility during rollout
     match /push_tokens/{userId} {
       allow read: if false;
       allow create, update, delete: if isOwner(userId);

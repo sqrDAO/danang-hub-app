@@ -13,10 +13,11 @@ import {
   shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
+import { hashPushToken } from '../utils/pushDeviceToken'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
+export { hashPushToken } from '../utils/pushDeviceToken'
 
-const PUSH_TOKENS_COLLECTION = 'push_tokens'
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
 const PUSH_PERMISSION_MESSAGE = 'Push notifications are blocked in your browser settings.'
 const PUSH_CONFIG_MESSAGE = 'Push notifications are not configured for this app.'
@@ -89,18 +90,28 @@ const getServiceWorkerRegistration = async () => {
   return navigator.serviceWorker.ready
 }
 
-const getPushTokenRef = (uid) => doc(db, PUSH_TOKENS_COLLECTION, uid)
+const getPushTokenRef = async (uid, token) => {
+  const tokenId = await hashPushToken(token)
+  return doc(db, 'members', uid, 'push_tokens', tokenId)
+}
 
 const savePushToken = async (uid, token) => {
-  await setDoc(getPushTokenRef(uid), {
+  if (!uid || !token) return
+  const tokenRef = await getPushTokenRef(uid, token)
+  await setDoc(tokenRef, {
     token,
     platform: 'web',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     updatedAt: new Date().toISOString()
   }, { merge: true })
 }
 
-const removeStoredPushToken = async (uid) => {
-  await deleteDoc(getPushTokenRef(uid))
+const removeStoredPushToken = async (uid, token) => {
+  if (!uid) return
+  if (token) {
+    const tokenRef = await getPushTokenRef(uid, token)
+    await deleteDoc(tokenRef)
+  }
 }
 
 const deleteBrowserPushToken = async () => {
@@ -289,16 +300,14 @@ export const enablePushNotifications = async (uid) => {
  * Re-issues this device's FCM token on an authenticated launch.
  *
  * FCM web tokens die routinely — cleared site data, a reinstalled PWA, the push
- * service resubscribing — and the server drops `preferences.pushNotifications`
- * to false on the first failed send. Without this, a member's push is off for
- * good after one stale token, with nothing in the UI to say so.
+ * service resubscribing. Re-issuing the token keeps this device's token document
+ * in members/{uid}/push_tokens/{tokenId} fresh and active.
  *
  * Deliberately never calls requestPermission: a launch-time permission prompt
  * is exactly the behavior the opt-in banner exists to avoid.
  * @param {string} uid Signed-in member id
  * @param {{preferenceEnabled?: boolean}} [options] Cached member preference
- * @returns {Promise<boolean>} True when the member preference was restored, so
- *   the caller should refresh its cached profile
+ * @returns {Promise<boolean>}
  */
 export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) => {
   const state = getDeviceOptInState(uid)
@@ -323,24 +332,34 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   // Recorded only once the token write landed, mirroring enablePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
-  if (preferenceEnabled) return false
+  return false
+}
 
-  // The server cleared this on a stale-token send. Heal it so the foreground
-  // listener effect — which gates on the preference — starts working again.
-  await updateMemberPreferences(uid, { pushNotifications: true })
-  return true
+export const disableDevicePushNotifications = async (uid) => {
+  stopForegroundPushListener()
+  setDeviceOptedOut(uid)
+  try {
+    const messaging = await getMessagingInstance(false)
+    const serviceWorkerRegistration = await getServiceWorkerRegistration()
+    const token = await getToken(messaging, {
+      vapidKey: firebaseVapidKey,
+      serviceWorkerRegistration
+    })
+    if (token) {
+      await removeStoredPushToken(uid, token)
+    }
+  } catch {
+    // Ignore error fetching token for deletion
+  }
+  await deleteBrowserPushToken().catch(() => false)
 }
 
 export const disablePushNotifications = async (uid) => {
-  stopForegroundPushListener()
-  setDeviceOptedOut(uid)
-  await removeStoredPushToken(uid)
-  await updateMemberPreferences(uid, { pushNotifications: false })
-  await deleteBrowserPushToken().catch(() => false)
+  await disableDevicePushNotifications(uid)
 }
 
 export const disablePushNotificationsOnLogout = async (uid) => {
   if (!isMobilePushEligible()) return false
-  await disablePushNotifications(uid)
+  await disableDevicePushNotifications(uid)
   return true
 }
