@@ -12,6 +12,7 @@ const refresh = (overrides) => shouldRefreshPushToken({
   eligible: true,
   permission: 'granted',
   deviceOptedIn: true,
+  preferenceEnabled: true,
   ...overrides
 })
 
@@ -34,6 +35,12 @@ test('never refreshes unless permission is already granted', () => {
 
 test('never refreshes on a device that cannot register push', () => {
   assert.equal(refresh({ eligible: false }), false)
+})
+
+test('never refreshes while the account preference is off', () => {
+  // Preference-off is account intent (desktop opt-out included). A phone that
+  // still holds an opted-in marker must not re-issue a token or heal the field.
+  assert.equal(refresh({ preferenceEnabled: false }), false)
 })
 
 test('defaults to not refreshing when inputs are missing', () => {
@@ -66,8 +73,8 @@ test('never re-adopts a device already marked opted in', () => {
 })
 
 test('never adopts while the account preference is off', () => {
-  // The server clears the preference on a stale send, so preference-off is
-  // indistinguishable from a deliberate opt-out. Leave it alone.
+  // Preference-off is account intent, including leftover clears from the old
+  // stale-token path. Leave it alone; the member re-enables in Profile once.
   assert.equal(adopt({ preferenceEnabled: false }), false)
 })
 

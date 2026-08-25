@@ -212,10 +212,10 @@ export const AuthProvider = ({ children }) => {
 
   // An FCM token is minted once at opt-in and then goes stale on its own —
   // cleared site data, a reinstalled PWA, the push service resubscribing. The
-  // server drops preferences.pushNotifications to false on the first failed
-  // send, so without a launch-time re-issue a member's push dies permanently
-  // with nothing in the UI to say so. Deliberately outside the listener effect
-  // below: that one gates on the very preference this heals.
+  // server deletes the stored token on the first failed send but leaves the
+  // account preference alone, so without a launch-time re-issue a member's
+  // push stays opted in and never delivers. Deliberately outside the listener
+  // effect below: that one only starts/stops the foreground handler.
   useEffect(() => {
     const uid = currentUser?.uid
     if (!uid) {
@@ -223,25 +223,20 @@ export const AuthProvider = ({ children }) => {
       return undefined
     }
     // Wait for the profile so a not-yet-loaded preference is not mistaken for
-    // an opt-out and needlessly rewritten on every launch.
+    // an opt-out, which would skip the token write for this uid for good.
     if (!userProfile || pushRefreshedForUid.current === uid) return undefined
     pushRefreshedForUid.current = uid
 
-    // No in-flight cancellation guard: userProfile is a dependency, so the
-    // effect re-runs on any profile write, and a per-run flag would abort the
-    // heal whenever an unrelated update landed mid-request. The ref above
-    // already stops duplicate work, and refreshUserProfile is idempotent.
     const preferenceEnabled = Boolean(userProfile?.preferences?.pushNotifications)
     import('../services/pushNotifications')
       .then(({ refreshPushToken }) => refreshPushToken(uid, { preferenceEnabled }))
-      .then((healed) => (healed ? refreshUserProfile() : undefined))
       .catch((error) => {
         // Best effort: a dead push token must never break sign-in or boot.
         console.warn('Unable to refresh browser push token:', error)
       })
 
     return undefined
-  }, [currentUser, userProfile, refreshUserProfile])
+  }, [currentUser, userProfile])
 
   // FCM delivers to onMessage when a tab is open; without a handler Chrome shows
   // its default "site updated in the background" shell for unfocused tabs.
