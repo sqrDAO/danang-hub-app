@@ -831,19 +831,77 @@ function hasPushEnabled(member) {
   );
 }
 
+const MAX_PUSH_TOKENS_PER_MEMBER = 5;
+
 /**
+ * Returns all active FCM tokens for a member, newest first.
+ *
+ * Reads from members/{memberId}/push_tokens subcollection. Falls back to the
+ * legacy flat push_tokens/{memberId} document when the subcollection is empty
+ * so that devices registered before the migration still receive pushes during
+ * the rollout window.
+ *
+ * Caps delivery at MAX_PUSH_TOKENS_PER_MEMBER tokens if the subcollection has
+ * grown beyond that (should not happen — client pruning runs at registration
+ * time, but the cap prevents unbounded multicast batches if it ever does).
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
- * @return {Promise<string>} Stored browser push token, if available
+ * @return {Promise<Array<string>>} Stored browser push tokens
  */
-async function getPushToken(memberId, member) {
-  if (!hasPushEnabled(member)) return "";
+async function getPushTokens(memberId, member) {
+  if (!hasPushEnabled(member)) return [];
 
-  const tokenDoc = await db.collection("push_tokens").doc(memberId).get();
-  if (!tokenDoc.exists) return "";
+  const subSnap = await db
+      .collection("members")
+      .doc(memberId)
+      .collection("push_tokens")
+      .get();
 
-  const tokenData = tokenDoc.data();
-  return tokenData && tokenData.token ? tokenData.token : "";
+  const tokenDocs = [];
+  subSnap.forEach((d) => {
+    const data = d.data();
+    if (data && data.token && typeof data.token === "string") {
+      const trimmed = data.token.trim();
+      if (trimmed) {
+        tokenDocs.push({
+          token: trimmed,
+          // Prefer updatedAt; fall back to createdAt so newly-written docs
+          // with only createdAt still sort correctly.
+          ts: new Date(data.updatedAt || data.createdAt || 0).getTime(),
+        });
+      }
+    }
+  });
+
+  // Sort newest first using numeric timestamps — robust against
+  // malformed strings.
+  tokenDocs.sort((a, b) => b.ts - a.ts);
+  const tokenSet = new Set(tokenDocs.map((d) => d.token));
+
+  // Legacy single-token fallback for devices registered before
+  // the subcollection migration. Used only when subcollection is empty.
+  if (tokenSet.size === 0) {
+    const legacyDoc = await db.collection("push_tokens").doc(memberId).get();
+    if (legacyDoc.exists) {
+      const legacyData = legacyDoc.data();
+      if (legacyData && legacyData.token &&
+          typeof legacyData.token === "string") {
+        const trimmed = legacyData.token.trim();
+        if (trimmed) tokenSet.add(trimmed);
+      }
+    }
+  }
+
+  if (tokenSet.size > MAX_PUSH_TOKENS_PER_MEMBER) {
+    console.warn("Member exceeded max active push tokens; capping delivery", {
+      memberId,
+      totalTokens: tokenSet.size,
+      max: MAX_PUSH_TOKENS_PER_MEMBER,
+    });
+    return Array.from(tokenSet).slice(0, MAX_PUSH_TOKENS_PER_MEMBER);
+  }
+
+  return Array.from(tokenSet);
 }
 
 const PUSH_MARKER_TTL_DAYS = 90;
@@ -964,55 +1022,60 @@ function isUnrecoverablePushTokenError(error) {
 }
 
 /**
+ * Deletes a single stale FCM token document from the member's subcollection.
+ *
+ * Surgical: only the failing token document is removed. The account preference
+ * (preferences.pushNotifications) is NEVER touched — a stale token on one
+ * device must not silence all of a member's other devices.
  * @param {string} recipientId Member document id
  * @param {string} failedToken Token rejected by FCM
  * @return {Promise<void>}
  */
 async function deleteStalePushToken(recipientId, failedToken) {
-  const tokenRef = db.collection("push_tokens").doc(recipientId);
-  const memberRef = db.collection("members").doc(recipientId);
+  if (!recipientId || !failedToken) return;
 
-  // Transactional because the launch-time refresh writes push_tokens/{uid}
-  // concurrently. Between a plain get() and delete(), a relaunching device can
-  // land a replacement token that this cleanup would then destroy, taking the
-  // member's preference down with it.
-  let outcome;
   try {
-    outcome = await db.runTransaction(async (tx) => {
-      const tokenDoc = await tx.get(tokenRef);
-      const memberDoc = await tx.get(memberRef);
-      const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
+    const batch = db.batch();
+    let hasDeletions = false;
 
-      // A newer token already replaced the one that just failed — leave it.
-      if (tokenData && tokenData.token !== failedToken) return "superseded";
+    // 1. Query subcollection for the failing token by value.
+    const subSnap = await db
+        .collection("members")
+        .doc(recipientId)
+        .collection("push_tokens")
+        .where("token", "==", failedToken)
+        .get();
 
-      if (tokenDoc.exists) tx.delete(tokenRef);
-      // Cleared even when the token doc was already gone. Returning early
-      // there used to strand the member on preferences.pushNotifications =
-      // true with no token: Profile renders the checkbox ticked, getPushToken
-      // returns "" for ever, and re-enabling is a no-op because the preference
-      // never changed.
-      if (!memberDoc.exists) return "member-missing";
-      tx.update(memberRef, {"preferences.pushNotifications": false});
-      return "cleared";
+    subSnap.forEach((d) => {
+      batch.delete(d.ref);
+      hasDeletions = true;
     });
+
+    // 2. Also check the legacy flat collection for this token.
+    const legacyRef = db.collection("push_tokens").doc(recipientId);
+    const legacyDoc = await legacyRef.get();
+    if (legacyDoc.exists && legacyDoc.data()?.token === failedToken) {
+      batch.delete(legacyRef);
+      hasDeletions = true;
+    }
+
+    if (hasDeletions) {
+      await batch.commit();
+      console.log("Pruned stale push token for recipient", {recipientId});
+    }
   } catch (error) {
-    // Never fail the whole multicast batch over one recipient's cleanup. At
-    // error level because the member is left on pushNotifications = true with
-    // a dead token until their own device re-issues one.
-    console.error("Unable to clear stale push registration", {
+    // Never fail the whole multicast batch over one recipient's cleanup.
+    console.error("Unable to clear stale push token", {
       recipientId,
       code: error.code,
+      message: error.message,
     });
     return;
   }
 
-  if (outcome === "superseded") return;
-  if (outcome === "member-missing") {
-    // Member deleted since the send was queued; the token is gone either way.
-    console.warn("Stale push token deleted, member doc missing", {recipientId});
-    return;
-  }
+  // No outcome enumeration needed — the function is now purely a best-effort
+  // delete. The caller (sendPushToRecipients) handles marker
+  // release separately.
   console.log("Cleared stale push registration", {recipientId});
 }
 
@@ -1106,8 +1169,11 @@ function buildWebPushConfig(data) {
 }
 
 /**
- * Sends one push payload and reconciles successful sends / dead tokens.
- * @param {Array<Object>} recipients Push recipients
+ * Sends one push payload and reconciles delivery outcomes across all device
+ * tokens. Aggregates per-member results so that a mixed outcome (one device
+ * succeeds, another fails) marks the dedupe marker as sent rather than
+ * releasing it for a retry that would double-deliver to the succeeding device.
+ * @param {Array<Object>} recipients Push recipients (one per device token)
  * @param {Object} data FCM data payload
  * @return {Promise<Array>}
  */
@@ -1119,36 +1185,44 @@ async function sendPushToRecipients(recipients, data) {
   const batchSize = 500;
   const webpush = buildWebPushConfig(data);
 
+  // Accumulate per-member (type + memberId + subjectId) outcome across all
+  // chunks. anySuccess = true means at least one device for this member got
+  // the message — the marker should be set to 'sent', not released.
+  const recipientOutcomes = new Map();
+  const staleTokenDeletions = [];
+
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batchRecipients = recipients.slice(i, i + batchSize);
     let response;
     try {
       response = await messaging.sendEachForMulticast({
-        tokens: batchRecipients.map((recipient) => recipient.token),
+        tokens: batchRecipients.map((r) => r.token),
         data,
         webpush,
       });
     } catch (error) {
-      // The whole batch never reached FCM. Without this the throw below is the
-      // only trace, and it names no recipient, type, or failure code.
       console.error("Push batch failed", {
         type: batchRecipients[0].type,
         subjectId: batchRecipients[0].subjectId,
         attempted: batchRecipients.length,
         code: error.code,
       });
-      await Promise.all(batchRecipients.map((recipient) =>
-        releasePushRecipient(
+      // Release markers only for members with no prior success in this run.
+      await Promise.all(batchRecipients.map((recipient) => {
+        const key =
+          `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`;
+        const outcome = recipientOutcomes.get(key);
+        if (outcome && outcome.anySuccess) return Promise.resolve();
+        return releasePushRecipient(
             recipient.memberId,
             recipient.type,
             recipient.subjectId,
-        ),
-      ));
+        );
+      }));
       throw error;
     }
+
     results.push(response);
-    // Push sends were previously silent in both directions, so a member getting
-    // nothing was indistinguishable in the logs from a delivered notification.
     console.log("Push batch sent", {
       type: batchRecipients[0].type,
       subjectId: batchRecipients[0].subjectId,
@@ -1156,44 +1230,61 @@ async function sendPushToRecipients(recipients, data) {
       succeeded: response.successCount,
       failed: response.failureCount,
       failureCodes: response.responses
-          .filter((sendResult) => !sendResult.success)
-          .map((sendResult) => (sendResult.error && sendResult.error.code) ||
-            "unknown"),
+          .filter((r) => !r.success)
+          .map((r) => (r.error && r.error.code) || "unknown"),
     });
 
-    const followUps = response.responses.map((sendResult, index) => {
+    // Aggregate per-member outcomes for this chunk.
+    response.responses.forEach((sendResult, index) => {
       const recipient = batchRecipients[index];
-      if (sendResult.success) {
-        return markPushRecipient(
-            recipient.memberId,
-            recipient.type,
-            recipient.subjectId,
+      const key =
+        `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`;
+      const current = recipientOutcomes.get(key) || {
+        memberId: recipient.memberId,
+        type: recipient.type,
+        subjectId: recipient.subjectId,
+        anySuccess: false,
+      };
+      if (sendResult.success) current.anySuccess = true;
+      recipientOutcomes.set(key, current);
+
+      if (!sendResult.success &&
+          isUnrecoverablePushTokenError(sendResult.error)) {
+        staleTokenDeletions.push(
+            deleteStalePushToken(recipient.memberId, recipient.token),
         );
       }
-      if (isUnrecoverablePushTokenError(sendResult.error)) {
-        return Promise.all([
-          deleteStalePushToken(recipient.memberId, recipient.token),
-          releasePushRecipient(
-              recipient.memberId,
-              recipient.type,
-              recipient.subjectId,
-          ),
-        ]);
-      }
-      return releasePushRecipient(
-          recipient.memberId,
-          recipient.type,
-          recipient.subjectId,
-      );
     });
-    await Promise.all(followUps);
   }
+
+  // Resolve all stale token deletions in parallel — none can
+  // block marker writes.
+  await Promise.all(staleTokenDeletions);
+
+  // Write final marker state per member: mark as sent if at least one device
+  // succeeded; release for retry only if every device failed.
+  await Promise.all(
+      Array.from(recipientOutcomes.values()).map((outcome) => {
+        if (outcome.anySuccess) {
+          return markPushRecipient(
+              outcome.memberId, outcome.type, outcome.subjectId);
+        }
+        return releasePushRecipient(
+            outcome.memberId, outcome.type, outcome.subjectId);
+      }),
+  );
 
   return results;
 }
 
 /**
  * Sends a push payload to member docs that have opted in.
+ *
+ * Fans out to all registered device tokens per member so that a member with
+ * multiple devices receives the notification on each active device. The dedupe
+ * marker is keyed by (type + memberId + subjectId) and is shared across all
+ * tokens for that member — exactly one marker write happens regardless of how
+ * many devices the member has.
  * @param {Array<FirebaseFirestore.QueryDocumentSnapshot>} docs Member docs
  * @param {Object} payload Notification payload
  * @return {Promise<Array>}
@@ -1202,36 +1293,28 @@ async function sendPushToMembers(docs, payload) {
   const type = payload.type || "notification";
   const subjectId = payload.subjectId || "";
 
+  // Fan out: one recipient entry per (member, token) pair.
   const recipients = (await Promise.all(docs.map(async (doc) => {
     const member = doc.data();
-    const pushToken = await getPushToken(doc.id, member);
-    if (!pushToken) {
-      return null;
-    }
-    // Fixed-desk plans generate one booking doc per working day. Use a
-    // recipient/subject marker so push follows the same grouped behavior as
-    // the in-app notification id.
-    const shouldSend = await reservePushRecipient(
-        doc.id,
-        type,
-        subjectId,
-    );
-    if (shouldSend) {
-      return {
-        memberId: doc.id,
-        token: pushToken,
-        type,
-        subjectId,
-        locale: resolvePushLocale(member),
-      };
-    }
-    return null;
-  }))).filter(Boolean);
+    const tokens = await getPushTokens(doc.id, member);
+    if (!tokens.length) return [];
+
+    // Reserve the dedupe marker once per member (not once per token) so
+    // that multi-device sends don't double-fire the same notification.
+    const shouldSend = await reservePushRecipient(doc.id, type, subjectId);
+    if (!shouldSend) return [];
+
+    const locale = resolvePushLocale(member);
+    return tokens.map((token) => ({
+      memberId: doc.id,
+      token,
+      type,
+      subjectId,
+      locale,
+    }));
+  }))).flat().filter(Boolean);
 
   if (!recipients.length) {
-    // Either nobody opted in, everyone's token is gone, or the dedupe marker
-    // already claimed this subject. Silence here reads identically to a
-    // successful send, which is what made stale-token failures invisible.
     console.log("Push skipped: no eligible recipients", {
       type,
       subjectId,
@@ -1244,12 +1327,10 @@ async function sendPushToMembers(docs, payload) {
     link: String(payload.link || "/"),
     type: String(type),
     subjectId: String(subjectId),
-    tag: String(payload.tag ||
-      `${type}-${subjectId || "default"}`),
+    tag: String(payload.tag || `${type}-${subjectId || "default"}`),
   };
 
-  // sendEachForMulticast carries one data payload for the whole batch, so
-  // recipients are grouped by locale and each group sent with its own copy.
+  // Group by locale — sendEachForMulticast uses one data payload per batch.
   const byLocale = new Map();
   recipients.forEach((recipient) => {
     const group = byLocale.get(recipient.locale) || [];

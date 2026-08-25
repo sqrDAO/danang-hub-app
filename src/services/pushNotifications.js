@@ -1,4 +1,4 @@
-import { deleteDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
 import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging'
 import app, { db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
@@ -7,16 +7,22 @@ import { isMobilePushEligible } from '../utils/mobilePushEligibility'
 import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
+  clearStoredDeviceToken,
   getDeviceOptInState,
+  getStoredDeviceToken,
   setDeviceOptedIn,
   setDeviceOptedOut,
+  setStoredDeviceToken,
   shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
+import { hashPushToken } from '../utils/pushDeviceToken'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
+export { hashPushToken } from '../utils/pushDeviceToken'
 
-const PUSH_TOKENS_COLLECTION = 'push_tokens'
+export const MAX_PUSH_DEVICES_PER_MEMBER = 5
+
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
 const PUSH_PERMISSION_MESSAGE = 'Push notifications are blocked in your browser settings.'
 const PUSH_CONFIG_MESSAGE = 'Push notifications are not configured for this app.'
@@ -34,11 +40,12 @@ let ensureForegroundPromise = null
  * instead of registering after disable/logout/effect cleanup.
  */
 let foregroundListenerGeneration = 0
-/** BroadcastChannel for multi-tab “is any peer focused?” queries. */
+/** BroadcastChannel for multi-tab "is any peer focused?" queries. */
 let pushFocusChannel = null
 const PUSH_FOCUS_CHANNEL = 'hub-push-focus'
 const PUSH_SHOW_LOCK = 'hub-push-foreground-show'
 const FOCUS_QUERY_MS = 40
+
 export const isPushSupported = async () => {
   if (typeof window === 'undefined') return false
   if (!isMobilePushEligible()) return false
@@ -89,18 +96,100 @@ const getServiceWorkerRegistration = async () => {
   return navigator.serviceWorker.ready
 }
 
-const getPushTokenRef = (uid) => doc(db, PUSH_TOKENS_COLLECTION, uid)
+/**
+ * Deletes the oldest push token documents when the subcollection is at or over
+ * capacity, making room for the incoming new token.
+ *
+ * Non-blocking: pruning failures are logged but never thrown so that the
+ * calling registration always completes.
+ * @param {string} uid Member id
+ * @param {string} incomingTokenId The hashed id of the token being saved
+ */
+const pruneOldestPushTokens = async (uid, incomingTokenId) => {
+  try {
+    const tokensCol = collection(db, 'members', uid, 'push_tokens')
+    const snap = await getDocs(tokensCol)
+    if (snap.empty || snap.size < MAX_PUSH_DEVICES_PER_MEMBER) return
 
-const savePushToken = async (uid, token) => {
-  await setDoc(getPushTokenRef(uid), {
-    token,
-    platform: 'web',
-    updatedAt: new Date().toISOString()
-  }, { merge: true })
+    const docs = []
+    snap.forEach((d) => {
+      docs.push({ id: d.id, ref: d.ref, data: d.data() })
+    })
+
+    // Sort oldest first by updatedAt, falling back to createdAt.
+    // Use numeric timestamp comparison to be robust against malformed strings.
+    docs.sort((a, b) => {
+      const tA = new Date(a.data.updatedAt || a.data.createdAt || 0).getTime()
+      const tB = new Date(b.data.updatedAt || b.data.createdAt || 0).getTime()
+      return tA - tB
+    })
+
+    // If the incoming token already has a document, this is a same-device
+    // refresh landing here after a token rotation — no net new slot is consumed.
+    const isExisting = docs.some((d) => d.id === incomingTokenId)
+    const excessCount = isExisting
+      ? docs.length - MAX_PUSH_DEVICES_PER_MEMBER
+      : (docs.length + 1) - MAX_PUSH_DEVICES_PER_MEMBER
+
+    if (excessCount > 0) {
+      const candidates = docs.filter((d) => d.id !== incomingTokenId)
+      const toDelete = candidates.slice(0, excessCount)
+      await Promise.all(toDelete.map((d) => deleteDoc(d.ref)))
+    }
+  } catch (error) {
+    console.warn('Unable to prune excess push tokens', error)
+  }
 }
 
-const removeStoredPushToken = async (uid) => {
-  await deleteDoc(getPushTokenRef(uid))
+/**
+ * Persists an FCM token to the member's push_tokens subcollection.
+ *
+ * Uses the token's SHA-256 hash as the document id so writes are idempotent:
+ * saving the same token twice merges without creating a duplicate. The
+ * existence check before pruning is the ground truth for "new vs. existing
+ * device" — callers do not need to hint via an `isRefresh` flag.
+ * @param {string} uid Member id
+ * @param {string} token Raw FCM token
+ */
+const savePushToken = async (uid, token) => {
+  if (!uid || !token) return
+  setStoredDeviceToken(uid, token)
+
+  const tokenId = await hashPushToken(token)
+  const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
+
+  // Determine if this token doc already exists so we know whether to prune and
+  // whether to write createdAt. This is the authoritative "new vs. refresh"
+  // check — no caller-provided flag needed.
+  const existing = await getDoc(tokenRef)
+  const isNew = !existing.exists()
+
+  if (isNew) {
+    await pruneOldestPushTokens(uid, tokenId)
+  }
+
+  const now = new Date().toISOString()
+  const payload = {
+    token,
+    platform: 'web',
+    updatedAt: now
+  }
+  if (isNew) {
+    payload.createdAt = now
+  }
+  await setDoc(tokenRef, payload, { merge: true })
+}
+
+/**
+ * Deletes a specific FCM token document from the member's push_tokens subcollection.
+ * @param {string} uid Member id
+ * @param {string} token Raw FCM token to remove
+ */
+const removeStoredPushToken = async (uid, token) => {
+  if (!uid || !token) return
+  const tokenId = await hashPushToken(token)
+  const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
+  await deleteDoc(tokenRef)
 }
 
 const deleteBrowserPushToken = async () => {
@@ -271,12 +360,20 @@ const issuePushToken = async () => {
   return token
 }
 
-export const enablePushNotifications = async (uid) => {
+/**
+ * Registers this device for push without touching the account-level preference.
+ *
+ * Used by the Profile "This Device" toggle and the post-booking opt-in banner.
+ * Callers that also want to set preferences.pushNotifications = true should use
+ * enablePushNotifications instead.
+ * @param {string} uid Member id
+ * @returns {Promise<string>} The minted FCM token
+ */
+export const enableDevicePushNotifications = async (uid) => {
   await ensurePushPermission()
   const token = await issuePushToken()
 
   await savePushToken(uid, token)
-  await updateMemberPreferences(uid, { pushNotifications: true })
   // Marked only after the writes land, so a half-failed opt-in does not leave a
   // device claiming an opt-in it never completed.
   setDeviceOptedIn(uid)
@@ -286,23 +383,38 @@ export const enablePushNotifications = async (uid) => {
 }
 
 /**
+ * Registers this device and sets the account-level push preference to true.
+ *
+ * Used by the Profile Preferences form when toggling push on. For device-only
+ * registration without touching the preference, use enableDevicePushNotifications.
+ * @param {string} uid Member id
+ * @returns {Promise<string>} The minted FCM token
+ */
+export const enablePushNotifications = async (uid) => {
+  const token = await enableDevicePushNotifications(uid)
+  await updateMemberPreferences(uid, { pushNotifications: true })
+  return token
+}
+
+/**
  * Re-issues this device's FCM token on an authenticated launch.
  *
  * FCM web tokens die routinely — cleared site data, a reinstalled PWA, the push
- * service resubscribing — and the server drops `preferences.pushNotifications`
- * to false on the first failed send. Without this, a member's push is off for
- * good after one stale token, with nothing in the UI to say so.
+ * service resubscribing. Re-issuing the token keeps this device's token document
+ * in members/{uid}/push_tokens/{tokenId} fresh and active.
  *
  * Deliberately never calls requestPermission: a launch-time permission prompt
  * is exactly the behavior the opt-in banner exists to avoid.
+ *
+ * Never restores or modifies the account-level preference: that field is
+ * exclusively user-controlled.
  * @param {string} uid Signed-in member id
  * @param {{preferenceEnabled?: boolean}} [options] Cached member preference
- * @returns {Promise<boolean>} True when the member preference was restored, so
- *   the caller should refresh its cached profile
+ * @returns {Promise<void>}
  */
 export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) => {
   const state = getDeviceOptInState(uid)
-  if (state === DEVICE_OPTED_OUT) return false
+  if (state === DEVICE_OPTED_OUT) return
 
   const permission = typeof Notification === 'undefined'
     ? 'default'
@@ -312,35 +424,66 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   // them once from the preference plus a granted permission.
   const deviceOptedIn = state === DEVICE_OPTED_IN ||
     shouldAdoptLegacyOptIn({ state, preferenceEnabled, permission })
-  if (!deviceOptedIn) return false
+  if (!deviceOptedIn) return
 
   const eligible = await isPushSupported()
-  if (!shouldRefreshPushToken({ eligible, permission, deviceOptedIn })) return false
-  if (!firebaseVapidKey) return false
+  if (!shouldRefreshPushToken({ eligible, permission, deviceOptedIn })) return
+  if (!firebaseVapidKey) return
 
   const token = await issuePushToken()
   await savePushToken(uid, token)
-  // Recorded only once the token write landed, mirroring enablePushNotifications:
+  // Recorded only once the token write landed, mirroring enableDevicePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
-  if (preferenceEnabled) return false
-
-  // The server cleared this on a stale-token send. Heal it so the foreground
-  // listener effect — which gates on the preference — starts working again.
-  await updateMemberPreferences(uid, { pushNotifications: true })
-  return true
 }
 
-export const disablePushNotifications = async (uid) => {
+/**
+ * Disables push on this specific device only. Does NOT modify
+ * preferences.pushNotifications — other devices remain active if the account
+ * preference stays true.
+ *
+ * Local state is committed first (before any async work) so that a network
+ * error during Firestore cleanup cannot leave this device thinking it is still
+ * opted in.
+ * @param {string} uid Member id
+ */
+export const disableDevicePushNotifications = async (uid) => {
+  // 1. Commit local state synchronously before any async work that could throw.
   stopForegroundPushListener()
   setDeviceOptedOut(uid)
-  await removeStoredPushToken(uid)
-  await updateMemberPreferences(uid, { pushNotifications: false })
+
+  // 2. Retrieve the cached token, then clear it from localStorage.
+  const cachedToken = getStoredDeviceToken(uid)
+  clearStoredDeviceToken(uid)
+
+  // 3. Remove the Firestore token document. Best-effort: a network failure
+  //    here is recoverable — the server will prune the stale token on the
+  //    next failed send attempt.
+  if (cachedToken) {
+    await removeStoredPushToken(uid, cachedToken).catch(() => {
+      console.warn('Could not delete push token doc; it will be pruned on next stale send.')
+    })
+  }
+
+  // 4. Tell FCM to unsubscribe this browser's push subscription.
   await deleteBrowserPushToken().catch(() => false)
+}
+
+/**
+ * Disables push on this device and turns off the account-level preference.
+ *
+ * Used by the Profile Preferences form when toggling push off. For device-only
+ * deregistration without touching the account preference, use
+ * disableDevicePushNotifications directly.
+ * @param {string} uid Member id
+ */
+export const disablePushNotifications = async (uid) => {
+  await disableDevicePushNotifications(uid)
+  await updateMemberPreferences(uid, { pushNotifications: false })
 }
 
 export const disablePushNotificationsOnLogout = async (uid) => {
   if (!isMobilePushEligible()) return false
-  await disablePushNotifications(uid)
+  await disableDevicePushNotifications(uid)
   return true
 }

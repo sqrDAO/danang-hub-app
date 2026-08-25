@@ -9,11 +9,14 @@ import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
 import {
+  disableDevicePushNotifications,
   disablePushNotifications,
+  enableDevicePushNotifications,
   enablePushNotifications,
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
+import { isDeviceOptedIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -42,15 +45,6 @@ const validateRequiredFields = (data, t) => {
 const isInvalidOptionalField = (value, pattern) =>
   Boolean(value && value.trim() && !pattern.test(value.trim()))
 
-const getPushPreferenceValue = (preferences) => preferences?.pushNotifications === true
-
-const getPushPreferenceHelp = (supported, permission, t) => {
-  if (!supported) return t('profile.pushNotificationsUnsupported')
-  if (permission === 'denied') return t('profile.pushNotificationsDenied')
-  if (permission === 'granted') return t('profile.pushNotificationsGranted')
-  return t('profile.pushNotificationsHelp')
-}
-
 const buildProfileUpdateData = (formData, pushNotifications) => ({
   displayName: formData.get('displayName')?.trim() || '',
   email: formData.get('email')?.trim() || '',
@@ -66,16 +60,6 @@ const buildProfileUpdateData = (formData, pushNotifications) => ({
     pushNotifications,
   },
 })
-
-const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications, setPushPermission) => {
-  if (desiredPushNotifications === currentPushNotifications) return
-  if (desiredPushNotifications) {
-    await enablePushNotifications(uid)
-  } else {
-    await disablePushNotifications(uid)
-  }
-  setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
-}
 
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
@@ -166,11 +150,19 @@ const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
   )
 }
 
-const PushNotificationPreferenceField = ({
+/**
+ * Account-level push preference checkbox shown in the Preferences form section.
+ *
+ * Toggling this on/off calls enablePushNotifications / disablePushNotifications,
+ * which set preferences.pushNotifications on the member doc AND register/
+ * deregister this device. It does NOT manage device-level state independently
+ * — that is the job of ProfileDevicePushSection in the detail view.
+ */
+const AccountPushPreferenceField = ({
   preferences,
   mobilePushEligible,
   pushSupported,
-  pushPreferenceHelp
+  pushPreferenceHelp,
 }) => {
   const { t } = useTranslation()
   if (mobilePushEligible) {
@@ -202,6 +194,90 @@ const PushNotificationPreferenceField = ({
       </label>
       <p className="form-field-note">{t('profile.pushNotificationsRegisteredPhoneHelp')}</p>
     </div>
+  )
+}
+
+/**
+ * Device-level push section shown in the profile detail view (read mode only).
+ *
+ * Controls only the current browser/device registration. Toggling it does NOT
+ * change preferences.pushNotifications — the account-level flag is managed by
+ * the Preferences form. A member can have account push ON with this device
+ * opted out, or vice versa.
+ */
+const ProfileDevicePushSection = ({
+  currentUser,
+  mobilePushEligible,
+  pushSupported,
+  pushPermission,
+}) => {
+  const { t } = useTranslation()
+  const uid = currentUser?.uid
+  const [deviceOptedIn, setDeviceOptedInState] = useState(() => isDeviceOptedIn(uid))
+  const [isToggling, setIsToggling] = useState(false)
+
+  useEffect(() => {
+    setDeviceOptedInState(isDeviceOptedIn(uid))
+  }, [uid])
+
+  if (!mobilePushEligible) return null
+
+  const handleToggleDevicePush = async () => {
+    if (!uid || isToggling) return
+    setIsToggling(true)
+    try {
+      if (deviceOptedIn) {
+        await disableDevicePushNotifications(uid)
+        setDeviceOptedInState(false)
+        showToast(t('profile.devicePushDisabledToast'), 'info')
+      } else {
+        await enableDevicePushNotifications(uid)
+        setDeviceOptedInState(true)
+        showToast(t('profile.devicePushEnabledToast'), 'success')
+      }
+    } catch (error) {
+      showToast(error.message || t('profile.devicePushErrorToast'), 'error')
+    } finally {
+      setIsToggling(false)
+    }
+  }
+
+  const getStatusBadge = () => {
+    if (!pushSupported) return { label: t('profile.devicePushUnsupported'), cls: 'status-disabled' }
+    if (pushPermission === 'denied') return { label: t('profile.devicePushBlocked'), cls: 'status-blocked' }
+    if (deviceOptedIn && pushPermission === 'granted') return { label: t('profile.devicePushActive'), cls: 'status-active' }
+    return { label: t('profile.devicePushInactive'), cls: 'status-inactive' }
+  }
+
+  const status = getStatusBadge()
+
+  return (
+    <section className="profile-section">
+      <h3 className="profile-section-title">{t('profile.thisDeviceTitle')}</h3>
+      <div className="profile-detail-item profile-device-push-row">
+        <div>
+          <span className="detail-label">{t('profile.thisDevicePushStatus')}</span>
+          <div className="device-push-status-wrap">
+            <span className={`device-push-badge ${status.cls}`}>{status.label}</span>
+          </div>
+          <p className="form-field-note">{t('profile.thisDevicePushHelp')}</p>
+        </div>
+        {pushSupported && pushPermission !== 'denied' && (
+          <button
+            type="button"
+            className={`btn ${deviceOptedIn ? 'btn-secondary' : 'btn-primary'} btn-sm`}
+            onClick={handleToggleDevicePush}
+            disabled={isToggling}
+          >
+            {isToggling
+              ? t('common.saving')
+              : deviceOptedIn
+                ? t('profile.disableThisDevice')
+                : t('profile.enableThisDevice')}
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -347,7 +423,7 @@ const ProfileEditForm = ({
             <span>{t('profile.eventReminders')}</span>
           </label>
         </div>
-        <PushNotificationPreferenceField
+        <AccountPushPreferenceField
           preferences={preferences}
           mobilePushEligible={mobilePushEligible}
           pushSupported={pushSupported}
@@ -428,7 +504,7 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible }) => {
+const ProfilePreferencesSection = ({ preferences }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
@@ -441,12 +517,10 @@ const ProfilePreferencesSection = ({ preferences, mobilePushEligible }) => {
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
       </div>
-      {mobilePushEligible && (
-        <div className="profile-detail-item">
-          <span className="detail-label">{t('profile.pushNotifications')}</span>
-          <span className="detail-value">{getPushPreferenceValue(preferences) ? t('common.on') : t('common.off')}</span>
-        </div>
-      )}
+      <div className="profile-detail-item">
+        <span className="detail-label">{t('profile.pushNotifications')}</span>
+        <span className="detail-value">{preferences.pushNotifications === true ? t('common.on') : t('common.off')}</span>
+      </div>
     </section>
   )
 }
@@ -486,7 +560,19 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible }) => {
+const ProfileDetails = ({
+  userProfile,
+  currentUser,
+  preferences,
+  stats,
+  statsLoading,
+  copiedAddress,
+  onCopyAddress,
+  onEdit,
+  mobilePushEligible,
+  pushSupported,
+  pushPermission,
+}) => {
   const { t } = useTranslation()
   return (
     <>
@@ -523,7 +609,14 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         </div>
       </section>
 
-      <ProfilePreferencesSection preferences={preferences} mobilePushEligible={mobilePushEligible} />
+      <ProfilePreferencesSection preferences={preferences} />
+
+      <ProfileDevicePushSection
+        currentUser={currentUser}
+        mobilePushEligible={mobilePushEligible}
+        pushSupported={pushSupported}
+        pushPermission={pushPermission}
+      />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
 
@@ -534,6 +627,13 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
       </div>
     </>
   )
+}
+
+const getPushPreferenceHelp = (supported, permission, t) => {
+  if (!supported) return t('profile.pushNotificationsUnsupported')
+  if (permission === 'denied') return t('profile.pushNotificationsDenied')
+  if (permission === 'granted') return t('profile.pushNotificationsGranted')
+  return t('profile.pushNotificationsHelp')
 }
 
 const MemberProfile = () => {
@@ -624,11 +724,15 @@ const MemberProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const currentPushNotifications = getPushPreferenceValue(userProfile?.preferences)
+
+    // Determine desired account-level push preference from the form checkbox.
+    // The checkbox is named 'pushNotifications' and lives in the Preferences
+    // section. If it is absent (non-mobile or unsupported), preserve the
+    // current stored value.
+    const currentPush = userProfile?.preferences?.pushNotifications === true
     const pushInput = e.target.elements.namedItem('pushNotifications')
-    const desiredPushNotifications = !pushInput || pushInput.disabled
-      ? currentPushNotifications
-      : pushInput.checked
+    const desiredPushNotifications = pushInput ? pushInput.checked : currentPush
+
     const data = buildProfileUpdateData(formData, desiredPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
@@ -638,12 +742,18 @@ const MemberProfile = () => {
 
     setIsSaving(true)
     try {
-      await syncPushPreference(
-        currentUser.uid,
-        desiredPushNotifications,
-        currentPushNotifications,
-        setPushPermission
-      )
+      // Sync push device state when the account-level preference changes.
+      // enablePushNotifications registers this device AND sets the preference.
+      // disablePushNotifications deregisters this device AND clears the preference.
+      if (desiredPushNotifications !== currentPush) {
+        if (desiredPushNotifications) {
+          await enablePushNotifications(currentUser.uid)
+        } else {
+          await disablePushNotifications(currentUser.uid)
+        }
+        setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+      }
+
       await updateMember(currentUser.uid, data)
 
       if (typeof refreshUserProfile === 'function') {
@@ -727,6 +837,7 @@ const MemberProfile = () => {
           ) : (
             <ProfileDetails
               userProfile={userProfile}
+              currentUser={currentUser}
               preferences={preferences}
               stats={stats}
               statsLoading={statsLoading}
@@ -734,6 +845,8 @@ const MemberProfile = () => {
               onCopyAddress={copyAddress}
               onEdit={() => setIsEditing(true)}
               mobilePushEligible={mobilePushEligible}
+              pushSupported={pushSupported}
+              pushPermission={pushPermission}
             />
           )}
         </div>

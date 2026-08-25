@@ -2,11 +2,11 @@
 // `preferences.pushNotifications` mirror on the member doc.
 //
 // The launch-time token refresh cannot key off browser permission alone:
-// disablePushNotifications deletes the token but leaves Notification.permission
-// granted, so a permission-only gate would resurrect push for someone who
-// deliberately turned it off. It cannot key off the member preference either —
-// that is the field the server clears on a stale token, which is exactly the
-// state the refresh exists to heal. Hence a third, device-local signal.
+// disableDevicePushNotifications deletes the token but leaves
+// Notification.permission granted, so a permission-only gate would resurrect
+// push for someone who deliberately turned it off. It cannot key off the member
+// preference either — the account preference is user-intent only and the server
+// never clears it. Hence a third, device-local signal.
 //
 // Three states, not two. An explicit opt-out is *recorded* as 'false' rather
 // than removed, so a device that said no stays distinguishable from one that
@@ -15,6 +15,7 @@
 // every opt-out made before the marker existed.
 
 const DEVICE_OPT_IN_KEY = (uid) => `pushDeviceOptIn:${uid}`
+const DEVICE_TOKEN_KEY = (uid) => `pushDeviceToken:${uid}`
 
 export const DEVICE_OPTED_IN = 'in'
 export const DEVICE_OPTED_OUT = 'out'
@@ -89,5 +90,32 @@ export const setDeviceOptedOut = (uid) => {
   } catch {
     // Ignore write failures; getDeviceOptInState already reports a storage
     // error as an opt-out, so the refresh stays off either way.
+  }
+}
+
+export const getStoredDeviceToken = (uid) => {
+  if (!uid || typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(DEVICE_TOKEN_KEY(uid)) || ''
+  } catch {
+    return ''
+  }
+}
+
+export const setStoredDeviceToken = (uid, token) => {
+  if (!uid || !token || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(DEVICE_TOKEN_KEY(uid), token)
+  } catch {
+    // Ignore write failures
+  }
+}
+
+export const clearStoredDeviceToken = (uid) => {
+  if (!uid || typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(DEVICE_TOKEN_KEY(uid))
+  } catch {
+    // Ignore removal failures
   }
 }
