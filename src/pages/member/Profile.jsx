@@ -10,9 +10,7 @@ import Avatar from '../../components/Avatar'
 import { updateMember, getMemberStats } from '../../services/members'
 import {
   disableDevicePushNotifications,
-  disablePushNotifications,
   enableDevicePushNotifications,
-  enablePushNotifications,
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
@@ -181,14 +179,13 @@ const AccountPushPreferenceField = ({
       </div>
     )
   }
-  if (preferences.pushNotifications !== true) return null
   return (
     <div className="form-group form-group-checkbox">
       <label className="form-label form-label-checkbox">
         <input
           type="checkbox"
           name="pushNotifications"
-          defaultChecked
+          defaultChecked={preferences.pushNotifications === true}
         />
         <span>{t('profile.pushNotificationsRegisteredPhone')}</span>
       </label>
@@ -243,9 +240,10 @@ const ProfileDevicePushSection = ({
   }
 
   const getStatusBadge = () => {
+    const currentPerm = typeof Notification !== 'undefined' ? Notification.permission : pushPermission
     if (!pushSupported) return { label: t('profile.devicePushUnsupported'), cls: 'status-disabled' }
-    if (pushPermission === 'denied') return { label: t('profile.devicePushBlocked'), cls: 'status-blocked' }
-    if (deviceOptedIn && pushPermission === 'granted') return { label: t('profile.devicePushActive'), cls: 'status-active' }
+    if (currentPerm === 'denied') return { label: t('profile.devicePushBlocked'), cls: 'status-blocked' }
+    if (deviceOptedIn && currentPerm === 'granted') return { label: t('profile.devicePushActive'), cls: 'status-active' }
     return { label: t('profile.devicePushInactive'), cls: 'status-inactive' }
   }
 
@@ -742,18 +740,6 @@ const MemberProfile = () => {
 
     setIsSaving(true)
     try {
-      // Sync push device state when the account-level preference changes.
-      // enablePushNotifications registers this device AND sets the preference.
-      // disablePushNotifications deregisters this device AND clears the preference.
-      if (desiredPushNotifications !== currentPush) {
-        if (desiredPushNotifications) {
-          await enablePushNotifications(currentUser.uid)
-        } else {
-          await disablePushNotifications(currentUser.uid)
-        }
-        setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
-      }
-
       await updateMember(currentUser.uid, data)
 
       if (typeof refreshUserProfile === 'function') {

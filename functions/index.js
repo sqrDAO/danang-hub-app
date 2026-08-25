@@ -1207,8 +1207,15 @@ async function sendPushToRecipients(recipients, data) {
         attempted: batchRecipients.length,
         code: error.code,
       });
-      // Release markers only for members with no prior success in this run.
-      await Promise.all(batchRecipients.map((recipient) => {
+      // Finalize all prior successful markers before rethrowing so they
+      // are marked as sent and not re-sent upon retry.
+      const finalizePrior = Array.from(recipientOutcomes.values())
+          .filter((outcome) => outcome.anySuccess)
+          .map((outcome) => markPushRecipient(
+              outcome.memberId, outcome.type, outcome.subjectId));
+
+      // Release markers for the failing batch only if no device succeeded.
+      const releaseFailing = batchRecipients.map((recipient) => {
         const key =
           `${recipient.type}_${recipient.memberId}_${recipient.subjectId}`;
         const outcome = recipientOutcomes.get(key);
@@ -1218,7 +1225,13 @@ async function sendPushToRecipients(recipients, data) {
             recipient.type,
             recipient.subjectId,
         );
-      }));
+      });
+
+      await Promise.all([
+        ...finalizePrior,
+        ...releaseFailing,
+        ...staleTokenDeletions,
+      ]);
       throw error;
     }
 
