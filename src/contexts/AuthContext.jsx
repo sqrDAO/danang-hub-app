@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       resetPushOptInPrompt()
-      if (currentUser?.uid && userProfile?.preferences?.pushNotifications) {
+      if (currentUser?.uid) {
         try {
           const { disablePushNotificationsOnLogout } = await import('../services/pushNotifications')
           await disablePushNotificationsOnLogout(currentUser.uid)
@@ -211,11 +211,9 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   // An FCM token is minted once at opt-in and then goes stale on its own —
-  // cleared site data, a reinstalled PWA, the push service resubscribing. The
-  // server drops preferences.pushNotifications to false on the first failed
-  // send, so without a launch-time re-issue a member's push dies permanently
-  // with nothing in the UI to say so. Deliberately outside the listener effect
-  // below: that one gates on the very preference this heals.
+  // cleared site data, a reinstalled PWA, the push service resubscribing.
+  // Re-issuing on launch keeps this device's token document fresh. The account
+  // preference is never modified here; stale-token pruning is surgical.
   useEffect(() => {
     const uid = currentUser?.uid
     if (!uid) {

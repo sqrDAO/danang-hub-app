@@ -21,6 +21,11 @@ const {
 } = require("./eventLifecycle");
 const {rangeOverlapsClosure} = require("./hubClosures");
 const {getCancellationNotice} = require("./bookingNotifications");
+const {
+  MAX_PUSH_TOKENS_PER_MEMBER,
+  readPushTokenRecord,
+  selectPushTokens,
+} = require("./pushTokens");
 
 initializeApp();
 
@@ -831,19 +836,13 @@ function hasPushEnabled(member) {
   );
 }
 
-const MAX_PUSH_TOKENS_PER_MEMBER = 5;
-
 /**
  * Returns all active FCM tokens for a member, newest first.
  *
- * Reads from members/{memberId}/push_tokens subcollection. Falls back to the
- * legacy flat push_tokens/{memberId} document when the subcollection is empty
- * so that devices registered before the migration still receive pushes during
- * the rollout window.
- *
- * Caps delivery at MAX_PUSH_TOKENS_PER_MEMBER tokens if the subcollection has
- * grown beyond that (should not happen — client pruning runs at registration
- * time, but the cap prevents unbounded multicast batches if it ever does).
+ * Reads members/{memberId}/push_tokens and always merges the legacy flat
+ * push_tokens/{memberId} token when it is not already in the set, so a phone
+ * that has not launched the new build still receives push after another
+ * device registers. Caps delivery at MAX_PUSH_TOKENS_PER_MEMBER.
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
  * @return {Promise<Array<string>>} Stored browser push tokens
@@ -851,57 +850,32 @@ const MAX_PUSH_TOKENS_PER_MEMBER = 5;
 async function getPushTokens(memberId, member) {
   if (!hasPushEnabled(member)) return [];
 
+  const tokenDocs = [];
   const subSnap = await db
       .collection("members")
       .doc(memberId)
       .collection("push_tokens")
       .get();
-
-  const tokenDocs = [];
   subSnap.forEach((d) => {
-    const data = d.data();
-    if (data && data.token && typeof data.token === "string") {
-      const trimmed = data.token.trim();
-      if (trimmed) {
-        tokenDocs.push({
-          token: trimmed,
-          // Prefer updatedAt; fall back to createdAt so newly-written docs
-          // with only createdAt still sort correctly.
-          ts: new Date(data.updatedAt || data.createdAt || 0).getTime(),
-        });
-      }
-    }
+    const record = readPushTokenRecord(d.data());
+    if (record) tokenDocs.push(record);
   });
 
-  // Sort newest first using numeric timestamps — robust against
-  // malformed strings.
-  tokenDocs.sort((a, b) => b.ts - a.ts);
-  const tokenSet = new Set(tokenDocs.map((d) => d.token));
-
-  // Legacy single-token fallback for devices registered before
-  // the subcollection migration. Used only when subcollection is empty.
-  if (tokenSet.size === 0) {
-    const legacyDoc = await db.collection("push_tokens").doc(memberId).get();
-    if (legacyDoc.exists) {
-      const legacyData = legacyDoc.data();
-      if (legacyData && legacyData.token &&
-          typeof legacyData.token === "string") {
-        const trimmed = legacyData.token.trim();
-        if (trimmed) tokenSet.add(trimmed);
-      }
-    }
+  const legacyDoc = await db.collection("push_tokens").doc(memberId).get();
+  if (legacyDoc.exists) {
+    const record = readPushTokenRecord(legacyDoc.data());
+    if (record) tokenDocs.push(record);
   }
 
-  if (tokenSet.size > MAX_PUSH_TOKENS_PER_MEMBER) {
+  if (tokenDocs.length > MAX_PUSH_TOKENS_PER_MEMBER) {
     console.warn("Member exceeded max active push tokens; capping delivery", {
       memberId,
-      totalTokens: tokenSet.size,
+      totalTokens: tokenDocs.length,
       max: MAX_PUSH_TOKENS_PER_MEMBER,
     });
-    return Array.from(tokenSet).slice(0, MAX_PUSH_TOKENS_PER_MEMBER);
   }
 
-  return Array.from(tokenSet);
+  return selectPushTokens(tokenDocs, MAX_PUSH_TOKENS_PER_MEMBER);
 }
 
 const PUSH_MARKER_TTL_DAYS = 90;
@@ -1070,13 +1044,7 @@ async function deleteStalePushToken(recipientId, failedToken) {
       code: error.code,
       message: error.message,
     });
-    return;
   }
-
-  // No outcome enumeration needed — the function is now purely a best-effort
-  // delete. The caller (sendPushToRecipients) handles marker
-  // release separately.
-  console.log("Cleared stale push registration", {recipientId});
 }
 
 // Push copy is localized per recipient. i18n lives in the browser

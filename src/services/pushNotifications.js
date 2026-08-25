@@ -16,12 +16,18 @@ import {
   shouldAdoptLegacyOptIn,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
-import { hashPushToken } from '../utils/pushDeviceToken'
+import {
+  hashPushToken,
+  MAX_PUSH_DEVICES_PER_MEMBER,
+  previousTokenToReplace,
+  pushTokenIdsToPrune
+} from '../utils/pushDeviceToken'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
-export { hashPushToken } from '../utils/pushDeviceToken'
-
-export const MAX_PUSH_DEVICES_PER_MEMBER = 5
+export {
+  hashPushToken,
+  MAX_PUSH_DEVICES_PER_MEMBER
+} from '../utils/pushDeviceToken'
 
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
 const PUSH_PERMISSION_MESSAGE = 'Push notifications are blocked in your browser settings.'
@@ -97,8 +103,21 @@ const getServiceWorkerRegistration = async () => {
 }
 
 /**
- * Deletes the oldest push token documents when the subcollection is at or over
- * capacity, making room for the incoming new token.
+ * Deletes a specific FCM token document from the member's push_tokens subcollection.
+ * @param {string} uid Member id
+ * @param {string} token Raw FCM token to remove
+ */
+const removeStoredPushToken = async (uid, token) => {
+  if (!uid || !token) return
+  const tokenId = await hashPushToken(token)
+  const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
+  await deleteDoc(tokenRef)
+}
+
+/**
+ * Deletes the oldest push token documents when the subcollection is over
+ * capacity. Runs after the incoming token is written so concurrent
+ * registrations self-heal. The incoming id is never evicted.
  *
  * Non-blocking: pruning failures are logged but never thrown so that the
  * calling registration always completes.
@@ -109,33 +128,23 @@ const pruneOldestPushTokens = async (uid, incomingTokenId) => {
   try {
     const tokensCol = collection(db, 'members', uid, 'push_tokens')
     const snap = await getDocs(tokensCol)
-    if (snap.empty || snap.size < MAX_PUSH_DEVICES_PER_MEMBER) return
+    if (snap.empty) return
 
     const docs = []
     snap.forEach((d) => {
-      docs.push({ id: d.id, ref: d.ref, data: d.data() })
+      const data = d.data() || {}
+      docs.push({
+        id: d.id,
+        ref: d.ref,
+        updatedAt: data.updatedAt,
+        createdAt: data.createdAt
+      })
     })
 
-    // Sort oldest first by updatedAt, falling back to createdAt.
-    // Use numeric timestamp comparison to be robust against malformed strings.
-    docs.sort((a, b) => {
-      const tA = new Date(a.data.updatedAt || a.data.createdAt || 0).getTime()
-      const tB = new Date(b.data.updatedAt || b.data.createdAt || 0).getTime()
-      return tA - tB
-    })
-
-    // If the incoming token already has a document, this is a same-device
-    // refresh landing here after a token rotation — no net new slot is consumed.
-    const isExisting = docs.some((d) => d.id === incomingTokenId)
-    const excessCount = isExisting
-      ? docs.length - MAX_PUSH_DEVICES_PER_MEMBER
-      : (docs.length + 1) - MAX_PUSH_DEVICES_PER_MEMBER
-
-    if (excessCount > 0) {
-      const candidates = docs.filter((d) => d.id !== incomingTokenId)
-      const toDelete = candidates.slice(0, excessCount)
-      await Promise.all(toDelete.map((d) => deleteDoc(d.ref)))
-    }
+    const ids = pushTokenIdsToPrune(docs, incomingTokenId, MAX_PUSH_DEVICES_PER_MEMBER)
+    if (!ids.length) return
+    const refsById = new Map(docs.map((d) => [d.id, d.ref]))
+    await Promise.all(ids.map((id) => deleteDoc(refsById.get(id))))
   } catch (error) {
     console.warn('Unable to prune excess push tokens', error)
   }
@@ -145,29 +154,28 @@ const pruneOldestPushTokens = async (uid, incomingTokenId) => {
  * Persists an FCM token to the member's push_tokens subcollection.
  *
  * Uses the token's SHA-256 hash as the document id so writes are idempotent:
- * saving the same token twice merges without creating a duplicate. The
- * existence check before pruning is the ground truth for "new vs. existing
- * device" — callers do not need to hint via an `isRefresh` flag.
+ * saving the same token twice merges without creating a duplicate. A rotated
+ * token deletes this browser's previous doc first, then prunes overflow.
  * @param {string} uid Member id
  * @param {string} token Raw FCM token
  */
 const savePushToken = async (uid, token) => {
   if (!uid || !token) return
-  setStoredDeviceToken(uid, token)
+
+  // Read the cached token *before* overwriting it. An FCM rotation must
+  // delete this browser's previous doc so prune does not treat the new hash
+  // as a 6th device and evict someone else.
+  const rotated = previousTokenToReplace(getStoredDeviceToken(uid), token)
+  if (rotated) {
+    await removeStoredPushToken(uid, rotated).catch(() => {
+      console.warn('Could not delete rotated push token; it will be pruned if stale.')
+    })
+  }
 
   const tokenId = await hashPushToken(token)
   const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
-
-  // Determine if this token doc already exists so we know whether to prune and
-  // whether to write createdAt. This is the authoritative "new vs. refresh"
-  // check — no caller-provided flag needed.
   const existing = await getDoc(tokenRef)
   const isNew = !existing.exists()
-
-  if (isNew) {
-    await pruneOldestPushTokens(uid, tokenId)
-  }
-
   const now = new Date().toISOString()
   const payload = {
     token,
@@ -178,18 +186,8 @@ const savePushToken = async (uid, token) => {
     payload.createdAt = now
   }
   await setDoc(tokenRef, payload, { merge: true })
-}
-
-/**
- * Deletes a specific FCM token document from the member's push_tokens subcollection.
- * @param {string} uid Member id
- * @param {string} token Raw FCM token to remove
- */
-const removeStoredPushToken = async (uid, token) => {
-  if (!uid || !token) return
-  const tokenId = await hashPushToken(token)
-  const tokenRef = doc(db, 'members', uid, 'push_tokens', tokenId)
-  await deleteDoc(tokenRef)
+  setStoredDeviceToken(uid, token)
+  await pruneOldestPushTokens(uid, tokenId)
 }
 
 const deleteBrowserPushToken = async () => {

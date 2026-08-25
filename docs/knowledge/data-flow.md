@@ -97,7 +97,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 - **Members** can only flip their own booking to `cancelled` — `firestore.rules` rejects
   any other status change by the owner. Delete is allowed only while `pending`.
 - **Admins** approve/edit anything via `src/pages/admin/Bookings.jsx` → `updateBooking()`.
-- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved, and when someone else cancels it (see below). Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same five high-signal paths (`booking_pending_review`, `booking_approved`, `booking_cancelled`, `event_pending_review`, `event_status`) via `push_tokens/{uid}`. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove the matching stored token.
+- **Notification routing** — `autoApproveDeskBooking` approves available ad-hoc desk bookings; every other pending booking notifies admins for review. `notifyBookingApproval` notifies the member when a booking becomes approved, and when someone else cancels it (see below). Fixed-desk bookings use their shared `planGroupId` as the notification key, so one plan produces one review or approval message rather than a message per working day. Events: `notifyEventPendingReview` notifies admins; `notifyEventStatusChange` notifies the organizer (in-app + optional email). For opted-in users, browser push follows the same five high-signal paths (`booking_pending_review`, `booking_approved`, `booking_cancelled`, `event_pending_review`, `event_status`) via `members/{uid}/push_tokens`, merging any leftover `push_tokens/{uid}` legacy token. Successful push sends write `push_notifications` dedupe markers with `expiresAt`; `cleanupPushNotificationMarkers` deletes expired markers daily, and unrecoverable FCM token errors remove only the matching stored token (never the account preference).
 - **Cancellation notifies only when `cancelledReason` is set.** `notifyBookingApproval`
   handles both the `approved` and `cancelled` transitions — it is one trigger, not
   two, because a new export cannot be deployed by CI (see the Cloud Functions
@@ -246,7 +246,8 @@ those live in the callable / client and are advisory.
 | `bookings` | booking create/update (§2), schedulers (§2) | member/admin dashboards, conflict checks |
 | `events` | event create/edit/review (§3), waitlist triggers | Home, Events pages, reminder cron |
 | `notifications` | Cloud Functions only (§3) | `src/services/notifications.js` (unread, mark-read) |
-| `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
+| `members/{uid}/push_tokens` | Profile / device opt-in (§6) | Cloud Functions (fan-out) |
+| `push_tokens` | Legacy single-token docs; migration leftover | Cloud Functions (merged into fan-out) |
 | `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking/event review and status |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
 | `projects` | admin (rules allow; no write service yet) | Home page showcase |

@@ -149,36 +149,19 @@ const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
 }
 
 /**
- * Account-level push preference checkbox shown in the Preferences form section.
+ * Account-level push preference checkbox in the Preferences form.
  *
- * Toggling this on/off calls enablePushNotifications / disablePushNotifications,
- * which set preferences.pushNotifications on the member doc AND register/
- * deregister this device. It does NOT manage device-level state independently
- * — that is the job of ProfileDevicePushSection in the detail view.
+ * Saving the form writes only preferences.pushNotifications. It does not
+ * register or delete this browser's FCM token — that is ProfileDevicePushSection.
  */
 const AccountPushPreferenceField = ({
   preferences,
   mobilePushEligible,
-  pushSupported,
-  pushPreferenceHelp,
 }) => {
   const { t } = useTranslation()
-  if (mobilePushEligible) {
-    return (
-      <div className="form-group form-group-checkbox">
-        <label className="form-label form-label-checkbox">
-          <input
-            type="checkbox"
-            name="pushNotifications"
-            defaultChecked={preferences.pushNotifications === true}
-            disabled={!pushSupported}
-          />
-          <span>{t('profile.pushNotifications')}</span>
-        </label>
-        <p className="form-field-note">{pushPreferenceHelp}</p>
-      </div>
-    )
-  }
+  const help = mobilePushEligible
+    ? t('profile.pushNotificationsHelp')
+    : t('profile.pushNotificationsDesktopHelp')
   return (
     <div className="form-group form-group-checkbox">
       <label className="form-label form-label-checkbox">
@@ -187,9 +170,9 @@ const AccountPushPreferenceField = ({
           name="pushNotifications"
           defaultChecked={preferences.pushNotifications === true}
         />
-        <span>{t('profile.pushNotificationsRegisteredPhone')}</span>
+        <span>{t('profile.pushNotifications')}</span>
       </label>
-      <p className="form-field-note">{t('profile.pushNotificationsRegisteredPhoneHelp')}</p>
+      <p className="form-field-note">{help}</p>
     </div>
   )
 }
@@ -290,8 +273,6 @@ const ProfileEditForm = ({
   onFormChange,
   onCancel,
   mobilePushEligible,
-  pushSupported,
-  pushPreferenceHelp,
 }) => {
   const { t } = useTranslation()
   return (
@@ -424,8 +405,6 @@ const ProfileEditForm = ({
         <AccountPushPreferenceField
           preferences={preferences}
           mobilePushEligible={mobilePushEligible}
-          pushSupported={pushSupported}
-          pushPreferenceHelp={pushPreferenceHelp}
         />
       </section>
 
@@ -627,13 +606,6 @@ const ProfileDetails = ({
   )
 }
 
-const getPushPreferenceHelp = (supported, permission, t) => {
-  if (!supported) return t('profile.pushNotificationsUnsupported')
-  if (permission === 'denied') return t('profile.pushNotificationsDenied')
-  if (permission === 'granted') return t('profile.pushNotificationsGranted')
-  return t('profile.pushNotificationsHelp')
-}
-
 const MemberProfile = () => {
   const { t } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
@@ -723,10 +695,6 @@ const MemberProfile = () => {
     e.preventDefault()
     const formData = new FormData(e.target)
 
-    // Determine desired account-level push preference from the form checkbox.
-    // The checkbox is named 'pushNotifications' and lives in the Preferences
-    // section. If it is absent (non-mobile or unsupported), preserve the
-    // current stored value.
     const currentPush = userProfile?.preferences?.pushNotifications === true
     const pushInput = e.target.elements.namedItem('pushNotifications')
     const desiredPushNotifications = pushInput ? pushInput.checked : currentPush
@@ -781,7 +749,6 @@ const MemberProfile = () => {
   const preferences = userProfile.preferences || {}
   const isUpdating = isSaving
   const isAvatarUploading = avatarMutation.isPending
-  const pushPreferenceHelp = getPushPreferenceHelp(pushSupported, pushPermission, t)
 
   return (
     <Layout isAdmin={isAdminRoute}>
@@ -817,8 +784,6 @@ const MemberProfile = () => {
                 setHasUnsavedChanges(false)
               }}
               mobilePushEligible={mobilePushEligible}
-              pushSupported={pushSupported}
-              pushPreferenceHelp={pushPreferenceHelp}
             />
           ) : (
             <ProfileDetails

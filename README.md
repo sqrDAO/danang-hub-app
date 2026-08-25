@@ -62,7 +62,7 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Notifications & Email
 - **In-App Notification Center** — unread inbox for new event review requests plus booking review and approval work
-- **Browser Push Alerts** — opt-in booking and event review / status alerts through Firebase Cloud Messaging
+- **Browser Push Alerts** — opt-in booking and event review / status alerts through Firebase Cloud Messaging, delivered to up to five registered devices independently of the account preference used to gate sending
 - **Event Status Email** — Nodemailer/Lark SMTP sends email on event approval or rejection
 - **Booking Confirmation Trigger** — records booking confirmation details; email delivery remains pending
 - **SMTP password** stored in Firebase Secret Manager (not in code)
@@ -333,7 +333,8 @@ functions/
 | `bookings` | Booking records with status workflow and fixed-desk support |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and linked Event Hall metadata |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
-| `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
+| `members/{uid}/push_tokens` | Per-device FCM tokens (doc id = SHA-256 prefix of the token); invalid tokens are pruned after unrecoverable FCM failures |
+| `push_tokens` | Legacy single-token docs keyed by member uid; still merged into delivery until every device has a subcollection token |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |

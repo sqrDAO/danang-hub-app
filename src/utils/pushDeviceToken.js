@@ -47,3 +47,45 @@ export const hasAccountPushEnabled = (member) => Boolean(
   member.preferences &&
   member.preferences.pushNotifications === true
 )
+
+export const MAX_PUSH_DEVICES_PER_MEMBER = 5
+
+/**
+ * Previous FCM token to delete when this browser's token rotated.
+ * Empty when there is no cached token or the value is unchanged.
+ * @param {string} previousToken Cached token for this device
+ * @param {string} nextToken Newly minted FCM token
+ * @returns {string}
+ */
+export const previousTokenToReplace = (previousToken, nextToken) => {
+  if (!previousToken || !nextToken || previousToken === nextToken) return ''
+  return previousToken
+}
+
+const tokenRecencyMs = (doc) => {
+  const ts = new Date(doc.updatedAt || doc.createdAt || 0).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+/**
+ * Oldest token document ids to delete so the collection fits under `max`.
+ * The incoming token is never evicted — a same-browser rotation must not
+ * kick off a different device.
+ * @param {Array<{id: string, updatedAt?: string, createdAt?: string}>} docs
+ * @param {string} incomingTokenId Hashed id of the token being saved
+ * @param {number} [max]
+ * @returns {Array<string>}
+ */
+export const pushTokenIdsToPrune = (
+  docs,
+  incomingTokenId,
+  max = MAX_PUSH_DEVICES_PER_MEMBER
+) => {
+  if (!Array.isArray(docs) || docs.length <= max) return []
+  const sorted = [...docs].sort((a, b) => tokenRecencyMs(a) - tokenRecencyMs(b))
+  const excessCount = sorted.length - max
+  return sorted
+    .filter((d) => d.id !== incomingTokenId)
+    .slice(0, excessCount)
+    .map((d) => d.id)
+}
