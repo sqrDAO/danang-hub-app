@@ -1125,7 +1125,8 @@ const MemberBookings = () => {
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
   const { data: myBookings = [] } = useQuery({
-    queryKey: ['bookings', currentUser?.uid],
+    // Scoped key: /member/dashboard reads a narrower window for the same uid.
+    queryKey: ['bookings', currentUser?.uid, 'list'],
     queryFn: () => getBookings({ memberId: currentUser?.uid, ...memberBookingsWindow }),
     enabled: !!currentUser?.uid
   })

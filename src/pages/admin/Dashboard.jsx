@@ -6,14 +6,30 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import { getMembers } from '../../services/members'
-import { getBookings } from '../../services/bookings'
-import { getEvents } from '../../services/events'
+import { getBookings, getCompletedBookingsCount } from '../../services/bookings'
+import { getEvents, getCompletedEventsCount } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { formatEventDate, formatEventTime, formatDateDDMMYYYY } from '../../utils/timezone'
 import './Dashboard.css'
 import '../member/Profile.css'
 
 const DESCRIPTION_MAX_LENGTH = 120
+
+// Dashboard shows recent + upcoming activity, not full history. The
+// "completed" cards are deliberately NOT bounded by this window — they come
+// from server-side aggregate counts so they stay true all-time totals.
+const DASHBOARD_LOOKBACK_DAYS = 90
+const DASHBOARD_LOOKAHEAD_DAYS = 180
+
+const getDashboardWindow = () => {
+  const start = new Date()
+  start.setDate(start.getDate() - DASHBOARD_LOOKBACK_DAYS)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date()
+  end.setDate(end.getDate() + DASHBOARD_LOOKAHEAD_DAYS)
+  end.setHours(23, 59, 59, 999)
+  return { startDate: start, endDate: end }
+}
 
 const truncateDescription = (text) => {
   if (!text || typeof text !== 'string') return ''
@@ -180,43 +196,71 @@ const HostProfileModal = ({ member, onClose }) => (
   </Modal>
 )
 
+// Server state for the dashboard. Extracted from the component so the six
+// reads count as one statement against the max-statements cap.
+const useAdminDashboardData = () => {
+  const dashboardWindow = getDashboardWindow()
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['members'],
+    queryFn: getMembers
+  })
+
+  const { data: bookings = [] } = useQuery({
+    // Scoped key: /admin/bookings reads a much wider window under the same
+    // 'bookings' prefix, and React Query keys on queryKey alone.
+    queryKey: ['bookings', 'admin-dashboard'],
+    queryFn: () => getBookings(dashboardWindow)
+  })
+
+  const { data: events = [] } = useQuery({
+    queryKey: ['events', 'admin-dashboard'],
+    queryFn: () => getEvents(dashboardWindow)
+  })
+
+  // All-time totals, not windowed. Keyed under the 'bookings'/'events'
+  // prefixes so the existing invalidate('bookings'|'events') calls refresh
+  // them alongside the lists. Left undefined on failure on purpose — the card
+  // renders '—' rather than a confident 0 the aggregate never returned.
+  const { data: completedBookingsCount } = useQuery({
+    queryKey: ['bookings', 'count', 'completed'],
+    queryFn: getCompletedBookingsCount
+  })
+
+  const { data: completedEventsCount } = useQuery({
+    queryKey: ['events', 'count', 'completed'],
+    queryFn: getCompletedEventsCount
+  })
+
+  const { data: amenities = [] } = useQuery({
+    queryKey: ['amenities'],
+    queryFn: getAmenities
+  })
+
+  return {
+    members,
+    bookings,
+    events,
+    completedBookingsCount,
+    completedEventsCount,
+    amenities,
+  }
+}
+
 const AdminDashboard = () => {
   const { t, i18n } = useTranslation()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [recentBookingsPage, setRecentBookingsPage] = useState(1)
   const RECENT_BOOKINGS_PAGE_SIZE = 5
 
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: getMembers
-  })
-  
-  // Dashboard shows recent + upcoming activity, not full history.
-  // 90 days back covers "completed" stats; 180 days forward covers upcoming.
-  const dashboardWindow = (() => {
-    const start = new Date()
-    start.setDate(start.getDate() - 90)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date()
-    end.setDate(end.getDate() + 180)
-    end.setHours(23, 59, 59, 999)
-    return { startDate: start, endDate: end }
-  })()
-
-  const { data: bookings = [] } = useQuery({
-    queryKey: ['bookings'],
-    queryFn: () => getBookings(dashboardWindow)
-  })
-
-  const { data: events = [] } = useQuery({
-    queryKey: ['events'],
-    queryFn: () => getEvents(dashboardWindow)
-  })
-  
-  const { data: amenities = [] } = useQuery({
-    queryKey: ['amenities'],
-    queryFn: getAmenities
-  })
+  const {
+    members,
+    bookings,
+    events,
+    completedBookingsCount,
+    completedEventsCount,
+    amenities,
+  } = useAdminDashboardData()
 
   const now = new Date()
   // Compute midnight in Vietnam time so the "upcoming" cutoff is correct
@@ -244,17 +288,11 @@ const AdminDashboard = () => {
       const bookingDayStart = new Date(`${bookingVnDateStr}T00:00:00+07:00`)
       return (b.status === 'approved' || b.status === 'pending') && bookingDayStart >= todayStart
     }).length,
-    completedBookings: bookings.filter(b => {
-      const bookingEnd = b.endTime ? new Date(b.endTime) : (b.startTime ? new Date(b.startTime) : null)
-      if (!bookingEnd) return false
-      return bookingEnd < now && b.status !== 'cancelled'
-    }).length,
+    // Recorded state, not elapsed time: autoCheckoutExpiredBookings (hourly)
+    // owns the flip to 'completed', so this can lag an expired slot by an hour.
+    completedBookings: completedBookingsCount,
     upcomingEvents: dashboardEvents.filter(e => new Date(e.date) > new Date()).length,
-    completedEvents: events.filter(e => {
-      const eventDate = e.date ? new Date(e.date) : null
-      if (!eventDate) return false
-      return eventDate < now && e.status !== 'rejected'
-    }).length,
+    completedEvents: completedEventsCount,
     availableAmenities: amenities.filter(a => a.isAvailable !== false).length
   }
 
@@ -311,7 +349,7 @@ const AdminDashboard = () => {
             <p className="stat-label">{t('adminDashboard.upcomingBookings')}</p>
           </div>
           <div className="stat-card glass">
-            <h3 className="stat-value">{stats.completedBookings}</h3>
+            <h3 className="stat-value">{stats.completedBookings ?? '—'}</h3>
             <p className="stat-label">{t('adminDashboard.completedBookings')}</p>
           </div>
           <div className="stat-card glass">
@@ -319,7 +357,7 @@ const AdminDashboard = () => {
             <p className="stat-label">{t('adminDashboard.upcomingEvents')}</p>
           </div>
           <div className="stat-card glass">
-            <h3 className="stat-value">{stats.completedEvents}</h3>
+            <h3 className="stat-value">{stats.completedEvents ?? '—'}</h3>
             <p className="stat-label">{t('adminDashboard.completedEvents')}</p>
           </div>
           <div className="stat-card glass">

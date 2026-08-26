@@ -280,7 +280,8 @@ const MemberDashboard = () => {
   const memberDashboardWindow = getMemberDashboardWindow()
 
   const { data: myBookings = [] } = useQuery({
-    queryKey: ['bookings', currentUser?.uid],
+    // Scoped key: /member/bookings reads a wider window for the same uid.
+    queryKey: ['bookings', currentUser?.uid, 'dashboard'],
     queryFn: () => getBookings({ memberId: currentUser?.uid, ...memberDashboardWindow }),
     enabled: !!currentUser?.uid
   })
