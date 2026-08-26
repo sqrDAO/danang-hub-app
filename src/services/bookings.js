@@ -17,6 +17,7 @@ import { isHubClosed } from '../utils/hubClosures'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import {
   cancelLocalFixedDeskPlan,
+  countLocalCompletedBookings,
   createLocalBooking,
   deleteLocalBooking,
   getLocalBooking,
@@ -98,6 +99,7 @@ export const getBookings = async (filters = {}) => {
 // Admin-only in practice — the read rule lets a member list only their own
 // bookings, and an aggregate is authorized against the query, not its results.
 export const getCompletedBookingsCount = async () => {
+  if (LOCAL_DEV_MODE) return countLocalCompletedBookings()
   const q = query(
     collection(db, BOOKINGS_COLLECTION),
     where('status', '==', 'completed')

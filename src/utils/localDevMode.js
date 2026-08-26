@@ -1,12 +1,10 @@
 export const resolveLocalDevMode = ({ isDev, skipAuthFlag }) =>
   isDev === true && skipAuthFlag === 'true'
 
-// Vite inlines `import.meta.env.*` at build time. A function call would keep
-// the in-memory store in the production bundle.
-export const LOCAL_DEV_MODE = resolveLocalDevMode({
-  isDev: Boolean(import.meta.env && import.meta.env.DEV),
-  skipAuthFlag: import.meta.env && import.meta.env.VITE_SKIP_AUTH
-})
+// Inline so Rollup constant-folds this to false in production and tree-shakes
+// the in-memory store. Optional chaining keeps Node tests (no import.meta.env).
+export const LOCAL_DEV_MODE = import.meta.env?.DEV === true
+  && import.meta.env?.VITE_SKIP_AUTH === 'true'
 
 export const isLocalDevMode = () => LOCAL_DEV_MODE
 

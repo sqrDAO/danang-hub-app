@@ -356,6 +356,8 @@ functions/
 | `firebase functions:log` | View real-time function logs |
 | `firebase emulators:start` | Start local emulators |
 
+Vite loads `.env.local` in every mode. Do not put `VITE_SKIP_AUTH=true` there, or plain `npm run dev` will skip auth too — keep the flag in `.env.skipauth` only.
+
 ---
 
 ## Troubleshooting

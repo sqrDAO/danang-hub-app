@@ -43,7 +43,10 @@ const cloneDates = (value, keys) => {
 }
 
 export const listLocalAmenities = () => getStore().amenities.map((item) => ({ ...item }))
-export const getLocalAmenity = (id) => getStore().amenities.find((item) => item.id === id) || null
+export const getLocalAmenity = (id) => {
+  const amenity = getStore().amenities.find((item) => item.id === id)
+  return amenity ? { ...amenity } : null
+}
 
 export const createLocalAmenity = (data) => {
   const id = nextId('amenity')
@@ -101,7 +104,7 @@ export const createLocalBooking = (data) => {
   getStore().bookings.push({
     ...data,
     id,
-    status: data.status || 'approved',
+    status: data.status || 'pending',
     startTime: new Date(data.startTime),
     endTime: new Date(data.endTime),
     createdAt: new Date().toISOString()
@@ -315,10 +318,26 @@ export const reviewLocalEvent = ({ eventId, action, reason = '' }) => {
 }
 
 export const listLocalProjects = () => getStore().projects.map((item) => ({ ...item }))
-export const getLocalProject = (id) => getStore().projects.find((item) => item.id === id) || null
+export const getLocalProject = (id) => {
+  const project = getStore().projects.find((item) => item.id === id)
+  return project ? { ...project } : null
+}
 
 export const listLocalMembers = () => getStore().members.map((item) => ({ ...item }))
-export const getLocalMember = (uid) => getStore().members.find((item) => item.id === uid || item.uid === uid) || null
+export const getLocalMember = (uid) => {
+  const member = getStore().members.find((item) => item.id === uid || item.uid === uid)
+  return member ? { ...member } : null
+}
+
+export const countLocalCompletedBookings = () =>
+  getStore().bookings.filter((booking) => booking.status === 'completed').length
+
+export const countLocalCompletedEvents = () => {
+  const now = Date.now()
+  return getStore().events.filter((event) => (
+    event.status === 'approved' && new Date(event.date).getTime() < now
+  )).length
+}
 
 export const updateLocalMember = (uid, data) => {
   const member = getStore().members.find((item) => item.id === uid || item.uid === uid)

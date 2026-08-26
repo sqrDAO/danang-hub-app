@@ -20,6 +20,7 @@ import { getMember } from './members'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import {
   addLocalWaitlist,
+  countLocalCompletedEvents,
   createLocalEvent,
   deleteLocalEvent,
   getLocalEvent,
@@ -45,6 +46,7 @@ const EVENTS_COLLECTION = 'events'
 // DESCENDING twin does not serve this range scan, and the emulator does not
 // enforce composite indexes, so a miss only shows up against the real project.
 export const getCompletedEventsCount = async () => {
+  if (LOCAL_DEV_MODE) return countLocalCompletedEvents()
   const q = query(
     collection(db, EVENTS_COLLECTION),
     where('status', '==', 'approved'),

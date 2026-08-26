@@ -39,12 +39,14 @@ test('desk conflicts only after capacity is full', () => {
   resetLocalDevStore()
   const start = new Date('2026-09-10T02:00:00Z')
   const end = new Date('2026-09-10T03:00:00Z')
-  createLocalBooking({
-    memberId: 'a',
+  const book = (memberId) => createLocalBooking({
+    memberId,
     amenityId: 'local-desk',
     startTime: start,
     endTime: end
   })
-  const first = checkLocalBookingConflicts('local-desk', start, end)
-  assert.equal(first.hasConflicts, false)
+  book('a')
+  assert.equal(checkLocalBookingConflicts('local-desk', start, end).hasConflicts, false)
+  for (let i = 2; i <= 8; i += 1) book(`m${i}`)
+  assert.equal(checkLocalBookingConflicts('local-desk', start, end).hasConflicts, true)
 })

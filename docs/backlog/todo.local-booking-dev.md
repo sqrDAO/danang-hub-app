@@ -14,11 +14,11 @@ on the real auth guards and Firestore.
 - `src/contexts/LocalDevAuthProvider.jsx` (new) — AuthContext with no Firebase listener.
 - `src/services/localDevFixtures.js` (new) — seed amenities, bookings, events, members, projects.
 - `src/services/localDevStore.js` (new) — in-memory CRUD used only in skip-auth.
-- `src/services/{amenities,bookings,events,functions,members,projects}.js` (edited) — local-store early returns.
+- `src/services/{amenities,bookings,events,functions,members,projects}.js` (edited) — local-store early returns, including completed-count aggregates.
 - `src/App.jsx` (edited) — stub provider only when skip-auth is on.
-- `README.md` (edited) — document `npm run dev:skipauth`.
+- `README.md` (edited) — document `npm run dev:skipauth`; warn that `.env.local` loads in every mode.
 - `test/localDevMode.test.js` (new) — DEV/flag matrix.
-- `test/localDevStore.test.js` (new) — booking filter and overlap helpers.
+- `test/localDevStore.test.js` (new) — booking filter and desk-capacity overlap.
 
 ## Acceptance
 - [ ] `npm run dev:skipauth` boots with a signed-in stub admin (profile complete).
@@ -26,13 +26,16 @@ on the real auth guards and Firestore.
 - [ ] Booking a free Meeting Room slot writes to the in-memory store and greys out on the next calendar load.
 - [ ] `/member/events` lists the fixture event; register stays in memory.
 - [ ] `npm run dev` and `npm run build` still require a real Firebase session and do not use the store.
+- [ ] A production `npm run build` does not contain `local-dev-user`, fixture amenity names, or `__DANANG_LOCAL_DEV_STORE__`.
+- [ ] `/admin/dashboard` completed-booking and completed-event cards do not call Firestore.
+- [ ] A skip-auth booking without an explicit status is `pending`.
 - [ ] NOT: skip-auth in a production build, writing fixture data to production Firestore, or auto-opening the booking modal.
-- [ ] NOT: event create, waitlist, Storage upload, notifications, or production-bundle dead-code of the in-memory store.
+- [ ] NOT: event create, waitlist, Storage upload, or notifications.
 
 ## Verify
 - `npm run lint` → exits successfully with zero warnings.
-- `npm run build` → production build completes successfully (skip-auth off).
-- `npm test` → local-dev tests pass.
+- `npm run build` → production build completes successfully (skip-auth off); dist has no `local-dev-user`.
+- `npm test` → local-dev tests pass, including desk conflict at capacity 8.
 - `npm run dev:skipauth` → `/member/bookings` shows Coworking Space, Meeting Room, and Event Hall.
 - `npm run dev:skipauth` → book a Meeting Room slot → reload calendar → that slot is grey.
 - `npm run dev:skipauth` → `/member/events` shows one Event; Register succeeds without Firebase.
