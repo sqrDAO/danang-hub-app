@@ -1528,89 +1528,118 @@ function getStartOfTodayHubTimezone() {
   return Timestamp.fromDate(startOfTodayVN);
 }
 
-// Auto check-out expired bookings + auto-complete past-day bookings
+/**
+ * Collect the docs one sweep query matches into the shared completion map.
+ * Isolated per step: a step that throws must not cost us the other steps'
+ * work, so failures are recorded and reported by the caller rather than
+ * propagated here. Silently swallowing them is what let this sweep fail
+ * unnoticed from the initial commit until 2026-08-26.
+ *
+ * @param {Map} toComplete docPath -> update payload, mutated in place
+ * @param {Array} failures step labels that threw, mutated in place
+ * @param {string} label human-readable step name, used in logs
+ * @param {Function} buildQuery returns the Firestore query to run
+ * @return {Promise<number>} how many docs this step contributed
+ */
+async function collectSweepStep(toComplete, failures, label, buildQuery) {
+  try {
+    const snapshot = await buildQuery().get();
+    snapshot.forEach((doc) => {
+      toComplete.set(doc.ref.path, {
+        status: "completed",
+        checkOutTime: FieldValue.serverTimestamp(),
+        updatedAt: new Date().toISOString(),
+      });
+    });
+    return snapshot.size;
+  } catch (error) {
+    failures.push(label);
+    console.error(`Auto checkout step "${label}" failed:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Commit the collected completions in batches.
+ *
+ * @param {Map} toComplete docPath -> update payload
+ * @return {Promise<void>}
+ */
+async function commitSweep(toComplete) {
+  const paths = Array.from(toComplete.keys());
+  const updates = Array.from(toComplete.values());
+  const batchSize = 500;
+  for (let i = 0; i < paths.length; i += batchSize) {
+    const batch = db.batch();
+    paths.slice(i, i + batchSize).forEach((path, idx) => {
+      batch.update(db.doc(path), updates[i + idx]);
+    });
+    await batch.commit();
+  }
+}
+
+// Auto check-out expired bookings + auto-complete past-day bookings.
+//
+// Every step runs independently and the commit runs on whatever was
+// collected, so one broken query degrades the sweep instead of cancelling
+// it. The handler rethrows at the end: a partial sweep must show up as a
+// failed run in Cloud Scheduler, not as a success that quietly did nothing.
 exports.autoCheckoutExpiredBookings = onSchedule(
     "every 1 hours",
     async () => {
-      try {
-        const now = Timestamp.now();
-        const oneHourAgo = Timestamp.fromMillis(
-            now.toMillis() - 60 * 60 * 1000,
+      const now = Timestamp.now();
+      const oneHourAgo = Timestamp.fromMillis(
+          now.toMillis() - 60 * 60 * 1000,
+      );
+      const startOfToday = getStartOfTodayHubTimezone();
+      const bookings = db.collection("bookings");
+
+      const toComplete = new Map(); // docPath -> update data
+      const failures = [];
+
+      // 1. Checked-in bookings past their end time: auto check-out
+      await collectSweepStep(
+          toComplete, failures, "expired checked-in", () => bookings
+              .where("status", "==", "checked-in")
+              .where("endTime", "<=", oneHourAgo),
+      );
+
+      // 2. Any pending/approved booking whose end time has passed:
+      //    auto-complete. Covers past days AND same-day expired slots.
+      for (const status of ["pending", "approved"]) {
+        await collectSweepStep(
+            toComplete, failures, `expired ${status}`, () => bookings
+                .where("status", "==", status)
+                .where("endTime", "<=", now),
         );
-        const startOfToday = getStartOfTodayHubTimezone();
-
-        const toComplete = new Map(); // docRef -> update data
-
-        // 1. Checked-in bookings past their end time: auto check-out
-        const expiredCheckedIn = await db.collection("bookings")
-            .where("status", "==", "checked-in")
-            .where("endTime", "<=", oneHourAgo)
-            .get();
-
-        expiredCheckedIn.forEach((doc) => {
-          toComplete.set(doc.ref.path, {
-            status: "completed",
-            checkOutTime: FieldValue.serverTimestamp(),
-            updatedAt: new Date().toISOString(),
-          });
-        });
-
-        // 2. Any pending/approved booking whose end time has passed:
-        //    auto-complete. Covers past days AND same-day expired slots.
-        const pendingApprovedStatuses = ["pending", "approved"];
-        for (const status of pendingApprovedStatuses) {
-          const expiredQuery = await db.collection("bookings")
-              .where("status", "==", status)
-              .where("endTime", "<=", now)
-              .get();
-
-          expiredQuery.forEach((doc) => {
-            toComplete.set(doc.ref.path, {
-              status: "completed",
-              checkOutTime: FieldValue.serverTimestamp(),
-              updatedAt: new Date().toISOString(),
-            });
-          });
-        }
-
-        // 3. Past-day checked-in bookings not caught by step 1
-        //    (endTime within last hour but startTime before today)
-        const pastDayCheckedIn = await db.collection("bookings")
-            .where("status", "==", "checked-in")
-            .where("startTime", "<", startOfToday)
-            .get();
-
-        pastDayCheckedIn.forEach((doc) => {
-          toComplete.set(doc.ref.path, {
-            status: "completed",
-            checkOutTime: FieldValue.serverTimestamp(),
-            updatedAt: new Date().toISOString(),
-          });
-        });
-
-        const refs = Array.from(toComplete.keys()).map((path) =>
-          db.doc(path),
-        );
-        const updates = Array.from(toComplete.values());
-        const batchSize = 500;
-        for (let i = 0; i < refs.length; i += batchSize) {
-          const batch = db.batch();
-          const chunk = refs.slice(i, i + batchSize);
-          const chunkUpdates = updates.slice(i, i + batchSize);
-          chunk.forEach((ref, idx) => {
-            batch.update(ref, chunkUpdates[idx]);
-          });
-          await batch.commit();
-        }
-        if (toComplete.size > 0) {
-          console.log(`Auto-completed ${toComplete.size} past/expired`);
-        }
-
-        return null;
-      } catch (error) {
-        console.error("Error in auto checkout:", error);
-        return null;
       }
+
+      // 3. Past-day checked-in bookings not caught by step 1
+      //    (endTime within last hour but startTime before today)
+      await collectSweepStep(
+          toComplete, failures, "past-day checked-in", () => bookings
+              .where("status", "==", "checked-in")
+              .where("startTime", "<", startOfToday),
+      );
+
+      let commitFailure = null;
+      try {
+        await commitSweep(toComplete);
+        // Logged on every run, zero included: a sweep that stops reporting
+        // is the signal that it has broken again.
+        console.log(`Auto-completed ${toComplete.size} past/expired`);
+      } catch (error) {
+        commitFailure = error;
+        console.error("Auto checkout commit failed:", error);
+      }
+
+      if (commitFailure) throw commitFailure;
+      if (failures.length > 0) {
+        throw new Error(
+            `Auto checkout steps failed: ${failures.join(", ")}`,
+        );
+      }
+      return null;
     });
 
 // Remove expired browser push dedupe markers. The markers also carry
