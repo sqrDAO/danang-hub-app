@@ -233,7 +233,7 @@ const NotificationBell = ({ userId }) => {
     queryFn: () => getUnreadNotifications(userId),
     enabled: Boolean(userId),
     refetchInterval: 30000,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true
   })
   const invalidateNotifications = () => queryClient.invalidateQueries({ queryKey: ['notifications', userId] })
   const readMutation = useMutation({ mutationFn: markNotificationRead, onSuccess: invalidateNotifications })
