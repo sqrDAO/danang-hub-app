@@ -41,6 +41,28 @@ export const shouldRefreshPushToken = ({
   Boolean(preferenceEnabled)
 
 /**
+ * Whether Profile save should call enablePushNotifications.
+ *
+ * Turning the box on always enables. Leaving it on also enables when this
+ * device has no opt-in marker, so a ticked box is not a no-op after a PWA
+ * reinstall (permission reset, marker gone, token already deleted). Desktop
+ * is excluded: enablePushNotifications throws there, and a name-only save
+ * must not fail because of that.
+ * @param {{desired?: boolean, current?: boolean, deviceOptedIn?: boolean, mobileEligible?: boolean}} input
+ * @returns {boolean}
+ */
+export const shouldEnablePushOnSave = ({
+  desired = false,
+  current = false,
+  deviceOptedIn = false,
+  mobileEligible = false
+} = {}) => {
+  if (!desired) return false
+  if (desired !== current) return true
+  return Boolean(mobileEligible) && !deviceOptedIn
+}
+
+/**
  * Whether AuthContext may record this uid and call refreshPushToken.
  *
  * onAuthStateChanged sets currentUser before the matching profile loads, so

@@ -14,6 +14,7 @@ import {
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
+import { isDeviceOptedIn, shouldEnablePushOnSave } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -68,8 +69,14 @@ const buildProfileUpdateData = (formData, pushNotifications) => ({
 })
 
 const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications, setPushPermission) => {
-  if (desiredPushNotifications === currentPushNotifications) return
-  if (desiredPushNotifications) {
+  const enable = shouldEnablePushOnSave({
+    desired: desiredPushNotifications,
+    current: currentPushNotifications,
+    deviceOptedIn: isDeviceOptedIn(uid),
+    mobileEligible: isMobilePushEligible()
+  })
+  if (!enable && desiredPushNotifications === currentPushNotifications) return
+  if (enable) {
     await enablePushNotifications(uid)
   } else {
     await disablePushNotifications(uid)

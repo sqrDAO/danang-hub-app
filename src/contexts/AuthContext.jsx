@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   signInWithPopup,
   signOut,
@@ -178,9 +178,7 @@ export const AuthProvider = ({ children }) => {
     return !!(displayName && email && company && jobTitle)
   }
 
-  // Refresh user profile from Firestore after updates. Memoized because the
-  // push token refresh effect below depends on it.
-  const refreshUserProfile = useCallback(async () => {
+  const refreshUserProfile = async () => {
     if (currentUser) {
       const userRef = doc(db, 'members', currentUser.uid)
       const userSnap = await getDoc(userRef)
@@ -188,7 +186,7 @@ export const AuthProvider = ({ children }) => {
         setUserProfile(userSnap.data())
       }
     }
-  }, [currentUser])
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

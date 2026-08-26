@@ -6,6 +6,7 @@ import {
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
   shouldAttemptLaunchPushRefresh,
+  shouldEnablePushOnSave,
   shouldRefreshPushToken
 } from '../src/utils/pushDeviceOptIn.js'
 
@@ -126,4 +127,50 @@ test('does not re-attempt launch refresh for a uid already recorded', () => {
 test('defaults to not attempting launch refresh when inputs are missing', () => {
   assert.equal(shouldAttemptLaunchPushRefresh(), false)
   assert.equal(shouldAttemptLaunchPushRefresh({}), false)
+})
+
+const enableOnSave = (overrides) => shouldEnablePushOnSave({
+  desired: true,
+  current: false,
+  deviceOptedIn: false,
+  mobileEligible: true,
+  ...overrides
+})
+
+test('enables on save when the member turns the preference on', () => {
+  assert.equal(enableOnSave({}), true)
+})
+
+test('remints on save when the box is ticked but this device has no marker', () => {
+  // PWA reinstall: preference stayed true, marker gone, permission reset.
+  // Save must not be a no-op or recovery is uncheck-then-recheck.
+  assert.equal(enableOnSave({ desired: true, current: true, deviceOptedIn: false }), true)
+})
+
+test('does not remint on save when this device is already opted in', () => {
+  assert.equal(enableOnSave({
+    desired: true,
+    current: true,
+    deviceOptedIn: true
+  }), false)
+})
+
+test('does not remint a ticked box on a non-mobile device', () => {
+  // enablePushNotifications throws on desktop; a name-only save must not fail.
+  assert.equal(enableOnSave({
+    desired: true,
+    current: true,
+    deviceOptedIn: false,
+    mobileEligible: false
+  }), false)
+})
+
+test('does not enable on save when the preference is off', () => {
+  assert.equal(enableOnSave({ desired: false, current: true }), false)
+  assert.equal(enableOnSave({ desired: false, current: false }), false)
+})
+
+test('defaults to not enabling on save when inputs are missing', () => {
+  assert.equal(shouldEnablePushOnSave(), false)
+  assert.equal(shouldEnablePushOnSave({}), false)
 })
