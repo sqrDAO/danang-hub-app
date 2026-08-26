@@ -84,6 +84,37 @@ const syncPushPreference = async (uid, desiredPushNotifications, currentPushNoti
   setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
 }
 
+const persistProfileWithPush = async ({
+  uid,
+  data,
+  desiredPushNotifications,
+  currentPushNotifications,
+  setPushPermission
+}) => {
+  const explicitToggle = desiredPushNotifications !== currentPushNotifications
+  if (explicitToggle) {
+    await syncPushPreference(
+      uid,
+      desiredPushNotifications,
+      currentPushNotifications,
+      setPushPermission
+    )
+    await updateMember(uid, data)
+    return
+  }
+  await updateMember(uid, data)
+  try {
+    await syncPushPreference(
+      uid,
+      desiredPushNotifications,
+      currentPushNotifications,
+      setPushPermission
+    )
+  } catch {
+    // Remint is best-effort: a declined permission must not fail a name-only save.
+  }
+}
+
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
     const requiredError = validateRequiredFields(data, t)
@@ -645,13 +676,13 @@ const MemberProfile = () => {
 
     setIsSaving(true)
     try {
-      await syncPushPreference(
-        currentUser.uid,
+      await persistProfileWithPush({
+        uid: currentUser.uid,
+        data,
         desiredPushNotifications,
         currentPushNotifications,
         setPushPermission
-      )
-      await updateMember(currentUser.uid, data)
+      })
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
