@@ -14,7 +14,8 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
 - `src/pages/admin/Events.jsx` (edited) — scope its `['events']` key
 - `src/pages/member/Dashboard.jsx` (edited) — scope its `['bookings', uid]` key
 - `src/pages/member/Bookings.jsx` (edited) — scope its `['bookings', uid]` key
-- `firestore.indexes.json` (edited) — `events (status ASC, date ASC)` for the events aggregate
+- `firestore.indexes.json` (edited) — `events (status ASC, date ASC)` for the events aggregate,
+  plus `bookings (status ASC, endTime ASC)` for `autoCheckoutExpiredBookings`
 
 ## Acceptance
 - [ ] `src/pages/admin/Dashboard.jsx` fetches bookings under `['bookings', 'admin-dashboard']`
@@ -34,7 +35,7 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
 - [ ] NOT: change `activeBookings`, `upcomingBookings`, or `availableAmenities`
 - [ ] NOT: introduce a `completed` status for events (none exists in the model)
 - [ ] `firestore.indexes.json` gains `events (status ASC, date ASC)`
-- [ ] NOT: add a `bookings (status, endTime)` index here (that belongs to the scheduler fix)
+- [ ] `firestore.indexes.json` gains `bookings (status ASC, endTime ASC)`
 
 ## Verify
 - `npm run lint` → 0 errors, 0 warnings
@@ -64,6 +65,10 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
   and will pass either way — this can only be checked against the real project.
 - The `bookings status == 'completed'` aggregate needs no composite index (single equality) and
   was verified working against the real project: 162.
+- `bookings (status, endTime)` is unrelated to this dashboard change but ships here so the repo
+  matches production: it was deployed on 2026-08-26 to unbreak `autoCheckoutExpiredBookings`,
+  and an index live in prod but absent from this file is exactly the drift a later
+  `firestore:indexes` deploy offers to delete. The function fix itself is a separate spec.
 - `autoCheckoutExpiredBookings` (hourly) owns the flip to `status: 'completed'`, so the count
   can lag an expired booking by up to an hour. Intended: the card tracks recorded state.
 - Fixed desk plans are one booking doc per working day, so a single plan adds ~65 to this
