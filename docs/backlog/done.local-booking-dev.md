@@ -21,16 +21,16 @@ on the real auth guards and Firestore.
 - `test/localDevStore.test.js` (new) — booking filter and desk-capacity overlap.
 
 ## Acceptance
-- [ ] `npm run dev:skipauth` boots with a signed-in stub admin (profile complete).
-- [ ] `/member/bookings` lists fixture amenities and opens the booking calendar.
-- [ ] Booking a free Meeting Room slot writes to the in-memory store and greys out on the next calendar load.
-- [ ] `/member/events` lists the fixture event; register stays in memory.
-- [ ] `npm run dev` and `npm run build` still require a real Firebase session and do not use the store.
-- [ ] A production `npm run build` does not contain `local-dev-user`, fixture amenity names, or `__DANANG_LOCAL_DEV_STORE__`.
-- [ ] `/admin/dashboard` completed-booking and completed-event cards do not call Firestore.
-- [ ] A skip-auth booking without an explicit status is `pending`.
-- [ ] NOT: skip-auth in a production build, writing fixture data to production Firestore, or auto-opening the booking modal.
-- [ ] NOT: event create, waitlist, Storage upload, or notifications.
+- [x] `npm run dev:skipauth` boots with a signed-in stub admin (profile complete).
+- [x] `/member/bookings` lists fixture amenities and opens the booking calendar.
+- [x] Booking a free Meeting Room slot writes to the in-memory store and greys out on the next calendar load.
+- [x] `/member/events` lists the fixture event; register stays in memory.
+- [x] `npm run dev` and `npm run build` still require a real Firebase session and do not use the store.
+- [x] A production `npm run build` does not contain `local-dev-user`, fixture amenity names, or `__DANANG_LOCAL_DEV_STORE__`.
+- [x] `/admin/dashboard` completed-booking and completed-event cards do not call Firestore.
+- [x] A skip-auth booking without an explicit status is `pending`.
+- [x] NOT: skip-auth in a production build, writing fixture data to production Firestore, or auto-opening the booking modal.
+- [x] NOT: event create, waitlist, Storage upload, or notifications.
 
 ## Verify
 - `npm run lint` → exits successfully with zero warnings.
