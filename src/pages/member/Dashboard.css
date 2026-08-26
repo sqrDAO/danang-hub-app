@@ -1,17 +1,17 @@
-.page-title {
+.member-dashboard .page-title {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: var(--spacing-xl);
 }
 
 @media (max-width: 768px) {
-  .page-title {
+  .member-dashboard .page-title {
     font-size: 1.75rem;
   }
 }
 
 @media (max-width: 480px) {
-  .page-title {
+  .member-dashboard .page-title {
     font-size: 1.5rem;
   }
 }

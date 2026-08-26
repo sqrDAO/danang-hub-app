@@ -549,6 +549,35 @@ select.form-field option {
   flex-wrap: wrap;
 }
 
+/* Title on its own row; banner + actions share the next row so the
+   4rem header margin sits below the notice instead of between them. */
+.page-header-stacked {
+  align-items: flex-start;
+}
+
+.page-header .page-title {
+  margin-bottom: 0;
+}
+
+.page-header-stacked > .page-title {
+  flex: 1 1 100%;
+}
+
+.page-header-toolbar {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.page-header-stacked > .hub-closure-notice,
+.page-header-toolbar .hub-closure-notice {
+  flex: 1 1 16rem;
+  margin-bottom: 0;
+}
+
 .page-title {
   font-size: 2.5rem;
   font-weight: 700;
@@ -654,6 +683,11 @@ select.form-field option {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .page-header-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .page-header .btn,

@@ -804,26 +804,27 @@ const AdminBookings = () => {
   return (
     <Layout isAdmin>
       <div className="container">
-        <HubClosureNotice hintKey="closures.adminHint" />
-
-        <div className="page-header">
+        <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
-          <div className="page-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => setIsAssignModalOpen(true)}
-            >
-              {t('adminBookings.assignBooking')}
-            </button>
-            {filteredBookings.some(b => b.status === 'pending') && (
+          <div className="page-header-toolbar">
+            <HubClosureNotice hintKey="closures.adminHint" />
+            <div className="page-actions">
               <button
                 className="btn btn-primary"
-                onClick={handleApproveAll}
-                disabled={isApprovingAll}
+                onClick={() => setIsAssignModalOpen(true)}
               >
-                {isApprovingAll ? t('adminBookings.approvingAll') : t('adminBookings.approveAll', { count: filteredBookings.filter(b => b.status === 'pending').length })}
+                {t('adminBookings.assignBooking')}
               </button>
-            )}
+              {filteredBookings.some(b => b.status === 'pending') && (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleApproveAll}
+                  disabled={isApprovingAll}
+                >
+                  {isApprovingAll ? t('adminBookings.approvingAll') : t('adminBookings.approveAll', { count: filteredBookings.filter(b => b.status === 'pending').length })}
+                </button>
+              )}
+            </div>
           </div>
           <div className="page-filters">
             <select

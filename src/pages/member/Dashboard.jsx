@@ -354,7 +354,7 @@ const MemberDashboard = () => {
 
   return (
     <Layout>
-      <div className="container">
+      <div className="container member-dashboard">
         <h1 className="page-title">{t('memberDashboard.title')}</h1>
 
         <div className="stats-grid">
