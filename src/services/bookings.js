@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  getCountFromServer,
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -79,6 +80,20 @@ export const getBookings = async (filters = {}) => {
     console.error('Error fetching bookings:', error)
     throw error
   }
+}
+
+// All-time count of completed bookings, server-side aggregate: the dashboards
+// read a bounded date window, so they cannot total a collection that outgrows
+// it. Counts documents, so a fixed desk plan contributes one per working day.
+// Admin-only in practice — the read rule lets a member list only their own
+// bookings, and an aggregate is authorized against the query, not its results.
+export const getCompletedBookingsCount = async () => {
+  const q = query(
+    collection(db, BOOKINGS_COLLECTION),
+    where('status', '==', 'completed')
+  )
+  const snapshot = await getCountFromServer(q)
+  return snapshot.data().count
 }
 
 export const getBooking = async (id) => {

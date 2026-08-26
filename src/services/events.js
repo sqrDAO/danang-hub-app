@@ -12,12 +12,29 @@ import {
   arrayUnion,
   arrayRemove,
   runTransaction,
+  getCountFromServer,
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { getMember } from './members'
 
 const EVENTS_COLLECTION = 'events'
+
+// All-time count of events that have happened. Events have no 'completed'
+// status (pending | approved | rejected), so a past approved event is the
+// closest equivalent — a never-approved pending event that simply expired is
+// not a completion. Needs the ASCENDING (status, date) composite index: the
+// DESCENDING twin does not serve this range scan, and the emulator does not
+// enforce composite indexes, so a miss only shows up against the real project.
+export const getCompletedEventsCount = async () => {
+  const q = query(
+    collection(db, EVENTS_COLLECTION),
+    where('status', '==', 'approved'),
+    where('date', '<', Timestamp.now())
+  )
+  const snapshot = await getCountFromServer(q)
+  return snapshot.data().count
+}
 
 // Fetch organizer display fields from the members collection.
 // Returns { organizerDisplayName, organizerPhotoURL } with nulls when missing.

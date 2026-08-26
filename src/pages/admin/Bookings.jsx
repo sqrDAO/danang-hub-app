@@ -653,7 +653,9 @@ const AdminBookings = () => {
   const adminBookingsWindow = getAdminBookingsWindow()
 
   const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['bookings'],
+    // Scoped key: /admin/dashboard reads a narrower window under the same
+    // 'bookings' prefix, and React Query keys on queryKey alone.
+    queryKey: ['bookings', 'admin-list'],
     queryFn: () => getBookings(adminBookingsWindow)
   })
 

@@ -173,7 +173,7 @@ const submitUpdateEvent = async (data, ctx) => {
 
 const useAdminEventsData = () => {
   const { data: allEvents = [], isLoading } = useQuery({
-    queryKey: ['events'],
+    queryKey: ['events', 'admin-list'],
     queryFn: () => getEvents(getAdminEventsWindow())
   })
 
