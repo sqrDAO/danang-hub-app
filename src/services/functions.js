@@ -1,9 +1,19 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
 import { parseBookingRanges } from '../utils/bookingRanges'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import {
+  checkLocalBookingConflicts,
+  editLocalOwnEvent,
+  listLocalAmenityRanges,
+  reviewLocalEvent
+} from './localDevStore'
 
 // Check for booking conflicts before creating a booking
 export const checkBookingConflicts = async (amenityId, startTime, endTime, excludeBookingId = null) => {
+  if (LOCAL_DEV_MODE) {
+    return checkLocalBookingConflicts(amenityId, startTime, endTime, excludeBookingId)
+  }
   try {
     const checkConflicts = httpsCallable(functions, 'checkBookingConflicts')
     const result = await checkConflicts({
@@ -23,6 +33,9 @@ export const checkBookingConflicts = async (amenityId, startTime, endTime, exclu
 // Admin assignment must fail closed: a callable error means the availability
 // check could not be completed, so creating the booking would be unsafe.
 export const checkBookingConflictsStrict = async (amenityId, startTime, endTime, excludeBookingId = null) => {
+  if (LOCAL_DEV_MODE) {
+    return checkLocalBookingConflicts(amenityId, startTime, endTime, excludeBookingId)
+  }
   const checkConflicts = httpsCallable(functions, 'checkBookingConflicts')
   const result = await checkConflicts({
     amenityId,
@@ -46,6 +59,7 @@ export const checkBookingConflictsStrict = async (amenityId, startTime, endTime,
 // every slot free and invites the double booking that neither the advisory
 // conflict check nor firestore.rules would catch.
 export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => {
+  if (LOCAL_DEV_MODE) return listLocalAmenityRanges(amenityId, startTime, endTime)
   const loadRanges = httpsCallable(functions, 'getAmenityBookingRanges')
   const result = await loadRanges({
     amenityId,
@@ -57,12 +71,14 @@ export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => 
 }
 
 export const editOwnEvent = async ({ eventId, expectedRevision, data }) => {
+  if (LOCAL_DEV_MODE) return editLocalOwnEvent({ eventId, expectedRevision, data })
   const editEvent = httpsCallable(functions, 'editOwnEvent')
   const result = await editEvent({ eventId, expectedRevision, data })
   return result.data
 }
 
 export const reviewEvent = async ({ eventId, expectedRevision, action, reason = '' }) => {
+  if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action, reason })
   const review = httpsCallable(functions, 'reviewEvent')
   const result = await review({ eventId, expectedRevision, action, reason })
   return result.data

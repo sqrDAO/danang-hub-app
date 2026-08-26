@@ -1,24 +1,42 @@
-# Local booking preview mode
+# Local skip-auth preview mode
 **Phase**: — · **Deps**: —
 
 ## Goal
-Provide a temporary Vite dev mode that opens the member booking page directly for local UI review. Keep the bypass limited to the dedicated local mode so normal development and production retain the existing auth and route guards.
+Give a dedicated Vite dev command that signs in a stub admin and serves an
+in-memory amenities, bookings, and events dataset so a slot can be booked and
+an event registered without Firebase login. Keep `npm run dev` and production
+on the real auth guards and Firestore.
 
 ## Files
-- `package.json` (edited) — add the dedicated local booking dev command.
-- `src/App.jsx` (edited) — redirect the local booking mode to the member booking page and bypass its auth guard only there.
-- `src/pages/member/Bookings.jsx` (edited) — use a local amenity fallback and auto-open the preview modal.
-- `src/components/BookingCalendar.jsx` (edited) — skip remote booking reads in the preview mode.
-- `src/utils/localBookingMode.js` (new) — share the mode flag and fixture amenity.
+- `package.json` (edited) — `dev:skipauth` runs Vite with mode `skipauth`.
+- `.env.skipauth` (new) — `VITE_SKIP_AUTH=true`.
+- `src/utils/localDevMode.js` (new) — DEV + skip-auth flag and stub user.
+- `src/contexts/LocalDevAuthProvider.jsx` (new) — AuthContext with no Firebase listener.
+- `src/services/localDevFixtures.js` (new) — seed amenities, bookings, events, members, projects.
+- `src/services/localDevStore.js` (new) — in-memory CRUD used only in skip-auth.
+- `src/services/{amenities,bookings,events,functions,members,projects}.js` (edited) — local-store early returns.
+- `src/App.jsx` (edited) — stub provider only when skip-auth is on.
+- `README.md` (edited) — document `npm run dev:skipauth`.
+- `test/localDevMode.test.js` (new) — DEV/flag matrix.
+- `test/localDevStore.test.js` (new) — booking filter and overlap helpers.
 
 ## Acceptance
-- [ ] `npm run dev:booking` opens `/member/bookings` from the root local URL.
-- [ ] The booking route is accessible without Firebase authentication only in the dedicated Vite dev mode.
-- [ ] The booking preview shows an amenity when local Firestore has no amenity documents.
-- [ ] The root local preview opens the first amenity's booking modal automatically.
-- [ ] Normal dev and production builds keep the existing protected member booking route.
+- [ ] `npm run dev:skipauth` boots with a signed-in stub admin (profile complete).
+- [ ] `/member/bookings` lists fixture amenities and opens the booking calendar.
+- [ ] Booking a free Meeting Room slot writes to the in-memory store and greys out on the next calendar load.
+- [ ] `/member/events` lists the fixture event; register stays in memory.
+- [ ] `npm run dev` and `npm run build` still require a real Firebase session and do not use the store.
+- [ ] NOT: skip-auth in a production build, writing fixture data to production Firestore, or auto-opening the booking modal.
+- [ ] NOT: event create, waitlist, Storage upload, notifications, or production-bundle dead-code of the in-memory store.
 
 ## Verify
-- `npm run lint` → passes.
-- `npm run build` → passes.
-- `npm run dev:booking` → root URL redirects to `/member/bookings`.
+- `npm run lint` → exits successfully with zero warnings.
+- `npm run build` → production build completes successfully (skip-auth off).
+- `npm test` → local-dev tests pass.
+- `npm run dev:skipauth` → `/member/bookings` shows Coworking Space, Meeting Room, and Event Hall.
+- `npm run dev:skipauth` → book a Meeting Room slot → reload calendar → that slot is grey.
+- `npm run dev:skipauth` → `/member/events` shows one Event; Register succeeds without Firebase.
+- regression: `npm run dev` → unauthenticated `/member` still redirects to `/login`.
+
+## Notes
+Stub `membershipType` is `admin` so the header view-switch reaches both portals. Logout is a no-op. Data resets on a full reload. Fixtures are three amenities and one event — no extra copy. Grey-out is Meeting Room (single occupancy); the desk stays capacity 8.

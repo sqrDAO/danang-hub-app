@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:booking": "vite --mode booking",
+    "dev:skipauth": "vite --mode skipauth",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "node --test $(find test -name '*.test.js' -not -name '._*')",

@@ -14,10 +14,20 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { isHubClosed } from '../utils/hubClosures'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import {
+  cancelLocalFixedDeskPlan,
+  createLocalBooking,
+  deleteLocalBooking,
+  getLocalBooking,
+  listLocalBookings,
+  updateLocalBooking
+} from './localDevStore'
 
 const BOOKINGS_COLLECTION = 'bookings'
 
 export const getBookings = async (filters = {}) => {
+  if (LOCAL_DEV_MODE) return listLocalBookings(filters)
   try {
     const bookingsRef = collection(db, BOOKINGS_COLLECTION)
 
@@ -97,6 +107,7 @@ export const getCompletedBookingsCount = async () => {
 }
 
 export const getBooking = async (id) => {
+  if (LOCAL_DEV_MODE) return getLocalBooking(id)
   const bookingRef = doc(db, BOOKINGS_COLLECTION, id)
   const snapshot = await getDoc(bookingRef)
   if (snapshot.exists()) {
@@ -141,6 +152,7 @@ const readStatuses = async (ids) => {
 // `anySettled` reports whether anything left `pending` — when nothing did, the
 // caller can skip its refetch, since the list already shows these as pending.
 export const waitForBookingsSettled = async (ids, { timeoutMs = 4000 } = {}) => {
+  if (LOCAL_DEV_MODE) return { anySettled: true }
   const watched = (ids || []).filter(Boolean).slice(0, MAX_WATCHED_BOOKINGS)
   if (watched.length === 0) return { anySettled: false }
 
@@ -161,6 +173,7 @@ export const waitForBookingsSettled = async (ids, { timeoutMs = 4000 } = {}) => 
 }
 
 export const createBooking = async (data) => {
+  if (LOCAL_DEV_MODE) return createLocalBooking(data)
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
   const docRef = await addDoc(bookingsRef, {
     ...data,
@@ -173,6 +186,7 @@ export const createBooking = async (data) => {
 }
 
 export const updateBooking = async (id, data) => {
+  if (LOCAL_DEV_MODE) return updateLocalBooking(id, data)
   const bookingRef = doc(db, BOOKINGS_COLLECTION, id)
   const updateData = { ...data }
   
@@ -194,6 +208,7 @@ export const updateBooking = async (id, data) => {
 }
 
 export const deleteBooking = async (id) => {
+  if (LOCAL_DEV_MODE) return deleteLocalBooking(id)
   const bookingRef = doc(db, BOOKINGS_COLLECTION, id)
   await deleteDoc(bookingRef)
 }
@@ -490,6 +505,7 @@ export const createFixedDeskPlan = async ({
 // Server-side filter on planGroupId avoids fetching the whole bookings
 // collection just to cancel one plan.
 export const cancelFixedDeskPlan = async (planGroupId) => {
+  if (LOCAL_DEV_MODE) return cancelLocalFixedDeskPlan(planGroupId)
   const bookingsRef = collection(db, BOOKINGS_COLLECTION)
   const q = query(bookingsRef, where('planGroupId', '==', planGroupId))
   const snapshot = await getDocs(q)
