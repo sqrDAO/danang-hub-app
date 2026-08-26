@@ -18,24 +18,24 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
   plus `bookings (status ASC, endTime ASC)` for `autoCheckoutExpiredBookings`
 
 ## Acceptance
-- [ ] `src/pages/admin/Dashboard.jsx` fetches bookings under `['bookings', 'admin-dashboard']`
-- [ ] `src/pages/admin/Bookings.jsx` fetches bookings under `['bookings', 'admin-list']`
-- [ ] `src/pages/admin/Dashboard.jsx` fetches events under `['events', 'admin-dashboard']`
-- [ ] `src/pages/admin/Events.jsx` fetches events under `['events', 'admin-list']`
-- [ ] `src/pages/member/Dashboard.jsx` fetches bookings under `['bookings', uid, 'dashboard']`
-- [ ] `src/pages/member/Bookings.jsx` fetches bookings under `['bookings', uid, 'list']`
-- [ ] `getCompletedBookingsCount` uses `getCountFromServer` over `status == 'completed'`
-- [ ] `getCompletedEventsCount` uses `getCountFromServer` over `status == 'approved'` and past `date`
-- [ ] Neither completed stat is derived from the dashboard's windowed `bookings`/`events` arrays
-- [ ] Count queries are keyed `['bookings'|'events', 'count', 'completed']` so `invalidate('bookings'|'events')` prefix-matches them
-- [ ] A failed or in-flight count renders `—`, never `0`
-- [ ] `npm run lint` passes without adding an `eslint-disable`
-- [ ] NOT: change the `-90`/`+180` dashboard window or the `-365`/`+365` list windows
-- [ ] NOT: qualify the completed card labels with a time window (they are true totals)
-- [ ] NOT: change `activeBookings`, `upcomingBookings`, or `availableAmenities`
-- [ ] NOT: introduce a `completed` status for events (none exists in the model)
-- [ ] `firestore.indexes.json` gains `events (status ASC, date ASC)`
-- [ ] `firestore.indexes.json` gains `bookings (status ASC, endTime ASC)`
+- [x] `src/pages/admin/Dashboard.jsx` fetches bookings under `['bookings', 'admin-dashboard']`
+- [x] `src/pages/admin/Bookings.jsx` fetches bookings under `['bookings', 'admin-list']`
+- [x] `src/pages/admin/Dashboard.jsx` fetches events under `['events', 'admin-dashboard']`
+- [x] `src/pages/admin/Events.jsx` fetches events under `['events', 'admin-list']`
+- [x] `src/pages/member/Dashboard.jsx` fetches bookings under `['bookings', uid, 'dashboard']`
+- [x] `src/pages/member/Bookings.jsx` fetches bookings under `['bookings', uid, 'list']`
+- [x] `getCompletedBookingsCount` uses `getCountFromServer` over `status == 'completed'`
+- [x] `getCompletedEventsCount` uses `getCountFromServer` over `status == 'approved'` and past `date`
+- [x] Neither completed stat is derived from the dashboard's windowed `bookings`/`events` arrays
+- [x] Count queries are keyed `['bookings'|'events', 'count', 'completed']` so `invalidate('bookings'|'events')` prefix-matches them
+- [x] A failed or in-flight count renders `—`, never `0`
+- [x] `npm run lint` passes without adding an `eslint-disable`
+- [x] NOT: change the `-90`/`+180` dashboard window or the `-365`/`+365` list windows
+- [x] NOT: qualify the completed card labels with a time window (they are true totals)
+- [x] NOT: change `activeBookings`, `upcomingBookings`, or `availableAmenities`
+- [x] NOT: introduce a `completed` status for events (none exists in the model)
+- [x] `firestore.indexes.json` gains `events (status ASC, date ASC)`
+- [x] `firestore.indexes.json` gains `bookings (status ASC, endTime ASC)`
 
 ## Verify
 - `npm run lint` → 0 errors, 0 warnings
@@ -59,9 +59,10 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
   relies on React Query v5 prefix matching, so every scoped key stays invalidated.
 - Aggregates are authorized against the query, not its results. `bookings` has
   `allow read: if isAdmin()`, so the unfiltered count is admin-only; `events` is world-readable.
-- The existing `events (status ASC, date ASC/DESC)` pair is NOT interchangeable here: verified
-  against the real project, `status == 'approved' AND date < now` needs the ASC variant and
-  fails `failed-precondition` on the DESC one. The emulator does not enforce composite indexes
+- Composite index direction is load-bearing: an equality + range query needs the ASCENDING
+  variant of the range field, and a DESCENDING twin does not serve it. This bit three queries
+  here — both `bookings (status, endTime)` and `(status, startTime)` for the sweep, and
+  `events (status, date)` for this aggregate. The emulator does not enforce composite indexes
   and will pass either way — this can only be checked against the real project.
 - The `bookings status == 'completed'` aggregate needs no composite index (single equality) and
   was verified working against the real project: 162.
