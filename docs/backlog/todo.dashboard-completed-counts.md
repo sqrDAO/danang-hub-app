@@ -14,6 +14,7 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
 - `src/pages/admin/Events.jsx` (edited) — scope its `['events']` key
 - `src/pages/member/Dashboard.jsx` (edited) — scope its `['bookings', uid]` key
 - `src/pages/member/Bookings.jsx` (edited) — scope its `['bookings', uid]` key
+- `firestore.indexes.json` (edited) — `events (status ASC, date ASC)` for the events aggregate
 
 ## Acceptance
 - [ ] `src/pages/admin/Dashboard.jsx` fetches bookings under `['bookings', 'admin-dashboard']`
@@ -32,7 +33,8 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
 - [ ] NOT: qualify the completed card labels with a time window (they are true totals)
 - [ ] NOT: change `activeBookings`, `upcomingBookings`, or `availableAmenities`
 - [ ] NOT: introduce a `completed` status for events (none exists in the model)
-- [ ] NOT: add a new Firestore composite index (the existing `events (status, date)` should cover it)
+- [ ] `firestore.indexes.json` gains `events (status ASC, date ASC)`
+- [ ] NOT: add a `bookings (status, endTime)` index here (that belongs to the scheduler fix)
 
 ## Verify
 - `npm run lint` → 0 errors, 0 warnings
@@ -43,8 +45,8 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
   Hard-reload /admin/dashboard → same number.
 - `npm run dev`, admin → /admin/bookings filtered to status `completed` with past bookings shown
   → its total matches the Dashboard "Completed Bookings" card exactly, with no date restriction.
-- Browser devtools console on /admin/dashboard → no `failed-precondition` index error from
-  either aggregate.
+- `firebase deploy --only firestore:indexes` → succeeds (CI never deploys indexes; this is manual)
+- after the index builds, /admin/dashboard "Completed Events" shows a number, not `—`
 - regression: approve a booking in /admin/bookings → the Dashboard "Completed" cards and lists
   both refresh; /member/dashboard and /member/bookings still list bookings.
 
@@ -56,10 +58,12 @@ deterministic, status-driven, and true all-time totals rather than window-bounde
   relies on React Query v5 prefix matching, so every scoped key stays invalidated.
 - Aggregates are authorized against the query, not its results. `bookings` has
   `allow read: if isAdmin()`, so the unfiltered count is admin-only; `events` is world-readable.
-- The Firestore emulator does not enforce composite indexes, so it CANNOT confirm the events
-  aggregate's index coverage — that check has to happen against the real project. If it throws
-  `failed-precondition`, add the index from the console link to `firestore.indexes.json` and
-  deploy it with `firebase deploy --only firestore:indexes` (CI never deploys indexes).
+- The existing `events (status ASC, date ASC/DESC)` pair is NOT interchangeable here: verified
+  against the real project, `status == 'approved' AND date < now` needs the ASC variant and
+  fails `failed-precondition` on the DESC one. The emulator does not enforce composite indexes
+  and will pass either way — this can only be checked against the real project.
+- The `bookings status == 'completed'` aggregate needs no composite index (single equality) and
+  was verified working against the real project: 162.
 - `autoCheckoutExpiredBookings` (hourly) owns the flip to `status: 'completed'`, so the count
   can lag an expired booking by up to an hour. Intended: the card tracks recorded state.
 - Fixed desk plans are one booking doc per working day, so a single plan adds ~65 to this
