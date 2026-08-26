@@ -41,26 +41,37 @@ export const shouldRefreshPushToken = ({
   Boolean(preferenceEnabled)
 
 /**
- * Whether Profile save should call enablePushNotifications.
+ * Whether the post-success opt-in banner should stay hidden.
  *
- * Turning the box on always enables. Leaving it on also enables when this
- * device has no opt-in marker, so a ticked box is not a no-op after a PWA
- * reinstall (permission reset, marker gone, token already deleted). Desktop
- * is excluded: enablePushNotifications throws there, and a name-only save
- * must not fail because of that.
- * @param {{desired?: boolean, current?: boolean, deviceOptedIn?: boolean, mobileEligible?: boolean}} input
+ * Account preference on is not enough: a PWA reinstall wipes the device
+ * marker while leaving the preference true, and that is the device that
+ * needs the banner. Suppress only when this device is already receiving.
+ * @param {{preferenceEnabled?: boolean, deviceOptedIn?: boolean}} input
  * @returns {boolean}
  */
-export const shouldEnablePushOnSave = ({
-  desired = false,
-  current = false,
+export const shouldSuppressPushOptInPrompt = ({
+  preferenceEnabled = false,
+  deviceOptedIn = false
+} = {}) => Boolean(preferenceEnabled) && Boolean(deviceOptedIn)
+
+/**
+ * Whether Profile should offer Enable-on-this-phone next to a ticked box.
+ *
+ * Save does not remint. Hitching requestPermission to an unrelated write is
+ * how a name-only save prompted and (before the catch) aborted. This control
+ * is the Profile recovery when the marker is gone.
+ * @param {{preferenceEnabled?: boolean, deviceOptedIn?: boolean, mobileEligible?: boolean, supported?: boolean}} input
+ * @returns {boolean}
+ */
+export const shouldOfferDevicePushEnable = ({
+  preferenceEnabled = false,
   deviceOptedIn = false,
-  mobileEligible = false
-} = {}) => {
-  if (!desired) return false
-  if (desired !== current) return true
-  return Boolean(mobileEligible) && !deviceOptedIn
-}
+  mobileEligible = false,
+  supported = false
+} = {}) => Boolean(preferenceEnabled) &&
+  !deviceOptedIn &&
+  Boolean(mobileEligible) &&
+  Boolean(supported)
 
 /**
  * Whether AuthContext may record this uid and call refreshPushToken.

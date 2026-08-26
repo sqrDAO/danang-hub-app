@@ -249,6 +249,8 @@
     "pushNotificationsUnsupported": "Notifications are not supported on this phone.",
     "pushNotificationsRegisteredPhone": "Notifications on the registered phone",
     "pushNotificationsRegisteredPhoneHelp": "Turn this off to stop notifications on the currently registered phone.",
+    "pushNotificationsDeviceUnregistered": "This phone isn't registered. Enable notifications here — saving the rest of the profile won't do it.",
+    "pushNotificationsEnableThisDevice": "Enable on this phone",
     "saving": "Saving…",
     "activity": "Activity",
     "bookings": "Bookings",

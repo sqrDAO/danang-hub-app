@@ -9,11 +9,14 @@ opt-out stays off and Profile keeps showing the member's real choice.
 
 ## Files
 - `functions/index.js` (edited) — delete the matching `push_tokens/{uid}` doc; do not write `members/{uid}.preferences`
-- `src/services/pushNotifications.js` (edited) — re-issue the token on launch without writing the preference
+- `src/services/pushNotifications.js` (edited) — re-issue the token on launch without writing the preference; banner eligibility uses the device marker
 - `src/contexts/AuthContext.jsx` (edited) — drop the post-heal `refreshUserProfile` path and its `useCallback`; wait for `userProfile.uid` to match before recording the uid
-- `src/pages/member/Profile.jsx` (edited) — Save remints when the box is ticked but this device has no marker; remint is best-effort after `updateMember`
-- `src/utils/pushDeviceOptIn.js` (edited) — `shouldRefreshPushToken` requires the account preference on; `shouldAttemptLaunchPushRefresh` requires a matching profile uid; `shouldEnablePushOnSave` covers the ticked-box remint
-- `test/pushDeviceOptIn.test.js` (edited) — preference-off is a no-refresh case; account-switch wait-then-retry; ticked-box remint matrix
+- `src/pages/member/Profile.jsx` (edited) — Save only syncs push on an explicit toggle; Enable-on-this-phone remints when the marker is gone
+- `src/pages/member/Profile.css` (edited) — spacing for Enable-on-this-phone
+- `src/utils/pushDeviceOptIn.js` (edited) — `shouldRefreshPushToken` requires the account preference on; `shouldAttemptLaunchPushRefresh` requires a matching profile uid; banner suppress and Profile enable predicates
+- `src/utils/pushOptInPrompt.js` (edited) — do not skip the banner solely because the account preference is on
+- `test/pushDeviceOptIn.test.js` (edited) — preference-off is a no-refresh case; account-switch wait-then-retry; banner suppress and Enable-on-this-phone matrix
+- `src/locales/en.json` (edited) · `src/locales/vi.json` (edited) — Enable-on-this-phone copy
 
 ## Acceptance
 - [x] `deleteStalePushToken` deletes `push_tokens/{uid}` when the stored token matches the failed one
@@ -27,15 +30,16 @@ opt-out stays off and Profile keeps showing the member's real choice.
 - [x] `shouldAttemptLaunchPushRefresh` is false when `profileUid` does not equal `uid`
 - [x] AuthContext does not record `pushRefreshedForUid` until `userProfile.uid` matches the signed-in uid
 - [x] AuthContext does not wrap `refreshUserProfile` in `useCallback`
-- [x] `shouldEnablePushOnSave` is true when desired and current are both true, the device is mobile-eligible, and `deviceOptedIn` is false
-- [x] `shouldEnablePushOnSave` is false when desired and current are both true on a non-mobile device
-- [x] `syncPushPreference` calls `enablePushNotifications` when `shouldEnablePushOnSave` is true
-- [x] A remint (`desired === current`) runs `updateMember` before `syncPushPreference`
-- [x] A remint throw does not fail the profile save
+- [x] `syncPushPreference` returns without calling enable or disable when desired === current
 - [x] An explicit push toggle still runs `syncPushPreference` before `updateMember`
+- [x] `shouldSuppressPushOptInPrompt` is false when the preference is on and `deviceOptedIn` is false
+- [x] `promptPushOptInAfterSuccess` does not skip the banner solely because `preferences.pushNotifications` is true
+- [x] `shouldOfferDevicePushEnable` is true when the preference is on, this device has no marker, and the device is mobile-eligible and push-supported
+- [x] Profile Enable-on-this-phone calls `enablePushNotifications` from a non-submit control
 - [x] NOT: change the single-token `push_tokens/{uid}` data model
 - [x] NOT: change logout push cleanup (`disablePushNotificationsOnLogout`)
-- [x] NOT: prompt for notification permission outside the existing Profile toggle and opt-in banner
+- [x] NOT: prompt for notification permission outside the Profile push controls and the opt-in banner
+- [x] NOT: remint or `requestPermission` from Profile Save when the box was not toggled
 - [x] NOT: auto-recover members whose preference the old server path already cleared — they re-enable in Profile once
 
 ## Verify
@@ -48,4 +52,4 @@ opt-out stays off and Profile keeps showing the member's real choice.
 ## Notes
 - Leftover from `done.push-token-refresh.md`: disabling is account-wide, re-enabling was device-local. A phone with an opted-in marker must not flip the preference back on.
 - Until the next opted-in phone launch, a missing token with preference still on is the honest state: Profile stays ticked, `getPushToken` returns `""`, and the next launch rewrites the token.
-- Trade-off vs PR #74: leaving preference on means Profile can stay ticked with no token. Same phone relaunch rewrites it. A PWA reinstall (marker gone, permission back to `default`) cannot adopt at launch; Save on that phone remints after the profile write. A declined prompt does not lose the other fields; an explicit toggle still gates the write. Desktop Save does not remint — `enablePushNotifications` throws there.
+- PWA reinstall (marker gone, permission `default`) cannot adopt at launch. Recovery is the opt-in banner after the next booking/event success, or Profile Enable-on-this-phone. Save does not remint — that hitch put `requestPermission` on an unrelated write.

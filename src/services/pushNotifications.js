@@ -10,8 +10,10 @@ import {
   getDeviceOptInState,
   setDeviceOptedIn,
   setDeviceOptedOut,
+  isDeviceOptedIn,
   shouldAdoptLegacyOptIn,
-  shouldRefreshPushToken
+  shouldRefreshPushToken,
+  shouldSuppressPushOptInPrompt
 } from '../utils/pushDeviceOptIn'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
@@ -48,8 +50,11 @@ export const isPushSupported = async () => {
 }
 
 /** Whether the soft post-success prompt may be shown. */
-export const canShowPushOptInPrompt = async ({ optedIn = false } = {}) => {
-  if (optedIn) return false
+export const canShowPushOptInPrompt = async ({ optedIn = false, uid } = {}) => {
+  if (shouldSuppressPushOptInPrompt({
+    preferenceEnabled: optedIn,
+    deviceOptedIn: isDeviceOptedIn(uid)
+  })) return false
   if (!(await isPushSupported())) return false
   if (!firebaseVapidKey) return false
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {

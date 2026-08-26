@@ -6,8 +6,9 @@ import {
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
   shouldAttemptLaunchPushRefresh,
-  shouldEnablePushOnSave,
-  shouldRefreshPushToken
+  shouldOfferDevicePushEnable,
+  shouldRefreshPushToken,
+  shouldSuppressPushOptInPrompt
 } from '../src/utils/pushDeviceOptIn.js'
 
 const refresh = (overrides) => shouldRefreshPushToken({
@@ -129,48 +130,61 @@ test('defaults to not attempting launch refresh when inputs are missing', () => 
   assert.equal(shouldAttemptLaunchPushRefresh({}), false)
 })
 
-const enableOnSave = (overrides) => shouldEnablePushOnSave({
-  desired: true,
-  current: false,
-  deviceOptedIn: false,
-  mobileEligible: true,
+const suppressPrompt = (overrides) => shouldSuppressPushOptInPrompt({
+  preferenceEnabled: true,
+  deviceOptedIn: true,
   ...overrides
 })
 
-test('enables on save when the member turns the preference on', () => {
-  assert.equal(enableOnSave({}), true)
+test('suppresses the opt-in banner when this device is already receiving', () => {
+  assert.equal(suppressPrompt({}), true)
 })
 
-test('remints on save when the box is ticked but this device has no marker', () => {
-  // PWA reinstall: preference stayed true, marker gone, permission reset.
-  // Save must not be a no-op or recovery is uncheck-then-recheck.
-  assert.equal(enableOnSave({ desired: true, current: true, deviceOptedIn: false }), true)
+test('does not suppress the banner when preference is on but this device has no marker', () => {
+  // PWA reinstall: preference stayed true, marker gone. The banner is the
+  // existing permission-prompt surface; Save must not steal that job.
+  assert.equal(suppressPrompt({ deviceOptedIn: false }), false)
 })
 
-test('does not remint on save when this device is already opted in', () => {
-  assert.equal(enableOnSave({
-    desired: true,
-    current: true,
-    deviceOptedIn: true
-  }), false)
+test('does not suppress the banner while the account preference is off', () => {
+  assert.equal(suppressPrompt({ preferenceEnabled: false }), false)
+  assert.equal(suppressPrompt({ preferenceEnabled: false, deviceOptedIn: false }), false)
 })
 
-test('does not remint a ticked box on a non-mobile device', () => {
-  // enablePushNotifications throws on desktop; a name-only save must not fail.
-  assert.equal(enableOnSave({
-    desired: true,
-    current: true,
-    deviceOptedIn: false,
-    mobileEligible: false
-  }), false)
+test('defaults to not suppressing the banner when inputs are missing', () => {
+  assert.equal(shouldSuppressPushOptInPrompt(), false)
+  assert.equal(shouldSuppressPushOptInPrompt({}), false)
 })
 
-test('does not enable on save when the preference is off', () => {
-  assert.equal(enableOnSave({ desired: false, current: true }), false)
-  assert.equal(enableOnSave({ desired: false, current: false }), false)
+const offerEnable = (overrides) => shouldOfferDevicePushEnable({
+  preferenceEnabled: true,
+  deviceOptedIn: false,
+  mobileEligible: true,
+  supported: true,
+  ...overrides
 })
 
-test('defaults to not enabling on save when inputs are missing', () => {
-  assert.equal(shouldEnablePushOnSave(), false)
-  assert.equal(shouldEnablePushOnSave({}), false)
+test('offers Enable-on-this-phone when the box is ticked but this device has no marker', () => {
+  assert.equal(offerEnable({}), true)
+})
+
+test('does not offer Enable-on-this-phone when this device is already opted in', () => {
+  assert.equal(offerEnable({ deviceOptedIn: true }), false)
+})
+
+test('does not offer Enable-on-this-phone on a non-mobile device', () => {
+  assert.equal(offerEnable({ mobileEligible: false }), false)
+})
+
+test('does not offer Enable-on-this-phone when push is unsupported', () => {
+  assert.equal(offerEnable({ supported: false }), false)
+})
+
+test('does not offer Enable-on-this-phone when the preference is off', () => {
+  assert.equal(offerEnable({ preferenceEnabled: false }), false)
+})
+
+test('defaults to not offering Enable-on-this-phone when inputs are missing', () => {
+  assert.equal(shouldOfferDevicePushEnable(), false)
+  assert.equal(shouldOfferDevicePushEnable({}), false)
 })
