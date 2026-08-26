@@ -1081,20 +1081,28 @@ const useMemberEventInteractions = ({
   return { ...actions, hostModalMember, setHostModalMember, handleDeleteMyEvent, handleOpenHostModal }
 }
 
+const consumeCreateAction = ({
+  searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams
+}) => {
+  if (searchParams.get('action') !== 'create' || !currentUser) return
+  const amenityId = searchParams.get('amenityId')
+  if (amenityId) openCreateForAmenity(amenityId)
+  else handleOpenCreateModal()
+  const nextParams = new URLSearchParams(searchParams)
+  nextParams.delete('action')
+  nextParams.delete('amenityId')
+  setSearchParams(nextParams, { replace: true })
+}
+
 const useMemberEventQueryActions = ({
-  currentUser, searchParams, setSearchParams, openCreateForAmenity, t,
+  currentUser, searchParams, setSearchParams, openCreateForAmenity, handleOpenCreateModal, t,
   isLoadingEvents, upcomingEventsData, approvedEvents, processedActionRef, actions
 }) => {
   useEffect(() => {
-    const action = searchParams.get('action')
-    const amenityId = searchParams.get('amenityId')
-    if (action !== 'create' || !amenityId || !currentUser) return
-    openCreateForAmenity(amenityId)
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.delete('action')
-    nextParams.delete('amenityId')
-    setSearchParams(nextParams, { replace: true })
-  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity])
+    consumeCreateAction({
+      searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams
+    })
+  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity, handleOpenCreateModal])
 
   useEffect(() => {
     const action = searchParams.get('action')
@@ -1334,6 +1342,7 @@ const MemberEvents = () => {
     searchParams,
     setSearchParams,
     openCreateForAmenity,
+    handleOpenCreateModal,
     t,
     isLoadingEvents,
     upcomingEventsData,

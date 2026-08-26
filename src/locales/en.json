@@ -304,6 +304,7 @@
     "myUpcomingBookings": "My Upcoming Bookings",
     "noUpcomingBookings": "No upcoming bookings",
     "noUpcomingEvents": "No upcoming events",
+    "createEvent": "Create Event",
     "untitledEvent": "Untitled Event",
     "organizer": "Organizer: {{name}}",
     "attendees": "{{current}} / {{total}} attendees",

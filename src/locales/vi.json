@@ -304,6 +304,7 @@
     "myUpcomingBookings": "Đặt chỗ sắp tới của tôi",
     "noUpcomingBookings": "Chưa có đặt chỗ sắp tới",
     "noUpcomingEvents": "Chưa có sự kiện sắp tới",
+    "createEvent": "Tạo sự kiện",
     "untitledEvent": "Sự kiện chưa đặt tên",
     "organizer": "Người tổ chức: {{name}}",
     "attendees": "{{current}} / {{total}} người tham dự",

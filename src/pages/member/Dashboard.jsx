@@ -384,7 +384,12 @@ const MemberDashboard = () => {
 
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
-            <h2 className="section-title">{t('memberDashboard.myUpcomingBookings')}</h2>
+            <div className="section-title-row">
+              <h2 className="section-title">{t('memberDashboard.myUpcomingBookings')}</h2>
+              <Link to="/member/bookings" className="btn btn-primary btn-sm">
+                {t('common.bookNow')}
+              </Link>
+            </div>
             {paginatedUpcomingBookings.length > 0 ? (
               <ul className="booking-list">
                 {paginatedUpcomingBookings.map(booking => {
@@ -442,7 +447,12 @@ const MemberDashboard = () => {
           <div className="dashboard-section glass">
             <div className="section-title-row">
               <h2 className="section-title">{t('memberDashboard.upcomingEvents')}</h2>
-              <Link to="/member/events" className="btn btn-secondary btn-sm">{t('common.viewAll')}</Link>
+              <div className="section-title-actions">
+                <Link to="/member/events?action=create" className="btn btn-primary btn-sm">
+                  {t('memberDashboard.createEvent')}
+                </Link>
+                <Link to="/member/events" className="btn btn-secondary btn-sm">{t('common.viewAll')}</Link>
+              </div>
             </div>
             {upcomingEvents.length > 0 ? (
               <ul className="event-list event-list-detailed">

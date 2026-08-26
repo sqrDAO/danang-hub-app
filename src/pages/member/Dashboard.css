@@ -178,6 +178,12 @@
   margin-bottom: 0;
 }
 
+.section-title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
 .event-list-detailed {
   gap: var(--spacing-lg);
 }
