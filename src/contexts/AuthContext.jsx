@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   signInWithPopup,
   signOut,
@@ -18,6 +18,7 @@ import {
 // to bundle, and a failed dynamic import here would throw out of logout()
 // before signOut ever ran.
 import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
+import { shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
 
 export const AuthProvider = ({ children }) => {
@@ -177,9 +178,7 @@ export const AuthProvider = ({ children }) => {
     return !!(displayName && email && company && jobTitle)
   }
 
-  // Refresh user profile from Firestore after updates. Memoized because the
-  // push token refresh effect below depends on it.
-  const refreshUserProfile = useCallback(async () => {
+  const refreshUserProfile = async () => {
     if (currentUser) {
       const userRef = doc(db, 'members', currentUser.uid)
       const userSnap = await getDoc(userRef)
@@ -187,7 +186,7 @@ export const AuthProvider = ({ children }) => {
         setUserProfile(userSnap.data())
       }
     }
-  }, [currentUser])
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -212,36 +211,37 @@ export const AuthProvider = ({ children }) => {
 
   // An FCM token is minted once at opt-in and then goes stale on its own —
   // cleared site data, a reinstalled PWA, the push service resubscribing. The
-  // server drops preferences.pushNotifications to false on the first failed
-  // send, so without a launch-time re-issue a member's push dies permanently
-  // with nothing in the UI to say so. Deliberately outside the listener effect
-  // below: that one gates on the very preference this heals.
+  // server deletes the stored token on the first failed send but leaves the
+  // account preference alone, so without a launch-time re-issue a member's
+  // push stays opted in and never delivers. Deliberately outside the listener
+  // effect below: that one only starts/stops the foreground handler.
   useEffect(() => {
     const uid = currentUser?.uid
     if (!uid) {
       pushRefreshedForUid.current = null
       return undefined
     }
-    // Wait for the profile so a not-yet-loaded preference is not mistaken for
-    // an opt-out and needlessly rewritten on every launch.
-    if (!userProfile || pushRefreshedForUid.current === uid) return undefined
+    // Wait until the mounted profile belongs to this uid. A not-yet-loaded
+    // preference must not be mistaken for an opt-out (that would skip the
+    // token write for this uid for good), and a previous account's profile
+    // must not burn the once-per-uid refresh against the wrong preference.
+    if (!shouldAttemptLaunchPushRefresh({
+      uid,
+      profileUid: userProfile?.uid,
+      alreadyRefreshedUid: pushRefreshedForUid.current
+    })) return undefined
     pushRefreshedForUid.current = uid
 
-    // No in-flight cancellation guard: userProfile is a dependency, so the
-    // effect re-runs on any profile write, and a per-run flag would abort the
-    // heal whenever an unrelated update landed mid-request. The ref above
-    // already stops duplicate work, and refreshUserProfile is idempotent.
     const preferenceEnabled = Boolean(userProfile?.preferences?.pushNotifications)
     import('../services/pushNotifications')
       .then(({ refreshPushToken }) => refreshPushToken(uid, { preferenceEnabled }))
-      .then((healed) => (healed ? refreshUserProfile() : undefined))
       .catch((error) => {
         // Best effort: a dead push token must never break sign-in or boot.
         console.warn('Unable to refresh browser push token:', error)
       })
 
     return undefined
-  }, [currentUser, userProfile, refreshUserProfile])
+  }, [currentUser, userProfile])
 
   // FCM delivers to onMessage when a tab is open; without a handler Chrome shows
   // its default "site updated in the background" shell for unfocused tabs.

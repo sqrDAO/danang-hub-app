@@ -10,8 +10,10 @@ import {
   getDeviceOptInState,
   setDeviceOptedIn,
   setDeviceOptedOut,
+  isDeviceOptedIn,
   shouldAdoptLegacyOptIn,
-  shouldRefreshPushToken
+  shouldRefreshPushToken,
+  shouldSuppressPushOptInPrompt
 } from '../utils/pushDeviceOptIn'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
@@ -48,8 +50,11 @@ export const isPushSupported = async () => {
 }
 
 /** Whether the soft post-success prompt may be shown. */
-export const canShowPushOptInPrompt = async ({ optedIn = false } = {}) => {
-  if (optedIn) return false
+export const canShowPushOptInPrompt = async ({ optedIn = false, uid } = {}) => {
+  if (shouldSuppressPushOptInPrompt({
+    preferenceEnabled: optedIn,
+    deviceOptedIn: isDeviceOptedIn(uid)
+  })) return false
   if (!(await isPushSupported())) return false
   if (!firebaseVapidKey) return false
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
@@ -289,16 +294,16 @@ export const enablePushNotifications = async (uid) => {
  * Re-issues this device's FCM token on an authenticated launch.
  *
  * FCM web tokens die routinely — cleared site data, a reinstalled PWA, the push
- * service resubscribing — and the server drops `preferences.pushNotifications`
- * to false on the first failed send. Without this, a member's push is off for
- * good after one stale token, with nothing in the UI to say so.
+ * service resubscribing — and the server deletes the stored token on the first
+ * failed send. Without this, a member's push stays opted in (the preference)
+ * but never delivers again. The preference itself is account intent: a dead
+ * token must not turn it off, and this refresh must not turn it back on.
  *
  * Deliberately never calls requestPermission: a launch-time permission prompt
  * is exactly the behavior the opt-in banner exists to avoid.
  * @param {string} uid Signed-in member id
  * @param {{preferenceEnabled?: boolean}} [options] Cached member preference
- * @returns {Promise<boolean>} True when the member preference was restored, so
- *   the caller should refresh its cached profile
+ * @returns {Promise<boolean>} True when a token was written
  */
 export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) => {
   const state = getDeviceOptInState(uid)
@@ -315,7 +320,12 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   if (!deviceOptedIn) return false
 
   const eligible = await isPushSupported()
-  if (!shouldRefreshPushToken({ eligible, permission, deviceOptedIn })) return false
+  if (!shouldRefreshPushToken({
+    eligible,
+    permission,
+    deviceOptedIn,
+    preferenceEnabled
+  })) return false
   if (!firebaseVapidKey) return false
 
   const token = await issuePushToken()
@@ -323,11 +333,6 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   // Recorded only once the token write landed, mirroring enablePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
-  if (preferenceEnabled) return false
-
-  // The server cleared this on a stale-token send. Heal it so the foreground
-  // listener effect — which gates on the preference — starts working again.
-  await updateMemberPreferences(uid, { pushNotifications: true })
   return true
 }
 

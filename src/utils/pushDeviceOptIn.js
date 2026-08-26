@@ -4,9 +4,10 @@
 // The launch-time token refresh cannot key off browser permission alone:
 // disablePushNotifications deletes the token but leaves Notification.permission
 // granted, so a permission-only gate would resurrect push for someone who
-// deliberately turned it off. It cannot key off the member preference either —
-// that is the field the server clears on a stale token, which is exactly the
-// state the refresh exists to heal. Hence a third, device-local signal.
+// deliberately turned it off. The account preference is the other gate: a
+// dead token must not be treated as opt-out, and a phone with this marker
+// must not treat a desktop (or any) preference-off as something to heal.
+// Hence a third, device-local signal.
 //
 // Three states, not two. An explicit opt-out is *recorded* as 'false' rather
 // than removed, so a device that said no stays distinguishable from one that
@@ -22,16 +23,72 @@ export const DEVICE_OPT_IN_UNKNOWN = 'unknown'
 
 /**
  * Pure launch-refresh decision, split out so the matrix is testable without a
- * browser. All three inputs must hold: the device can register at all, the user
- * granted permission, and this device is the one that opted in.
- * @param {{eligible: boolean, permission: string, deviceOptedIn: boolean}} input
+ * browser. All four inputs must hold: the device can register at all, the user
+ * granted permission, this device is the one that opted in, and the account
+ * still wants push. Preference-off is account intent — do not re-issue a token
+ * that would then be ignored, and do not treat it as something to heal.
+ * @param {{eligible: boolean, permission: string, deviceOptedIn: boolean, preferenceEnabled: boolean}} input
  * @returns {boolean}
  */
 export const shouldRefreshPushToken = ({
   eligible = false,
   permission = 'default',
+  deviceOptedIn = false,
+  preferenceEnabled = false
+} = {}) => Boolean(eligible) &&
+  permission === 'granted' &&
+  Boolean(deviceOptedIn) &&
+  Boolean(preferenceEnabled)
+
+/**
+ * Whether the post-success opt-in banner should stay hidden.
+ *
+ * Account preference on is not enough: a PWA reinstall wipes the device
+ * marker while leaving the preference true, and that is the device that
+ * needs the banner. Suppress only when this device is already receiving.
+ * @param {{preferenceEnabled?: boolean, deviceOptedIn?: boolean}} input
+ * @returns {boolean}
+ */
+export const shouldSuppressPushOptInPrompt = ({
+  preferenceEnabled = false,
   deviceOptedIn = false
-} = {}) => Boolean(eligible) && permission === 'granted' && Boolean(deviceOptedIn)
+} = {}) => Boolean(preferenceEnabled) && Boolean(deviceOptedIn)
+
+/**
+ * Whether Profile should offer Enable-on-this-phone next to a ticked box.
+ *
+ * Save does not remint. Hitching requestPermission to an unrelated write is
+ * how a name-only save prompted and (before the catch) aborted. This control
+ * is the Profile recovery when the marker is gone.
+ * @param {{preferenceEnabled?: boolean, deviceOptedIn?: boolean, mobileEligible?: boolean, supported?: boolean}} input
+ * @returns {boolean}
+ */
+export const shouldOfferDevicePushEnable = ({
+  preferenceEnabled = false,
+  deviceOptedIn = false,
+  mobileEligible = false,
+  supported = false
+} = {}) => Boolean(preferenceEnabled) &&
+  !deviceOptedIn &&
+  Boolean(mobileEligible) &&
+  Boolean(supported)
+
+/**
+ * Whether AuthContext may record this uid and call refreshPushToken.
+ *
+ * onAuthStateChanged sets currentUser before the matching profile loads, so
+ * the previous account's profile can still be mounted. Recording the uid
+ * against that stale preference would skip the real profile's retry.
+ * @param {{uid?: string, profileUid?: string, alreadyRefreshedUid?: string|null}} input
+ * @returns {boolean}
+ */
+export const shouldAttemptLaunchPushRefresh = ({
+  uid,
+  profileUid,
+  alreadyRefreshedUid
+} = {}) => Boolean(uid) &&
+  profileUid === uid &&
+  alreadyRefreshedUid !== uid
 
 /**
  * Whether a device that predates the marker should be adopted as opted in.
@@ -44,7 +101,9 @@ export const shouldRefreshPushToken = ({
  * is only ever requested by the Profile toggle and the opt-in banner, so the
  * pair cannot describe a device that never opted in.
  *
- * Restricted to the never-asked state: a recorded opt-out is never adopted.
+ * Restricted to the never-asked state: a recorded opt-out is never adopted,
+ * and neither is preference-off (account intent, including leftover clears
+ * from the old stale-token path).
  * @param {{state: string, preferenceEnabled: boolean, permission: string}} input
  * @returns {boolean}
  */

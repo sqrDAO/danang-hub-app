@@ -195,6 +195,21 @@
   line-height: 1.5;
 }
 
+.profile-push-device-enable {
+  margin-top: var(--spacing-xs);
+}
+
+.form-group-checkbox .profile-push-device-enable {
+  margin-left: 1.8rem;
+}
+
+.profile-push-device-enable p {
+  margin: 0 0 var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .profile-link {
   color: var(--accent-secondary);
   text-decoration: none;

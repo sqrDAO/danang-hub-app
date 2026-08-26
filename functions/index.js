@@ -970,50 +970,38 @@ function isUnrecoverablePushTokenError(error) {
  */
 async function deleteStalePushToken(recipientId, failedToken) {
   const tokenRef = db.collection("push_tokens").doc(recipientId);
-  const memberRef = db.collection("members").doc(recipientId);
 
   // Transactional because the launch-time refresh writes push_tokens/{uid}
   // concurrently. Between a plain get() and delete(), a relaunching device can
-  // land a replacement token that this cleanup would then destroy, taking the
-  // member's preference down with it.
+  // land a replacement token that this cleanup would then destroy.
+  // Preference is account intent, not device health — a dead token must not
+  // write preferences.pushNotifications = false.
   let outcome;
   try {
     outcome = await db.runTransaction(async (tx) => {
       const tokenDoc = await tx.get(tokenRef);
-      const memberDoc = await tx.get(memberRef);
       const tokenData = tokenDoc.exists ? tokenDoc.data() : null;
 
       // A newer token already replaced the one that just failed — leave it.
       if (tokenData && tokenData.token !== failedToken) return "superseded";
+      if (!tokenDoc.exists) return "absent";
 
-      if (tokenDoc.exists) tx.delete(tokenRef);
-      // Cleared even when the token doc was already gone. Returning early
-      // there used to strand the member on preferences.pushNotifications =
-      // true with no token: Profile renders the checkbox ticked, getPushToken
-      // returns "" for ever, and re-enabling is a no-op because the preference
-      // never changed.
-      if (!memberDoc.exists) return "member-missing";
-      tx.update(memberRef, {"preferences.pushNotifications": false});
-      return "cleared";
+      tx.delete(tokenRef);
+      return "deleted";
     });
   } catch (error) {
     // Never fail the whole multicast batch over one recipient's cleanup. At
-    // error level because the member is left on pushNotifications = true with
-    // a dead token until their own device re-issues one.
-    console.error("Unable to clear stale push registration", {
+    // error level because the member is left with a dead token until their
+    // own device re-issues one.
+    console.error("Unable to delete stale push token", {
       recipientId,
       code: error.code,
     });
     return;
   }
 
-  if (outcome === "superseded") return;
-  if (outcome === "member-missing") {
-    // Member deleted since the send was queued; the token is gone either way.
-    console.warn("Stale push token deleted, member doc missing", {recipientId});
-    return;
-  }
-  console.log("Cleared stale push registration", {recipientId});
+  if (outcome === "superseded" || outcome === "absent") return;
+  console.log("Deleted stale push token", {recipientId});
 }
 
 // Push copy is localized per recipient. i18n lives in the browser

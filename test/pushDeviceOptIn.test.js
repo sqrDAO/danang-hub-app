@@ -5,13 +5,17 @@ import {
   DEVICE_OPTED_OUT,
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
-  shouldRefreshPushToken
+  shouldAttemptLaunchPushRefresh,
+  shouldOfferDevicePushEnable,
+  shouldRefreshPushToken,
+  shouldSuppressPushOptInPrompt
 } from '../src/utils/pushDeviceOptIn.js'
 
 const refresh = (overrides) => shouldRefreshPushToken({
   eligible: true,
   permission: 'granted',
   deviceOptedIn: true,
+  preferenceEnabled: true,
   ...overrides
 })
 
@@ -34,6 +38,12 @@ test('never refreshes unless permission is already granted', () => {
 
 test('never refreshes on a device that cannot register push', () => {
   assert.equal(refresh({ eligible: false }), false)
+})
+
+test('never refreshes while the account preference is off', () => {
+  // Preference-off is account intent (desktop opt-out included). A phone that
+  // still holds an opted-in marker must not re-issue a token or heal the field.
+  assert.equal(refresh({ preferenceEnabled: false }), false)
 })
 
 test('defaults to not refreshing when inputs are missing', () => {
@@ -66,8 +76,8 @@ test('never re-adopts a device already marked opted in', () => {
 })
 
 test('never adopts while the account preference is off', () => {
-  // The server clears the preference on a stale send, so preference-off is
-  // indistinguishable from a deliberate opt-out. Leave it alone.
+  // Preference-off is account intent, including leftover clears from the old
+  // stale-token path. Leave it alone; the member re-enables in Profile once.
   assert.equal(adopt({ preferenceEnabled: false }), false)
 })
 
@@ -79,4 +89,102 @@ test('never adopts without granted permission', () => {
 test('defaults to not adopting when inputs are missing', () => {
   assert.equal(shouldAdoptLegacyOptIn(), false)
   assert.equal(shouldAdoptLegacyOptIn({}), false)
+})
+
+const launchReady = (overrides) => shouldAttemptLaunchPushRefresh({
+  uid: 'b',
+  profileUid: 'b',
+  alreadyRefreshedUid: null,
+  ...overrides
+})
+
+test('attempts launch refresh once the mounted profile belongs to this uid', () => {
+  assert.equal(launchReady({}), true)
+})
+
+test('waits when the mounted profile belongs to a different uid', () => {
+  // onAuthStateChanged sets currentUser before the matching profile loads.
+  // Recording uid 'b' against account A's preference would skip B's retry.
+  assert.equal(launchReady({ uid: 'b', profileUid: 'a' }), false)
+})
+
+test('retries for the new uid after a stale-profile wait', () => {
+  assert.equal(launchReady({
+    uid: 'b',
+    profileUid: 'a',
+    alreadyRefreshedUid: 'a'
+  }), false)
+  assert.equal(launchReady({
+    uid: 'b',
+    profileUid: 'b',
+    alreadyRefreshedUid: 'a'
+  }), true)
+})
+
+test('does not re-attempt launch refresh for a uid already recorded', () => {
+  assert.equal(launchReady({ alreadyRefreshedUid: 'b' }), false)
+})
+
+test('defaults to not attempting launch refresh when inputs are missing', () => {
+  assert.equal(shouldAttemptLaunchPushRefresh(), false)
+  assert.equal(shouldAttemptLaunchPushRefresh({}), false)
+})
+
+const suppressPrompt = (overrides) => shouldSuppressPushOptInPrompt({
+  preferenceEnabled: true,
+  deviceOptedIn: true,
+  ...overrides
+})
+
+test('suppresses the opt-in banner when this device is already receiving', () => {
+  assert.equal(suppressPrompt({}), true)
+})
+
+test('does not suppress the banner when preference is on but this device has no marker', () => {
+  // PWA reinstall: preference stayed true, marker gone. The banner is the
+  // existing permission-prompt surface; Save must not steal that job.
+  assert.equal(suppressPrompt({ deviceOptedIn: false }), false)
+})
+
+test('does not suppress the banner while the account preference is off', () => {
+  assert.equal(suppressPrompt({ preferenceEnabled: false }), false)
+  assert.equal(suppressPrompt({ preferenceEnabled: false, deviceOptedIn: false }), false)
+})
+
+test('defaults to not suppressing the banner when inputs are missing', () => {
+  assert.equal(shouldSuppressPushOptInPrompt(), false)
+  assert.equal(shouldSuppressPushOptInPrompt({}), false)
+})
+
+const offerEnable = (overrides) => shouldOfferDevicePushEnable({
+  preferenceEnabled: true,
+  deviceOptedIn: false,
+  mobileEligible: true,
+  supported: true,
+  ...overrides
+})
+
+test('offers Enable-on-this-phone when the box is ticked but this device has no marker', () => {
+  assert.equal(offerEnable({}), true)
+})
+
+test('does not offer Enable-on-this-phone when this device is already opted in', () => {
+  assert.equal(offerEnable({ deviceOptedIn: true }), false)
+})
+
+test('does not offer Enable-on-this-phone on a non-mobile device', () => {
+  assert.equal(offerEnable({ mobileEligible: false }), false)
+})
+
+test('does not offer Enable-on-this-phone when push is unsupported', () => {
+  assert.equal(offerEnable({ supported: false }), false)
+})
+
+test('does not offer Enable-on-this-phone when the preference is off', () => {
+  assert.equal(offerEnable({ preferenceEnabled: false }), false)
+})
+
+test('defaults to not offering Enable-on-this-phone when inputs are missing', () => {
+  assert.equal(shouldOfferDevicePushEnable(), false)
+  assert.equal(shouldOfferDevicePushEnable({}), false)
 })

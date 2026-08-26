@@ -249,6 +249,8 @@
     "pushNotificationsUnsupported": "Điện thoại này không hỗ trợ thông báo.",
     "pushNotificationsRegisteredPhone": "Thông báo trên điện thoại đã đăng ký",
     "pushNotificationsRegisteredPhoneHelp": "Tắt mục này để dừng thông báo trên điện thoại hiện đang đăng ký.",
+    "pushNotificationsDeviceUnregistered": "Điện thoại này chưa đăng ký. Bật thông báo tại đây — lưu hồ sơ sẽ không tự bật.",
+    "pushNotificationsEnableThisDevice": "Bật trên điện thoại này",
     "saving": "Đang lưu…",
     "activity": "Hoạt động",
     "bookings": "Lượt đặt chỗ",
