@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { LocalDevAuthProvider } from './contexts/LocalDevAuthProvider'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ToastContainer from './components/Toast'
@@ -25,6 +26,11 @@ const RouteFallback = () => (
   </div>
 )
 
+// Inline env checks so production builds dead-code the stub provider.
+const AppAuthProvider = (
+  import.meta.env.DEV && import.meta.env.VITE_SKIP_AUTH === 'true'
+) ? LocalDevAuthProvider : AuthProvider
+
 function App() {
   const memberBookingsRoute = (
     <ProtectedRoute requireProfileComplete>
@@ -34,7 +40,7 @@ function App() {
 
   return (
     <ThemeProvider>
-      <AuthProvider>
+      <AppAuthProvider>
         <Suspense fallback={<RouteFallback />}>
         <Routes>
         {/* Public Routes */}
@@ -126,7 +132,7 @@ function App() {
         </Suspense>
         <ToastContainer />
         <PushOptInBanner />
-      </AuthProvider>
+      </AppAuthProvider>
     </ThemeProvider>
   )
 }

@@ -345,6 +345,7 @@ functions/
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server on port 3000 |
+| `npm run dev:skipauth` | Skip-auth preview with in-memory amenities, bookings, and events (stub admin). Production builds never skip login. |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint (max-warnings 0) |
 | `npm test` | Node test runner over `test/*.test.js` (Firestore rules tests skip unless the emulator host is configured) |
@@ -354,6 +355,8 @@ functions/
 | `firebase deploy --only firestore:rules` | Deploy Firestore rules |
 | `firebase functions:log` | View real-time function logs |
 | `firebase emulators:start` | Start local emulators |
+
+Vite loads `.env.local` in every mode. Do not put `VITE_SKIP_AUTH=true` there, or plain `npm run dev` will skip auth too — keep the flag in `.env.skipauth` only.
 
 ---
 

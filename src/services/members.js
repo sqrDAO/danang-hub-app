@@ -10,6 +10,8 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { getBookings } from './bookings'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { getLocalMember, listLocalMembers, updateLocalMember } from './localDevStore'
 import { getEvents } from './events'
 
 const MEMBERS_COLLECTION = 'members'
@@ -17,6 +19,7 @@ const MEMBERS_COLLECTION = 'members'
 export const SUPPORTED_LOCALES = ['en', 'vi']
 
 export const getMembers = async () => {
+  if (LOCAL_DEV_MODE) return listLocalMembers()
   const membersRef = collection(db, MEMBERS_COLLECTION)
   const q = query(membersRef, orderBy('createdAt', 'desc'))
   const snapshot = await getDocs(q)
@@ -24,6 +27,7 @@ export const getMembers = async () => {
 }
 
 export const getMember = async (uid) => {
+  if (LOCAL_DEV_MODE) return getLocalMember(uid)
   const memberRef = doc(db, MEMBERS_COLLECTION, uid)
   const snapshot = await getDoc(memberRef)
   if (snapshot.exists()) {
@@ -33,6 +37,7 @@ export const getMember = async (uid) => {
 }
 
 export const updateMember = async (uid, data) => {
+  if (LOCAL_DEV_MODE) return updateLocalMember(uid, data)
   const memberRef = doc(db, MEMBERS_COLLECTION, uid)
   await updateDoc(memberRef, {
     ...data,

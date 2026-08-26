@@ -17,6 +17,25 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { getMember } from './members'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import {
+  addLocalWaitlist,
+  countLocalCompletedEvents,
+  createLocalEvent,
+  deleteLocalEvent,
+  getLocalEvent,
+  listLocalApprovedEvents,
+  listLocalEvents,
+  listLocalMyEvents,
+  listLocalPendingEvents,
+  listLocalUpcomingEvents,
+  promoteLocalWaitlist,
+  registerLocalEvent,
+  removeLocalWaitlist,
+  reviewLocalEvent,
+  unregisterLocalEvent,
+  updateLocalEvent
+} from './localDevStore'
 
 const EVENTS_COLLECTION = 'events'
 
@@ -27,6 +46,7 @@ const EVENTS_COLLECTION = 'events'
 // DESCENDING twin does not serve this range scan, and the emulator does not
 // enforce composite indexes, so a miss only shows up against the real project.
 export const getCompletedEventsCount = async () => {
+  if (LOCAL_DEV_MODE) return countLocalCompletedEvents()
   const q = query(
     collection(db, EVENTS_COLLECTION),
     where('status', '==', 'approved'),
@@ -53,6 +73,7 @@ const fetchOrganizerDisplayFields = async (organizerId) => {
 }
 
 export const getEvents = async (filters = {}) => {
+  if (LOCAL_DEV_MODE) return listLocalEvents(filters)
   const eventsRef = collection(db, EVENTS_COLLECTION)
   const constraints = []
 
@@ -81,6 +102,7 @@ export const getEvents = async (filters = {}) => {
 }
 
 export const getEvent = async (id) => {
+  if (LOCAL_DEV_MODE) return getLocalEvent(id)
   const eventRef = doc(db, EVENTS_COLLECTION, id)
   const snapshot = await getDoc(eventRef)
   if (snapshot.exists()) {
@@ -95,6 +117,7 @@ export const getEvent = async (id) => {
 }
 
 export const createEvent = async (data) => {
+  if (LOCAL_DEV_MODE) return createLocalEvent(data)
   const eventsRef = collection(db, EVENTS_COLLECTION)
 
   // Denormalize organizer display fields onto the event so read paths don't
@@ -138,6 +161,7 @@ export const createEvent = async (data) => {
  * @returns {Promise<Array>} Events sorted by date descending
  */
 export const getUpcomingEvents = async ({ includePending = false } = {}) => {
+  if (LOCAL_DEV_MODE) return listLocalUpcomingEvents({ includePending })
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION)
 
@@ -194,6 +218,7 @@ export const getUpcomingEvents = async ({ includePending = false } = {}) => {
 }
 
 export const getApprovedEvents = async () => {
+  if (LOCAL_DEV_MODE) return listLocalApprovedEvents()
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION)
     const q = query(
@@ -231,6 +256,7 @@ export const getApprovedEvents = async () => {
 }
 
 export const getPendingEvents = async () => {
+  if (LOCAL_DEV_MODE) return listLocalPendingEvents()
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION)
     const q = query(
@@ -268,6 +294,7 @@ export const getPendingEvents = async () => {
 }
 
 export const getMyEvents = async (organizerId) => {
+  if (LOCAL_DEV_MODE) return listLocalMyEvents(organizerId)
   const eventsRef = collection(db, EVENTS_COLLECTION)
   const q = query(
     eventsRef,
@@ -283,6 +310,7 @@ export const getMyEvents = async (organizerId) => {
 }
 
 export const approveEvent = async (eventId) => {
+  if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action: 'approved' })
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   await updateDoc(eventRef, {
     status: 'approved',
@@ -291,6 +319,7 @@ export const approveEvent = async (eventId) => {
 }
 
 export const rejectEvent = async (eventId, reason = '') => {
+  if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action: 'rejected', reason })
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   await updateDoc(eventRef, {
     status: 'rejected',
@@ -300,6 +329,7 @@ export const rejectEvent = async (eventId, reason = '') => {
 }
 
 export const updateEvent = async (id, data) => {
+  if (LOCAL_DEV_MODE) return updateLocalEvent(id, data)
   const eventRef = doc(db, EVENTS_COLLECTION, id)
   const updateData = { ...data }
 
@@ -348,11 +378,13 @@ export const updateEvent = async (id, data) => {
 }
 
 export const deleteEvent = async (id) => {
+  if (LOCAL_DEV_MODE) return deleteLocalEvent(id)
   const eventRef = doc(db, EVENTS_COLLECTION, id)
   await deleteDoc(eventRef)
 }
 
 export const registerForEvent = async (eventId, memberId) => {
+  if (LOCAL_DEV_MODE) return registerLocalEvent(eventId, memberId)
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   await updateDoc(eventRef, {
     attendees: arrayUnion(memberId)
@@ -360,6 +392,7 @@ export const registerForEvent = async (eventId, memberId) => {
 }
 
 export const unregisterFromEvent = async (eventId, memberId) => {
+  if (LOCAL_DEV_MODE) return unregisterLocalEvent(eventId, memberId)
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   await updateDoc(eventRef, {
     attendees: arrayRemove(memberId)
@@ -368,6 +401,7 @@ export const unregisterFromEvent = async (eventId, memberId) => {
 
 // Waitlist functions
 export const addToWaitlist = async (eventId, memberId) => {
+  if (LOCAL_DEV_MODE) return addLocalWaitlist(eventId, memberId)
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   const eventDoc = await getDoc(eventRef)
   
@@ -389,6 +423,7 @@ export const addToWaitlist = async (eventId, memberId) => {
 }
 
 export const removeFromWaitlist = async (eventId, memberId) => {
+  if (LOCAL_DEV_MODE) return removeLocalWaitlist(eventId, memberId)
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
   await updateDoc(eventRef, {
     waitlist: arrayRemove(memberId)
@@ -399,6 +434,7 @@ export const removeFromWaitlist = async (eventId, memberId) => {
 // one transaction: a read-then-write would erase anyone who joined the waitlist
 // in between, and could race autoPromoteWaitlist past capacity.
 export const promoteFromWaitlist = async (eventId, count = 1) => {
+  if (LOCAL_DEV_MODE) return promoteLocalWaitlist(eventId, count)
   const eventRef = doc(db, EVENTS_COLLECTION, eventId)
 
   return runTransaction(db, async (transaction) => {

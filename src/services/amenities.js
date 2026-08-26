@@ -12,10 +12,19 @@ import {
 import { db } from './firebase'
 import { getHubDayOfWeek, parseHubDateTime, toDatetimeLocalHub } from '../utils/timezone'
 import { getHubClosure } from '../utils/hubClosures'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import {
+  createLocalAmenity,
+  deleteLocalAmenity,
+  getLocalAmenity,
+  listLocalAmenities,
+  updateLocalAmenity
+} from './localDevStore'
 
 const AMENITIES_COLLECTION = 'amenities'
 
 export const getAmenities = async () => {
+  if (LOCAL_DEV_MODE) return listLocalAmenities()
   const amenitiesRef = collection(db, AMENITIES_COLLECTION)
   const q = query(amenitiesRef, orderBy('name'))
   const snapshot = await getDocs(q)
@@ -23,6 +32,7 @@ export const getAmenities = async () => {
 }
 
 export const getAmenity = async (id) => {
+  if (LOCAL_DEV_MODE) return getLocalAmenity(id)
   const amenityRef = doc(db, AMENITIES_COLLECTION, id)
   const snapshot = await getDoc(amenityRef)
   if (snapshot.exists()) {
@@ -128,6 +138,7 @@ export const validateEventSpaceTime = (dateValue, durationMinutes = 60) => {
 }
 
 export const createAmenity = async (data) => {
+  if (LOCAL_DEV_MODE) return createLocalAmenity(data)
   const amenitiesRef = collection(db, AMENITIES_COLLECTION)
   const defaultCapacity = DEFAULT_CAPACITY_BY_TYPE[data.type] ?? 1
   const defaults = getDefaultAvailability(data.type)
@@ -146,6 +157,7 @@ export const createAmenity = async (data) => {
 }
 
 export const updateAmenity = async (id, data) => {
+  if (LOCAL_DEV_MODE) return updateLocalAmenity(id, data)
   const amenityRef = doc(db, AMENITIES_COLLECTION, id)
   const updateData = {
     ...data,
@@ -162,6 +174,7 @@ export const updateAmenity = async (id, data) => {
 }
 
 export const deleteAmenity = async (id) => {
+  if (LOCAL_DEV_MODE) return deleteLocalAmenity(id)
   const amenityRef = doc(db, AMENITIES_COLLECTION, id)
   await deleteDoc(amenityRef)
 }
