@@ -10,17 +10,17 @@ other two sweep steps too. Isolate the steps and make failure loud so this canno
 - `functions/index.js` (edited) — per-step error isolation and reporting in `autoCheckoutExpiredBookings`
 
 ## Acceptance
-- [ ] Each of the three sweep steps runs inside its own try/catch
-- [ ] A failure in one step does not prevent the other two from running
-- [ ] A failure in one step does not prevent the batch commit of what the other steps collected
-- [ ] The handler rethrows after a partial failure, so the run is marked failed in Cloud Scheduler
-- [ ] Every run logs the number of bookings it completed, including `0`
-- [ ] Each step's failure log names which step failed
-- [ ] `functions/index.js` passes `cd functions && npm run lint`
-- [ ] NOT: change which bookings the sweep selects or the statuses it writes
-- [ ] NOT: add a backfill script — the index makes the next scheduled run drain the backlog
-- [ ] NOT: re-add `bookings (status, endTime)` to `firestore.indexes.json` (already deployed)
-- [ ] NOT: change the hourly schedule
+- [x] Each of the three sweep steps runs inside its own try/catch
+- [x] A failure in one step does not prevent the other two from running
+- [x] A failure in one step does not prevent the batch commit of what the other steps collected
+- [x] The handler rethrows after a partial failure, so the run is marked failed in Cloud Scheduler
+- [x] Every run logs the number of bookings it completed, including `0`
+- [x] Each step's failure log names which step failed
+- [x] `functions/index.js` passes `cd functions && npm run lint`
+- [x] NOT: change which bookings the sweep selects or the statuses it writes
+- [x] NOT: add a backfill script — the index makes the next scheduled run drain the backlog
+- [x] NOT: re-add `bookings (status, endTime)` to `firestore.indexes.json` (already deployed)
+- [x] NOT: change the hourly schedule
 
 ## Verify
 - `cd functions && npm run lint` → 0 errors
