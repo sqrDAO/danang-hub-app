@@ -41,6 +41,23 @@ export const shouldRefreshPushToken = ({
   Boolean(preferenceEnabled)
 
 /**
+ * Whether AuthContext may record this uid and call refreshPushToken.
+ *
+ * onAuthStateChanged sets currentUser before the matching profile loads, so
+ * the previous account's profile can still be mounted. Recording the uid
+ * against that stale preference would skip the real profile's retry.
+ * @param {{uid?: string, profileUid?: string, alreadyRefreshedUid?: string|null}} input
+ * @returns {boolean}
+ */
+export const shouldAttemptLaunchPushRefresh = ({
+  uid,
+  profileUid,
+  alreadyRefreshedUid
+} = {}) => Boolean(uid) &&
+  profileUid === uid &&
+  alreadyRefreshedUid !== uid
+
+/**
  * Whether a device that predates the marker should be adopted as opted in.
  *
  * The marker only starts being written at opt-in time, so every device that

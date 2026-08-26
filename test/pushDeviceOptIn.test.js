@@ -5,6 +5,7 @@ import {
   DEVICE_OPTED_OUT,
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
+  shouldAttemptLaunchPushRefresh,
   shouldRefreshPushToken
 } from '../src/utils/pushDeviceOptIn.js'
 
@@ -86,4 +87,43 @@ test('never adopts without granted permission', () => {
 test('defaults to not adopting when inputs are missing', () => {
   assert.equal(shouldAdoptLegacyOptIn(), false)
   assert.equal(shouldAdoptLegacyOptIn({}), false)
+})
+
+const launchReady = (overrides) => shouldAttemptLaunchPushRefresh({
+  uid: 'b',
+  profileUid: 'b',
+  alreadyRefreshedUid: null,
+  ...overrides
+})
+
+test('attempts launch refresh once the mounted profile belongs to this uid', () => {
+  assert.equal(launchReady({}), true)
+})
+
+test('waits when the mounted profile belongs to a different uid', () => {
+  // onAuthStateChanged sets currentUser before the matching profile loads.
+  // Recording uid 'b' against account A's preference would skip B's retry.
+  assert.equal(launchReady({ uid: 'b', profileUid: 'a' }), false)
+})
+
+test('retries for the new uid after a stale-profile wait', () => {
+  assert.equal(launchReady({
+    uid: 'b',
+    profileUid: 'a',
+    alreadyRefreshedUid: 'a'
+  }), false)
+  assert.equal(launchReady({
+    uid: 'b',
+    profileUid: 'b',
+    alreadyRefreshedUid: 'a'
+  }), true)
+})
+
+test('does not re-attempt launch refresh for a uid already recorded', () => {
+  assert.equal(launchReady({ alreadyRefreshedUid: 'b' }), false)
+})
+
+test('defaults to not attempting launch refresh when inputs are missing', () => {
+  assert.equal(shouldAttemptLaunchPushRefresh(), false)
+  assert.equal(shouldAttemptLaunchPushRefresh({}), false)
 })

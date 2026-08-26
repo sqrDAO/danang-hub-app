@@ -10,9 +10,9 @@ opt-out stays off and Profile keeps showing the member's real choice.
 ## Files
 - `functions/index.js` (edited) — delete the matching `push_tokens/{uid}` doc; do not write `members/{uid}.preferences`
 - `src/services/pushNotifications.js` (edited) — re-issue the token on launch without writing the preference
-- `src/contexts/AuthContext.jsx` (edited) — drop the post-heal `refreshUserProfile` path
-- `src/utils/pushDeviceOptIn.js` (edited) — `shouldRefreshPushToken` requires the account preference on
-- `test/pushDeviceOptIn.test.js` (edited) — preference-off is a no-refresh case
+- `src/contexts/AuthContext.jsx` (edited) — drop the post-heal `refreshUserProfile` path; wait for `userProfile.uid` to match before recording the uid
+- `src/utils/pushDeviceOptIn.js` (edited) — `shouldRefreshPushToken` requires the account preference on; `shouldAttemptLaunchPushRefresh` requires a matching profile uid
+- `test/pushDeviceOptIn.test.js` (edited) — preference-off is a no-refresh case; account-switch wait-then-retry
 
 ## Acceptance
 - [x] `deleteStalePushToken` deletes `push_tokens/{uid}` when the stored token matches the failed one
@@ -23,6 +23,8 @@ opt-out stays off and Profile keeps showing the member's real choice.
 - [x] `refreshPushToken` returns without touching Firestore when the account preference is off
 - [x] AuthContext does not call `refreshUserProfile` after a push-token refresh
 - [x] `shouldRefreshPushToken` is false when `preferenceEnabled` is false
+- [x] `shouldAttemptLaunchPushRefresh` is false when `profileUid` does not equal `uid`
+- [x] AuthContext does not record `pushRefreshedForUid` until `userProfile.uid` matches the signed-in uid
 - [x] NOT: change the single-token `push_tokens/{uid}` data model
 - [x] NOT: change logout push cleanup (`disablePushNotificationsOnLogout`)
 - [x] NOT: prompt for notification permission outside the existing Profile toggle and opt-in banner

@@ -18,6 +18,7 @@ import {
 // to bundle, and a failed dynamic import here would throw out of logout()
 // before signOut ever ran.
 import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
+import { shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
 
 export const AuthProvider = ({ children }) => {
@@ -222,9 +223,15 @@ export const AuthProvider = ({ children }) => {
       pushRefreshedForUid.current = null
       return undefined
     }
-    // Wait for the profile so a not-yet-loaded preference is not mistaken for
-    // an opt-out, which would skip the token write for this uid for good.
-    if (!userProfile || pushRefreshedForUid.current === uid) return undefined
+    // Wait until the mounted profile belongs to this uid. A not-yet-loaded
+    // preference must not be mistaken for an opt-out (that would skip the
+    // token write for this uid for good), and a previous account's profile
+    // must not burn the once-per-uid refresh against the wrong preference.
+    if (!shouldAttemptLaunchPushRefresh({
+      uid,
+      profileUid: userProfile?.uid,
+      alreadyRefreshedUid: pushRefreshedForUid.current
+    })) return undefined
     pushRefreshedForUid.current = uid
 
     const preferenceEnabled = Boolean(userProfile?.preferences?.pushNotifications)
