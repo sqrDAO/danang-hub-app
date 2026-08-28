@@ -51,7 +51,7 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
-- Filter by bookings, events, or amenity type
+- Filter by amenity type
 - Color-coded items distinguishing your bookings from others
 - Month view with day-by-day breakdown
 

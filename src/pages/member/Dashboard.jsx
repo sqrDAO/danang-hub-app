@@ -273,7 +273,6 @@ const MemberDashboard = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
   const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
-  const [showCalendar, setShowCalendar] = useState(false)
   const [bookingsPage, setBookingsPage] = useState(1)
   const BOOKINGS_PAGE_SIZE = 10
 
@@ -335,8 +334,6 @@ const MemberDashboard = () => {
     })
     .slice(0, 5)
 
-  const availableAmenities = amenities.filter(a => a.isAvailable !== false).length
-
   const [hostModalMember, setHostModalMember] = useState(null)
 
   // On-demand fetch for the host modal — avoids loading the full members list
@@ -356,31 +353,6 @@ const MemberDashboard = () => {
     <Layout>
       <div className="container member-dashboard">
         <h1 className="page-title">{t('memberDashboard.title')}</h1>
-
-        <div className="stats-grid">
-          <div className="stat-card glass">
-            <h3 className="stat-value">{totalUpcomingBookings}</h3>
-            <p className="stat-label">{t('memberDashboard.upcomingBookings')}</p>
-          </div>
-          <div className="stat-card glass">
-            <h3 className="stat-value">{upcomingEvents.length}</h3>
-            <p className="stat-label">{t('memberDashboard.upcomingEvents')}</p>
-          </div>
-          <div className="stat-card glass">
-            <h3 className="stat-value">{availableAmenities}</h3>
-            <p className="stat-label">{t('memberDashboard.availableAmenities')}</p>
-          </div>
-        </div>
-
-        <div className="dashboard-section glass" style={{ marginBottom: 'var(--spacing-xl)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-            <h2 className="section-title">{t('memberDashboard.unifiedCalendar')}</h2>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowCalendar(!showCalendar)}>
-              {showCalendar ? t('memberDashboard.hideCalendar') : t('memberDashboard.showCalendar')}
-            </button>
-          </div>
-          {showCalendar && <UnifiedCalendar />}
-        </div>
 
         <div className="dashboard-grid">
           <div className="dashboard-section glass">
@@ -470,6 +442,8 @@ const MemberDashboard = () => {
             )}
           </div>
         </div>
+
+        <UnifiedCalendar />
       </div>
 
       <Modal

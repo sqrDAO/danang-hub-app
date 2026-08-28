@@ -295,12 +295,8 @@
   },
   "memberDashboard": {
     "title": "Chào mừng trở lại!",
-    "upcomingBookings": "Đặt chỗ sắp tới",
     "upcomingEvents": "Sự kiện sắp tới",
-    "availableAmenities": "Tiện ích khả dụng",
     "unifiedCalendar": "Lịch tổng hợp",
-    "hideCalendar": "Ẩn lịch",
-    "showCalendar": "Hiện lịch",
     "myUpcomingBookings": "Đặt chỗ sắp tới của tôi",
     "noUpcomingBookings": "Chưa có đặt chỗ sắp tới",
     "noUpcomingEvents": "Chưa có sự kiện sắp tới",
@@ -661,8 +657,10 @@
   },
   "calendar": {
     "prev": "← Trước",
+    "prevMonth": "Tháng trước",
     "today": "Hôm nay",
     "next": "Sau →",
+    "nextMonth": "Tháng sau",
     "hours": "Giờ:",
     "closed": "Đóng cửa",
     "hubClosed": "Hub đóng cửa",
@@ -681,6 +679,18 @@
     "unknownError": "lỗi không xác định",
     "retry": "Thử lại",
     "errorLoadingEvents": "Lỗi khi tải sự kiện: {{message}}"
+  },
+  "unifiedCalendar": {
+    "legendBooking": "Đặt chỗ",
+    "legendEvent": "Sự kiện",
+    "legendPending": "Chờ duyệt",
+    "legendYours": "Của bạn",
+    "more": "+{{count}} nữa",
+    "allAmenityTypes": "Mọi loại tiện ích",
+    "filterBookingsByType": "Lọc đặt chỗ theo loại tiện ích",
+    "unknownAmenity": "Tiện ích không xác định",
+    "chip": "{{kind}}: {{title}}",
+    "chipPending": "{{kind}}: {{title}} ({{status}})"
   },
   "closures": {
     "noticeTitle": "Hub đóng cửa",

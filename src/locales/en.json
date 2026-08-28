@@ -295,12 +295,8 @@
   },
   "memberDashboard": {
     "title": "Welcome Back!",
-    "upcomingBookings": "Upcoming Bookings",
     "upcomingEvents": "Upcoming Events",
-    "availableAmenities": "Available Amenities",
     "unifiedCalendar": "Unified Calendar",
-    "hideCalendar": "Hide Calendar",
-    "showCalendar": "Show Calendar",
     "myUpcomingBookings": "My Upcoming Bookings",
     "noUpcomingBookings": "No upcoming bookings",
     "noUpcomingEvents": "No upcoming events",
@@ -663,8 +659,10 @@
   },
   "calendar": {
     "prev": "← Prev",
+    "prevMonth": "Previous month",
     "today": "Today",
     "next": "Next →",
+    "nextMonth": "Next month",
     "hours": "Hours:",
     "closed": "Closed",
     "hubClosed": "Hub closed",
@@ -683,6 +681,18 @@
     "unknownError": "unknown error",
     "retry": "Try again",
     "errorLoadingEvents": "Error loading events: {{message}}"
+  },
+  "unifiedCalendar": {
+    "legendBooking": "Booking",
+    "legendEvent": "Event",
+    "legendPending": "Pending",
+    "legendYours": "Yours",
+    "more": "+{{count}} more",
+    "allAmenityTypes": "All amenity types",
+    "filterBookingsByType": "Filter bookings by amenity type",
+    "unknownAmenity": "Unknown amenity",
+    "chip": "{{kind}}: {{title}}",
+    "chipPending": "{{kind}}: {{title}} ({{status}})"
   },
   "closures": {
     "noticeTitle": "Hub closure",
