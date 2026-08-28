@@ -1,7 +1,7 @@
 .member-dashboard .page-title {
   font-size: 2.5rem;
   font-weight: 700;
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
 }
 
 @media (max-width: 768px) {

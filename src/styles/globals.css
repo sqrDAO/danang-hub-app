@@ -544,13 +544,13 @@ select.form-field option {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
   gap: var(--spacing-md);
   flex-wrap: wrap;
 }
 
 /* Title on its own row; banner + actions share the next row so the
-   4rem header margin sits below the notice instead of between them. */
+   header margin sits below the notice instead of between them. */
 .page-header-stacked {
   align-items: flex-start;
 }

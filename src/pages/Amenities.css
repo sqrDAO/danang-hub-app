@@ -1,5 +1,4 @@
 .page-header {
-  margin-bottom: var(--spacing-xl);
   text-align: center;
 }
 
@@ -26,7 +25,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--spacing-lg);
-  margin-top: var(--spacing-xl);
 }
 
 .amenity-card {

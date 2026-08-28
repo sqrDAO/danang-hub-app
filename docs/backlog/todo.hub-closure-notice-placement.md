@@ -7,7 +7,7 @@ Both bookings pages should read title → hub-closure banner (and admin header a
 ## Files
 - `src/pages/member/Bookings.jsx` (edited) — notice inside `.page-header` after the title.
 - `src/pages/admin/Bookings.jsx` (edited) — title first; banner and Assign/Approve share the next row.
-- `src/styles/globals.css` (edited) — `.page-header-stacked` / `.page-header-toolbar` so the 4rem margin sits below the banner; `.page-header .page-title` zeros leaked title margin.
+- `src/styles/globals.css` (edited) — `.page-header-stacked` / `.page-header-toolbar` so the header margin sits below the banner; `.page-header .page-title` zeros leaked title margin.
 - `src/pages/admin/Bookings.css` (edited) — filters stay on their own row under the toolbar.
 - `src/pages/member/Dashboard.css` (edited) — scope `.page-title` under `.member-dashboard` so its 4rem margin does not leak onto bookings.
 - `src/pages/member/Dashboard.jsx` (edited) — add `.member-dashboard` on the page container.
@@ -26,6 +26,6 @@ Both bookings pages should read title → hub-closure banner (and admin header a
 - `npm run dev` → open `/member` first, then `/member/bookings` and `/admin/bookings`. Title, then banner (admin: banner + Assign/Approve All), then the list. No 4rem hole between title and banner.
 
 ## Notes
-- `.page-header` `margin-bottom: var(--spacing-xl)` (4rem on desktop) belongs below the banner, not between the title and the banner.
+- `.page-header` `margin-bottom: var(--spacing-lg)` belongs below the banner, not between the title and the banner.
 - Title uses `flex: 1 1 100%` so the banner cannot sit on the same row as the heading.
 - Member `Dashboard.css` used a global `.page-title { margin-bottom: 4rem }`. Vite keeps that stylesheet after you leave `/member`, so the first placement pass still showed the old gap on bookings. Scope the dashboard rule and zero `.page-header .page-title` margin.
