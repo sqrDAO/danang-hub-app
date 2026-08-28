@@ -1,15 +1,44 @@
-import { addHubDays, parseHubDateTime, toDatetimeLocalHub } from '../utils/timezone.js'
+import {
+  addHubDays,
+  getHubDayOfWeek,
+  makeHubDateAtTime
+} from '../utils/timezone.js'
 import { LOCAL_DEV_UID, getLocalDevProfile } from '../utils/localDevMode.js'
 
 const OFFICE_DAYS = [1, 2, 3, 4, 5]
+const isOfficeDay = (date) => OFFICE_DAYS.includes(getHubDayOfWeek(date))
 
-const hubDateTime = (daysAhead, hour, minute = 0) => {
-  const day = addHubDays(new Date(), daysAhead)
-  const ymd = toDatetimeLocalHub(day).slice(0, 10)
-  const hh = String(hour).padStart(2, '0')
-  const mm = String(minute).padStart(2, '0')
-  return parseHubDateTime(`${ymd}T${hh}:${mm}`)
+const snapToOfficeDay = (date, step) => {
+  let day = date
+  while (!isOfficeDay(day)) {
+    day = addHubDays(day, step)
+  }
+  return day
 }
+
+const walkOfficeDays = (start, count) => {
+  const step = count < 0 ? -1 : 1
+  let day = start
+  let left = Math.abs(count)
+  while (left > 0) {
+    day = addHubDays(day, step)
+    if (isOfficeDay(day)) left -= 1
+  }
+  return day
+}
+
+/** Shift by N Mon–Fri hub days. 0 is today if weekday, else the next weekday. */
+export const addOfficeDays = (date, count) => {
+  if (count >= 0) return walkOfficeDays(snapToOfficeDay(date, 1), count)
+  if (isOfficeDay(date)) return walkOfficeDays(date, count)
+  return walkOfficeDays(snapToOfficeDay(date, -1), count + 1)
+}
+
+const hubDateTime = (daysAhead, hour, minute = 0) =>
+  makeHubDateAtTime(addHubDays(new Date(), daysAhead), hour, minute)
+
+const officeDateTime = (officeDaysAhead, hour, minute = 0) =>
+  makeHubDateAtTime(addOfficeDays(new Date(), officeDaysAhead), hour, minute)
 
 const eventEndTime = (event) =>
   new Date(event.date.getTime() + (event.duration || 60) * 60 * 1000)
@@ -226,76 +255,76 @@ export const buildLocalDevEvents = () => [
 
 export const buildLocalDevBookings = () => [
   ...hallBookingsForApprovedEvents(buildLocalDevEvents()),
-  // Today: Approved Meeting Room booking for Local Dev
+  // This office day: Approved Meeting Room booking for Local Dev
   {
     id: 'local-booking-1',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-meeting',
-    startTime: hubDateTime(0, 10, 0),
-    endTime: hubDateTime(0, 11, 30),
+    startTime: officeDateTime(0, 10, 0),
+    endTime: officeDateTime(0, 11, 30),
     status: 'approved',
     createdAt: new Date().toISOString()
   },
-  // Tomorrow: Pending Coworking Desk booking for Local Dev
+  // Next office day: Pending Coworking Desk booking for Local Dev
   {
     id: 'local-booking-2',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-desk',
-    startTime: hubDateTime(1, 14, 0),
-    endTime: hubDateTime(1, 18, 0),
+    startTime: officeDateTime(1, 14, 0),
+    endTime: officeDateTime(1, 18, 0),
     status: 'pending',
     createdAt: new Date().toISOString()
   },
-  // In 2 days: Checked-in Meeting Room booking for Local Dev
+  // In 2 office days: Checked-in Meeting Room booking for Local Dev
   {
     id: 'local-booking-3',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-meeting',
-    startTime: hubDateTime(2, 9, 0),
-    endTime: hubDateTime(2, 10, 30),
+    startTime: officeDateTime(2, 9, 0),
+    endTime: officeDateTime(2, 10, 30),
     status: 'checked-in',
-    checkInTime: hubDateTime(2, 9, 0),
+    checkInTime: officeDateTime(2, 9, 0),
     createdAt: new Date().toISOString()
   },
-  // Tomorrow: Booking by another member (Alice) on Meeting Room -> conflict test / calendar multi-user display
+  // Next office day: Alice on Meeting Room -> calendar multi-user display
   {
     id: 'local-booking-4',
     memberId: 'member-alice',
     amenityId: 'local-meeting',
-    startTime: hubDateTime(1, 10, 0),
-    endTime: hubDateTime(1, 12, 0),
+    startTime: officeDateTime(1, 10, 0),
+    endTime: officeDateTime(1, 12, 0),
     status: 'approved',
     createdAt: new Date().toISOString()
   },
-  // In 4 days: Booking by another member (Bob) on Coworking Desk
+  // In 4 office days: Booking by another member (Bob) on Coworking Desk
   {
     id: 'local-booking-5',
     memberId: 'member-bob',
     amenityId: 'local-desk',
-    startTime: hubDateTime(4, 9, 0),
-    endTime: hubDateTime(4, 18, 0),
+    startTime: officeDateTime(4, 9, 0),
+    endTime: officeDateTime(4, 18, 0),
     status: 'approved',
     createdAt: new Date().toISOString()
   },
-  // Past completed booking (2 days ago) -> completed count test on Admin Dashboard
+  // Past completed booking (2 office days ago) -> completed count on Admin Dashboard
   {
     id: 'local-booking-7',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-desk',
-    startTime: hubDateTime(-2, 9, 0),
-    endTime: hubDateTime(-2, 17, 0),
+    startTime: officeDateTime(-2, 9, 0),
+    endTime: officeDateTime(-2, 17, 0),
     status: 'completed',
-    checkInTime: hubDateTime(-2, 9, 0),
-    checkOutTime: hubDateTime(-2, 17, 0),
+    checkInTime: officeDateTime(-2, 9, 0),
+    checkOutTime: officeDateTime(-2, 17, 0),
     createdAt: new Date().toISOString()
   },
-  // Past cancelled booking (3 days ago)
+  // Past cancelled booking (3 office days ago)
   {
     id: 'local-booking-8',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-meeting',
-    startTime: hubDateTime(-3, 14, 0),
-    endTime: hubDateTime(-3, 15, 0),
+    startTime: officeDateTime(-3, 14, 0),
+    endTime: officeDateTime(-3, 15, 0),
     status: 'cancelled',
     createdAt: new Date().toISOString()
   }
