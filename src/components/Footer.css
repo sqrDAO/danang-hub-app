@@ -1,7 +1,8 @@
 .footer {
+  position: relative;
+  z-index: 2;
   margin-top: auto;
-  background: var(--header-bg);
-  backdrop-filter: blur(10px);
+  background: var(--bg-color, #231F20);
   border-top: 1px solid var(--header-border);
   padding: var(--spacing-xl) 0 var(--spacing-md);
 }

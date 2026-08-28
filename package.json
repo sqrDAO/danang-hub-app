@@ -20,7 +20,8 @@
     "react-dom": "^18.2.0",
     "react-i18next": "^15.7.4",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^6.20.0"
+    "react-router-dom": "^6.20.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",

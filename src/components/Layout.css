@@ -2,12 +2,17 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--bg-color, #231F20);
 }
 
 .main-content {
   margin-top: var(--header-height);
-  padding: 0 0 var(--spacing-xl);
+  padding: 0;
   flex: 1;
+}
+
+.layout.layout--app:not(.layout--public) .main-content {
+  padding: 0 0 var(--spacing-xl);
 }
 
 .tg-float {
@@ -40,7 +45,7 @@
 /* ── Mobile PWA adjustments for bottom nav ── */
 
 @media (max-width: 768px) {
-  .main-content {
+  .layout.layout--app .main-content {
     padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-inset-bottom) + var(--spacing-lg));
   }
 
