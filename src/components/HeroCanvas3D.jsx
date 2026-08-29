@@ -334,7 +334,6 @@ const HeroCanvas3D = () => {
   const sessionRef = useRef(null)
   const { theme } = useTheme()
   const themeRef = useRef(theme)
-  themeRef.current = theme
 
   useEffect(() => {
     const el = containerRef.current
@@ -348,6 +347,7 @@ const HeroCanvas3D = () => {
   }, [])
 
   useEffect(() => {
+    themeRef.current = theme
     sessionRef.current?.sync()
   }, [theme])
 
