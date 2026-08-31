@@ -33,7 +33,8 @@ export default defineConfig(({ mode }) => {
         manifest: false,
         injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          globIgnores: ['**/*.map', '**/iFonts-License.txt']
+          // Home wallpaper is lazy; do not make every installed PWA download Three.js.
+          globIgnores: ['**/*.map', '**/iFonts-License.txt', '**/HeroCanvas3D*.js']
         }
       })
     ],

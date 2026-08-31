@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion'
 import { formatEventDate } from '../utils/timezone'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
@@ -13,6 +14,16 @@ import { getProjects } from '../services/projects'
 import './Home.css'
 
 const HeroCanvas3D = lazy(() => import('../components/HeroCanvas3D'))
+
+const HeroWallpaper = () => {
+  const reducedMotion = usePrefersReducedMotion()
+  if (reducedMotion) return null
+  return (
+    <Suspense fallback={null}>
+      <HeroCanvas3D />
+    </Suspense>
+  )
+}
 
 const getHostingProjectsLabel = (hostingProjects, projects) => {
   if (typeof hostingProjects === 'string') return hostingProjects
@@ -267,9 +278,7 @@ const Home = () => {
     <Layout public>
       <div className="home-container">
         <section id="hero" className="hero-section">
-          <Suspense fallback={null}>
-            <HeroCanvas3D />
-          </Suspense>
+          <HeroWallpaper />
           <div className="hero-content">
             <h1 className="hero-title">
               <span className="gradient-text">Da Nang Blockchain Hub</span> {t('home.heroPortalLabel')}

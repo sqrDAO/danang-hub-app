@@ -9,11 +9,11 @@ const STEP = 1.6
 const PALETTES = {
   dark: {
     dark: 0x472900, mid: 0x784400, accent: 0x9A5B00, wire: 0x5C3500, particle: 0x784400,
-    base: 0.32, faint: 0.12, wireOp: 0.22
+    base: 0.32, faint: 0.12, wireOp: 0.22, additive: true
   },
   light: {
-    dark: 0xD8C3A5, mid: 0xC7AC8A, accent: 0xB6926B, wire: 0xA58157, particle: 0xB89972,
-    base: 0.26, faint: 0.10, wireOp: 0.16
+    dark: 0xD8C3A5, mid: 0xC7AC8A, accent: 0xB6926B, wire: 0xA58157, particle: 0x6E4F2C,
+    base: 0.26, faint: 0.10, wireOp: 0.16, additive: false
   }
 }
 
@@ -57,6 +57,10 @@ const tint = (material, hex, opacity) => {
   if (opacity != null) material.opacity = opacity
 }
 
+const particleBlend = (pal) => (
+  pal.additive ? THREE.AdditiveBlending : THREE.NormalBlending
+)
+
 const applyPalette = (world, pal) => {
   const { tiles: t, quads: q, particles: p } = world
   tint(t.dark, pal.dark, pal.faint)
@@ -66,6 +70,7 @@ const applyPalette = (world, pal) => {
   tint(q.fill, pal.dark, pal.faint * 1.2)
   tint(q.stroke, pal.wire, pal.wireOp)
   tint(p.mat, pal.particle)
+  p.mat.blending = particleBlend(pal)
 }
 
 const makeTiles = (bounds, pal) => {
@@ -123,7 +128,7 @@ const makeParticles = (count, bounds, pal) => {
   geo.setAttribute('position', new THREE.BufferAttribute(coords, 3))
   const mat = new THREE.PointsMaterial({
     color: pal.particle, size: 0.16, transparent: true, opacity: 0.35,
-    blending: THREE.AdditiveBlending
+    blending: particleBlend(pal)
   })
   return { field: new THREE.Points(geo, mat), geo, mat }
 }
@@ -223,13 +228,17 @@ const stepWorld = (world, time) => {
 const attachLoop = (ctx) => {
   let animId = 0
   let theme = ctx.themeRef.current
+  let elapsed = 0
   const running = () => ctx.getVisible() && !ctx.getReduced()
 
   const draw = (animate) => {
     const world = ctx.getWorld()
     if (!world) return
     theme = syncTheme(ctx.themeRef, theme, world)
-    if (animate) stepWorld(world, ctx.clock.getElapsedTime())
+    if (animate) {
+      elapsed += Math.min(ctx.clock.getDelta(), 0.1)
+      stepWorld(world, elapsed)
+    }
     ctx.renderer.render(ctx.scene, ctx.camera)
   }
 
