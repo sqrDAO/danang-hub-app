@@ -26,6 +26,7 @@ import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { consumeCreateAction } from '../../utils/consumeCreateAction'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
@@ -230,7 +231,7 @@ const useEventsQueries = (currentUser) => {
     enabled: !!currentUser?.uid
   })
 
-  const { data: amenities = [] } = useQuery({
+  const { data: amenities = [], isLoading: isLoadingAmenities } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
@@ -244,7 +245,7 @@ const useEventsQueries = (currentUser) => {
     console.error('Error loading upcoming events:', eventsError)
   }
 
-  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, projects }
+  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, isLoadingAmenities, projects }
 }
 
 const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOptedIn }) => {
@@ -1081,28 +1082,16 @@ const useMemberEventInteractions = ({
   return { ...actions, hostModalMember, setHostModalMember, handleDeleteMyEvent, handleOpenHostModal }
 }
 
-const consumeCreateAction = ({
-  searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams
-}) => {
-  if (searchParams.get('action') !== 'create' || !currentUser) return
-  const amenityId = searchParams.get('amenityId')
-  if (amenityId) openCreateForAmenity(amenityId)
-  else handleOpenCreateModal()
-  const nextParams = new URLSearchParams(searchParams)
-  nextParams.delete('action')
-  nextParams.delete('amenityId')
-  setSearchParams(nextParams, { replace: true })
-}
-
 const useMemberEventQueryActions = ({
   currentUser, searchParams, setSearchParams, openCreateForAmenity, handleOpenCreateModal, t,
-  isLoadingEvents, upcomingEventsData, approvedEvents, processedActionRef, actions
+  isLoadingEvents, isLoadingAmenities, upcomingEventsData, approvedEvents, processedActionRef, actions
 }) => {
   useEffect(() => {
     consumeCreateAction({
-      searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams
+      searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams,
+      isLoadingAmenities
     })
-  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity, handleOpenCreateModal])
+  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity, handleOpenCreateModal, isLoadingAmenities])
 
   useEffect(() => {
     const action = searchParams.get('action')
@@ -1314,6 +1303,7 @@ const MemberEvents = () => {
     approvedEvents,
     myEvents,
     amenities,
+    isLoadingAmenities,
     projects
   } = useEventsQueries(currentUser)
 
@@ -1345,6 +1335,7 @@ const MemberEvents = () => {
     handleOpenCreateModal,
     t,
     isLoadingEvents,
+    isLoadingAmenities,
     upcomingEventsData,
     approvedEvents,
     processedActionRef,
