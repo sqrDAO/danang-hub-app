@@ -277,7 +277,7 @@ const Home = () => {
   const pastEvents = approvedEvents.filter(e => e.date && asDate(e.date) <= now)
 
   return (
-    <Layout public>
+    <Layout public flush>
       <div className="home-container">
         <section id="hero" className="hero-section">
           <HeroWallpaper />

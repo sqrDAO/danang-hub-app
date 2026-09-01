@@ -7,12 +7,14 @@
 
 .main-content {
   margin-top: var(--header-height);
-  padding: 0;
+  padding: 0 0 var(--spacing-xl);
   flex: 1;
 }
 
-.layout.layout--app:not(.layout--public) .main-content {
-  padding: 0 0 var(--spacing-xl);
+/* Home's translucent content body runs edge to edge into the footer, so it
+   opts out of the spacer. Other public pages keep it. */
+.layout.layout--flush .main-content {
+  padding-bottom: 0;
 }
 
 .tg-float {

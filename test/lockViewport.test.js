@@ -20,6 +20,13 @@ test('ignores a height-only grow (URL bar hidden)', () => {
   )
 })
 
+test('honours a height-only change on a pointer device (window resize)', () => {
+  assert.deepEqual(
+    lockViewport({ w: 1440, h: 900 }, { w: 1440, h: 1100 }, false),
+    { w: 1440, h: 1100 }
+  )
+})
+
 test('takes the new box as-is on a width change (orientation)', () => {
   assert.deepEqual(
     lockViewport({ w: 390, h: 780 }, { w: 844, h: 390 }),

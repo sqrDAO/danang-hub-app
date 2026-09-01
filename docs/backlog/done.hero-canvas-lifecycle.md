@@ -29,6 +29,8 @@ chunk, and `prefers-reduced-motion: reduce` must not download or build the scene
 - [x] The wave clock accumulates clamped `getDelta()` (max 0.1s); a hidden-tab resume does not jump by the time away.
 - [x] Light-theme particles use `NormalBlending` and a darker `PALETTES.light.particle` so they read on the cream background.
 - [x] `usePrefersReducedMotion` does not call `matchMedia` when it is missing.
+- [x] `setupCanvas` does not call `matchMedia` when it is missing either — it falls back to a
+      non-matching stub, so a missing `matchMedia` cannot throw out of `useEffect`.
 - [x] NOT: do not add an error boundary around `lazy(HeroCanvas3D)` — swallow a failed dynamic import with `.catch()`, not an ErrorBoundary.
 - [x] NOT: do not hoist the canvas out of `.hero-section` or change `position: fixed`.
 - [x] NOT: do not drop the wallpaper, move `three` into `manualChunks`, or change `globPatterns`.

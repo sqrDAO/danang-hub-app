@@ -173,6 +173,10 @@ const driftQuads = (list, time) => {
 
 const idleSession = { cleanup: () => {}, sync: () => {} }
 
+const NOOP_MQ = { matches: false, addEventListener: () => {}, removeEventListener: () => {} }
+
+const mediaQuery = (query) => window.matchMedia?.(query) ?? NOOP_MQ
+
 const createRenderer = (container) => {
   try {
     const renderer = new THREE.WebGLRenderer({
@@ -294,7 +298,8 @@ const bindCanvasEvents = (loop, state) => {
 }
 
 const setupCanvas = (container, themeRef) => {
-  const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const mq = mediaQuery('(prefers-reduced-motion: reduce)')
+  const browserChrome = mediaQuery('(hover: none) and (pointer: coarse)')
   const scene = new THREE.Scene()
   const root = new THREE.Group()
   scene.add(root)
@@ -319,7 +324,7 @@ const setupCanvas = (container, themeRef) => {
     }
   }
   state.resize = () => {
-    const next = lockViewport(size, readBox(container))
+    const next = lockViewport(size, readBox(container), browserChrome.matches)
     if (!sameBox(next, size)) applySize(next)
   }
 

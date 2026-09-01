@@ -9,9 +9,10 @@ logged-in mobile `/` keeps the bottom nav.
 ## Files
 - `src/components/Footer.css` (edited) — `z-index: 2`; opaque `--bg-color` (drops glass so tiles do not show through).
 - `src/components/Footer.jsx` (edited) — `isAuthenticated` from `currentUser`, not path.
-- `src/components/Layout.jsx` (edited) — `layout--public` vs `layout--app`.
-- `src/components/Layout.css` (edited) — app-only main padding; logged-out public Home has no bottom-nav spacer.
-- `src/pages/Home.jsx` (edited) — extract preview cards; `loginPath` via `URLSearchParams`.
+- `src/components/Layout.jsx` (edited) — `layout--public` vs `layout--app`; `flush` prop for Home.
+- `src/components/Layout.css` (edited) — main keeps the bottom spacer by default, `layout--flush` drops it;
+  logged-out public Home has no bottom-nav spacer.
+- `src/pages/Home.jsx` (edited) — `<Layout public flush>`; extract preview cards; `loginPath` via `URLSearchParams`.
 - `src/pages/Home.css` (edited) — leftover grid centering; `hero-enter` under `no-preference`.
 
 ## Acceptance
@@ -23,6 +24,7 @@ logged-in mobile `/` keeps the bottom nav.
 - [x] Hero title/subtitle/cta entrance animation is inside `@media (prefers-reduced-motion: no-preference)`.
 - [x] `loginPath` encodes via `URLSearchParams`.
 - [x] NOT: do not restore footer glass — canvas bleed-through is why it went opaque.
+- [x] Only Home drops the `--spacing-xl` spacer above the footer; public `/events` and `/amenities` keep it.
 - [x] NOT: do not change `/member` or `/admin` bottom-nav padding.
 
 ## Verify
@@ -31,6 +33,7 @@ logged-in mobile `/` keeps the bottom nav.
 - desktop `/`: footer sits above the tiles; 1 past-event card and a 3rd amenity are centered.
 - mobile `/` logged-in: marketing footer hidden, bottom nav visible.
 - mobile `/` logged-out: footer still shows, no bottom nav.
+- desktop `/events` and `/amenities` (public): the last card still clears the footer by ~4rem.
 - regression: `/member` desktop still has a footer; `/member` mobile still hides it for the bottom nav.
 - reduced-motion: hero copy visible with no entrance animation.
 
