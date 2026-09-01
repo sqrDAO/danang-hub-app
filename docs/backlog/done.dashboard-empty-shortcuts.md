@@ -12,16 +12,16 @@ The member dashboard tracking cards dead-end on empty copy. Add always-visible s
 - `README.md` (edited) — one Member Portal line for the shortcuts.
 
 ## Acceptance
-- [ ] `/member` upcoming-bookings header always shows a Book Now control that navigates to `/member/bookings`.
-- [ ] `/member` upcoming-events header always shows a Create Event control that navigates to `/member/events?action=create`.
-- [ ] Empty upcoming-bookings copy is the existing no-upcoming message only (no second Book Now).
-- [ ] Empty upcoming-events copy is the existing no-upcoming message only (no second Create Event).
-- [ ] `/member/events?action=create` opens the member create-event modal and strips the query param.
-- [ ] `/member/events?action=create&amenityId=<id>` still prefills that Event Hall amenity.
-- [ ] Existing View all on upcoming events still goes to `/member/events` with no modal.
-- [ ] Both `en.json` and `vi.json` carry the new dashboard key.
-- [ ] NOT: do not auto-open the booking modal from the dashboard (no amenity is selected yet).
-- [ ] NOT: do not add these shortcuts on the admin dashboard.
+- [x] `/member` upcoming-bookings header always shows a Book Now control that navigates to `/member/bookings`.
+- [x] `/member` upcoming-events header always shows a Create Event control that navigates to `/member/events?action=create`.
+- [x] Empty upcoming-bookings copy is the existing no-upcoming message only (no second Book Now).
+- [x] Empty upcoming-events copy is the existing no-upcoming message only (no second Create Event).
+- [x] `/member/events?action=create` opens the member create-event modal and strips the query param.
+- [x] `/member/events?action=create&amenityId=<id>` still prefills that Event Hall amenity.
+- [x] Existing View all on upcoming events still goes to `/member/events` with no modal.
+- [x] Both `en.json` and `vi.json` carry the new dashboard key.
+- [x] NOT: do not auto-open the booking modal from the dashboard (no amenity is selected yet).
+- [x] NOT: do not add these shortcuts on the admin dashboard.
 
 ## Verify
 - `npm run lint` → zero warnings.

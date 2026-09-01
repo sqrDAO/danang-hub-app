@@ -14,23 +14,23 @@ Restructure `/member` so upcoming bookings and events sit first, without duplica
 - `README.md` (edited) — amenity-type filter; no bookings/events-only filter.
 
 ## Acceptance
-- [ ] `/member` renders upcoming bookings and upcoming events above `UnifiedCalendar`.
-- [ ] `/member` has no Show Calendar / Hide Calendar control and no `showCalendar` state.
-- [ ] The Unified Calendar heading lives inside `.unified-calendar`, not a wrapping dashboard section.
-- [ ] Month cells are shorter than the previous 120px desktop / 80px tablet / 70px phone rows.
-- [ ] Prev / Next show only arrows; `aria-label` uses `calendar.prevMonth` / `calendar.nextMonth` (no glyph).
-- [ ] At `max-width: 480px` a day cell shows at most one chip plus `+N more` when there are two or more items.
-- [ ] Prev / Next (and Today) keep `min-height` / `min-width` 44px at every breakpoint.
-- [ ] The calendar has no All / Bookings Only / Events Only select.
-- [ ] The amenity-type select remains, filters bookings only, and its `aria-label` says it filters bookings.
-- [ ] Weekday headers, legend, amenity-type options, `+N more`, and chip tooltips go through i18n in both locales.
-- [ ] `/member` does not render Upcoming Bookings / Upcoming Events / Available Amenities count cards.
-- [ ] Skipauth Event Hall bookings set `eventId` on an approved event; pending events have no hall booking.
-- [ ] Skipauth desk and meeting-room bookings fall on weekdays (Mon–Fri).
-- [ ] Both locales drop `showCalendar`, `hideCalendar`, and unused count-card keys.
-- [ ] NOT: do not change `BookingCalendar` or `/member/bookings` slot grid.
-- [ ] NOT: do not add occupancy icons, a two-week grid, or a tap/hover day sheet.
-- [ ] NOT: do not remove the admin dashboard stats row.
+- [x] `/member` renders upcoming bookings and upcoming events above `UnifiedCalendar`.
+- [x] `/member` has no Show Calendar / Hide Calendar control and no `showCalendar` state.
+- [x] The Unified Calendar heading lives inside `.unified-calendar`, not a wrapping dashboard section.
+- [x] Month cells are shorter than the previous 120px desktop / 80px tablet / 70px phone rows.
+- [x] Prev / Next show only arrows; `aria-label` uses `calendar.prevMonth` / `calendar.nextMonth` (no glyph).
+- [x] At `max-width: 480px` a day cell shows at most one chip plus `+N more` when there are two or more items.
+- [x] Prev / Next (and Today) keep `min-height` / `min-width` 44px at every breakpoint.
+- [x] The calendar has no All / Bookings Only / Events Only select.
+- [x] The amenity-type select remains, filters bookings only, and its `aria-label` says it filters bookings.
+- [x] Weekday headers, legend, amenity-type options, `+N more`, and chip tooltips go through i18n in both locales.
+- [x] `/member` does not render Upcoming Bookings / Upcoming Events / Available Amenities count cards.
+- [x] Skipauth Event Hall bookings set `eventId` on an approved event; pending events have no hall booking.
+- [x] Skipauth desk and meeting-room bookings fall on weekdays (Mon–Fri).
+- [x] Both locales drop `showCalendar`, `hideCalendar`, and unused count-card keys.
+- [x] NOT: do not change `BookingCalendar` or `/member/bookings` slot grid.
+- [x] NOT: do not add occupancy icons, a two-week grid, or a tap/hover day sheet.
+- [x] NOT: do not remove the admin dashboard stats row.
 
 ## Verify
 - `npm run lint` → zero warnings.

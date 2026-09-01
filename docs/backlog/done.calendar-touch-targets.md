@@ -14,15 +14,15 @@ BookingCalendar or admin filters after `/member` stays loaded.
 - `src/services/localDevFixtures.js` (edited) — sequential `local-booking-*` ids.
 
 ## Acceptance
-- [ ] `.unified-calendar .calendar-nav .btn-sm` is `min-height: 44px` at every breakpoint.
-- [ ] `.unified-calendar .calendar-nav-arrow` is `min-width: 44px` at every breakpoint.
-- [ ] UnifiedCalendar.css has no unscoped `.calendar-nav`, `.calendar-title`, or `.filter-select`.
-- [ ] UnifiedCalendar.css does not set `.filter-select` `height` or `min-width`.
-- [ ] `.day-item` has no `cursor: pointer`.
-- [ ] Skipauth office booking ids are `local-booking-1` through `local-booking-7` with no gap.
-- [ ] NOT: do not shrink month-grid row heights below 68 / 56 / 48.
-- [ ] NOT: do not change `BookingCalendar.css` or `/member/bookings` slot grid.
-- [ ] NOT: do not add a day-cell click sheet.
+- [x] `.unified-calendar .calendar-nav .btn-sm` is `min-height: 44px` at every breakpoint.
+- [x] `.unified-calendar .calendar-nav-arrow` is `min-width: 44px` at every breakpoint.
+- [x] UnifiedCalendar.css has no unscoped `.calendar-nav`, `.calendar-title`, or `.filter-select`.
+- [x] UnifiedCalendar.css does not set `.filter-select` `height` or `min-width`.
+- [x] `.day-item` has no `cursor: pointer`.
+- [x] Skipauth office booking ids are `local-booking-1` through `local-booking-7` with no gap.
+- [x] NOT: do not shrink month-grid row heights below 68 / 56 / 48.
+- [x] NOT: do not change `BookingCalendar.css` or `/member/bookings` slot grid.
+- [x] NOT: do not add a day-cell click sheet.
 
 ## Verify
 - `npm run lint` → zero warnings.

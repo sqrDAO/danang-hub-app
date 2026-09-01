@@ -555,6 +555,9 @@ select.form-field option {
   align-items: flex-start;
 }
 
+/* Events.css / Amenities.css / Dashboard.css each ship an unscoped `.page-title`
+   margin. Vite keeps route CSS after you leave the route, so the last one loaded
+   would otherwise leak its margin into every page header. */
 .page-header .page-title {
   margin-bottom: 0;
 }
@@ -570,6 +573,12 @@ select.form-field option {
   justify-content: space-between;
   gap: var(--spacing-md);
   flex-wrap: wrap;
+}
+
+/* HubClosureNotice renders null when nothing is closed, so space-between alone
+   would drop the actions to the left on the common case. */
+.page-header-toolbar > .page-actions {
+  margin-left: auto;
 }
 
 .page-header-stacked > .hub-closure-notice,
@@ -688,6 +697,10 @@ select.form-field option {
   .page-header-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .page-header-toolbar > .page-actions {
+    margin-left: 0;
   }
 
   .page-header .btn,

@@ -14,13 +14,13 @@ other app pages start their content sooner.
 - `docs/backlog/todo.hub-closure-notice-placement.md` (edited) — match the new gap.
 
 ## Acceptance
-- [ ] `.page-header` `margin-bottom` is `var(--spacing-lg)`, not `--spacing-xl`.
-- [ ] `.member-dashboard .page-title` `margin-bottom` is `var(--spacing-lg)`.
-- [ ] Public Events/Amenities do not re-set `.page-header` to `--spacing-xl`.
-- [ ] `.amenities-grid` has no extra `--spacing-xl` top margin on the public page.
-- [ ] `/admin/members` and `/member` show a tighter title-to-content gap than 4rem.
-- [ ] NOT: do not change `--spacing-xl` itself or Home/Login spacing.
-- [ ] NOT: do not add top padding to `.main-content` or `.container`.
+- [x] `.page-header` `margin-bottom` is `var(--spacing-lg)`, not `--spacing-xl`.
+- [x] `.member-dashboard .page-title` `margin-bottom` is `var(--spacing-lg)`.
+- [x] Public Events/Amenities do not re-set `.page-header` to `--spacing-xl`.
+- [x] `.amenities-grid` has no extra `--spacing-xl` top margin on the public page.
+- [x] `/admin/members` and `/member` show a tighter title-to-content gap than 4rem.
+- [x] NOT: do not change `--spacing-xl` itself or Home/Login spacing.
+- [x] NOT: do not add top padding to `.main-content` or `.container`.
 
 ## Verify
 - `npm run lint` → zero warnings.
