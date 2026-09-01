@@ -2,12 +2,19 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--bg-color, #231F20);
 }
 
 .main-content {
   margin-top: var(--header-height);
   padding: 0 0 var(--spacing-xl);
   flex: 1;
+}
+
+/* Home's translucent content body runs edge to edge into the footer, so it
+   opts out of the spacer. Other public pages keep it. */
+.layout.layout--flush .main-content {
+  padding-bottom: 0;
 }
 
 .tg-float {
@@ -40,7 +47,7 @@
 /* ── Mobile PWA adjustments for bottom nav ── */
 
 @media (max-width: 768px) {
-  .main-content {
+  .layout.layout--app .main-content {
     padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-inset-bottom) + var(--spacing-lg));
   }
 

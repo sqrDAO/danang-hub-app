@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion'
 import { formatEventDate } from '../utils/timezone'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
@@ -11,6 +12,20 @@ import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getProjects } from '../services/projects'
 import './Home.css'
+
+const HeroCanvas3D = lazy(() =>
+  import('../components/HeroCanvas3D').catch(() => ({ default: () => null }))
+)
+
+const HeroWallpaper = () => {
+  const reducedMotion = usePrefersReducedMotion()
+  if (reducedMotion) return null
+  return (
+    <Suspense fallback={null}>
+      <HeroCanvas3D />
+    </Suspense>
+  )
+}
 
 const getHostingProjectsLabel = (hostingProjects, projects) => {
   if (typeof hostingProjects === 'string') return hostingProjects
@@ -22,38 +37,73 @@ const getHostingProjectsLabel = (hostingProjects, projects) => {
 
 const isEventFull = (event) => event.capacity && event.attendees?.length >= event.capacity
 
-const HeroCta = ({ currentUser, isAdmin, t }) => (
-  currentUser ? (
+const asDate = (value) => (value instanceof Date ? value : new Date(value))
+
+const amenityMemberPath = (amenity) => (
+  amenity.type === 'event-space'
+    ? `/member/events?action=create&amenityId=${amenity.id}`
+    : `/member/bookings?amenityId=${amenity.id}`
+)
+
+const loginPath = (signup, redirect, extra = {}) => {
+  const params = new URLSearchParams()
+  if (signup) params.set('signup', 'true')
+  params.set('redirect', redirect)
+  Object.entries(extra).forEach(([key, value]) => params.set(key, value))
+  return `/login?${params.toString()}`
+}
+
+const amenityAuthPath = (amenity, signup) => (
+  amenity.type === 'event-space'
+    ? loginPath(signup, '/member/events', { action: 'create', amenityId: amenity.id })
+    : loginPath(signup, '/member/bookings', { amenityId: amenity.id })
+)
+
+const HeroCta = ({ currentUser, isAdmin, t }) => {
+  const to = currentUser ? (isAdmin() ? '/admin' : '/member') : '/login?signup=true'
+  const label = currentUser ? t('home.ctaDashboard') : t('home.ctaGetStarted')
+  return (
     <div className="hero-cta">
-      <Link
-        to={isAdmin() ? '/admin' : '/member'}
-        className="btn btn-primary btn-large"
-      >
-        {t('home.ctaDashboard')}
-      </Link>
-      <a href="#amenities" className="btn btn-secondary btn-large">
-        {t('home.ctaBrowseAmenities')}
-      </a>
-    </div>
-  ) : (
-    <div className="hero-cta">
-      <Link to="/login?signup=true" className="btn btn-primary btn-large">
-        {t('home.ctaGetStarted')}
-      </Link>
+      <Link to={to} className="btn btn-primary btn-large">{label}</Link>
       <a href="#amenities" className="btn btn-secondary btn-large">
         {t('home.ctaBrowseAmenities')}
       </a>
     </div>
   )
+}
+
+const EventBanner = ({ url }) => (
+  url ? (
+    <div className="event-preview-banner">
+      <img src={url} alt="" loading="lazy" decoding="async" />
+    </div>
+  ) : null
+)
+
+const HostedBy = ({ event, projects, t }) => (
+  event.hostingProjects ? (
+    <p className="event-preview-projects">
+      🏢 {t('home.eventsHostedBy', {
+        hosts: getHostingProjectsLabel(event.hostingProjects, projects)
+      })}
+    </p>
+  ) : null
+)
+
+const EventLinkLine = ({ event, t }) => (
+  event.eventLink ? (
+    <p className="event-preview-link">
+      🔗{' '}
+      <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
+        {t('home.eventsLink')}
+      </a>
+    </p>
+  ) : null
 )
 
 const EventPreviewCard = ({ event, projects, onRegister, t }) => (
-  <div className="event-preview-card glass">
-    {event.bannerUrl && (
-      <div className="event-preview-banner">
-        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-      </div>
-    )}
+  <div className="event-preview-card">
+    <EventBanner url={event.bannerUrl} />
     <div>
       <h4 className="event-preview-title">{event.title}</h4>
       <p className="event-preview-date">
@@ -72,21 +122,8 @@ const EventPreviewCard = ({ event, projects, onRegister, t }) => (
           })}
         </p>
       )}
-      {event.hostingProjects && (
-        <p className="event-preview-projects">
-          🏢 {t('home.eventsHostedBy', {
-            hosts: getHostingProjectsLabel(event.hostingProjects, projects)
-          })}
-        </p>
-      )}
-      {event.eventLink && (
-        <p className="event-preview-link">
-          🔗{' '}
-          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
-            {t('home.eventsLink')}
-          </a>
-        </p>
-      )}
+      <HostedBy event={event} projects={projects} t={t} />
+      <EventLinkLine event={event} t={t} />
       {event.description && (
         <p className="event-preview-description">{event.description}</p>
       )}
@@ -95,13 +132,81 @@ const EventPreviewCard = ({ event, projects, onRegister, t }) => (
       className="btn btn-primary btn-full-width"
       onClick={() => onRegister(event)}
       disabled={isEventFull(event)}
-      style={{ marginTop: 'var(--spacing-md)' }}
     >
-      {isEventFull(event)
-        ? t('home.eventsFull')
-        : t('home.eventsRegister')}
+      {isEventFull(event) ? t('home.eventsFull') : t('home.eventsRegister')}
     </button>
   </div>
+)
+
+const PastEventCard = ({ event, projects, currentUser, t }) => (
+  <div className="event-preview-card past-event">
+    <EventBanner url={event.bannerUrl} />
+    <div>
+      <h4 className="event-preview-title">{event.title}</h4>
+      <p className="event-preview-date">
+        {event.date ? formatEventDate(event.date) : null}
+      </p>
+      <HostedBy event={event} projects={projects} t={t} />
+      <EventLinkLine event={event} t={t} />
+      {currentUser && event.attendees?.includes(currentUser.uid) && (
+        <p className="event-attended">✅ {t('home.pastEventsAttended')}</p>
+      )}
+    </div>
+  </div>
+)
+
+const AmenityPreviewCard = ({ amenity, onBook, onLightbox, t }) => (
+  <div className="amenity-preview-card">
+    {amenity.photos?.length > 0 ? (
+      <button
+        type="button"
+        className="amenity-preview-photo amenity-photo-clickable"
+        onClick={() => onLightbox(amenity)}
+        aria-label={`View photos of ${amenity.name}`}
+      >
+        <img src={amenity.photos[0]} alt={amenity.name} />
+        {amenity.photos.length > 1 && (
+          <span className="amenity-photo-count-badge">{amenity.photos.length}</span>
+        )}
+      </button>
+    ) : (
+      <div className="amenity-preview-photo-placeholder">
+        <span>{t('home.amenitiesNoPhoto')}</span>
+      </div>
+    )}
+    <div>
+      <h4 className="amenity-preview-name">{amenity.name}</h4>
+      <p className="amenity-preview-type">{amenity.type}</p>
+      {amenity.capacity && (
+        <p className="amenity-preview-capacity">
+          {t('home.amenitiesCapacity', { count: amenity.capacity })}
+        </p>
+      )}
+      {amenity.description && (
+        <p className="amenity-preview-description">{amenity.description}</p>
+      )}
+    </div>
+    <button className="btn btn-primary btn-full-width" onClick={() => onBook(amenity)}>
+      📅 {t('common.bookNow')}
+    </button>
+  </div>
+)
+
+const PreviewSection = ({ id, title, loading, loadingLabel, emptyLabel, items, children }) => (
+  <section id={id} className="preview-section">
+    <div className="container">
+      <div className="section-header">
+        <h2 className="section-title">{title}</h2>
+      </div>
+      {loading ? (
+        <p className="loading-text">{loadingLabel}</p>
+      ) : items.length > 0 ? (
+        children
+      ) : (
+        <p className="empty-state">{emptyLabel}</p>
+      )}
+    </div>
+  </section>
 )
 
 const Home = () => {
@@ -120,7 +225,7 @@ const Home = () => {
 
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ['upcomingEvents'],
-    queryFn: () => getUpcomingEvents()
+    queryFn: getUpcomingEvents
   })
 
   const { data: approvedEvents = [] } = useQuery({
@@ -137,37 +242,9 @@ const Home = () => {
     if (!currentUser) {
       setSelectedAmenity(amenity)
       setAuthPromptOpen(true)
-    } else if (amenity.type === 'event-space') {
-      navigate(`/member/events?action=create&amenityId=${amenity.id}`)
-    } else {
-      navigate(`/member/bookings?amenityId=${amenity.id}`)
+      return
     }
-  }
-
-  const handleLogin = () => {
-    if (selectedAmenity) {
-      const redirectPath = selectedAmenity.type === 'event-space'
-        ? `/login?redirect=/member/events&action=create&amenityId=${selectedAmenity.id}`
-        : `/login?redirect=/member/bookings&amenityId=${selectedAmenity.id}`
-      navigate(redirectPath)
-    } else if (selectedEvent) {
-      navigate(`/login?redirect=/member/events&eventId=${selectedEvent.id}&action=register`)
-    } else {
-      navigate('/login')
-    }
-  }
-
-  const handleSignUp = () => {
-    if (selectedAmenity) {
-      const redirectPath = selectedAmenity.type === 'event-space'
-        ? `/login?signup=true&redirect=/member/events&action=create&amenityId=${selectedAmenity.id}`
-        : `/login?signup=true&redirect=/member/bookings&amenityId=${selectedAmenity.id}`
-      navigate(redirectPath)
-    } else if (selectedEvent) {
-      navigate(`/login?signup=true&redirect=/member/events&eventId=${selectedEvent.id}&action=register`)
-    } else {
-      navigate('/login?signup=true')
-    }
+    navigate(amenityMemberPath(amenity))
   }
 
   const handleRegisterEvent = (event) => {
@@ -176,171 +253,121 @@ const Home = () => {
       setAuthPromptOpen(true)
       return
     }
-    
-    // For logged-in users, navigate to member events page
-    // The MemberEvents page will handle the registration via query params
     navigate(`/member/events?action=register&eventId=${event.id}`)
   }
 
-  const availableAmenities = amenities.filter(a => a.isAvailable !== false)
-  
-  const upcomingEvents = events
-    .filter(e => {
-      if (!e.date) return false
-      const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
-      const now = new Date()
-      return eventDate > now
-    })
+  const handleAuthRedirect = (signup) => {
+    if (selectedAmenity) {
+      navigate(amenityAuthPath(selectedAmenity, signup))
+      return
+    }
+    if (selectedEvent) {
+      navigate(loginPath(signup, '/member/events', {
+        eventId: selectedEvent.id,
+        action: 'register'
+      }))
+      return
+    }
+    navigate(signup ? '/login?signup=true' : '/login')
+  }
 
-  const pastEvents = approvedEvents.filter(e => {
-    if (!e.date) return false
-    const eventDate = e.date instanceof Date ? e.date : new Date(e.date)
-    const now = new Date()
-    return eventDate <= now
-  })
+  const availableAmenities = amenities.filter(a => a.isAvailable !== false)
+  const now = new Date()
+  const upcomingEvents = events.filter(e => e.date && asDate(e.date) > now)
+  const pastEvents = approvedEvents.filter(e => e.date && asDate(e.date) <= now)
 
   return (
-    <Layout public>
+    <Layout public flush>
       <div className="home-container">
-        {/* Hero Section */}
         <section id="hero" className="hero-section">
+          <HeroWallpaper />
           <div className="hero-content">
             <h1 className="hero-title">
-              <span className="gradient-text">Da Nang Blockchain Hub</span> {t('home.heroPortalLabel', { defaultValue: 'Portal' })}
+              <span className="gradient-text">Da Nang Blockchain Hub</span> {t('home.heroPortalLabel')}
             </h1>
-            <p className="hero-subtitle">
-              {t('home.heroSubtitle')}
-            </p>
+            <p className="hero-subtitle">{t('home.heroSubtitle')}</p>
             <HeroCta currentUser={currentUser} isAdmin={isAdmin} t={t} />
           </div>
         </section>
 
-        {/* Amenities Section */}
-        <section id="amenities" className="preview-section">
-          <div className="container">
-            <div className="section-header">
-              <h2 className="section-title">{t('home.amenitiesTitle')}</h2>
+        <div className="home-content-body">
+          <PreviewSection
+            id="amenities"
+            title={t('home.amenitiesTitle')}
+            loading={amenitiesLoading}
+            loadingLabel={t('home.amenitiesLoading')}
+            emptyLabel={t('home.amenitiesEmpty')}
+            items={availableAmenities}
+          >
+            <div className="amenities-preview-grid">
+              {availableAmenities.map(amenity => (
+                <AmenityPreviewCard
+                  key={amenity.id}
+                  amenity={amenity}
+                  onBook={handleBookAmenity}
+                  onLightbox={setLightboxAmenity}
+                  t={t}
+                />
+              ))}
             </div>
-            {amenitiesLoading ? (
-              <p className="loading-text">{t('home.amenitiesLoading')}</p>
-            ) : availableAmenities.length > 0 ? (
-              <div className="amenities-preview-grid">
-                {availableAmenities.map(amenity => (
-                  <div key={amenity.id} className="amenity-preview-card glass">
-                    {amenity.photos && amenity.photos.length > 0 ? (
-                      <button
-                        type="button"
-                        className="amenity-preview-photo amenity-photo-clickable"
-                        onClick={() => setLightboxAmenity(amenity)}
-                        aria-label={`View photos of ${amenity.name}`}
-                      >
-                        <img src={amenity.photos[0]} alt={amenity.name} />
-                        {amenity.photos.length > 1 && (
-                          <span className="amenity-photo-count-badge">{amenity.photos.length}</span>
-                        )}
-                      </button>
-                    ) : (
-                      <div className="amenity-preview-photo-placeholder">
-                        <span>{t('home.amenitiesNoPhoto')}</span>
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="amenity-preview-name">{amenity.name}</h4>
-                      <p className="amenity-preview-type">{amenity.type}</p>
-                      {amenity.capacity && (
-                        <p className="amenity-preview-capacity">
-                          {t('home.amenitiesCapacity', { count: amenity.capacity })}
-                        </p>
-                      )}
-                      {amenity.description && (
-                        <p className="amenity-preview-description">{amenity.description}</p>
-                      )}
-                    </div>
-                    <button
-                      className="btn btn-primary btn-full-width"
-                      onClick={() => handleBookAmenity(amenity)}
-                      style={{ marginTop: 'var(--spacing-md)' }}
-                    >
-                      📅 {t('common.bookNow')}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">{t('home.amenitiesEmpty')}</p>
-            )}
-          </div>
-        </section>
+          </PreviewSection>
 
-        {/* Events Section */}
-        <section id="events" className="preview-section">
-          <div className="container">
-            <div className="section-header">
-              <h2 className="section-title">{t('home.eventsTitle')}</h2>
+          <PreviewSection
+            id="events"
+            title={t('home.eventsTitle')}
+            loading={eventsLoading}
+            loadingLabel={t('home.eventsLoading')}
+            emptyLabel={t('home.eventsEmpty')}
+            items={upcomingEvents}
+          >
+            <div className="events-preview-grid">
+              {upcomingEvents.map(event => (
+                <EventPreviewCard
+                  key={event.id}
+                  event={event}
+                  projects={projects}
+                  onRegister={handleRegisterEvent}
+                  t={t}
+                />
+              ))}
             </div>
-            {eventsLoading ? (
-              <p className="loading-text">{t('home.eventsLoading')}</p>
-            ) : upcomingEvents.length > 0 ? (
-              <div className="events-preview-grid">
-                {upcomingEvents.map(event => (
-                  <EventPreviewCard
-                    key={event.id}
-                    event={event}
-                    projects={projects}
-                    onRegister={handleRegisterEvent}
-                    t={t}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">{t('home.eventsEmpty')}</p>
-            )}
-          </div>
-        </section>
+          </PreviewSection>
 
-        {/* Past Events Section */}
-        {pastEvents.length > 0 && (
-          <section id="past-events" className="preview-section">
-            <div className="container">
-              <div className="section-header">
-                <h2 className="section-title">{t('home.pastEventsTitle')}</h2>
+          {pastEvents.length > 0 && (
+            <section id="past-events" className="preview-section">
+              <div className="container">
+                <div className="section-header">
+                  <h2 className="section-title">{t('home.pastEventsTitle')}</h2>
+                </div>
+                <div className="events-preview-grid">
+                  {pastEvents.map(event => (
+                    <PastEventCard
+                      key={event.id}
+                      event={event}
+                      projects={projects}
+                      currentUser={currentUser}
+                      t={t}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="events-preview-grid">
-                {pastEvents.map(event => (
-                  <div key={event.id} className="event-preview-card glass past-event">
-                    {event.bannerUrl && (
-                      <div className="event-preview-banner">
-                        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="event-preview-title">{event.title}</h4>
-                      <p className="event-preview-date">
-                        {event.date ? formatEventDate(event.date) : null}
-                      </p>
-                      {event.hostingProjects && (
-                        <p className="event-preview-projects">
-                          🏢 Hosted by: {getHostingProjectsLabel(event.hostingProjects, projects)}
-                        </p>
-                      )}
-                      {event.eventLink && (
-                        <p className="event-preview-link">
-                          🔗{' '}
-                          <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
-                            {t('home.eventsLink')}
-                          </a>
-                        </p>
-                      )}
-                      {currentUser && event.attendees?.includes(currentUser.uid) && (
-                        <p className="event-attended">✅ {t('home.pastEventsAttended')}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            </section>
+          )}
+
+          {!currentUser && (
+            <section className="cta-section">
+              <div className="container">
+                <div className="cta-content">
+                  <h2 className="cta-title">{t('common.readyToGetStarted')}</h2>
+                  <p className="cta-description">{t('common.signUpCta')}</p>
+                  <Link to="/login?signup=true" className="btn btn-primary btn-large">
+                    {t('common.ctaPrimary')}
+                  </Link>
+                </div>
               </div>
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+        </div>
 
         <AuthPrompt
           isOpen={authPromptOpen}
@@ -350,8 +377,8 @@ const Home = () => {
             setSelectedEvent(null)
           }}
           action={selectedAmenity ? 'book' : 'register'}
-          onLogin={handleLogin}
-          onSignUp={handleSignUp}
+          onLogin={() => handleAuthRedirect(false)}
+          onSignUp={() => handleAuthRedirect(true)}
         />
 
         <AmenityPhotoLightbox
@@ -360,23 +387,6 @@ const Home = () => {
           photos={lightboxAmenity?.photos || []}
           alt={lightboxAmenity?.name || ''}
         />
-
-        {/* CTA Section */}
-        {!currentUser && (
-          <section className="cta-section">
-            <div className="container">
-              <div className="cta-content glass">
-                <h2 className="cta-title">{t('common.readyToGetStarted')}</h2>
-                <p className="cta-description">
-                  {t('common.signUpCta')}
-                </p>
-                <Link to="/login?signup=true" className="btn btn-primary btn-large">
-                  {t('common.ctaPrimary')}
-                </Link>
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </Layout>
   )

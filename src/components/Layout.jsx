@@ -5,11 +5,12 @@ import Footer from './Footer'
 import BottomNav from './BottomNav'
 import './Layout.css'
 
-const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatbot = false }) => {
+const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatbot = false, flush = false }) => {
   const { currentUser } = useAuth()
   const { t } = useTranslation()
+  const isApp = !isPublic || Boolean(currentUser)
   return (
-    <div className={`layout${(!isPublic || currentUser) ? ' layout--app' : ''}`}>
+    <div className={`layout${isPublic ? ' layout--public' : ''}${isApp ? ' layout--app' : ''}${flush ? ' layout--flush' : ''}`}>
       <Header isAdmin={isAdmin} public={isPublic} />
       <main className="main-content">
         {children}
