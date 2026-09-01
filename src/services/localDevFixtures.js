@@ -308,7 +308,7 @@ export const buildLocalDevBookings = () => [
   },
   // Past completed booking (2 office days ago) -> completed count on Admin Dashboard
   {
-    id: 'local-booking-7',
+    id: 'local-booking-6',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-desk',
     startTime: officeDateTime(-2, 9, 0),
@@ -320,7 +320,7 @@ export const buildLocalDevBookings = () => [
   },
   // Past cancelled booking (3 office days ago)
   {
-    id: 'local-booking-8',
+    id: 'local-booking-7',
     memberId: LOCAL_DEV_UID,
     amenityId: 'local-meeting',
     startTime: officeDateTime(-3, 14, 0),

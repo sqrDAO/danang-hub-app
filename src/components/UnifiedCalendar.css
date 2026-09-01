@@ -30,23 +30,25 @@
   gap: var(--spacing-sm);
 }
 
-.calendar-nav {
+/* Shared with BookingCalendar / admin filters — scope so Vite CSS persistence
+   cannot restyle those pages after /member stays loaded. */
+.unified-calendar .calendar-nav {
   display: flex;
   gap: var(--spacing-xs);
 }
 
-.calendar-nav .btn-sm {
+.unified-calendar .calendar-nav .btn-sm {
   padding: 0.35rem 0.75rem;
   font-size: 0.8125rem;
   min-height: 44px;
 }
 
-.calendar-nav-arrow {
+.unified-calendar .calendar-nav-arrow {
   min-width: 44px;
   padding: 0;
 }
 
-.calendar-title {
+.unified-calendar .calendar-title {
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -57,13 +59,6 @@
 .calendar-filters {
   display: flex;
   gap: var(--spacing-xs);
-}
-
-.filter-select {
-  min-width: 130px;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.8125rem;
-  height: 44px;
 }
 
 .calendar-grid-month {
@@ -154,7 +149,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
   transition: var(--transition);
 }
 
@@ -267,15 +261,9 @@
 }
 
 @media (max-width: 768px) {
-  .calendar-nav .btn-sm {
-    min-height: 36px;
+  .unified-calendar .calendar-nav .btn-sm {
     padding: 0.25rem 0.55rem;
     font-size: 0.75rem;
-  }
-
-  .calendar-nav-arrow {
-    min-width: 36px;
-    padding: 0;
   }
 
   .calendar-controls {
@@ -288,12 +276,7 @@
     flex-direction: column;
   }
 
-  .filter-select {
-    width: 100%;
-    height: 36px;
-  }
-
-  .calendar-title {
+  .unified-calendar .calendar-title {
     font-size: 1rem;
   }
 
@@ -328,17 +311,8 @@
 }
 
 @media (max-width: 480px) {
-  .calendar-nav .btn-sm {
-    min-height: 32px;
+  .unified-calendar .calendar-nav .btn-sm {
     font-size: 0.7rem;
-  }
-
-  .calendar-nav-arrow {
-    min-width: 32px;
-  }
-
-  .filter-select {
-    height: 32px;
   }
 
   .day-item-secondary,
@@ -363,7 +337,7 @@
     padding: 1px 2px;
   }
 
-  .calendar-title {
+  .unified-calendar .calendar-title {
     font-size: 0.95rem;
   }
 }

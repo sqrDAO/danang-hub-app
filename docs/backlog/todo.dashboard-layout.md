@@ -20,7 +20,7 @@ Restructure `/member` so upcoming bookings and events sit first, without duplica
 - [ ] Month cells are shorter than the previous 120px desktop / 80px tablet / 70px phone rows.
 - [ ] Prev / Next show only arrows; `aria-label` uses `calendar.prevMonth` / `calendar.nextMonth` (no glyph).
 - [ ] At `max-width: 480px` a day cell shows at most one chip plus `+N more` when there are two or more items.
-- [ ] Prev / Next (and Today) shrink under `max-width: 768px` and again under `480px`.
+- [ ] Prev / Next (and Today) keep `min-height` / `min-width` 44px at every breakpoint.
 - [ ] The calendar has no All / Bookings Only / Events Only select.
 - [ ] The amenity-type select remains, filters bookings only, and its `aria-label` says it filters bookings.
 - [ ] Weekday headers, legend, amenity-type options, `+N more`, and chip tooltips go through i18n in both locales.
