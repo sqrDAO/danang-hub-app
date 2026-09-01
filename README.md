@@ -43,7 +43,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Event Management** — approve/reject events with reason, manage attendees and waitlists
 
 ### Member Portal
-- **Personal Dashboard** — upcoming bookings and events at a glance
+- **Personal Dashboard** — upcoming bookings and events at a glance, with shortcuts to book an amenity or create an event
 - **Booking Interface** — calendar picker with live conflict checking
 - **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
 - **Event Registration** — browse, register, and manage waitlist position
@@ -51,7 +51,7 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
-- Filter by bookings, events, or amenity type
+- Filter by amenity type
 - Color-coded items distinguishing your bookings from others
 - Month view with day-by-day breakdown
 

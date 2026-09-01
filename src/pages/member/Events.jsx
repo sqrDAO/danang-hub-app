@@ -26,6 +26,7 @@ import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { consumeCreateAction } from '../../utils/consumeCreateAction'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
@@ -230,7 +231,7 @@ const useEventsQueries = (currentUser) => {
     enabled: !!currentUser?.uid
   })
 
-  const { data: amenities = [] } = useQuery({
+  const { data: amenities = [], isLoading: isLoadingAmenities } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
@@ -244,7 +245,7 @@ const useEventsQueries = (currentUser) => {
     console.error('Error loading upcoming events:', eventsError)
   }
 
-  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, projects }
+  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, isLoadingAmenities, projects }
 }
 
 const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOptedIn }) => {
@@ -1082,19 +1083,15 @@ const useMemberEventInteractions = ({
 }
 
 const useMemberEventQueryActions = ({
-  currentUser, searchParams, setSearchParams, openCreateForAmenity, t,
-  isLoadingEvents, upcomingEventsData, approvedEvents, processedActionRef, actions
+  currentUser, searchParams, setSearchParams, openCreateForAmenity, handleOpenCreateModal, t,
+  isLoadingEvents, isLoadingAmenities, upcomingEventsData, approvedEvents, processedActionRef, actions
 }) => {
   useEffect(() => {
-    const action = searchParams.get('action')
-    const amenityId = searchParams.get('amenityId')
-    if (action !== 'create' || !amenityId || !currentUser) return
-    openCreateForAmenity(amenityId)
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.delete('action')
-    nextParams.delete('amenityId')
-    setSearchParams(nextParams, { replace: true })
-  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity])
+    consumeCreateAction({
+      searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams,
+      isLoadingAmenities
+    })
+  }, [searchParams, currentUser, setSearchParams, openCreateForAmenity, handleOpenCreateModal, isLoadingAmenities])
 
   useEffect(() => {
     const action = searchParams.get('action')
@@ -1306,6 +1303,7 @@ const MemberEvents = () => {
     approvedEvents,
     myEvents,
     amenities,
+    isLoadingAmenities,
     projects
   } = useEventsQueries(currentUser)
 
@@ -1334,8 +1332,10 @@ const MemberEvents = () => {
     searchParams,
     setSearchParams,
     openCreateForAmenity,
+    handleOpenCreateModal,
     t,
     isLoadingEvents,
+    isLoadingAmenities,
     upcomingEventsData,
     approvedEvents,
     processedActionRef,

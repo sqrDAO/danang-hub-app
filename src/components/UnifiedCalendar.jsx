@@ -5,9 +5,18 @@ import { useAuth } from '../hooks/useAuth'
 import { getBookings } from '../services/bookings'
 import { getApprovedEvents } from '../services/events'
 import { getAmenities } from '../services/amenities'
+import { addHubDays, formatHubDate, parseHubDateTime } from '../utils/timezone'
 import './UnifiedCalendar.css'
 
 const EMPTY_ITEMS = []
+const WEEKDAY_SUNDAY = parseHubDateTime('2026-08-02')
+const HUB_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6].map((i) => addHubDays(WEEKDAY_SUNDAY, i))
+const LEGEND_ITEMS = [
+  { swatch: 'legend-color day-item-booking', key: 'unifiedCalendar.legendBooking' },
+  { swatch: 'legend-color day-item-event', key: 'unifiedCalendar.legendEvent' },
+  { swatch: 'legend-color pending', key: 'unifiedCalendar.legendPending' },
+  { swatch: 'legend-color mine', key: 'unifiedCalendar.legendYours' }
+]
 
 // Inline so a failed fetch is visible in place of a silently empty calendar.
 const CalendarErrorBanner = ({ message }) => (
@@ -22,25 +31,57 @@ const CalendarErrorBanner = ({ message }) => (
   </div>
 )
 
-const DayCell = memo(function DayCell({ date, isToday, items }) {
+const chipClassName = (item, extraClass = '') => [
+  'day-item',
+  `day-item-${item.type}`,
+  item.isMine ? 'mine' : '',
+  item.status === 'pending' ? 'pending' : '',
+  extraClass
+].filter(Boolean).join(' ')
+
+const chipTitle = (item, t) => {
+  const kind = t(item.type === 'event'
+    ? 'unifiedCalendar.legendEvent'
+    : 'unifiedCalendar.legendBooking')
+  if (item.status === 'pending') {
+    return t('unifiedCalendar.chipPending', {
+      kind,
+      title: item.title,
+      status: t('unifiedCalendar.legendPending')
+    })
+  }
+  return t('unifiedCalendar.chip', { kind, title: item.title })
+}
+
+const DayItemChip = ({ item, t, className = '' }) => (
+  <div className={chipClassName(item, className)} title={chipTitle(item, t)}>
+    {item.title}
+  </div>
+)
+
+const DayCell = memo(function DayCell({ date, isToday, items, t }) {
   if (!date) return <div className="calendar-day empty" />
-  const visible = items.slice(0, 3)
-  const extra = items.length - 3
+  const first = items[0]
+  const second = items[1]
+  const desktopExtra = items.length - 2
+  const mobileExtra = items.length - 1
   return (
     <div className={`calendar-day ${isToday ? 'today' : ''}`}>
       <div className="day-number">{date.getDate()}</div>
       <div className="day-items">
-        {visible.map(item => (
-          <div
-            key={item.id}
-            className={`day-item day-item-${item.type} ${item.isMine ? 'mine' : ''} ${item.status === 'pending' ? 'pending' : ''}`}
-            title={`${item.type === 'booking' ? 'Booking' : 'Event'}: ${item.title}${item.status === 'pending' ? ' (Pending)' : ''}`}
-          >
-            {item.title}
+        {first && <DayItemChip item={first} t={t} />}
+        {second && (
+          <DayItemChip item={second} t={t} className="day-item-secondary" />
+        )}
+        {desktopExtra > 0 && (
+          <div className="day-item-more day-item-more-desktop">
+            {t('unifiedCalendar.more', { count: desktopExtra })}
           </div>
-        ))}
-        {extra > 0 && (
-          <div className="day-item-more">+{extra} more</div>
+        )}
+        {mobileExtra > 0 && (
+          <div className="day-item-more day-item-more-mobile">
+            {t('unifiedCalendar.more', { count: mobileExtra })}
+          </div>
         )}
       </div>
     </div>
@@ -85,10 +126,10 @@ const bookingBelongsToUser = (booking, currentUserId, userIsAdmin) => {
 }
 
 const UnifiedCalendar = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const { currentUser, isAdmin } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedFilter, setSelectedFilter] = useState('all') // 'all', 'bookings', 'events'
   const [selectedAmenityType, setSelectedAmenityType] = useState('')
 
   // Calendar shows one month at a time; fetch a buffered window around the
@@ -98,19 +139,13 @@ const UnifiedCalendar = () => {
   const calendarWindowStart = new Date(calendarYear, calendarMonth - 1, 1)
   const calendarWindowEnd = new Date(calendarYear, calendarMonth + 2, 0, 23, 59, 59, 999)
 
-  // Fetch bookings - admins see all, members see only their own
   const { data: bookings = [], error: bookingsError } = useQuery({
-    queryKey: ['bookings', isAdmin() ? 'all' : currentUser?.uid, calendarYear, calendarMonth],
-    queryFn: () => {
-      const window = { startDate: calendarWindowStart, endDate: calendarWindowEnd }
-      if (isAdmin()) {
-        // Admin can see all bookings in the visible window
-        return getBookings(window)
-      } else {
-        // Members can only see their own bookings in the visible window
-        return getBookings({ memberId: currentUser?.uid, ...window })
-      }
-    },
+    queryKey: ['bookings', 'calendar', isAdmin() ? 'admin' : currentUser?.uid, calendarYear, calendarMonth],
+    queryFn: () => getBookings({
+      startDate: calendarWindowStart,
+      endDate: calendarWindowEnd,
+      ...(isAdmin() ? {} : { memberId: currentUser?.uid })
+    }),
     enabled: !!currentUser?.uid
   })
 
@@ -124,15 +159,13 @@ const UnifiedCalendar = () => {
     queryFn: getAmenities
   })
 
-  // O(1) amenity lookup by id, built once per amenities update.
-  // Replaces amenities.find() inside per-booking loops (was O(N×M)).
   const amenitiesById = useMemo(() => {
     const map = new Map()
     amenities.forEach(a => map.set(a.id, a))
     return map
   }, [amenities])
 
-  // Filter bookings - only show approved, pending, or checked-in bookings
+  // Filter bookings
   const filteredBookings = useMemo(() => {
     if (!bookings || bookings.length === 0) {
       if (bookingsError) {
@@ -142,7 +175,6 @@ const UnifiedCalendar = () => {
     }
 
     let filtered = bookings.filter(b => {
-      // Ensure booking has required fields
       if (!b || !b.status || !b.startTime) {
         return false
       }
@@ -176,51 +208,47 @@ const UnifiedCalendar = () => {
     const userIsAdmin = isAdmin()
     const currentUserId = currentUser?.uid
 
-    if (selectedFilter === 'all' || selectedFilter === 'bookings') {
-      filteredBookings.forEach(booking => {
-        if (!booking.startTime) return
+    filteredBookings.forEach(booking => {
+      if (!booking.startTime) return
 
-        const startDate = new Date(booking.startTime)
-        const endDate = booking.endTime ? new Date(booking.endTime) : startDate
+      const startDate = new Date(booking.startTime)
+      const endDate = booking.endTime ? new Date(booking.endTime) : startDate
 
-        if (isNaN(startDate.getTime())) return
+      if (isNaN(startDate.getTime())) return
 
-        const belongsToUser = bookingBelongsToUser(booking, currentUserId, userIsAdmin)
+      const belongsToUser = bookingBelongsToUser(booking, currentUserId, userIsAdmin)
 
-        items.push({
-          type: 'booking',
-          id: booking.id,
-          title: amenitiesById.get(booking.amenityId)?.name || 'Unknown Amenity',
-          start: startDate,
-          end: endDate,
-          isMine: belongsToUser,
-          status: booking.status,
-          data: booking
-        })
+      items.push({
+        type: 'booking',
+        id: booking.id,
+        title: amenitiesById.get(booking.amenityId)?.name || t('unifiedCalendar.unknownAmenity'),
+        start: startDate,
+        end: endDate,
+        isMine: belongsToUser,
+        status: booking.status,
+        data: booking
       })
-    }
+    })
 
-    if (selectedFilter === 'all' || selectedFilter === 'events') {
-      filteredEvents.forEach(event => {
-        if (!event.date) return
+    filteredEvents.forEach(event => {
+      if (!event.date) return
 
-        const eventDate = new Date(event.date)
-        if (isNaN(eventDate.getTime())) return
+      const eventDate = new Date(event.date)
+      if (isNaN(eventDate.getTime())) return
 
-        items.push({
-          type: 'event',
-          id: event.id,
-          title: event.title || 'Untitled Event',
-          start: eventDate,
-          end: eventDate,
-          isMine: event.attendees?.includes(currentUserId) || false,
-          data: event
-        })
+      items.push({
+        type: 'event',
+        id: event.id,
+        title: event.title || t('memberDashboard.untitledEvent'),
+        start: eventDate,
+        end: eventDate,
+        isMine: event.attendees?.includes(currentUserId) || false,
+        data: event
       })
-    }
+    })
 
     return items
-  }, [filteredBookings, filteredEvents, selectedFilter, amenitiesById, currentUser, isAdmin])
+  }, [filteredBookings, filteredEvents, amenitiesById, currentUser, isAdmin, t])
 
   // Group items by date
   const itemsByDate = useMemo(() => {
@@ -294,6 +322,10 @@ const UnifiedCalendar = () => {
 
   return (
     <div className="unified-calendar">
+      <div className="unified-calendar-header">
+        <h2 className="section-title">{t('memberDashboard.unifiedCalendar')}</h2>
+      </div>
+
       {bookingsError && (
         <CalendarErrorBanner
           message={t('calendar.errorLoadingBookings', { message: bookingsError.message })}
@@ -304,52 +336,55 @@ const UnifiedCalendar = () => {
           message={t('calendar.errorLoadingEvents', { message: eventsError.message })}
         />
       )}
+
       <div className="calendar-controls">
         <div className="calendar-nav">
-          <button className="btn btn-secondary btn-sm" onClick={handlePrevMonth}>
-            ← Prev
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm calendar-nav-arrow"
+            onClick={handlePrevMonth}
+            aria-label={t('calendar.prevMonth')}
+          >
+            ←
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={handleToday}>
-            Today
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleToday}>
+            {t('calendar.today')}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={handleNextMonth}>
-            Next →
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm calendar-nav-arrow"
+            onClick={handleNextMonth}
+            aria-label={t('calendar.nextMonth')}
+          >
+            →
           </button>
         </div>
-        <h2 className="calendar-title">
-          {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </h2>
+        <h3 className="calendar-title">
+          {currentDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+        </h3>
         <div className="calendar-filters">
           <select
             className="form-field filter-select"
-            value={selectedFilter}
-            onChange={(e) => setSelectedFilter(e.target.value)}
+            value={selectedAmenityType}
+            onChange={(e) => setSelectedAmenityType(e.target.value)}
+            aria-label={t('unifiedCalendar.filterBookingsByType')}
           >
-            <option value="all">All</option>
-            <option value="bookings">Bookings Only</option>
-            <option value="events">Events Only</option>
+            <option value="">{t('unifiedCalendar.allAmenityTypes')}</option>
+            {uniqueAmenityTypes.map(type => (
+              <option key={type} value={type}>
+                {t(`amenityTypes.${type}`, { defaultValue: type })}
+              </option>
+            ))}
           </select>
-          {selectedFilter === 'all' || selectedFilter === 'bookings' ? (
-            <select
-              className="form-field filter-select"
-              value={selectedAmenityType}
-              onChange={(e) => setSelectedAmenityType(e.target.value)}
-            >
-              <option value="">All Amenity Types</option>
-              {uniqueAmenityTypes.map(type => (
-                <option key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </select>
-          ) : null}
         </div>
       </div>
 
       <div className="calendar-grid-month">
         <div className="calendar-weekdays">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="weekday-header">{day}</div>
+          {HUB_WEEKDAYS.map((day) => (
+            <div key={day.getTime()} className="weekday-header">
+              {formatHubDate(day, locale, { weekday: 'short' })}
+            </div>
           ))}
         </div>
         <div className="calendar-days">
@@ -359,28 +394,19 @@ const UnifiedCalendar = () => {
               date={date}
               isToday={date ? date.toDateString() === todayKey : false}
               items={date ? (itemsByDate[date.toDateString()] || EMPTY_ITEMS) : EMPTY_ITEMS}
+              t={t}
             />
           ))}
         </div>
       </div>
 
       <div className="calendar-legend">
-        <div className="legend-item">
-          <div className="legend-color day-item-booking"></div>
-          <span>Booking</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color day-item-event"></div>
-          <span>Event</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color pending"></div>
-          <span>Pending</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color mine"></div>
-          <span>Yours</span>
-        </div>
+        {LEGEND_ITEMS.map((item) => (
+          <div key={item.key} className="legend-item">
+            <div className={item.swatch} />
+            <span>{t(item.key)}</span>
+          </div>
+        ))}
       </div>
     </div>
   )

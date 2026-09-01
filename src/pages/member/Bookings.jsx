@@ -1156,11 +1156,10 @@ const MemberBookings = () => {
   return (
     <Layout hideChatbot={form.isModalOpen}>
       <div className="container">
-        <div className="page-header">
+        <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
+          <HubClosureNotice />
         </div>
-
-        <HubClosureNotice />
 
         <AmenitiesSection
           t={t}

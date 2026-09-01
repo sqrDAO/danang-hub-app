@@ -9,6 +9,10 @@
   flex-wrap: wrap;
 }
 
+.page-header-stacked > .page-filters {
+  flex: 1 1 100%;
+}
+
 .page-filters {
   display: flex;
   align-items: center;
