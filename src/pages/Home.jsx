@@ -13,7 +13,9 @@ import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getProjects } from '../services/projects'
 import './Home.css'
 
-const HeroCanvas3D = lazy(() => import('../components/HeroCanvas3D'))
+const HeroCanvas3D = lazy(() =>
+  import('../components/HeroCanvas3D').catch(() => ({ default: () => null }))
+)
 
 const HeroWallpaper = () => {
   const reducedMotion = usePrefersReducedMotion()
