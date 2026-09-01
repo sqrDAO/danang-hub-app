@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useTheme } from '../hooks/useTheme'
+import { lockViewport, readBox, sameBox } from '../utils/lockViewport'
 
 const FOV = 48
 const CAM_Z = 26
@@ -303,17 +304,23 @@ const setupCanvas = (container, themeRef) => {
   if (!renderer) return idleSession
 
   let world = null
+  let size = { w: 0, h: 0 }
   const state = { mq, reduced: mq.matches, visible: !document.hidden, resizeTimer: 0 }
   const remount = (w, h) => {
     detachWorld(root, scene, world)
     world = attachWorld(root, scene, getPal(themeRef.current), { w, h })
   }
+  const applySize = (next) => {
+    size = next
+    fitRenderer(camera, renderer, size.w, size.h)
+    const bounds = gridBounds(size.w, size.h)
+    if (!world || bounds.cols !== world.bounds.cols || bounds.rows !== world.bounds.rows) {
+      remount(size.w, size.h)
+    }
+  }
   state.resize = () => {
-    const w = window.innerWidth
-    const h = window.innerHeight
-    fitRenderer(camera, renderer, w, h)
-    const next = gridBounds(w, h)
-    if (next.cols !== world.bounds.cols || next.rows !== world.bounds.rows) remount(w, h)
+    const next = lockViewport(size, readBox(container))
+    if (!sameBox(next, size)) applySize(next)
   }
 
   const loop = attachLoop({
@@ -323,8 +330,7 @@ const setupCanvas = (container, themeRef) => {
     getReduced: () => state.reduced,
     getVisible: () => state.visible
   })
-  fitRenderer(camera, renderer, window.innerWidth, window.innerHeight)
-  remount(window.innerWidth, window.innerHeight)
+  applySize(readBox(container))
   const unbind = bindCanvasEvents(loop, state)
   loop.sync()
 
