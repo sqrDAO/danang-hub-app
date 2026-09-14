@@ -17,8 +17,10 @@ allowed.
 ## Acceptance
 - [ ] `checkIn` and `checkOut` both use `isSameHubDay` from `src/utils/timezone.js`
       instead of `Date.prototype.toDateString()`.
-- [ ] A booking starting at 2026-09-15 08:00 Asia/Ho_Chi_Minh can be checked in when the
-      server/client instant is 2026-09-15 01:00 UTC (same hub day, previous UTC day).
+- [ ] A booking starting at 2026-09-15 00:30 Asia/Ho_Chi_Minh (hub day 2026-09-15) can be
+      checked in when the server/client instant is 2026-09-14 17:30 UTC — still
+      2026-09-14 in UTC and in any browser running US/European local time, but already
+      2026-09-15 on the hub calendar.
 - [ ] NOT: this does not change the check-in/check-out status transitions themselves or
       any rules-level enforcement — both remain admin-only client-side guards, per
       CLAUDE.md's "all other transitions are admin or scheduler."

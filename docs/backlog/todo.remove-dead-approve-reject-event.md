@@ -22,6 +22,7 @@ them by mistake, since their names read as the "real" approve/reject functions.
 ## Verify
 - `npm run lint && npm run build` → both clean (build failing on a stray reference would
   indicate a caller was missed).
-- `grep -rn "approveEvent\|rejectEvent" src/` → only the callable wrapper and its own
-  definition remain (no service-layer hits).
+- `grep -rn "approveEvent\|rejectEvent" src/` → zero matches (the `reviewEvent` callable
+  and its wrapper in `src/services/functions.js` use that name, not `approveEvent`/
+  `rejectEvent`, so no reference to either legacy name should remain anywhere).
 - `npm test` → existing tests pass.

@@ -31,8 +31,11 @@ confirmed spot.
   the trigger's `before`/`after` snapshots unconditionally (before the
   `beforeAttendees <= afterAttendees` early return, which stays in place to guard the
   *auto-repromotion* transaction only), and call `createNotificationIfAbsent` /
-  `sendPushToMembers` for each newly-promoted uid, keyed to prevent duplicate sends across
-  the function's at-least-once retry semantics.
+  `sendPushToMembers` for each newly-promoted uid. Key the notification's `subjectId` as
+  `${eventId}:${event.data.after.updateTime.toMillis()}` (the write's own commit time),
+  not bare `eventId` — a member can leave an event and be re-waitlisted and re-promoted
+  later, and a bare-`eventId` key would let the first promotion's notification doc
+  silently suppress every later one for the same member/event pair.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — add the promoted-from-waitlist
   notification/push copy (both locales, same change).
 - `src/components/NotificationBell.jsx` (edited) — render the new notification type.
@@ -45,6 +48,9 @@ confirmed spot.
 - [ ] The notification is not duplicated if the underlying Cloud Functions trigger fires
       more than once for the same document write (Cloud Functions triggers are
       at-least-once).
+- [ ] A member promoted, later removed from the event, re-waitlisted, and promoted again
+      receives a second notification for the second promotion — the dedup key does not
+      collapse two distinct promotions of the same member into one.
 - [ ] A member who opted out of push (`preferences.pushNotifications === false`) still
       gets the in-app notification but no push.
 - [ ] NOT: this does not change who gets auto-promoted or in what order — only adds the

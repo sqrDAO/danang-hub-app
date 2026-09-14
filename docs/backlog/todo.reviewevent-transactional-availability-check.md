@@ -10,9 +10,12 @@ overlapping-time events can both pass the check and both book the same slot.
 - `functions/index.js` (edited) — re-check amenity/time availability for
   `requestedAmenityId` inside the `db.runTransaction` in `reviewEvent`, using the same
   transaction's reads, immediately before `tx.create`ing the linked booking.
-- `test/eventLifecycle.test.js` or a new `test/reviewEventConcurrency.test.js` (edited or
-  new) — cover the re-check logic if it can be unit-tested as a pure function; the
-  concurrent-race itself needs emulator coverage (see Verify).
+- `functions/scripts/repro-reviewevent-race.js` (new) — a one-off Node script, run only
+  against the emulator (see Verify), that seeds two pending events requesting the same
+  Event Hall amenity for an overlapping time window and fires two concurrent `reviewEvent`
+  admin approvals via `Promise.all`, printing how many bookings exist for that amenity/
+  window afterward. Not part of `npm test` (`test/*.test.js` is pure-helper-only per
+  CLAUDE.md) — this needs live Firestore transactions to reproduce the race at all.
 
 ## Acceptance
 - [ ] `reviewEvent`'s transaction re-reads bookings scoped to `requestedAmenityId` and the
@@ -34,10 +37,9 @@ overlapping-time events can both pass the check and both book the same slot.
 - `npm run lint && cd functions && npm run lint` → both clean.
 - `npm run build` → production build succeeds.
 - `npm test` → existing tests pass.
-- Emulator: with `firebase emulators:start`, create two pending events requesting the same
-  Event Hall amenity for overlapping times, then fire two `reviewEvent` approval calls
-  back-to-back (e.g. via `Promise.all` in a one-off script or `firebase functions:shell`)
-  → exactly one booking is created; the second call receives `failed-precondition`.
+- `firebase emulators:exec --only firestore,functions "node functions/scripts/repro-reviewevent-race.js"`
+  → the script reports exactly one booking created for the contested amenity/window, and
+  logs that the second `reviewEvent` call rejected with `failed-precondition`.
 - regression: re-run the existing organizer-edit-event emulator matrix
   (`docs/knowledge/organizer-event-edit-verification.md`) to confirm normal single-approval
   Event Hall bookings still succeed.

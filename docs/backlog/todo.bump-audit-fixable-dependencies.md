@@ -31,5 +31,9 @@ pre-existing approval email.
 - `npm test` → existing tests pass (root and, if applicable, functions).
 - `npm audit` (root) and `cd functions && npm audit` → neither lists `react-router`,
   `react-router-dom`, or `nodemailer` any more; vulnerability counts drop accordingly.
-- Manual (emulators): send a booking-approval and a booking-cancellation email via
-  `cd functions && npm run serve` to confirm `nodemailer` still sends correctly post-bump.
+- Manual (emulators): `cd functions && npm run serve`, then flip a pending event's
+  `status` to `approved` (or `rejected`) in the Firestore emulator UI to fire
+  `notifyEventStatusChange` — the only reachable `nodemailer` path in this codebase
+  (`notifyBookingApproved`/`notifyBookingCancelled` only write in-app/push notifications,
+  they do not send email) — and confirm either the email arrives in the configured SMTP
+  test inbox or the `Event status email sent` log line appears.
