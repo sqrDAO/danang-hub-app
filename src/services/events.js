@@ -32,7 +32,6 @@ import {
   promoteLocalWaitlist,
   registerLocalEvent,
   removeLocalWaitlist,
-  reviewLocalEvent,
   unregisterLocalEvent,
   updateLocalEvent
 } from './localDevStore'
@@ -307,25 +306,6 @@ export const getMyEvents = async (organizerId) => {
     ...doc.data(),
     date: doc.data().date?.toDate?.() || doc.data().date,
   }))
-}
-
-export const approveEvent = async (eventId) => {
-  if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action: 'approved' })
-  const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-  await updateDoc(eventRef, {
-    status: 'approved',
-    approvedAt: new Date().toISOString()
-  })
-}
-
-export const rejectEvent = async (eventId, reason = '') => {
-  if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action: 'rejected', reason })
-  const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-  await updateDoc(eventRef, {
-    status: 'rejected',
-    rejectionReason: reason,
-    rejectedAt: new Date().toISOString()
-  })
 }
 
 export const updateEvent = async (id, data) => {
