@@ -84,6 +84,8 @@
     "eventReminderFullTitle": "Event tomorrow — waitlist open",
     "eventReminderFullBody": "{{title}} starts tomorrow at {{time}}. All {{capacity}} spots are taken — join the waitlist.",
     "eventReminderWaitlistedBody": "You're #{{position}} on the waitlist for {{title}}.",
+    "waitlistPromotedTitle": "You're off the waitlist",
+    "waitlistPromotedBody": "A spot opened up — you're now registered for \"{{title}}\".",
     "defaultTitle": "New notification",
     "defaultBody": "You have a new notification.",
     "memberFallback": "A member",
