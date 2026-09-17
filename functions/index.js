@@ -2466,12 +2466,91 @@ exports.verifyWalletSignature = onCall(
     },
 );
 
+/**
+ * Notifies members just moved from an event's waitlist into its attendee
+ * list — by the auto-promotion transaction below or by an admin's manual
+ * `promoteFromWaitlist` call. Keying the subject id off the write's own
+ * commit time (not bare eventId) lets a member promoted, later re-waitlisted,
+ * and promoted again receive a second notification instead of having the
+ * dedup marker from the first promotion silently swallow it.
+ * @param {string} eventId Event document id
+ * @param {Object} afterData Event data after the write
+ * @param {string} updateTimeMillis Commit time of the write
+ * @param {Array<string>} uids Newly promoted member uids
+ * @return {Promise<void>}
+ */
+async function notifyWaitlistPromoted(
+    eventId, afterData, updateTimeMillis, uids,
+) {
+  const subjectId = `${eventId}_${updateTimeMillis}`;
+  const eventTitle = afterData.title || afterData.name || "";
+  await Promise.all(uids.map(async (uid) => {
+    await createNotificationIfAbsent(uid, "waitlist_promoted", subjectId, {
+      eventId,
+      eventTitle,
+      link: "/member/events",
+    });
+    try {
+      await notifyMemberPush(uid, {
+        messages: {
+          en: {
+            title: "You're off the waitlist",
+            body: `A spot opened up — you're now registered for ` +
+              `"${eventTitle}".`,
+          },
+          vi: {
+            title: "Bạn đã có chỗ",
+            body: `Đã có chỗ trống — bạn đã được đăng ký "${eventTitle}".`,
+          },
+        },
+        link: "/member/events",
+        type: "waitlist_promoted",
+        subjectId,
+      });
+    } catch (error) {
+      console.error("Error sending waitlist promotion push:", error);
+    }
+  }));
+}
+
 // Auto-promote from waitlist when spots open
 exports.autoPromoteWaitlist = onDocumentUpdated(
     "events/{eventId}",
     async (event) => {
       const before = event.data.before.data();
-      const after = event.data.after.data();
+      const afterSnap = event.data.after;
+      const after = afterSnap.data();
+
+      // A real promotion moves a uid from `waitlist` into `attendees` in the
+      // SAME write. Requiring removal from `after.waitlist` (not just prior
+      // membership in `before.waitlist`) matters because firestore.rules only
+      // restricts which *fields* a member write may touch, not which uid or
+      // by whom — a bare `attendees`-only registerForEvent write naming a uid
+      // still sitting in `waitlist` would otherwise pass this diff and fire a
+      // spoofed promotion notification at an arbitrary member.
+      const beforeAttendeeSet = new Set(before.attendees || []);
+      const beforeWaitlistSet = new Set(before.waitlist || []);
+      const afterWaitlistSet = new Set(after.waitlist || []);
+      const newlyPromoted = (after.attendees || []).filter((uid) =>
+        !beforeAttendeeSet.has(uid) &&
+        beforeWaitlistSet.has(uid) &&
+        !afterWaitlistSet.has(uid),
+      );
+
+      // Best-effort: a notification failure must never block the actual
+      // promotion transaction below, which is the load-bearing behavior here.
+      if (newlyPromoted.length > 0) {
+        try {
+          await notifyWaitlistPromoted(
+              event.params.eventId,
+              after,
+              String(afterSnap.updateTime.toMillis()),
+              newlyPromoted,
+          );
+        } catch (error) {
+          console.error("Error notifying waitlist promotion:", error);
+        }
+      }
 
       // The snapshot decides only *whether* to look — someone left, so a spot
       // may have opened. It never decides how many to promote: the document can
@@ -2520,7 +2599,6 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
           return promoteCount;
         });
 
-        // TODO: Notify promoted members
         if (toPromote > 0) {
           console.log(
               `Auto-promoted ${toPromote} member(s) from waitlist ` +

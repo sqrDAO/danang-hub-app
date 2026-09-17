@@ -84,6 +84,8 @@
     "eventReminderFullTitle": "Sự kiện ngày mai — còn danh sách chờ",
     "eventReminderFullBody": "{{title}} bắt đầu vào ngày mai lúc {{time}}. Đã kín {{capacity}} chỗ — tham gia danh sách chờ.",
     "eventReminderWaitlistedBody": "Bạn đang ở vị trí #{{position}} trong danh sách chờ {{title}}.",
+    "waitlistPromotedTitle": "Bạn đã có chỗ",
+    "waitlistPromotedBody": "Đã có chỗ trống — bạn đã được đăng ký \"{{title}}\".",
     "defaultTitle": "Thông báo mới",
     "defaultBody": "Bạn có một thông báo mới.",
     "memberFallback": "Một thành viên",

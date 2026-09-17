@@ -138,6 +138,11 @@ const getEventRevisionCopy = (notification, t) => {
   }
 }
 
+const getWaitlistPromotedCopy = (notification, t) => ({
+  title: t('notifications.waitlistPromotedTitle'),
+  body: t('notifications.waitlistPromotedBody', { title: notification.eventTitle })
+})
+
 const getDefaultNotificationCopy = (t) => ({
   title: t('notifications.defaultTitle'),
   body: t('notifications.defaultBody')
@@ -150,13 +155,14 @@ const NOTIFICATION_COPY_BY_TYPE = {
   booking_approved: getBookingApprovedCopy,
   booking_cancelled: getBookingCancelledCopy,
   event_reminder: getEventReminderCopy,
-  event_revision: getEventRevisionCopy
+  event_revision: getEventRevisionCopy,
+  waitlist_promoted: getWaitlistPromotedCopy
 }
 
 const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
 
 const getNotificationTone = (type) => {
-  if (type === 'booking_approved') return 'approved'
+  if (type === 'booking_approved' || type === 'waitlist_promoted') return 'approved'
   if (type === 'booking_cancelled') return 'rejected'
   if (type === 'event_rejected') return 'rejected'
   return 'pending'
@@ -191,7 +197,8 @@ const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
   booking_cancelled: '/member/bookings',
   event_status: '/member/events',
   event_reminder: '/member/events',
-  event_revision: '/member/events'
+  event_revision: '/member/events',
+  waitlist_promoted: '/member/events'
 }
 
 const getNotificationPath = (notification) => (
