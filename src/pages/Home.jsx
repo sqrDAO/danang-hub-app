@@ -176,7 +176,7 @@ const AmenityPreviewCard = ({ amenity, onBook, onLightbox, t }) => (
     )}
     <div>
       <h4 className="amenity-preview-name">{amenity.name}</h4>
-      <p className="amenity-preview-type">{t(`amenityTypes.${amenity.type}`, { defaultValue: amenity.type })}</p>
+      <p className="amenity-preview-type">{amenity.type}</p>
       {amenity.capacity && (
         <p className="amenity-preview-capacity">
           {t('home.amenitiesCapacity', { count: amenity.capacity })}

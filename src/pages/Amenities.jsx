@@ -130,7 +130,7 @@ const Amenities = () => {
                 )}
                 <div className="amenity-header">
                   <h3 className="amenity-name">{amenity.name}</h3>
-                  <span className="amenity-type">{t(`amenityTypes.${amenity.type}`, { defaultValue: amenity.type })}</span>
+                  <span className="amenity-type">{amenity.type}</span>
                 </div>
                 <div className="amenity-info">
                   {amenity.capacity && (

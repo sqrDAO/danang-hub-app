@@ -119,27 +119,24 @@ const UpcomingEventItem = ({ event, onShowOrganizer }) => {
   )
 }
 
-const HostProfileHeader = ({ member }) => {
-  const { t } = useTranslation()
-  return (
-    <div className="profile-header">
-      <div className="profile-avatar-wrap">
-        <Avatar src={member.photoURL} name={member.displayName} size="xl" />
-      </div>
-      <div className="profile-info">
-        <h2 className="profile-name">{member.displayName || '—'}</h2>
-        {(member.jobTitle || member.company) && (
-          <p className="profile-email">
-            {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
-          </p>
-        )}
-        <span className={`membership-badge ${member.membershipType || 'member'}`}>
-          {member.membershipType === 'admin' ? t('adminMembers.adminOption') : t('adminMembers.memberOption')}
-        </span>
-      </div>
+const HostProfileHeader = ({ member }) => (
+  <div className="profile-header">
+    <div className="profile-avatar-wrap">
+      <Avatar src={member.photoURL} name={member.displayName} size="xl" />
     </div>
-  )
-}
+    <div className="profile-info">
+      <h2 className="profile-name">{member.displayName || '—'}</h2>
+      {(member.jobTitle || member.company) && (
+        <p className="profile-email">
+          {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      <span className={`membership-badge ${member.membershipType || 'member'}`}>
+        {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+      </span>
+    </div>
+  </div>
+)
 
 const HostProfileDetails = ({ member }) => (
   <>

@@ -239,38 +239,35 @@ const HostProfessionalSection = ({ member }) => (
   </section>
 )
 
-const HostProfileContent = ({ member }) => {
-  const { t } = useTranslation()
-  return (
-    <div className="profile-modal-content">
-      <div className="profile-header">
-        <div className="profile-avatar-wrap">
-          <Avatar src={member.photoURL} name={member.displayName} size="xl" />
-        </div>
-        <div className="profile-info">
-          <h2 className="profile-name">{member.displayName || '—'}</h2>
-          {(member.jobTitle || member.company) && (
-            <p className="profile-email">
-              {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
-            </p>
-          )}
-          <span className={`membership-badge ${member.membershipType || 'member'}`}>
-            {member.membershipType === 'admin' ? t('adminMembers.adminOption') : t('adminMembers.memberOption')}
-          </span>
-        </div>
+const HostProfileContent = ({ member }) => (
+  <div className="profile-modal-content">
+    <div className="profile-header">
+      <div className="profile-avatar-wrap">
+        <Avatar src={member.photoURL} name={member.displayName} size="xl" />
       </div>
-
-      <HostProfessionalSection member={member} />
-
-      <section className="profile-section">
-        <h3 className="profile-section-title">About</h3>
-        <div className="profile-detail-item profile-detail-bio">
-          <span className="detail-value">{member.bio || '—'}</span>
-        </div>
-      </section>
+      <div className="profile-info">
+        <h2 className="profile-name">{member.displayName || '—'}</h2>
+        {(member.jobTitle || member.company) && (
+          <p className="profile-email">
+            {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        <span className={`membership-badge ${member.membershipType || 'member'}`}>
+          {member.membershipType === 'admin' ? 'Admin' : 'Member'}
+        </span>
+      </div>
     </div>
-  )
-}
+
+    <HostProfessionalSection member={member} />
+
+    <section className="profile-section">
+      <h3 className="profile-section-title">About</h3>
+      <div className="profile-detail-item profile-detail-bio">
+        <span className="detail-value">{member.bio || '—'}</span>
+      </div>
+    </section>
+  </div>
+)
 
 const MemberDashboard = () => {
   const { t, i18n } = useTranslation()
