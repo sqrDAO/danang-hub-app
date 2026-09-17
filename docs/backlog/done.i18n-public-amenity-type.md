@@ -31,3 +31,10 @@ most-visible surface.
   English slugs.
 - regression: confirm `src/components/UnifiedCalendar.jsx` and
   `src/pages/admin/Bookings.jsx` (which already use this pattern) are unaffected.
+
+## Notes
+Implementation landed on `main` directly (commit `20900d8`, later reverted as `be7f2cf`
+and reapplied as `8120571`) instead of through a PR — a branch-tracking mistake (new
+branch's upstream defaulted to `origin/main`) caused pushes to go straight to `main`.
+Content was verified safe (lint/build/test clean, manual `vi` check passed) before being
+left in place; flagging here since the git history doesn't show a merged PR for this spec.

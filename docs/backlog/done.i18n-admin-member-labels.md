@@ -28,3 +28,10 @@ Each: replace `member.membershipType === 'admin' ? 'Admin' : 'Member'` with
 - `grep -rn "'Admin' : 'Member'" src/` → no remaining matches.
 - Manual (dev server): switch to `vi`, view Member Dashboard, Member Events, Admin
   Dashboard, and Admin Events → role label shows the Vietnamese text on all four.
+
+## Notes
+Implementation landed on `main` directly (commit `20900d8`, later reverted as `be7f2cf`
+and reapplied as `8120571`) instead of through a PR — a branch-tracking mistake (new
+branch's upstream defaulted to `origin/main`) caused pushes to go straight to `main`.
+Content was verified safe (lint/build/test clean, manual `vi` check passed) before being
+left in place; flagging here since the git history doesn't show a merged PR for this spec.
