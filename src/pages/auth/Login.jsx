@@ -221,7 +221,7 @@ const EvmWalletPicker = ({ wallets, onSelect }) => (
         className="wallet-option"
         onClick={() => onSelect(wallet)}
       >
-        <img src={wallet.info.icon} alt={wallet.info.name} width={24} height={24} />
+        <img src={wallet.info.icon} alt={wallet.info.name} width={20} height={20} />
         {wallet.info.name}
       </button>
     ))}
@@ -237,7 +237,7 @@ const SolanaWalletPicker = ({ wallets, onSelect }) => (
         onClick={() => onSelect(wallet)}
       >
         {wallet.icon
-          ? <img src={wallet.icon} alt={wallet.name} width={24} height={24} />
+          ? <img src={wallet.icon} alt={wallet.name} width={20} height={20} />
           : <SolanaIcon />
         }
         {wallet.name}
@@ -246,7 +246,7 @@ const SolanaWalletPicker = ({ wallets, onSelect }) => (
   </div>
 )
 
-const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDown, onSubmit, onForgotPassword }) => {
+const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDown, onSubmit, onForgotPassword, onToggleMode }) => {
   const { t } = useTranslation()
   return (
     <form className="login-form" onSubmit={onSubmit}>
@@ -323,8 +323,15 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
         </div>
       )}
 
-      {!isSignUp && (
-        <div className="forgot-password-link">
+      <div className="auth-form-links">
+        <button
+          type="button"
+          className="auth-link"
+          onClick={onToggleMode}
+        >
+          {isSignUp ? t('auth.signIn') : t('auth.signUp')}
+        </button>
+        {!isSignUp && (
           <button
             type="button"
             className="auth-link"
@@ -332,32 +339,17 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
           >
             {t('auth.forgotPassword')}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <button
         type="submit"
-        className="btn btn-primary login-button"
+        className="btn login-button email-submit-button"
         disabled={submitting}
       >
         {submitting ? t('auth.pleaseWait') : (isSignUp ? t('auth.createAccountTitle') : t('auth.signIn'))}
       </button>
     </form>
-  )
-}
-
-const AuthFooter = ({ isSignUp, onToggleMode }) => {
-  const { t } = useTranslation()
-  return (
-    <div className="auth-footer">
-      <p>
-        {isSignUp ? t('auth.alreadyHaveAccount') : t('auth.dontHaveAccount')}
-        {' '}
-        <button className="auth-link" onClick={onToggleMode}>
-          {isSignUp ? t('auth.signIn') : t('auth.signUp')}
-        </button>
-      </p>
-    </div>
   )
 }
 
@@ -668,7 +660,7 @@ const Login = () => {
           onClick={handleGoogleSignIn}
           disabled={authButtonsDisabled}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24">
+          <svg width="22" height="22" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -676,36 +668,6 @@ const Login = () => {
           </svg>
           {t('auth.continueWithGoogle')}
         </button>
-
-        <div className="auth-divider">
-          <span>{t('auth.orSignInWithWallet')}</span>
-        </div>
-
-        <button
-          className="btn login-button evm-wallet-button"
-          onClick={handleEVMWalletClick}
-          disabled={authButtonsDisabled}
-        >
-          <EthereumIcon />
-          {t('auth.ethereumWallet')}
-        </button>
-
-        <button
-          className="btn login-button solana-button"
-          onClick={handleSolanaWalletClick}
-          disabled={authButtonsDisabled}
-        >
-          <SolanaIcon />
-          {t('auth.solanaWallet')}
-        </button>
-
-        {showWalletPicker && (
-          <EvmWalletPicker wallets={evmWallets} onSelect={handleSelectWallet} />
-        )}
-
-        {showSolanaWalletPicker && (
-          <SolanaWalletPicker wallets={solanaWallets} onSelect={handleSelectSolanaWallet} />
-        )}
 
         <div className="auth-divider">
           <span>{t('auth.orContinueWithEmail')}</span>
@@ -719,9 +681,42 @@ const Login = () => {
           onKeyDown={handleKeyDown}
           onSubmit={handleEmailAuth}
           onForgotPassword={() => setShowForgotPassword(true)}
+          onToggleMode={toggleMode}
         />
 
-        <AuthFooter isSignUp={isSignUp} onToggleMode={toggleMode} />
+        <div className="wallet-row">
+          <span className="wallet-row-label">{t('auth.orSignInWithWallet')}</span>
+          <div className="wallet-row-buttons">
+            <button
+              type="button"
+              className="wallet-chip"
+              onClick={handleEVMWalletClick}
+              disabled={authButtonsDisabled}
+              aria-label={t('auth.ethereumWallet')}
+              title={t('auth.ethereumWallet')}
+            >
+              <EthereumIcon />
+            </button>
+            <button
+              type="button"
+              className="wallet-chip"
+              onClick={handleSolanaWalletClick}
+              disabled={authButtonsDisabled}
+              aria-label={t('auth.solanaWallet')}
+              title={t('auth.solanaWallet')}
+            >
+              <SolanaIcon />
+            </button>
+          </div>
+        </div>
+
+        {showWalletPicker && (
+          <EvmWalletPicker wallets={evmWallets} onSelect={handleSelectWallet} />
+        )}
+
+        {showSolanaWalletPicker && (
+          <SolanaWalletPicker wallets={solanaWallets} onSelect={handleSelectSolanaWallet} />
+        )}
       </div>
     </div>
   )
