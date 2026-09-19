@@ -1,9 +1,9 @@
 .login-container {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   position: relative;
   overflow: hidden;
   background: var(--bg-color);
@@ -53,18 +53,20 @@
 
 .login-card {
   width: 100%;
-  max-width: 440px;
-  padding: var(--spacing-xl) var(--spacing-lg);
+  max-width: 420px;
+  padding: var(--spacing-lg);
   text-align: center;
   position: relative;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 24px;
-  box-shadow: 
+  box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   animation: cardSlideUp 0.5s ease-out;
+  max-height: calc(100dvh - 2 * var(--spacing-lg));
+  overflow-y: auto;
 }
 
 [data-theme="light"] .login-card {
@@ -86,9 +88,9 @@
 
 /* Logo */
 .login-logo {
-  width: 220px;
+  width: 150px;
   height: auto;
-  margin: 0 auto var(--spacing-lg);
+  margin: 0 auto var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,19 +110,19 @@
 }
 
 .login-header {
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
 }
 
 .login-header h1 {
-  font-size: 1.75rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: 2px;
   letter-spacing: -0.02em;
 }
 
 .login-subtitle {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   margin: 0;
 }
 
@@ -128,18 +130,18 @@
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 0.6rem;
   text-align: left;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .form-group label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -154,9 +156,9 @@
 
 .input-icon {
   position: absolute;
-  left: 1rem;
-  width: 20px;
-  height: 20px;
+  left: 0.85rem;
+  width: 18px;
+  height: 18px;
   color: var(--text-secondary);
   pointer-events: none;
   transition: color 0.2s ease;
@@ -164,7 +166,7 @@
 
 .form-group input {
   width: 100%;
-  padding: 0.9rem 1rem 0.9rem 3rem;
+  padding: 0.7rem 1rem 0.7rem 2.75rem;
   min-height: 44px;
   border-radius: 12px;
   border: 1px solid var(--form-field-border);
@@ -241,10 +243,16 @@
   content: '✓';
 }
 
-/* Forgot Password Link */
-.forgot-password-link {
-  text-align: right;
-  margin-top: -4px;
+/* Auth form links row — mode toggle + forgot password */
+.auth-form-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -2px;
+}
+
+.auth-form-links .auth-link {
+  font-size: 0.8rem;
 }
 
 /* Buttons */
@@ -283,25 +291,46 @@
   display: none;
 }
 
+/* Primary auth method: Google — largest, filled with brand gradient */
 .google-button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--btn-secondary-border);
-  color: var(--text-primary);
-  font-weight: 500;
+  background: var(--accent-gradient);
+  border: 1px solid transparent;
+  color: var(--text-primary-light);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 1rem 1rem;
+  box-shadow: 0 8px 20px -6px rgba(255, 164, 6, 0.5);
 }
 
 .google-button:hover {
-  background: var(--btn-secondary-hover-bg);
-  border-color: var(--btn-secondary-border);
   transform: translateY(-1px);
+  box-shadow: 0 10px 24px -6px rgba(255, 164, 6, 0.6);
 }
 
 .google-button svg {
   flex-shrink: 0;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px;
+}
+
+/* Secondary auth method: email/password submit */
+.email-submit-button {
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.8rem 1rem;
+}
+
+.email-submit-button:hover {
+  background: var(--btn-secondary-hover-bg);
+  transform: translateY(-1px);
 }
 
 /* Divider */
@@ -309,7 +338,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  margin: var(--spacing-lg) 0;
+  margin: var(--spacing-md) 0;
 }
 
 .auth-divider::before,
@@ -335,8 +364,8 @@
 
 /* Footer */
 .auth-footer {
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-lg);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
   border-top: 1px solid var(--form-divider);
   text-align: center;
 }
@@ -415,40 +444,52 @@
 .password-strength-bar.medium { background: var(--color-warning); }
 .password-strength-bar.strong { background: var(--color-success-dark); }
 
-/* Wallet Buttons */
+/* Tertiary auth method: wallet login — compact icon row, least prominent */
+.wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: var(--spacing-md);
+}
+
+.wallet-row-label {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.wallet-row-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 /* Wallet brand colors — intentional exceptions to warm palette (external brand identity) */
-.evm-wallet-button {
+.wallet-chip {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 9px;
   background: var(--btn-secondary-bg);
-  border: 1px solid var(--wallet-evm-color);
-  color: var(--text-primary);
-  font-weight: 500;
+  border: 1px solid var(--form-field-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.evm-wallet-button:hover {
-  background: rgba(98, 126, 234, 0.1);
-  border-color: var(--wallet-evm-color);
+.wallet-chip:hover {
+  border-color: var(--accent-primary);
+  background: var(--btn-secondary-hover-bg);
   transform: translateY(-1px);
 }
 
-.solana-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--wallet-solana-color);
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.solana-button:hover {
-  background: rgba(153, 69, 255, 0.1);
-  border-color: var(--wallet-solana-color);
-  transform: translateY(-1px);
+.wallet-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Wallet Picker */
@@ -498,26 +539,27 @@
 /* Responsive */
 @media (max-width: 480px) {
   .login-card {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     border-radius: 20px;
-    margin: var(--spacing-md);
+    margin: var(--spacing-sm);
+    max-height: calc(100dvh - 2 * var(--spacing-sm));
   }
 
   .login-logo {
-    width: 180px;
-    height: auto;
+    width: 120px;
   }
 
   .login-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .form-group input {
-    padding: 0.8rem 1rem 0.8rem 2.75rem;
+    padding: 0.65rem 1rem 0.65rem 2.6rem;
+    min-height: 40px;
   }
 
   .input-icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 }
