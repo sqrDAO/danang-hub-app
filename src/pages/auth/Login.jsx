@@ -329,7 +329,9 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
           className="auth-link"
           onClick={onToggleMode}
         >
-          {isSignUp ? t('auth.signIn') : t('auth.signUp')}
+          {isSignUp
+            ? `${t('auth.alreadyHaveAccount')} ${t('auth.signIn')}`
+            : `${t('auth.dontHaveAccount')} ${t('auth.signUp')}`}
         </button>
         {!isSignUp && (
           <button

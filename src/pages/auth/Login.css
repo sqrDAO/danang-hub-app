@@ -65,8 +65,6 @@
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   animation: cardSlideUp 0.5s ease-out;
-  max-height: calc(100dvh - 2 * var(--spacing-lg));
-  overflow-y: auto;
 }
 
 [data-theme="light"] .login-card {
@@ -138,6 +136,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* .login-form supplies the vertical rhythm via gap; globals.css .form-group
+     adds margin-bottom on top of it, which double-spaces the sign-up form. */
+  margin-bottom: 0;
 }
 
 .form-group label {
@@ -471,10 +472,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 12px;
   background: var(--btn-secondary-bg);
   border: 1px solid var(--form-field-border);
   cursor: pointer;
@@ -536,13 +537,68 @@
   flex-shrink: 0;
 }
 
+/* Short viewports: the sign-up form is the tallest variant, so reclaim vertical
+   space from ornament (logo, headings, gaps) instead of capping the card. */
+@media (max-height: 760px) {
+  .login-card {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .login-logo {
+    width: 96px;
+  }
+
+  .login-header {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .login-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .login-form {
+    gap: 0.45rem;
+  }
+
+  .auth-divider {
+    margin: var(--spacing-sm) 0;
+  }
+}
+
+/* Very short viewports (≤640px tall): shrink the logo and drop the subtitle —
+   the logo and heading still identify the page. */
+@media (max-height: 640px) {
+  .login-logo {
+    width: 72px;
+  }
+
+  .login-subtitle {
+    display: none;
+  }
+
+  .login-form {
+    gap: 0.35rem;
+  }
+
+  .auth-divider {
+    margin: 0.35rem 0;
+  }
+
+  .wallet-row {
+    margin-top: var(--spacing-sm);
+  }
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .login-card {
     padding: var(--spacing-md);
     border-radius: 20px;
     margin: var(--spacing-sm);
-    max-height: calc(100dvh - 2 * var(--spacing-sm));
   }
 
   .login-logo {
@@ -555,11 +611,24 @@
 
   .form-group input {
     padding: 0.65rem 1rem 0.65rem 2.6rem;
-    min-height: 40px;
+    min-height: 44px;
   }
 
   .input-icon {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* Narrow AND short: declared last so it overrides the ≤480px block's logo size
+   and card margin, which would otherwise re-add the height trimmed above. */
+@media (max-width: 480px) and (max-height: 640px) {
+  .login-card {
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .login-logo {
+    width: 72px;
   }
 }
