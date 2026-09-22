@@ -54,7 +54,7 @@
 .login-card {
   width: 100%;
   max-width: 440px;
-  padding: var(--spacing-xl) var(--spacing-lg);
+  padding: var(--spacing-lg);
   text-align: center;
   position: relative;
   background: var(--glass-bg);
@@ -88,7 +88,7 @@
 .login-logo {
   width: 220px;
   height: auto;
-  margin: 0 auto var(--spacing-lg);
+  margin: 0 auto var(--spacing-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,13 +108,13 @@
 }
 
 .login-header {
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
 }
 
 .login-header h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: 0.25rem;
   letter-spacing: -0.02em;
 }
 
@@ -136,6 +136,21 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* cancels the margin-bottom from globals.css; .login-form uses gap instead.
+   scoped to the card: this stylesheet outlives the page in a SPA session */
+.login-card .form-group {
+  margin-bottom: 0;
+}
+
+/* Sign-up only: password + confirm share a row */
+.password-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  /* labels differ in length (and wrap in vi), so keep both inputs aligned */
+  align-items: end;
 }
 
 .form-group label {
@@ -253,7 +268,6 @@
   font-size: 0.95rem;
   font-weight: 600;
   padding: 0.9rem 1rem;
-  margin-top: var(--spacing-sm);
   border-radius: 12px;
   position: relative;
   overflow: hidden;
@@ -288,20 +302,25 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--btn-secondary-border);
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.google-button:hover {
-  background: var(--btn-secondary-hover-bg);
-  border-color: var(--btn-secondary-border);
-  transform: translateY(-1px);
 }
 
 .google-button svg {
   flex-shrink: 0;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px;
+}
+
+/* Secondary action: outlined so the Google button stays dominant */
+.email-submit-button {
+  background: transparent;
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--text-primary);
+}
+
+.email-submit-button:hover:not(:disabled) {
+  background: var(--btn-secondary-hover-bg);
+  transform: translateY(-1px);
 }
 
 /* Divider */
@@ -309,7 +328,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  margin: var(--spacing-lg) 0;
+  margin: var(--spacing-md) 0;
 }
 
 .auth-divider::before,
@@ -335,8 +354,8 @@
 
 /* Footer */
 .auth-footer {
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-lg);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
   border-top: 1px solid var(--form-divider);
   text-align: center;
 }
@@ -361,61 +380,20 @@
   color: var(--accent-primary);
 }
 
-/* Feature list on signup */
-.signup-features {
-  display: flex;
-  flex-direction: column;
+/* Wallet Buttons — tertiary action, side by side and smaller than the rest */
+.wallet-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.wallet-buttons .login-button {
+  min-height: 40px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
   gap: 8px;
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-md);
-  background: var(--form-section-bg);
-  border-radius: 12px;
-  border: 1px solid var(--form-section-border);
 }
 
-[data-theme="light"] .signup-features {
-  background: rgba(255, 164, 6, 0.06);
-  border-color: rgba(255, 164, 6, 0.15);
-}
-
-.signup-features li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.signup-features li::before {
-  content: '✓';
-  color: var(--accent-secondary);
-  font-weight: bold;
-}
-
-/* Password strength indicator */
-.password-strength {
-  display: flex;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.password-strength-bar {
-  flex: 1;
-  height: 3px;
-  background: var(--form-divider);
-  border-radius: 2px;
-  transition: background 0.3s ease;
-}
-
-[data-theme="light"] .password-strength-bar {
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.password-strength-bar.weak { background: var(--color-error-dark); }
-.password-strength-bar.medium { background: var(--color-warning); }
-.password-strength-bar.strong { background: var(--color-success-dark); }
-
-/* Wallet Buttons */
 /* Wallet brand colors — intentional exceptions to warm palette (external brand identity) */
 .evm-wallet-button {
   display: flex;
@@ -509,7 +487,12 @@
   }
 
   .login-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
+  }
+
+  .wallet-buttons,
+  .password-row {
+    grid-template-columns: 1fr;
   }
 
   .form-group input {

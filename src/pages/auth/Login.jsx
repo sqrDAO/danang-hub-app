@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
@@ -94,8 +94,13 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
   const handleEVMWalletClick = async () => {
     if (submitting || loading) return
     setError('')
-    setShowWalletPicker(false)
     setShowSolanaWalletPicker(false)
+
+    // second click on the same button closes the picker
+    if (showWalletPicker) {
+      setShowWalletPicker(false)
+      return
+    }
 
     let wallets
     try {
@@ -143,8 +148,13 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
   const handleSolanaWalletClick = async () => {
     if (submitting || loading) return
     setError('')
-    setShowSolanaWalletPicker(false)
     setShowWalletPicker(false)
+
+    // second click on the same button closes the picker
+    if (showSolanaWalletPicker) {
+      setShowSolanaWalletPicker(false)
+      return
+    }
 
     let wallets
     try {
@@ -187,6 +197,33 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     }
   }
 
+  const closeWalletPickers = () => {
+    setShowWalletPicker(false)
+    setShowSolanaWalletPicker(false)
+  }
+
+  // Escape or a click outside closes an open picker
+  const walletSectionRef = useRef(null)
+  const pickerOpen = showWalletPicker || showSolanaWalletPicker
+
+  useEffect(() => {
+    if (!pickerOpen) return
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeWalletPickers()
+    }
+    const handlePointerDown = (event) => {
+      if (!walletSectionRef.current?.contains(event.target)) closeWalletPickers()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [pickerOpen])
+
   return {
     evmWallets,
     showWalletPicker,
@@ -195,7 +232,9 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
-    handleSelectSolanaWallet
+    handleSelectSolanaWallet,
+    closeWalletPickers,
+    walletSectionRef
   }
 }
 
@@ -285,43 +324,45 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
         </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="password">{t('auth.password')}</label>
-        <div className="input-wrapper">
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={onInputChange}
-            onKeyDown={onKeyDown}
-            placeholder="••••••••"
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            maxLength={MAX_PASSWORD_LENGTH}
-          />
-          <LockIcon />
-        </div>
-      </div>
-
-      {isSignUp && (
+      <div className={isSignUp ? 'password-row' : undefined}>
         <div className="form-group">
-          <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
+          <label htmlFor="password">{t('auth.password')}</label>
           <div className="input-wrapper">
             <input
               type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
+              id="password"
+              name="password"
+              value={formData.password}
               onChange={onInputChange}
               onKeyDown={onKeyDown}
               placeholder="••••••••"
-              autoComplete="new-password"
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
               maxLength={MAX_PASSWORD_LENGTH}
             />
             <LockIcon />
           </div>
         </div>
-      )}
+
+        {isSignUp && (
+          <div className="form-group">
+            <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
+            <div className="input-wrapper">
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={onInputChange}
+                onKeyDown={onKeyDown}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                maxLength={MAX_PASSWORD_LENGTH}
+              />
+              <LockIcon />
+            </div>
+          </div>
+        )}
+      </div>
 
       {!isSignUp && (
         <div className="forgot-password-link">
@@ -337,12 +378,66 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
 
       <button
         type="submit"
-        className="btn btn-primary login-button"
+        className="btn login-button email-submit-button"
         disabled={submitting}
       >
         {submitting ? t('auth.pleaseWait') : (isSignUp ? t('auth.createAccountTitle') : t('auth.signIn'))}
       </button>
     </form>
+  )
+}
+
+// Wallet sign-in. Omitted from sign-up mode: a wallet always auto-creates its
+// profile on first use, so there is no separate registration step for it.
+const WalletAuthSection = ({
+  disabled,
+  evmWallets,
+  solanaWallets,
+  showWalletPicker,
+  showSolanaWalletPicker,
+  onEvmClick,
+  onSolanaClick,
+  onSelectEvm,
+  onSelectSolana,
+  sectionRef
+}) => {
+  const { t } = useTranslation()
+  return (
+    <div ref={sectionRef}>
+      <div className="auth-divider">
+        <span>{t('auth.orSignInWithWallet')}</span>
+      </div>
+
+      <div className="wallet-buttons">
+        <button
+          className="btn login-button evm-wallet-button"
+          onClick={onEvmClick}
+          disabled={disabled}
+          aria-expanded={showWalletPicker}
+        >
+          <EthereumIcon />
+          {t('auth.ethereum')}
+        </button>
+
+        <button
+          className="btn login-button solana-button"
+          onClick={onSolanaClick}
+          disabled={disabled}
+          aria-expanded={showSolanaWalletPicker}
+        >
+          <SolanaIcon />
+          {t('auth.solana')}
+        </button>
+      </div>
+
+      {showWalletPicker && (
+        <EvmWalletPicker wallets={evmWallets} onSelect={onSelectEvm} />
+      )}
+
+      {showSolanaWalletPicker && (
+        <SolanaWalletPicker wallets={solanaWallets} onSelect={onSelectSolana} />
+      )}
+    </div>
   )
 }
 
@@ -455,7 +550,9 @@ const Login = () => {
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
-    handleSelectSolanaWallet
+    handleSelectSolanaWallet,
+    closeWalletPickers,
+    walletSectionRef
   } = useWalletLogin({ loading, submitting, setSubmitting, setError, signInWithEVMWallet, signInWithSolana, t })
 
   // Check for signup query parameter on mount
@@ -612,6 +709,7 @@ const Login = () => {
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp)
+    closeWalletPickers()
     setError('')
     setMessage('')
     setFormData({
@@ -664,7 +762,7 @@ const Login = () => {
         {message && <div className="auth-success">{message}</div>}
 
         <button
-          className="btn login-button google-button"
+          className="btn btn-primary login-button google-button"
           onClick={handleGoogleSignIn}
           disabled={authButtonsDisabled}
         >
@@ -678,37 +776,7 @@ const Login = () => {
         </button>
 
         <div className="auth-divider">
-          <span>{t('auth.orSignInWithWallet')}</span>
-        </div>
-
-        <button
-          className="btn login-button evm-wallet-button"
-          onClick={handleEVMWalletClick}
-          disabled={authButtonsDisabled}
-        >
-          <EthereumIcon />
-          {t('auth.ethereumWallet')}
-        </button>
-
-        <button
-          className="btn login-button solana-button"
-          onClick={handleSolanaWalletClick}
-          disabled={authButtonsDisabled}
-        >
-          <SolanaIcon />
-          {t('auth.solanaWallet')}
-        </button>
-
-        {showWalletPicker && (
-          <EvmWalletPicker wallets={evmWallets} onSelect={handleSelectWallet} />
-        )}
-
-        {showSolanaWalletPicker && (
-          <SolanaWalletPicker wallets={solanaWallets} onSelect={handleSelectSolanaWallet} />
-        )}
-
-        <div className="auth-divider">
-          <span>{t('auth.orContinueWithEmail')}</span>
+          <span>{isSignUp ? t('auth.orSignUpWithEmail') : t('auth.orContinueWithEmail')}</span>
         </div>
 
         <EmailAuthForm
@@ -720,6 +788,19 @@ const Login = () => {
           onSubmit={handleEmailAuth}
           onForgotPassword={() => setShowForgotPassword(true)}
         />
+
+        {!isSignUp && <WalletAuthSection
+          disabled={authButtonsDisabled}
+          evmWallets={evmWallets}
+          solanaWallets={solanaWallets}
+          showWalletPicker={showWalletPicker}
+          showSolanaWalletPicker={showSolanaWalletPicker}
+          onEvmClick={handleEVMWalletClick}
+          onSolanaClick={handleSolanaWalletClick}
+          onSelectEvm={handleSelectWallet}
+          onSelectSolana={handleSelectSolanaWallet}
+          sectionRef={walletSectionRef}
+        />}
 
         <AuthFooter isSignUp={isSignUp} onToggleMode={toggleMode} />
       </div>
