@@ -7,13 +7,6 @@ import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/wa
 import './Login.css'
 
 // Icon components
-const UserIcon = () => (
-  <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-)
-
 const MailIcon = () => (
   <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -51,9 +44,6 @@ const MAX_PASSWORD_LENGTH = 128
 const validateSignUpFields = (formData, t) => {
   if (formData.confirmPassword.length > MAX_PASSWORD_LENGTH) {
     return t('auth.errors.passwordMaxLength', { max: MAX_PASSWORD_LENGTH })
-  }
-  if (!formData.displayName.trim()) {
-    return t('auth.errors.displayNameRequired')
   }
   if (formData.password !== formData.confirmPassword) {
     return t('auth.errors.passwordMismatch')
@@ -251,9 +241,6 @@ const LoginHeader = ({ isSignUp }) => {
       <h1 className="gradient-text">
         {isSignUp ? t('auth.createAccountTitle') : t('auth.welcomeBack')}
       </h1>
-      <p className="login-subtitle">
-        {isSignUp ? t('auth.signupSubtitle') : t('auth.loginSubtitle')}
-      </p>
     </div>
   )
 }
@@ -295,24 +282,6 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
   const { t } = useTranslation()
   return (
     <form className="login-form" onSubmit={onSubmit}>
-      {isSignUp && (
-        <div className="form-group">
-          <label htmlFor="displayName">{t('auth.fullName')}</label>
-          <div className="input-wrapper">
-            <input
-              type="text"
-              id="displayName"
-              name="displayName"
-              value={formData.displayName}
-              onChange={onInputChange}
-              placeholder={t('auth.fullNamePlaceholder')}
-              autoComplete="name"
-            />
-            <UserIcon />
-          </div>
-        </div>
-      )}
-
       <div className="form-group">
         <label htmlFor="email">{t('auth.email')}</label>
         <div className="input-wrapper">
@@ -393,8 +362,8 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
   )
 }
 
-// Wallet sign-in. Omitted from sign-up mode: a wallet always auto-creates its
-// profile on first use, so there is no separate registration step for it.
+// Wallet sign-in. Shown in both modes: a wallet auto-creates its profile on
+// first use, so the same buttons sign in and sign up.
 const WalletAuthSection = ({
   disabled,
   evmWallets,
@@ -558,8 +527,7 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    displayName: ''
+    confirmPassword: ''
   })
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -658,7 +626,7 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        await signUpWithEmail(formData.email, formData.password, formData.displayName.trim())
+        await signUpWithEmail(formData.email, formData.password)
       } else {
         await signInWithEmail(formData.email, formData.password)
       }
@@ -740,8 +708,7 @@ const Login = () => {
     setFormData({
       email: '',
       password: '',
-      confirmPassword: '',
-      displayName: ''
+      confirmPassword: ''
     })
   }
 
@@ -800,6 +767,21 @@ const Login = () => {
           {t('auth.continueWithGoogle')}
         </button>
 
+        <WalletAuthSection
+          disabled={authButtonsDisabled}
+          evmWallets={evmWallets}
+          solanaWallets={solanaWallets}
+          showWalletPicker={showWalletPicker}
+          showSolanaWalletPicker={showSolanaWalletPicker}
+          onEvmClick={handleEVMWalletClick}
+          onSolanaClick={handleSolanaWalletClick}
+          onSelectEvm={handleSelectWallet}
+          onSelectSolana={handleSelectSolanaWallet}
+          sectionRef={walletSectionRef}
+          walletError={walletError}
+          onDismissError={() => setWalletError('')}
+        />
+
         <div className="auth-divider">
           <span>{isSignUp ? t('auth.orSignUpWithEmail') : t('auth.orSignInWithEmail')}</span>
         </div>
@@ -813,21 +795,6 @@ const Login = () => {
           onSubmit={handleEmailAuth}
           onForgotPassword={() => setShowForgotPassword(true)}
         />
-
-        {!isSignUp && <WalletAuthSection
-          disabled={authButtonsDisabled}
-          evmWallets={evmWallets}
-          solanaWallets={solanaWallets}
-          showWalletPicker={showWalletPicker}
-          showSolanaWalletPicker={showSolanaWalletPicker}
-          onEvmClick={handleEVMWalletClick}
-          onSolanaClick={handleSolanaWalletClick}
-          onSelectEvm={handleSelectWallet}
-          onSelectSolana={handleSelectSolanaWallet}
-          sectionRef={walletSectionRef}
-          walletError={walletError}
-          onDismissError={() => setWalletError('')}
-        />}
 
         <AuthFooter isSignUp={isSignUp} onToggleMode={toggleMode} />
       </div>

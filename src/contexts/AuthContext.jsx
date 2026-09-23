@@ -5,7 +5,6 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile,
   sendPasswordResetEmail
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
@@ -79,15 +78,13 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Sign up with Email and Password
-  const signUpWithEmail = async (email, password, displayName) => {
+  // Name is collected later on the profile page, like Google and wallet sign-ups
+  const signUpWithEmail = async (email, password) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
-      
-      // Update the user's display name
-      await updateProfile(result.user, { displayName })
-      
+
       // Create user profile in Firestore
-      await createUserProfile({ ...result.user, displayName })
+      await createUserProfile(result.user)
       
       return result.user
     } catch (error) {
