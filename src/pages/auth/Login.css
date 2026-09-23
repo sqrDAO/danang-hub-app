@@ -54,7 +54,7 @@
 .login-card {
   width: 100%;
   max-width: 440px;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
   text-align: center;
   position: relative;
   background: var(--glass-bg);
@@ -392,6 +392,36 @@
   padding: 0.55rem 0.75rem;
   font-size: 0.875rem;
   gap: 8px;
+}
+
+/* Wallet error — takes the wallet row's place; clicking it dismisses the error */
+.wallet-error {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: 12px;
+  color: var(--color-error);
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.wallet-error:hover {
+  border-color: var(--color-error);
+}
+
+.wallet-error-close {
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 /* Wallet brand colors — intentional exceptions to warm palette (external brand identity) */

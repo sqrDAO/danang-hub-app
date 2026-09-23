@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
@@ -85,15 +85,17 @@ const validateLoginForm = (formData, isSignUp, t) => {
   return null
 }
 
-const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWithEVMWallet, signInWithSolana, t }) => {
+const useWalletLogin = ({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t }) => {
   const [evmWallets, setEvmWallets] = useState([])
   const [showWalletPicker, setShowWalletPicker] = useState(false)
   const [solanaWallets, setSolanaWallets] = useState([])
   const [showSolanaWalletPicker, setShowSolanaWalletPicker] = useState(false)
+  // shown in place of the wallet buttons, so it sits where the user clicked
+  const [walletError, setWalletError] = useState('')
 
   const handleEVMWalletClick = async () => {
     if (submitting || loading) return
-    setError('')
+    setWalletError('')
     setShowSolanaWalletPicker(false)
 
     // second click on the same button closes the picker
@@ -106,12 +108,12 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     try {
       wallets = await discoverEIP6963Wallets()
     } catch {
-      setError(t('auth.errors.evmDetectFailed'))
+      setWalletError(t('auth.errors.evmDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError(t('auth.errors.noEvmWallet'))
+      setWalletError(t('auth.errors.noEvmWallet'))
       return
     }
 
@@ -128,7 +130,7 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     if (submitting || loading) return
     setShowWalletPicker(false)
     setSubmitting(true)
-    setError('')
+    setWalletError('')
 
     try {
       const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' })
@@ -136,9 +138,9 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
       await signInWithEVMWallet(wallet.provider, address)
     } catch (error) {
       if (error.code === 4001) {
-        setError(t('auth.errors.walletRejected'))
+        setWalletError(t('auth.errors.walletRejected'))
       } else {
-        setError(t('auth.errors.walletConnectFailed'))
+        setWalletError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -147,7 +149,7 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
 
   const handleSolanaWalletClick = async () => {
     if (submitting || loading) return
-    setError('')
+    setWalletError('')
     setShowWalletPicker(false)
 
     // second click on the same button closes the picker
@@ -160,12 +162,12 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     try {
       wallets = await discoverSolanaWallets()
     } catch {
-      setError(t('auth.errors.solanaDetectFailed'))
+      setWalletError(t('auth.errors.solanaDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError(t('auth.errors.noSolanaWallet'))
+      setWalletError(t('auth.errors.noSolanaWallet'))
       return
     }
 
@@ -182,47 +184,49 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     if (submitting || loading) return
     setShowSolanaWalletPicker(false)
     setSubmitting(true)
-    setError('')
+    setWalletError('')
 
     try {
       await signInWithSolana(wallet)
     } catch (error) {
       if (error.code === 4001) {
-        setError(t('auth.errors.walletRejected'))
+        setWalletError(t('auth.errors.walletRejected'))
       } else {
-        setError(t('auth.errors.walletConnectFailed'))
+        setWalletError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
     }
   }
 
-  const closeWalletPickers = () => {
+  const closeWalletPickers = useCallback(() => {
     setShowWalletPicker(false)
     setShowSolanaWalletPicker(false)
-  }
+  }, [])
 
-  // Escape or a click outside closes an open picker
+  // Escape closes an open picker or wallet error; a click outside closes a picker
   const walletSectionRef = useRef(null)
   const pickerOpen = showWalletPicker || showSolanaWalletPicker
 
   useEffect(() => {
-    if (!pickerOpen) return
+    if (!pickerOpen && !walletError) return
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') closeWalletPickers()
+      if (event.key !== 'Escape') return
+      closeWalletPickers()
+      setWalletError('')
     }
     const handlePointerDown = (event) => {
       if (!walletSectionRef.current?.contains(event.target)) closeWalletPickers()
     }
 
     document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('pointerdown', handlePointerDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [pickerOpen])
+  }, [pickerOpen, walletError, closeWalletPickers])
 
   return {
     evmWallets,
@@ -234,7 +238,9 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     handleSolanaWalletClick,
     handleSelectSolanaWallet,
     closeWalletPickers,
-    walletSectionRef
+    walletSectionRef,
+    walletError,
+    setWalletError
   }
 }
 
@@ -399,36 +405,52 @@ const WalletAuthSection = ({
   onSolanaClick,
   onSelectEvm,
   onSelectSolana,
-  sectionRef
+  sectionRef,
+  walletError,
+  onDismissError
 }) => {
   const { t } = useTranslation()
   return (
     <div ref={sectionRef}>
       <div className="auth-divider">
-        <span>{t('auth.orSignInWithWallet')}</span>
+        <span>{t('auth.orContinueWithWallet')}</span>
       </div>
 
-      <div className="wallet-buttons">
-        <button
-          className="btn login-button evm-wallet-button"
-          onClick={onEvmClick}
-          disabled={disabled}
-          aria-expanded={showWalletPicker}
-        >
-          <EthereumIcon />
-          {t('auth.ethereum')}
-        </button>
+      {walletError ? (
+        <div role="alert">
+          <button
+            type="button"
+            className="wallet-error"
+            onClick={onDismissError}
+            title={t('auth.dismissWalletError')}
+          >
+            <span>{walletError}</span>
+            <span className="wallet-error-close" aria-hidden="true">✕</span>
+          </button>
+        </div>
+      ) : (
+        <div className="wallet-buttons">
+          <button
+            className="btn login-button evm-wallet-button"
+            onClick={onEvmClick}
+            disabled={disabled}
+            aria-expanded={showWalletPicker}
+          >
+            <EthereumIcon />
+            {t('auth.ethereum')}
+          </button>
 
-        <button
-          className="btn login-button solana-button"
-          onClick={onSolanaClick}
-          disabled={disabled}
-          aria-expanded={showSolanaWalletPicker}
-        >
-          <SolanaIcon />
-          {t('auth.solana')}
-        </button>
-      </div>
+          <button
+            className="btn login-button solana-button"
+            onClick={onSolanaClick}
+            disabled={disabled}
+            aria-expanded={showSolanaWalletPicker}
+          >
+            <SolanaIcon />
+            {t('auth.solana')}
+          </button>
+        </div>
+      )}
 
       {showWalletPicker && (
         <EvmWalletPicker wallets={evmWallets} onSelect={onSelectEvm} />
@@ -552,8 +574,10 @@ const Login = () => {
     handleSolanaWalletClick,
     handleSelectSolanaWallet,
     closeWalletPickers,
-    walletSectionRef
-  } = useWalletLogin({ loading, submitting, setSubmitting, setError, signInWithEVMWallet, signInWithSolana, t })
+    walletSectionRef,
+    walletError,
+    setWalletError
+  } = useWalletLogin({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t })
 
   // Check for signup query parameter on mount
   useEffect(() => {
@@ -710,6 +734,7 @@ const Login = () => {
   const toggleMode = () => {
     setIsSignUp(!isSignUp)
     closeWalletPickers()
+    setWalletError('')
     setError('')
     setMessage('')
     setFormData({
@@ -776,7 +801,7 @@ const Login = () => {
         </button>
 
         <div className="auth-divider">
-          <span>{isSignUp ? t('auth.orSignUpWithEmail') : t('auth.orContinueWithEmail')}</span>
+          <span>{isSignUp ? t('auth.orSignUpWithEmail') : t('auth.orSignInWithEmail')}</span>
         </div>
 
         <EmailAuthForm
@@ -800,6 +825,8 @@ const Login = () => {
           onSelectEvm={handleSelectWallet}
           onSelectSolana={handleSelectSolanaWallet}
           sectionRef={walletSectionRef}
+          walletError={walletError}
+          onDismissError={() => setWalletError('')}
         />}
 
         <AuthFooter isSignUp={isSignUp} onToggleMode={toggleMode} />
