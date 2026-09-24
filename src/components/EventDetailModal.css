@@ -1,0 +1,190 @@
+.event-card-clickable {
+  cursor: pointer;
+}
+
+.event-title-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-title-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.event-title-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Modal shell: tighter header, themed thin scrollbar. */
+.modal-content.event-detail-modal {
+  max-width: 680px;
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
+.event-detail-modal .modal-header {
+  margin-bottom: 0;
+  padding-bottom: var(--spacing-sm);
+}
+
+.event-detail-modal .modal-body {
+  padding-top: var(--spacing-md);
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--form-section-border) transparent;
+}
+
+.event-detail-modal .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.event-detail-modal .modal-body::-webkit-scrollbar-thumb {
+  background: var(--form-section-border);
+  border-radius: 3px;
+}
+
+.event-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+
+/* Same treatment as the event cards: a short, wide frame, cover, top-anchored,
+   so a normal banner fills the width and is only trimmed at the bottom. The
+   ratio (not a fixed height) keeps that true at every modal width. */
+.event-detail-banner {
+  width: 100%;
+  aspect-ratio: 4 / 1;
+  flex-shrink: 0;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: var(--border-radius);
+  background: var(--form-section-bg);
+}
+
+/* Key facts: 2-column grid of label / value / optional sub line. */
+.event-detail-facts {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.event-detail-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.625rem 0.75rem;
+  background: var(--form-section-bg);
+  border: 1px solid var(--form-section-border);
+  border-radius: var(--border-radius);
+  min-width: 0;
+}
+
+/* "When" (always first) gets the full row; hosts + attendees share the next. */
+.event-detail-fact:first-child {
+  grid-column: 1 / -1;
+}
+
+.event-detail-label {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.event-detail-value {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.event-detail-sub {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.event-detail-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-detail-open-link {
+  text-decoration: none;
+}
+
+.event-detail-rejection {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-error);
+  border-radius: var(--border-radius);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.event-detail-rejection p {
+  margin-top: 2px;
+  color: var(--color-error-light);
+  font-size: 0.9rem;
+}
+
+.event-detail-heading {
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.event-detail-description,
+.event-detail-admin {
+  width: 100%;
+}
+
+.event-detail-description p {
+  color: var(--text-primary);
+  font-size: 0.925rem;
+  line-height: 1.65;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.event-detail-admin {
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--form-divider);
+}
+
+.event-detail-admin-row {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: var(--spacing-md);
+  align-items: baseline;
+  padding: 0.375rem 0;
+}
+
+@media (max-width: 768px) {
+  .modal-content.event-detail-modal {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .event-detail-admin-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

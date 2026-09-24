@@ -5,9 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion'
 import { formatEventDate } from '../utils/timezone'
+import { getCardOpenProps } from '../utils/eventCardClick'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
+import EventDetailModal from '../components/EventDetailModal'
+import EventTitleButton from '../components/EventTitleButton'
 import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getProjects } from '../services/projects'
@@ -101,11 +104,11 @@ const EventLinkLine = ({ event, t }) => (
   ) : null
 )
 
-const EventPreviewCard = ({ event, projects, onRegister, t }) => (
-  <div className="event-preview-card">
+const EventPreviewCard = ({ event, projects, onRegister, onOpenDetails, t }) => (
+  <div className="event-preview-card event-card-clickable" {...getCardOpenProps(() => onOpenDetails(event))}>
     <EventBanner url={event.bannerUrl} />
     <div>
-      <h4 className="event-preview-title">{event.title}</h4>
+      <h4 className="event-preview-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h4>
       <p className="event-preview-date">
         {event.date ? formatEventDate(event.date) : null}
       </p>
@@ -138,11 +141,11 @@ const EventPreviewCard = ({ event, projects, onRegister, t }) => (
   </div>
 )
 
-const PastEventCard = ({ event, projects, currentUser, t }) => (
-  <div className="event-preview-card past-event">
+const PastEventCard = ({ event, projects, currentUser, onOpenDetails, t }) => (
+  <div className="event-preview-card event-card-clickable past-event" {...getCardOpenProps(() => onOpenDetails(event))}>
     <EventBanner url={event.bannerUrl} />
     <div>
-      <h4 className="event-preview-title">{event.title}</h4>
+      <h4 className="event-preview-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h4>
       <p className="event-preview-date">
         {event.date ? formatEventDate(event.date) : null}
       </p>
@@ -217,6 +220,7 @@ const Home = () => {
   const [selectedAmenity, setSelectedAmenity] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
+  const [detailEvent, setDetailEvent] = useState(null)
 
   const { data: amenities = [], isLoading: amenitiesLoading } = useQuery({
     queryKey: ['amenities'],
@@ -327,6 +331,7 @@ const Home = () => {
                   event={event}
                   projects={projects}
                   onRegister={handleRegisterEvent}
+                  onOpenDetails={setDetailEvent}
                   t={t}
                 />
               ))}
@@ -346,6 +351,7 @@ const Home = () => {
                       event={event}
                       projects={projects}
                       currentUser={currentUser}
+                      onOpenDetails={setDetailEvent}
                       t={t}
                     />
                   ))}
@@ -379,6 +385,12 @@ const Home = () => {
           action={selectedAmenity ? 'book' : 'register'}
           onLogin={() => handleAuthRedirect(false)}
           onSignUp={() => handleAuthRedirect(true)}
+        />
+
+        <EventDetailModal
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          projects={projects}
         />
 
         <AmenityPhotoLightbox

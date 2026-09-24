@@ -5,6 +5,8 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
+import EventDetailModal from '../../components/EventDetailModal'
+import EventTitleButton from '../../components/EventTitleButton'
 import {
   getEvents,
   getPendingEvents,
@@ -21,6 +23,7 @@ import { reviewEvent } from '../../services/functions'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
+import { getCardOpenProps } from '../../utils/eventCardClick'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
@@ -434,15 +437,15 @@ const EventCardActions = ({
   </div>
 )
 
-const EventCard = ({ event, t, amenities, projects, onShowHost, ...actionProps }) => (
-  <div className={`event-card glass ${event.status}`}>
+const EventCard = ({ event, t, amenities, projects, onShowHost, onOpenDetails, ...actionProps }) => (
+  <div className={`event-card glass event-card-clickable ${event.status}`} {...getCardOpenProps(() => onOpenDetails(event))}>
     {event.bannerUrl && (
       <div className="event-card-banner">
         <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
       </div>
     )}
     <div className="event-header">
-      <h3 className="event-title">{event.title}</h3>
+      <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
       <span className={getStatusBadge(event.status || 'approved')}>
         {t(`status.${event.status || 'approved'}`)}
       </span>
@@ -920,6 +923,7 @@ const AdminEvents = () => {
   }
 
   const [hostModalMember, setHostModalMember] = useState(null)
+  const [detailEvent, setDetailEvent] = useState(null)
 
   // Admin still keeps the full members list for the organizer <select>, so the
   // pre-fetched roster doubles as the host-modal source.
@@ -1025,6 +1029,7 @@ const AdminEvents = () => {
                 amenities={amenities}
                 projects={projects}
                 onShowHost={() => setHostModalMember(getOrganizer(event.organizerId))}
+                onOpenDetails={setDetailEvent}
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onPromoteWaitlist={handlePromoteWaitlist}
@@ -1062,6 +1067,15 @@ const AdminEvents = () => {
           amenities={amenities}
           projects={projects}
           t={t}
+        />
+
+        <EventDetailModal
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          projects={projects}
+          amenities={amenities}
+          onShowHost={(organizerId) => setHostModalMember(getOrganizer(organizerId))}
+          showAdminDetails
         />
 
         <HostProfileModal member={hostModalMember} onClose={() => setHostModalMember(null)} />
