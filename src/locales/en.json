@@ -556,6 +556,26 @@
       "setRecurrence": "Set Recurrence"
     }
   },
+  "eventDetails": {
+    "when": "Date & time",
+    "durationValue": "{{minutes}} minutes",
+    "organizer": "Organizer",
+    "hostedBy": "Hosted by",
+    "organizedBy": "Organized by",
+    "attendees": "Attendees",
+    "attendeesValue": "{{current}} / {{total}}",
+    "waitlistValue": "{{count}} waiting",
+    "rejectionReason": "Rejection reason",
+    "noReason": "No reason provided",
+    "requestedVenue": "Requested venue",
+    "venueNote": "Venue note",
+    "linkedVenue": "Linked venue",
+    "notLinked": "Not linked yet",
+    "revision": "Revision",
+    "description": "Description",
+    "openLink": "Open event link",
+    "adminSection": "Admin details"
+  },
   "memberEvents": {
     "title": "Events",
     "subtitle": "Browse, register, or create your own events",

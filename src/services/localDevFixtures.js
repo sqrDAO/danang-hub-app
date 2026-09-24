@@ -178,12 +178,45 @@ export const buildLocalDevProjects = () => [
   }
 ]
 
+// Fake event banners: inline SVG data URLs so skipauth needs no image files
+// or network. 1200x360 roughly matches real uploaded banners.
+const fakeBanner = (title, from, to) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360">
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>
+<pattern id="d" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="#fff" fill-opacity="0.18"/></pattern>
+</defs>
+<rect width="1200" height="360" fill="url(#g)"/>
+<rect width="1200" height="360" fill="url(#d)"/>
+<circle cx="1080" cy="60" r="180" fill="#fff" fill-opacity="0.08"/>
+<text x="60" y="80" font-family="Outfit, sans-serif" font-size="26" font-weight="600" fill="#fff" fill-opacity="0.8" letter-spacing="4">DA NANG BLOCKCHAIN HUB</text>
+<text x="60" y="210" font-family="Outfit, sans-serif" font-size="56" font-weight="800" fill="#fff">${title}</text>
+</svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 export const buildLocalDevEvents = () => [
   // Upcoming Approved Event hosted by Local Dev (with attendees)
   {
     id: 'local-event-1',
+    bannerUrl: fakeBanner('WEB3 BUILDERS DEMO DAY', '#f97316', '#7c2d12'),
     title: 'Web3 Builders Meetup & Demo Day',
-    description: 'Showcase your Web3 decentralized apps, get feedback, and network with local builders in Da Nang.',
+    description: [
+      'Web3 Builders Meetup & Demo Day is our monthly evening for builders to show what they have been working on and get honest feedback from the community.',
+      '',
+      'Agenda:',
+      '18:30 – Doors open, drinks and networking',
+      '19:00 – Welcome + hub updates',
+      '19:15 – Demo round: 6 teams, 5 minutes each + 3 minutes Q&A',
+      '20:00 – Mentor feedback tables (product, smart contract security, go-to-market)',
+      '20:30 – Open networking',
+      '',
+      'Who should come: founders, developers, designers and anyone curious about what is being built in Da Nang. You do not need to demo to attend.',
+      '',
+      'Want to demo? Reply in the community group before the day with your project name, one-line pitch and a link. Slots are first come, first served.',
+      '',
+      'Bring your laptop and a charger. Projector and HDMI/USB-C adapters are provided.'
+    ].join('\n'),
     date: hubDateTime(3, 18, 30),
     status: 'approved',
     attendees: [LOCAL_DEV_UID, 'member-alice', 'member-bob'],
@@ -195,13 +228,32 @@ export const buildLocalDevEvents = () => [
     organizerPhotoURL: '',
     duration: 90,
     capacity: 30,
-    requestedAmenityId: 'local-hall'
+    requestedAmenityId: 'local-hall',
+    hostingProjects: 'Da Nang Blockchain Hub',
+    linkedAmenityId: 'local-hall',
+    eventLink: 'https://example.com/web3-builders-demo-day'
   },
   // Upcoming Approved Event hosted by Alice Nguyen (user can register/test host profile modal)
   {
     id: 'local-event-2',
+    bannerUrl: fakeBanner('AI AGENTS × CONTRACTS', '#6366f1', '#1e1b4b'),
     title: 'AI Agents & Smart Contracts Workshop',
-    description: 'Hands-on session on integrating autonomous AI agents with on-chain smart contracts.',
+    description: [
+      'A hands-on workshop on connecting autonomous AI agents to on-chain smart contracts, from reading chain state to safely signing and sending transactions.',
+      '',
+      'What we will cover:',
+      '1. Agent architecture basics: tools, memory and planning loops',
+      '2. Giving an agent read access to chain data through RPC and indexers',
+      '3. Letting an agent propose transactions without holding the keys',
+      '4. Guardrails: spending limits, allowlists and human approval steps',
+      '5. Live build: an agent that monitors a DAO treasury and drafts proposals',
+      '',
+      'Prerequisites: comfortable with JavaScript or Python and a basic understanding of how wallets and transactions work. Solidity experience helps but is not required.',
+      '',
+      'Please install Node.js 20+ and a browser wallet before the session. Starter repo and slides will be shared in the event link a day before.',
+      '',
+      'Seats are limited to keep it hands-on. If you register and cannot come, please unregister so someone on the waitlist can take your spot.'
+    ].join('\n'),
     date: hubDateTime(6, 19, 0),
     status: 'approved',
     attendees: ['member-alice', 'member-carol'],
@@ -213,13 +265,32 @@ export const buildLocalDevEvents = () => [
     organizerPhotoURL: '',
     duration: 120,
     capacity: 25,
-    requestedAmenityId: 'local-hall'
+    requestedAmenityId: 'local-hall',
+    hostingProjects: 'SuperteamVN, PayStream Protocol',
+    linkedAmenityId: 'local-hall',
+    eventLink: 'https://example.com/ai-agents-smart-contracts-workshop'
   },
   // Pending Event submitted by Bob Tran (for testing admin review / approval / rejection)
   {
     id: 'local-event-3',
+    bannerUrl: fakeBanner('RUST &amp; SOLANA 101', '#14b8a6', '#134e4a'),
     title: 'Rust & Solana: Zero to Hero',
-    description: 'Introduction to Rust programming and Solana program architecture.',
+    description: [
+      'Rust & Solana: Zero to Hero is a beginner-friendly evening for developers who want to start writing Solana programs.',
+      '',
+      'Part 1 – Rust fundamentals (45 min)',
+      'Ownership and borrowing, structs and enums, error handling with Result, and the parts of Rust you actually need for on-chain code.',
+      '',
+      'Part 2 – Solana program model (45 min)',
+      'Accounts, program-derived addresses, instructions and transactions, rent, and how Solana differs from EVM chains.',
+      '',
+      'Part 3 – Build with Anchor (60 min)',
+      'We scaffold a counter program, write tests, deploy to devnet and call it from a small web client.',
+      '',
+      'Bring a laptop with Rust, the Solana CLI and Anchor installed. Setup guide is in the event link; mentors will be around 30 minutes early to help with installs.',
+      '',
+      'No prior blockchain experience needed. Snacks provided.'
+    ].join('\n'),
     date: hubDateTime(8, 18, 0),
     status: 'pending',
     attendees: ['member-bob'],
@@ -231,13 +302,29 @@ export const buildLocalDevEvents = () => [
     organizerPhotoURL: '',
     duration: 60,
     capacity: 20,
-    requestedAmenityId: 'local-hall'
+    requestedAmenityId: 'local-hall',
+    hostingProjects: 'Solana Vietnam',
+    eventLink: 'https://example.com/rust-solana-zero-to-hero'
   },
   // Past Completed Event (5 days ago) -> completed count test on Admin Dashboard
   {
     id: 'local-event-4',
+    bannerUrl: fakeBanner('DA NANG TECH MIXER #1', '#ec4899', '#500724'),
     title: 'Da Nang Tech Mixer #1',
-    description: 'Kickoff community mixer for developers and founders in Da Nang.',
+    description: [
+      'Da Nang Tech Mixer #1 was the kickoff of our community mixer series, bringing together developers, founders, designers and investors living in or passing through Da Nang.',
+      '',
+      'The format is simple: short intros, a few lightning talks and plenty of time to talk.',
+      '',
+      'Lightning talks:',
+      '- Building a remote team from Da Nang',
+      '- Lessons from shipping our first mainnet launch',
+      '- What local startups need from the developer community',
+      '',
+      'Thanks to everyone who came out. Photos and slides are shared in the community group, and the next mixer will be announced on the events page.',
+      '',
+      'Suggestions for speakers or topics are always welcome, just message the hub team.'
+    ].join('\n'),
     date: hubDateTime(-5, 18, 0),
     status: 'approved',
     attendees: [LOCAL_DEV_UID, 'member-alice', 'member-bob', 'member-carol'],
@@ -249,7 +336,9 @@ export const buildLocalDevEvents = () => [
     organizerPhotoURL: '',
     duration: 120,
     capacity: 40,
-    requestedAmenityId: 'local-hall'
+    requestedAmenityId: 'local-hall',
+    hostingProjects: 'Da Nang Blockchain Hub',
+    linkedAmenityId: 'local-hall'
   }
 ]
 

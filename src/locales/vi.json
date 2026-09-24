@@ -554,6 +554,26 @@
       "setRecurrence": "Thiết lập định kỳ"
     }
   },
+  "eventDetails": {
+    "when": "Thời gian",
+    "durationValue": "{{minutes}} phút",
+    "organizer": "Người tổ chức",
+    "hostedBy": "Đơn vị tổ chức",
+    "organizedBy": "Tổ chức bởi",
+    "attendees": "Người tham gia",
+    "attendeesValue": "{{current}} / {{total}}",
+    "waitlistValue": "{{count}} người đang chờ",
+    "rejectionReason": "Lý do từ chối",
+    "noReason": "Không có lý do được cung cấp",
+    "requestedVenue": "Địa điểm yêu cầu",
+    "venueNote": "Ghi chú địa điểm",
+    "linkedVenue": "Địa điểm đã liên kết",
+    "notLinked": "Chưa liên kết",
+    "revision": "Bản sửa",
+    "description": "Mô tả",
+    "openLink": "Mở liên kết sự kiện",
+    "adminSection": "Thông tin quản trị"
+  },
   "memberEvents": {
     "title": "Sự kiện",
     "subtitle": "Duyệt, đăng ký hoặc tạo sự kiện của riêng bạn",

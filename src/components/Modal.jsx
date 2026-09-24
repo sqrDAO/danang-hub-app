@@ -1,9 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import './Modal.css'
 
 const Modal = ({ isOpen, onClose, title, children, footer = null, className = '' }) => {
   const { t } = useTranslation()
+  // Unique per instance: stacked modals (event detail + host profile) must not
+  // share one title id.
+  const titleId = useId()
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -24,12 +27,12 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
         className={`modal-content glass ${className}`.trim()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
+        aria-labelledby={title ? titleId : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           {title && (
-            <h3 id="modal-title" className="modal-title">
+            <h3 id={titleId} className="modal-title">
               {title}
             </h3>
           )}

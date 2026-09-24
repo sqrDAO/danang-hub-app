@@ -6,6 +6,8 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
+import EventDetailModal from '../../components/EventDetailModal'
+import EventTitleButton from '../../components/EventTitleButton'
 import {
   getApprovedEvents,
   getUpcomingEvents,
@@ -24,6 +26,7 @@ import { uploadEventBanner } from '../../services/storage'
 import { editOwnEvent } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
+import { getCardOpenProps } from '../../utils/eventCardClick'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
 import { consumeCreateAction } from '../../utils/consumeCreateAction'
@@ -477,11 +480,11 @@ const EventLinkLine = ({ eventLink, t }) => {
   )
 }
 
-const MyEventCard = ({ event, projects, onDelete, onEdit, deletePending, t }) => (
-  <div className={`event-card my-event ${event.status}`}>
+const MyEventCard = ({ event, projects, onDelete, onEdit, onOpenDetails, deletePending, t }) => (
+  <div className={`event-card event-card-clickable my-event ${event.status}`} {...getCardOpenProps(() => onOpenDetails(event))}>
     <EventBanner url={event.bannerUrl} />
     <div className="event-header">
-      <h3 className="event-title">{event.title}</h3>
+      <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
       <span className={getStatusBadge(event.status)}>
         {event.status}
       </span>
@@ -492,7 +495,7 @@ const MyEventCard = ({ event, projects, onDelete, onEdit, deletePending, t }) =>
       </p>
       <EventDurationLine duration={event.duration} t={t} />
       <p className="event-capacity">
-        👥 {t('memberEvents.capacity', { count: event.capacity || 80 })}
+        👥 {t('memberEvents.capacity', { count: event.capacity || MAX_EVENT_CAPACITY })}
       </p>
       <HostedProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
       <EventLinkLine eventLink={event.eventLink} t={t} />
@@ -529,7 +532,7 @@ const MyEventCard = ({ event, projects, onDelete, onEdit, deletePending, t }) =>
   </div>
 )
 
-const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, deletingId, t }) => {
+const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, onOpenDetails, deletingId, t }) => {
   if (myEvents.length === 0) return null
   return (
     <div className="events-section glass">
@@ -545,6 +548,7 @@ const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, deletingId, t }
             projects={projects}
             onDelete={onDelete}
             onEdit={onEdit}
+            onOpenDetails={onOpenDetails}
             deletePending={deletingId === event.id}
             t={t}
           />
@@ -568,7 +572,7 @@ const UpcomingEventInfo = ({ event, projects, isMyEvent, waitlistPosition, onOpe
     </p>
     <EventDurationLine duration={event.duration} t={t} />
     <p className="event-capacity">
-      👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || 80 })}
+      👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || MAX_EVENT_CAPACITY })}
     </p>
     <HostedProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
     <EventLinkLine eventLink={event.eventLink} t={t} />
@@ -630,17 +634,20 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
   </div>
 )
 
-const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, handlers, t }) => {
+const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, handlers, t }) => {
   const registered = isEventRegistered(event, currentUserId)
   const full = isEventFull(event)
   const onWaitlist = isOnEventWaitlist(event, currentUserId)
   const waitlistPosition = getEventWaitlistPosition(event, currentUserId)
   const isMyEvent = event.organizerId === currentUserId
   return (
-    <div className={`event-card ${isMyEvent ? 'my-event-approved' : ''}`}>
+    <div
+      className={`event-card event-card-clickable ${isMyEvent ? 'my-event-approved' : ''}`}
+      {...getCardOpenProps(() => onOpenDetails(event))}
+    >
       <EventBanner url={event.bannerUrl} />
       <div className="event-header">
-        <h3 className="event-title">{event.title}</h3>
+        <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
         <span className="event-date-badge">
           {formatEventDate(event.date) || 'N/A'}
         </span>
@@ -665,7 +672,7 @@ const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, handler
   )
 }
 
-const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, approvedEvents, currentUserId, projects, onOpenHost, handlers, t }) => (
+const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, approvedEvents, currentUserId, projects, onOpenHost, onOpenDetails, handlers, t }) => (
   <div className="events-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberEvents.upcomingEvents')}</h2>
@@ -693,6 +700,7 @@ const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, a
             projects={projects}
             currentUserId={currentUserId}
             onOpenHost={onOpenHost}
+            onOpenDetails={onOpenDetails}
             handlers={handlers}
             t={t}
           />
@@ -711,13 +719,13 @@ const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, a
   </div>
 )
 
-const PastEventCard = ({ event, projects, currentUserId, onOpenHost, t }) => {
+const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, t }) => {
   const registered = isEventRegistered(event, currentUserId)
   return (
-    <div className="event-card past-event">
+    <div className="event-card event-card-clickable past-event" {...getCardOpenProps(() => onOpenDetails(event))}>
       <EventBanner url={event.bannerUrl} />
       <div className="event-header">
-        <h3 className="event-title">{event.title}</h3>
+        <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
         <span className="event-date-badge">
           {formatEventDate(event.date) || 'N/A'}
         </span>
@@ -743,7 +751,7 @@ const PastEventCard = ({ event, projects, currentUserId, onOpenHost, t }) => {
   )
 }
 
-const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, t }) => (
+const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, onOpenDetails, t }) => (
   <div className="events-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberEvents.pastEvents')}</h2>
@@ -757,6 +765,7 @@ const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, t 
             projects={projects}
             currentUserId={currentUserId}
             onOpenHost={onOpenHost}
+            onOpenDetails={onOpenDetails}
             t={t}
           />
         ))}
@@ -1055,6 +1064,7 @@ const useMemberEventInteractions = ({
   deleteMutation
 }) => {
   const [hostModalMember, setHostModalMember] = useState(null)
+  const [detailEvent, setDetailEvent] = useState(null)
   const actions = useEventActionMutations({
     t,
     currentUser,
@@ -1082,7 +1092,10 @@ const useMemberEventInteractions = ({
     }
   }
 
-  return { ...actions, hostModalMember, setHostModalMember, handleDeleteMyEvent, handleOpenHostModal }
+  return {
+    ...actions, hostModalMember, setHostModalMember, detailEvent, setDetailEvent,
+    handleDeleteMyEvent, handleOpenHostModal
+  }
 }
 
 const useMemberEventQueryActions = ({
@@ -1356,6 +1369,8 @@ const MemberEvents = () => {
     handleLeaveWaitlist,
     hostModalMember,
     setHostModalMember,
+    detailEvent,
+    setDetailEvent,
     handleDeleteMyEvent,
     handleOpenHostModal
   } = interactions
@@ -1382,6 +1397,7 @@ const MemberEvents = () => {
           projects={projects}
           onDelete={handleDeleteMyEvent}
           onEdit={handleEditMyEvent}
+          onOpenDetails={setDetailEvent}
           deletingId={pendingTargetId(deleteMutation)}
           t={t}
         />
@@ -1395,6 +1411,7 @@ const MemberEvents = () => {
           currentUserId={currentUser?.uid}
           projects={projects}
           onOpenHost={handleOpenHostModal}
+          onOpenDetails={setDetailEvent}
           handlers={{
             onRegister: handleRegister,
             onUnregister: handleUnregister,
@@ -1414,6 +1431,7 @@ const MemberEvents = () => {
           projects={projects}
           currentUserId={currentUser?.uid}
           onOpenHost={handleOpenHostModal}
+          onOpenDetails={setDetailEvent}
           t={t}
         />
 
@@ -1435,6 +1453,13 @@ const MemberEvents = () => {
           resetEventModal={resetEventModal}
           handleSubmit={handleSubmit}
           t={t}
+        />
+
+        <EventDetailModal
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          projects={projects}
+          onShowHost={handleOpenHostModal}
         />
 
         <HostProfileModal member={hostModalMember} onClose={() => setHostModalMember(null)} t={t} />
