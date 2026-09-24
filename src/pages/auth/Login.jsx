@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
@@ -7,13 +7,6 @@ import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/wa
 import './Login.css'
 
 // Icon components
-const UserIcon = () => (
-  <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-)
-
 const MailIcon = () => (
   <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -52,9 +45,6 @@ const validateSignUpFields = (formData, t) => {
   if (formData.confirmPassword.length > MAX_PASSWORD_LENGTH) {
     return t('auth.errors.passwordMaxLength', { max: MAX_PASSWORD_LENGTH })
   }
-  if (!formData.displayName.trim()) {
-    return t('auth.errors.displayNameRequired')
-  }
   if (formData.password !== formData.confirmPassword) {
     return t('auth.errors.passwordMismatch')
   }
@@ -85,28 +75,35 @@ const validateLoginForm = (formData, isSignUp, t) => {
   return null
 }
 
-const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWithEVMWallet, signInWithSolana, t }) => {
+const useWalletLogin = ({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t }) => {
   const [evmWallets, setEvmWallets] = useState([])
   const [showWalletPicker, setShowWalletPicker] = useState(false)
   const [solanaWallets, setSolanaWallets] = useState([])
   const [showSolanaWalletPicker, setShowSolanaWalletPicker] = useState(false)
+  // shown in place of the wallet buttons, so it sits where the user clicked
+  const [walletError, setWalletError] = useState('')
 
   const handleEVMWalletClick = async () => {
     if (submitting || loading) return
-    setError('')
-    setShowWalletPicker(false)
+    setWalletError('')
     setShowSolanaWalletPicker(false)
+
+    // second click on the same button closes the picker
+    if (showWalletPicker) {
+      setShowWalletPicker(false)
+      return
+    }
 
     let wallets
     try {
       wallets = await discoverEIP6963Wallets()
     } catch {
-      setError(t('auth.errors.evmDetectFailed'))
+      setWalletError(t('auth.errors.evmDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError(t('auth.errors.noEvmWallet'))
+      setWalletError(t('auth.errors.noEvmWallet'))
       return
     }
 
@@ -123,7 +120,7 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     if (submitting || loading) return
     setShowWalletPicker(false)
     setSubmitting(true)
-    setError('')
+    setWalletError('')
 
     try {
       const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' })
@@ -131,9 +128,9 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
       await signInWithEVMWallet(wallet.provider, address)
     } catch (error) {
       if (error.code === 4001) {
-        setError(t('auth.errors.walletRejected'))
+        setWalletError(t('auth.errors.walletRejected'))
       } else {
-        setError(t('auth.errors.walletConnectFailed'))
+        setWalletError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -142,20 +139,25 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
 
   const handleSolanaWalletClick = async () => {
     if (submitting || loading) return
-    setError('')
-    setShowSolanaWalletPicker(false)
+    setWalletError('')
     setShowWalletPicker(false)
+
+    // second click on the same button closes the picker
+    if (showSolanaWalletPicker) {
+      setShowSolanaWalletPicker(false)
+      return
+    }
 
     let wallets
     try {
       wallets = await discoverSolanaWallets()
     } catch {
-      setError(t('auth.errors.solanaDetectFailed'))
+      setWalletError(t('auth.errors.solanaDetectFailed'))
       return
     }
 
     if (wallets.length === 0) {
-      setError(t('auth.errors.noSolanaWallet'))
+      setWalletError(t('auth.errors.noSolanaWallet'))
       return
     }
 
@@ -172,20 +174,49 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     if (submitting || loading) return
     setShowSolanaWalletPicker(false)
     setSubmitting(true)
-    setError('')
+    setWalletError('')
 
     try {
       await signInWithSolana(wallet)
     } catch (error) {
       if (error.code === 4001) {
-        setError(t('auth.errors.walletRejected'))
+        setWalletError(t('auth.errors.walletRejected'))
       } else {
-        setError(t('auth.errors.walletConnectFailed'))
+        setWalletError(t('auth.errors.walletConnectFailed'))
       }
     } finally {
       setSubmitting(false)
     }
   }
+
+  const closeWalletPickers = useCallback(() => {
+    setShowWalletPicker(false)
+    setShowSolanaWalletPicker(false)
+  }, [])
+
+  // Escape closes an open picker or wallet error; a click outside closes a picker
+  const walletSectionRef = useRef(null)
+  const pickerOpen = showWalletPicker || showSolanaWalletPicker
+
+  useEffect(() => {
+    if (!pickerOpen && !walletError) return
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return
+      closeWalletPickers()
+      setWalletError('')
+    }
+    const handlePointerDown = (event) => {
+      if (!walletSectionRef.current?.contains(event.target)) closeWalletPickers()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [pickerOpen, walletError, closeWalletPickers])
 
   return {
     evmWallets,
@@ -195,7 +226,11 @@ const useWalletLogin = ({ loading, submitting, setSubmitting, setError, signInWi
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
-    handleSelectSolanaWallet
+    handleSelectSolanaWallet,
+    closeWalletPickers,
+    walletSectionRef,
+    walletError,
+    setWalletError
   }
 }
 
@@ -206,9 +241,6 @@ const LoginHeader = ({ isSignUp }) => {
       <h1 className="gradient-text">
         {isSignUp ? t('auth.createAccountTitle') : t('auth.welcomeBack')}
       </h1>
-      <p className="login-subtitle">
-        {isSignUp ? t('auth.signupSubtitle') : t('auth.loginSubtitle')}
-      </p>
     </div>
   )
 }
@@ -250,24 +282,6 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
   const { t } = useTranslation()
   return (
     <form className="login-form" onSubmit={onSubmit}>
-      {isSignUp && (
-        <div className="form-group">
-          <label htmlFor="displayName">{t('auth.fullName')}</label>
-          <div className="input-wrapper">
-            <input
-              type="text"
-              id="displayName"
-              name="displayName"
-              value={formData.displayName}
-              onChange={onInputChange}
-              placeholder={t('auth.fullNamePlaceholder')}
-              autoComplete="name"
-            />
-            <UserIcon />
-          </div>
-        </div>
-      )}
-
       <div className="form-group">
         <label htmlFor="email">{t('auth.email')}</label>
         <div className="input-wrapper">
@@ -285,43 +299,45 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
         </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="password">{t('auth.password')}</label>
-        <div className="input-wrapper">
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={onInputChange}
-            onKeyDown={onKeyDown}
-            placeholder="••••••••"
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            maxLength={MAX_PASSWORD_LENGTH}
-          />
-          <LockIcon />
-        </div>
-      </div>
-
-      {isSignUp && (
+      <div className={isSignUp ? 'password-row' : undefined}>
         <div className="form-group">
-          <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
+          <label htmlFor="password">{t('auth.password')}</label>
           <div className="input-wrapper">
             <input
               type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
+              id="password"
+              name="password"
+              value={formData.password}
               onChange={onInputChange}
               onKeyDown={onKeyDown}
               placeholder="••••••••"
-              autoComplete="new-password"
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
               maxLength={MAX_PASSWORD_LENGTH}
             />
             <LockIcon />
           </div>
         </div>
-      )}
+
+        {isSignUp && (
+          <div className="form-group">
+            <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
+            <div className="input-wrapper">
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={onInputChange}
+                onKeyDown={onKeyDown}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                maxLength={MAX_PASSWORD_LENGTH}
+              />
+              <LockIcon />
+            </div>
+          </div>
+        )}
+      </div>
 
       {!isSignUp && (
         <div className="forgot-password-link">
@@ -337,12 +353,82 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
 
       <button
         type="submit"
-        className="btn btn-primary login-button"
+        className="btn login-button email-submit-button"
         disabled={submitting}
       >
         {submitting ? t('auth.pleaseWait') : (isSignUp ? t('auth.createAccountTitle') : t('auth.signIn'))}
       </button>
     </form>
+  )
+}
+
+// Wallet sign-in. Shown in both modes: a wallet auto-creates its profile on
+// first use, so the same buttons sign in and sign up.
+const WalletAuthSection = ({
+  disabled,
+  evmWallets,
+  solanaWallets,
+  showWalletPicker,
+  showSolanaWalletPicker,
+  onEvmClick,
+  onSolanaClick,
+  onSelectEvm,
+  onSelectSolana,
+  sectionRef,
+  walletError,
+  onDismissError
+}) => {
+  const { t } = useTranslation()
+  return (
+    <div ref={sectionRef}>
+      <div className="auth-divider">
+        <span>{t('auth.orContinueWithWallet')}</span>
+      </div>
+
+      {walletError ? (
+        <div role="alert">
+          <button
+            type="button"
+            className="wallet-error"
+            onClick={onDismissError}
+            title={t('auth.dismissWalletError')}
+          >
+            <span>{walletError}</span>
+            <span className="wallet-error-close" aria-hidden="true">✕</span>
+          </button>
+        </div>
+      ) : (
+        <div className="wallet-buttons">
+          <button
+            className="btn login-button evm-wallet-button"
+            onClick={onEvmClick}
+            disabled={disabled}
+            aria-expanded={showWalletPicker}
+          >
+            <EthereumIcon />
+            {t('auth.ethereum')}
+          </button>
+
+          <button
+            className="btn login-button solana-button"
+            onClick={onSolanaClick}
+            disabled={disabled}
+            aria-expanded={showSolanaWalletPicker}
+          >
+            <SolanaIcon />
+            {t('auth.solana')}
+          </button>
+        </div>
+      )}
+
+      {showWalletPicker && (
+        <EvmWalletPicker wallets={evmWallets} onSelect={onSelectEvm} />
+      )}
+
+      {showSolanaWalletPicker && (
+        <SolanaWalletPicker wallets={solanaWallets} onSelect={onSelectSolana} />
+      )}
+    </div>
   )
 }
 
@@ -441,8 +527,7 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    displayName: ''
+    confirmPassword: ''
   })
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -455,8 +540,12 @@ const Login = () => {
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
-    handleSelectSolanaWallet
-  } = useWalletLogin({ loading, submitting, setSubmitting, setError, signInWithEVMWallet, signInWithSolana, t })
+    handleSelectSolanaWallet,
+    closeWalletPickers,
+    walletSectionRef,
+    walletError,
+    setWalletError
+  } = useWalletLogin({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t })
 
   // Check for signup query parameter on mount
   useEffect(() => {
@@ -537,7 +626,7 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        await signUpWithEmail(formData.email, formData.password, formData.displayName.trim())
+        await signUpWithEmail(formData.email, formData.password)
       } else {
         await signInWithEmail(formData.email, formData.password)
       }
@@ -612,13 +701,14 @@ const Login = () => {
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp)
+    closeWalletPickers()
+    setWalletError('')
     setError('')
     setMessage('')
     setFormData({
       email: '',
       password: '',
-      confirmPassword: '',
-      displayName: ''
+      confirmPassword: ''
     })
   }
 
@@ -664,7 +754,7 @@ const Login = () => {
         {message && <div className="auth-success">{message}</div>}
 
         <button
-          className="btn login-button google-button"
+          className="btn btn-primary login-button google-button"
           onClick={handleGoogleSignIn}
           disabled={authButtonsDisabled}
         >
@@ -677,38 +767,23 @@ const Login = () => {
           {t('auth.continueWithGoogle')}
         </button>
 
-        <div className="auth-divider">
-          <span>{t('auth.orSignInWithWallet')}</span>
-        </div>
-
-        <button
-          className="btn login-button evm-wallet-button"
-          onClick={handleEVMWalletClick}
+        <WalletAuthSection
           disabled={authButtonsDisabled}
-        >
-          <EthereumIcon />
-          {t('auth.ethereumWallet')}
-        </button>
-
-        <button
-          className="btn login-button solana-button"
-          onClick={handleSolanaWalletClick}
-          disabled={authButtonsDisabled}
-        >
-          <SolanaIcon />
-          {t('auth.solanaWallet')}
-        </button>
-
-        {showWalletPicker && (
-          <EvmWalletPicker wallets={evmWallets} onSelect={handleSelectWallet} />
-        )}
-
-        {showSolanaWalletPicker && (
-          <SolanaWalletPicker wallets={solanaWallets} onSelect={handleSelectSolanaWallet} />
-        )}
+          evmWallets={evmWallets}
+          solanaWallets={solanaWallets}
+          showWalletPicker={showWalletPicker}
+          showSolanaWalletPicker={showSolanaWalletPicker}
+          onEvmClick={handleEVMWalletClick}
+          onSolanaClick={handleSolanaWalletClick}
+          onSelectEvm={handleSelectWallet}
+          onSelectSolana={handleSelectSolanaWallet}
+          sectionRef={walletSectionRef}
+          walletError={walletError}
+          onDismissError={() => setWalletError('')}
+        />
 
         <div className="auth-divider">
-          <span>{t('auth.orContinueWithEmail')}</span>
+          <span>{isSignUp ? t('auth.orSignUpWithEmail') : t('auth.orSignInWithEmail')}</span>
         </div>
 
         <EmailAuthForm
