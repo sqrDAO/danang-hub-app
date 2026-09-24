@@ -193,8 +193,7 @@
   }
 }
 
-.amenity-preview-card,
-.event-preview-card {
+.amenity-preview-card {
   padding: 0;
   border-radius: var(--radius-lg);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -209,8 +208,7 @@
   overflow: hidden;
 }
 
-.amenity-preview-card > div:last-of-type,
-.event-preview-card > div:last-of-type {
+.amenity-preview-card > div:last-of-type {
   padding: var(--spacing-lg);
   flex: 1;
   display: flex;
@@ -218,39 +216,13 @@
   justify-content: space-between;
 }
 
-.amenity-preview-card .btn,
-.event-preview-card .btn {
+.amenity-preview-card .btn {
   margin-top: var(--spacing-md);
   width: 100%;
   box-sizing: border-box;
 }
 
-.event-preview-banner {
-  height: 140px;
-  background: var(--form-section-bg, rgba(255, 255, 255, 0.03));
-  flex-shrink: 0;
-}
-
-.event-preview-banner img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
-}
-
-.event-preview-card.past-event {
-  opacity: 0.7;
-}
-
-.event-preview-card.past-event:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--card-border);
-}
-
-.amenity-preview-card:hover,
-.event-preview-card:hover {
+.amenity-preview-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--card-shadow, none), 0 8px 24px rgba(255, 164, 6, 0.2);
   border-color: rgba(255, 164, 6, 0.35);
@@ -298,8 +270,7 @@
   border-bottom: 1px solid var(--card-border);
 }
 
-.amenity-preview-name,
-.event-preview-title {
+.amenity-preview-name {
   font-size: 1.35rem;
   font-weight: 600;
   margin-bottom: var(--spacing-sm);
@@ -307,30 +278,20 @@
   line-height: 1.3;
 }
 
-.amenity-preview-type,
-.event-preview-date {
+.amenity-preview-type {
   color: var(--text-secondary);
   font-size: 0.95rem;
   margin-bottom: var(--spacing-sm);
   text-transform: capitalize;
 }
 
-.amenity-preview-capacity,
-.event-preview-capacity,
-.event-preview-duration,
-.event-preview-projects {
+.amenity-preview-capacity {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-top: var(--spacing-xs);
 }
 
-.event-preview-capacity {
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.amenity-preview-description,
-.event-preview-description {
+.amenity-preview-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-top: var(--spacing-sm);
@@ -342,13 +303,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   line-clamp: 3;
-}
-
-.event-attended {
-  color: var(--color-success);
-  font-weight: 500;
-  margin-top: var(--spacing-sm);
-  font-size: 0.9rem;
 }
 
 .btn-full-width {

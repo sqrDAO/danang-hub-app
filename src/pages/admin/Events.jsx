@@ -5,8 +5,8 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
-import EventDetailModal from '../../components/EventDetailModal'
-import EventTitleButton from '../../components/EventTitleButton'
+import EventDetailModal from '../../components/event/EventDetailModal'
+import EventCard from '../../components/event/EventCard'
 import {
   getEvents,
   getPendingEvents,
@@ -23,24 +23,11 @@ import { reviewEvent } from '../../services/functions'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
-import { getCardOpenProps } from '../../utils/eventCardClick'
-import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { parseHubDateTime, toDatetimeLocalHub } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
 
 const MAX_EVENT_CAPACITY = 50
-
-const getStatusBadge = (status) => {
-  const statusClasses = {
-    pending: 'status-badge pending',
-    approved: 'status-badge approved',
-    rejected: 'status-badge rejected'
-  }
-  return statusClasses[status] || 'status-badge'
-}
-
-const getOrganizerName = (event) =>
-  event.organizerDisplayName || event.organizerId
 
 // Admin event management ("view all" intent): ±365 day window.
 const getAdminEventsWindow = () => {
@@ -280,86 +267,6 @@ const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting 
   return { createMutation, updateMutation, approveMutation, rejectMutation, promoteWaitlistMutation, deleteMutation }
 }
 
-const EventHostingRow = ({ event, projects, t }) => {
-  if (!event.hostingProjects) return null
-  return (
-    <p className="event-projects">
-      🏢 {t('adminEvents.hosted', { hosts: typeof event.hostingProjects === 'string'
-? event.hostingProjects
-        : event.hostingProjects.map(projectId => {
-            const project = projects.find(p => p.id === projectId)
-            return project?.name || projectId
-          }).join(', ') })}
-    </p>
-  )
-}
-
-const EventAmenityRows = ({ event, amenities, t }) => (
-  <>
-    {event.requestedAmenityId && (
-      <p className="event-amenity-request">
-        🏢 {t('adminEvents.requested', { name: amenities.find(a => a.id === event.requestedAmenityId)?.name })}
-        {event.amenityNote && <span> - &ldquo;{event.amenityNote}&rdquo;</span>}
-      </p>
-    )}
-    {event.linkedAmenityId && (
-      <p className="event-linked-amenity">
-        ✅ {t('adminEvents.linked', { name: amenities.find(a => a.id === event.linkedAmenityId)?.name })}
-      </p>
-    )}
-  </>
-)
-
-const EventRejectionRow = ({ event, t }) => {
-  if (event.status !== 'rejected') return null
-  return (
-    <p className="event-rejection-reason">
-      ❌ {event.rejectionReason
-        ? t('adminEvents.rejectionReason', { reason: event.rejectionReason })
-        : t('adminEvents.noReasonProvided')}
-    </p>
-  )
-}
-
-const EventCardInfo = ({ event, amenities, projects, t, onShowHost }) => (
-  <div className="event-info">
-    <p className="event-date">
-      📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
-    </p>
-    <p className="event-organizer">
-      👤 Organizer:{' '}
-      <button
-        className="organizer-link"
-        onClick={onShowHost}
-      >
-        {getOrganizerName(event)}
-      </button>
-    </p>
-    {event.duration && (
-      <p className="event-duration">⏱️ {t('adminEvents.duration', { minutes: event.duration })}</p>
-    )}
-    <p className="event-capacity">
-      👥 {event.attendees?.length || 0} / {event.capacity || MAX_EVENT_CAPACITY}
-    </p>
-    <EventHostingRow event={event} projects={projects} t={t} />
-    {event.waitlist && event.waitlist.length > 0 && (
-      <p className="event-waitlist">
-        ⏳ {t('adminEvents.waitlist', { count: event.waitlist.length })}
-      </p>
-    )}
-    <EventAmenityRows event={event} amenities={amenities} t={t} />
-    {event.eventLink && (
-      <p className="event-link">
-        🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('adminEvents.eventLink')}</a>
-      </p>
-    )}
-    {event.description && (
-      <p className="event-description">{event.description}</p>
-    )}
-    <EventRejectionRow event={event} t={t} />
-  </div>
-)
-
 const EventCardActions = ({
   event,
   t,
@@ -437,27 +344,15 @@ const EventCardActions = ({
   </div>
 )
 
-const EventCard = ({ event, t, amenities, projects, onShowHost, onOpenDetails, ...actionProps }) => (
-  <div className={`event-card glass event-card-clickable ${event.status}`} {...getCardOpenProps(() => onOpenDetails(event))}>
-    {event.bannerUrl && (
-      <div className="event-card-banner">
-        <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-      </div>
-    )}
-    <div className="event-header">
-      <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
-      <span className={getStatusBadge(event.status || 'approved')}>
-        {t(`status.${event.status || 'approved'}`)}
-      </span>
-    </div>
-    <EventCardInfo event={event} amenities={amenities} projects={projects} t={t} onShowHost={onShowHost} />
-    {event.status === 'pending' && event.resubmittedFromStatus && (
-      <p className="event-revision-note">
-        {t('adminEvents.resubmission', { revision: event.revision || 1, status: event.resubmittedFromStatus })}
-      </p>
-    )}
-    <EventCardActions event={event} t={t} {...actionProps} />
-  </div>
+const AdminEventCard = ({ event, t, projects, onShowHost, onOpenDetails, ...actionProps }) => (
+  <EventCard
+    event={event}
+    view="admin"
+    onOpen={onOpenDetails}
+    projects={projects}
+    onShowHost={onShowHost}
+    actions={<EventCardActions event={event} t={t} {...actionProps} />}
+  />
 )
 
 const EventBannerField = ({ isCreateMode, selectedEvent, bannerInputRef, t }) => (
@@ -1022,11 +917,10 @@ const AdminEvents = () => {
         <div className="events-grid">
           {filteredEvents.length > 0 ? (
             filteredEvents.map(event => (
-              <EventCard
+              <AdminEventCard
                 key={event.id}
                 event={event}
                 t={t}
-                amenities={amenities}
                 projects={projects}
                 onShowHost={() => setHostModalMember(getOrganizer(event.organizerId))}
                 onOpenDetails={setDetailEvent}
@@ -1075,7 +969,7 @@ const AdminEvents = () => {
           projects={projects}
           amenities={amenities}
           onShowHost={(organizerId) => setHostModalMember(getOrganizer(organizerId))}
-          showAdminDetails
+          view="admin"
         />
 
         <HostProfileModal member={hostModalMember} onClose={() => setHostModalMember(null)} />
