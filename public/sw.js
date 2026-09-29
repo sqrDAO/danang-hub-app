@@ -37,6 +37,23 @@ registerRoute(
   })
 )
 
+// Three.js wallpaper chunk stays out of precache (vite.config.js) so installs don't pay for it;
+// cache it after the first Home visit so repeat boots get the canvas without a network wait.
+// Hosting's `**` rewrite answers a stale chunk hash with index.html (200), so only JS is cached.
+const onlyJavaScript = {
+  cacheWillUpdate: async ({ response }) => (
+    response.headers.get('content-type')?.includes('javascript') ? response : null
+  )
+}
+
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && /^\/assets\/HeroCanvas3D-[\w-]+\.js$/.test(url.pathname),
+  new CacheFirst({
+    cacheName: 'hero-canvas-cache',
+    plugins: [onlyJavaScript, ...createCachePlugins(2, 60 * 60 * 24 * 30)]
+  })
+)
+
 registerRoute(
   ({ url }) => url.origin === 'https://firebasestorage.googleapis.com',
   new StaleWhileRevalidate({

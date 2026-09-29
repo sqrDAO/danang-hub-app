@@ -6,6 +6,15 @@ import { lockViewport, readBox, sameBox } from '../utils/lockViewport'
 const FOV = 48
 const CAM_Z = 26
 const STEP = 1.6
+const REVEAL_STAGGER = 0.03
+const REVEAL_DURATION = 1.1
+const REVEAL_FROM = 0.6
+const REVEAL_SINK = 1.2
+// Camera starts a little closer and eases back to CAM_Z (stays inside the built grid).
+const SETTLE_Z = 3
+const SETTLE_DURATION = 2.6
+// Largest animation-time step per frame; the reveal/settle end checks add it so their last frame lands on the final state.
+const MAX_STEP = 0.1
 
 const PALETTES = {
   dark: {
@@ -89,11 +98,14 @@ const makeTiles = (bounds, pal) => {
       const x = (c - bounds.cols / 2) * STEP
       const y = (r - bounds.rows / 2) * STEP
       list.push(addBoxed(group, geos, shades[(r + c) % 3], wire, {
-        x, y, z: 0, phase: r * 0.35 + c * 0.4
+        x, y, z: 0, phase: r * 0.35 + c * 0.4, reveal: Math.hypot(x, y) * REVEAL_STAGGER
       }))
     }
   }
-  return { group, list, geos, dark, mid, accent, wire }
+  // The grid corner is the farthest any tile can sit from the center.
+  const farthest = Math.hypot(bounds.cols / 2 * STEP, bounds.rows / 2 * STEP) * REVEAL_STAGGER
+  const revealEnd = farthest + REVEAL_DURATION + MAX_STEP
+  return { group, list, geos, dark, mid, accent, wire, revealEnd }
 }
 
 const makeQuads = (count, bounds, pal) => {
@@ -152,13 +164,25 @@ const buildWorld = (width, height, pal) => {
   }
 }
 
-const waveTiles = (list, time) => {
+const easeOut = (t) => 1 - (1 - Math.min(Math.max(t, 0), 1)) ** 4
+
+// 0 → 1 once `time` passes the tile's delay; tiles settle outward from the center.
+const revealAt = (delay, time) => easeOut((time - delay) / REVEAL_DURATION)
+
+const settleCamera = (camera, time) => {
+  if (time > SETTLE_DURATION + MAX_STEP) return
+  camera.position.z = CAM_Z - SETTLE_Z * (1 - easeOut(time / SETTLE_DURATION))
+}
+
+const waveTiles = (list, time, settling) => {
   for (let i = 0; i < list.length; i++) {
-    const { x, y, phase } = list[i].userData
+    const { x, y, phase, reveal } = list[i].userData
+    const grown = settling ? revealAt(reveal, time) : 1
+    if (settling) list[i].scale.setScalar(REVEAL_FROM + (1 - REVEAL_FROM) * grown)
     list[i].position.set(
       x,
       y + Math.sin(x * 0.12 + time * 0.35) * 0.18,
-      Math.sin(phase + time * 0.65) * 0.8 + Math.cos(y * 0.2 + time * 0.5) * 0.5
+      Math.sin(phase + time * 0.65) * 0.8 + Math.cos(y * 0.2 + time * 0.5) * 0.5 - (1 - grown) * REVEAL_SINK
     )
   }
 }
@@ -223,8 +247,8 @@ const syncTheme = (themeRef, theme, world) => {
   return themeRef.current
 }
 
-const stepWorld = (world, time) => {
-  waveTiles(world.tiles.list, time)
+const stepWorld = (world, time, settling) => {
+  waveTiles(world.tiles.list, time, settling)
   driftQuads(world.quads.list, time)
   world.particles.field.rotation.y += 0.0003
   world.particles.field.rotation.x += 0.0001
@@ -234,6 +258,8 @@ const attachLoop = (ctx) => {
   let animId = 0
   let theme = ctx.themeRef.current
   let elapsed = 0
+  // Once the reveal finishes it stays finished, so a world rebuilt by a later resize starts at full scale.
+  let revealed = false
   const running = () => ctx.getVisible() && !ctx.getReduced()
 
   const draw = (animate) => {
@@ -241,8 +267,10 @@ const attachLoop = (ctx) => {
     if (!world) return
     theme = syncTheme(ctx.themeRef, theme, world)
     if (animate) {
-      elapsed += Math.min(ctx.clock.getDelta(), 0.1)
-      stepWorld(world, elapsed)
+      elapsed += Math.min(ctx.clock.getDelta(), MAX_STEP)
+      revealed = revealed || elapsed >= world.tiles.revealEnd
+      settleCamera(ctx.camera, elapsed)
+      stepWorld(world, elapsed, !revealed)
     }
     ctx.renderer.render(ctx.scene, ctx.camera)
   }
@@ -265,10 +293,12 @@ const attachLoop = (ctx) => {
   const sync = () => {
     if (running()) {
       if (!animId) tick()
-      return
+    } else {
+      stop()
+      draw(false)
     }
-    stop()
-    draw(false)
+    // A tab mounted hidden holds the fade until it is shown, so the fade plays with the reveal.
+    if (ctx.getVisible()) ctx.onShown()
   }
 
   return { sync, stop }
@@ -333,7 +363,8 @@ const setupCanvas = (container, themeRef) => {
     getWorld: () => world,
     clock: new THREE.Clock(),
     getReduced: () => state.reduced,
-    getVisible: () => state.visible
+    getVisible: () => state.visible,
+    onShown: () => container.classList.add('is-ready')
   })
   applySize(readBox(container))
   const unbind = bindCanvasEvents(loop, state)
@@ -345,6 +376,7 @@ const setupCanvas = (container, themeRef) => {
     unbind()
     detachWorld(root, scene, world)
     releaseRenderer(renderer)
+    container.classList.remove('is-ready')
   }
   return { cleanup, sync: loop.sync }
 }
