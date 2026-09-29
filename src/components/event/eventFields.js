@@ -1,7 +1,16 @@
 import { formatEventDate, formatEventTime } from '../../utils/timezone.js'
-import { EVENT_VIEWS } from './eventViews.js'
 
-export const DEFAULT_CAPACITY = 50
+// Which event fields each viewer sees. A card and its detail modal show every
+// field except `hide`, so a card never shows what its modal hides. The page's
+// `context`/`actions` slots are outside this model.
+// Restricted fields (venue, revision) stay off unless `allowRestricted`.
+// Attendee counts show only to admins and the organizer: few members register
+// through the portal, so a public "1 / 50" reads as an empty event.
+export const EVENT_VIEWS = {
+  admin: { hide: [], allowRestricted: true },
+  organizer: { hide: ['organizer'] }, // the viewer is the organizer
+  member: { hide: ['status', 'attendees'] }
+}
 
 // Every event field the card/modal can show (the card has no event link row).
 export const EVENT_FIELDS = [
@@ -43,5 +52,7 @@ export const getAmenityName = (amenities, amenityId) =>
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
 
+// Approval links the hall or fails, and rejection unlinks it, so only a
+// pending event can be waiting on a link.
 export const isHallUnlinked = (event) =>
-  Boolean(event.requestedAmenityId) && !event.linkedAmenityId
+  event.status === 'pending' && Boolean(event.requestedAmenityId) && !event.linkedAmenityId

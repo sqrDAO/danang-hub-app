@@ -454,7 +454,7 @@ const MyEventCard = ({ event, projects, onDelete, onEdit, onOpenDetails, deleteP
   <EventCard
     event={event}
     view="organizer"
-    onOpen={(e) => onOpenDetails(e, 'organizer')}
+    onOpen={onOpenDetails}
     projects={projects}
     actions={<MyEventActions event={event} onDelete={onDelete} onEdit={onEdit} deletePending={deletePending} t={t} />}
   />
@@ -544,7 +544,7 @@ const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenD
     <EventCard
       event={event}
       view="member"
-      onOpen={(e) => onOpenDetails(e, 'member')}
+      onOpen={onOpenDetails}
       projects={projects}
       onShowHost={onOpenHost}
       context={(isMyEvent || waitlistPosition) && (
@@ -615,7 +615,7 @@ const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetai
   <EventCard
     event={event}
     view="member"
-    onOpen={(e) => onOpenDetails(e, 'member')}
+    onOpen={onOpenDetails}
     projects={projects}
     onShowHost={onOpenHost}
     past

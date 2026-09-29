@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import OrganizerName from './OrganizerName'
 import {
-  DEFAULT_CAPACITY,
   getVisibleFields,
   getWhenText,
   getHostNames,
@@ -46,7 +45,7 @@ const AttendeesLine = ({ event, t }) => {
     <p className="ecard-row">
       {t('eventCard.attending', {
         current: event.attendees?.length || 0,
-        total: event.capacity || DEFAULT_CAPACITY
+        total: event.capacity || '∞'
       })}
       {waiting > 0 && ` · ${t('eventCard.waiting', { count: waiting })}`}
     </p>
@@ -102,7 +101,8 @@ const EventCard = ({ event, view, to, onOpen, projects = [], onShowHost, context
   const fields = getVisibleFields(view)
   const status = event.status || 'approved'
   const showStatus = fields.has('status')
-  const open = () => (to ? navigate(to) : onOpen(event))
+  const open = () => (to ? navigate(to) : onOpen(event, view))
+  const title = event.title || t('eventCard.untitled')
   return (
     <article className={getCardClassName({ status, showStatus, past, compact })} {...getCardOpenProps(open)}>
       {event.bannerUrl && (
@@ -114,8 +114,8 @@ const EventCard = ({ event, view, to, onOpen, projects = [], onShowHost, context
         <div className="ecard-header">
           <h3 className="ecard-title">
             {to
-              ? <Link to={to} className="ecard-title-button">{event.title}</Link>
-              : <button type="button" className="ecard-title-button" onClick={open}>{event.title}</button>}
+              ? <Link to={to} className="ecard-title-button">{title}</Link>
+              : <button type="button" className="ecard-title-button" onClick={open}>{title}</button>}
           </h3>
           {showStatus && <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>}
         </div>

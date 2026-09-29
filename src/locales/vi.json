@@ -531,6 +531,7 @@
     }
   },
   "eventCard": {
+    "untitled": "Sự kiện chưa đặt tên",
     "attending": "{{current}} / {{total}} người tham gia",
     "waiting": "{{count}} người đang chờ",
     "by": "tổ chức bởi",

@@ -14,8 +14,14 @@
   transition: transform 0.2s ease;
 }
 
-.ecard:hover {
-  transform: translateY(-4px);
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ecard:hover {
+    transform: translateY(-4px);
+  }
+
+  .ecard-past:hover {
+    transform: none;
+  }
 }
 
 .ecard-status-pending {
@@ -28,15 +34,15 @@
 
 .ecard-status-rejected {
   border-left: 4px solid var(--color-error);
+}
+
+/* Dim the content only: the actions (e.g. Edit & resubmit) must not look disabled. */
+.ecard-status-rejected > :not(.ecard-actions) {
   opacity: 0.7;
 }
 
 .ecard-past {
   opacity: 0.7;
-}
-
-.ecard-past:hover {
-  transform: none;
 }
 
 .ecard-banner {

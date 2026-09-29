@@ -98,8 +98,7 @@
   box-shadow: var(--card-shadow, none);
 }
 
-.booking-info,
-.event-info {
+.booking-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -158,33 +157,7 @@
   gap: var(--spacing-lg);
 }
 
-.event-organizer {
-  opacity: 0.9;
-}
-
-.event-organizer .organizer-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent-primary);
-  cursor: pointer;
-  font-size: inherit;
-  font-family: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  opacity: 1;
-}
-
-.event-organizer .organizer-link:hover {
-  opacity: 0.8;
-}
-
 /* Status badges: see globals.css for base styles */
-
-.event-capacity {
-  color: var(--accent-secondary);
-  font-weight: 600;
-}
 
 .empty-state {
   color: var(--text-secondary);

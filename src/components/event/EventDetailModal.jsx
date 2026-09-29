@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import Modal from '../Modal'
 import {
-  DEFAULT_CAPACITY,
   getVisibleFields,
   getWhenText,
   getHostNames,
   getAmenityName,
-  isWebLink
+  isWebLink,
+  isHallUnlinked
 } from './eventFields'
 import OrganizerName from './OrganizerName'
 import './EventDetailModal.css'
@@ -46,7 +46,7 @@ const AttendeesFact = ({ event, t }) => (
     label={t('eventDetails.attendees')}
     value={t('eventDetails.attendeesValue', {
       current: event.attendees?.length || 0,
-      total: event.capacity || DEFAULT_CAPACITY
+      total: event.capacity || '∞'
     })}
     sub={event.waitlist?.length ? t('eventDetails.waitlistValue', { count: event.waitlist.length }) : null}
   />
@@ -78,7 +78,7 @@ const RejectionNotice = ({ event, t }) => {
 
 const getLinkedVenueText = (event, amenities, t) => {
   if (event.linkedAmenityId) return getAmenityName(amenities, event.linkedAmenityId)
-  return event.requestedAmenityId ? t('eventDetails.notLinked') : null
+  return isHallUnlinked(event) ? t('eventDetails.notLinked') : null
 }
 
 const AdminRow = (props) => <Fact {...props} className="event-detail-admin-row" />
@@ -141,11 +141,11 @@ const EventDetailBody = ({ event, view, projects, amenities, onShowHost, t }) =>
   )
 }
 
-// `view` names an entry in EVENT_VIEWS (eventViews.js).
+// `view` names an entry in EVENT_VIEWS (eventFields.js).
 const EventDetailModal = ({ event, view, onClose, projects = [], amenities = [], onShowHost }) => {
   const { t } = useTranslation()
   return (
-    <Modal isOpen={!!event} onClose={onClose} title={event?.title} className="event-detail-modal">
+    <Modal isOpen={!!event} onClose={onClose} title={event && (event.title || t('eventCard.untitled'))} className="event-detail-modal">
       {event && (
         <EventDetailBody
           event={event}

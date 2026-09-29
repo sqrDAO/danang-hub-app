@@ -533,6 +533,7 @@
     }
   },
   "eventCard": {
+    "untitled": "Untitled Event",
     "attending": "{{current}} / {{total}} attending",
     "waiting": "{{count}} waiting",
     "by": "by",

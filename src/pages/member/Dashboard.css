@@ -58,8 +58,7 @@
   box-shadow: var(--card-shadow, none);
 }
 
-.booking-info,
-.event-info {
+.booking-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -87,10 +86,6 @@
   font-weight: 600;
   text-align: left;
   width: 100%;
-}
-
-.event-title {
-  font-weight: 600;
 }
 
 .booking-right {
@@ -143,27 +138,6 @@
   gap: var(--spacing-lg);
 }
 
-.event-organizer {
-  opacity: 0.9;
-}
-
-.event-organizer .organizer-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent-primary);
-  cursor: pointer;
-  font-size: inherit;
-  font-family: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  opacity: 1;
-}
-
-.event-organizer .organizer-link:hover {
-  opacity: 0.8;
-}
-
 .status-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -206,11 +180,6 @@
   background: var(--color-error-bg);
   color: var(--color-error-light);
   border: 1px solid var(--color-error-border);
-}
-
-.event-capacity {
-  color: var(--accent-secondary);
-  font-weight: 600;
 }
 
 .empty-state {

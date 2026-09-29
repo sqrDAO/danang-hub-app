@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getVisibleFields, isWebLink, isHallUnlinked } from '../src/components/event/eventFields.js'
-import { EVENT_VIEWS } from '../src/components/event/eventViews.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, isHallUnlinked } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -36,8 +35,9 @@ test('isWebLink accepts only http(s)', () => {
   assert.equal(isWebLink(undefined), false)
 })
 
-test('isHallUnlinked only when requested but not linked', () => {
-  assert.equal(isHallUnlinked({ requestedAmenityId: 'h' }), true)
-  assert.equal(isHallUnlinked({ requestedAmenityId: 'h', linkedAmenityId: 'h' }), false)
-  assert.equal(isHallUnlinked({}), false)
+test('isHallUnlinked only when pending, requested and not linked', () => {
+  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h' }), true)
+  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h', linkedAmenityId: 'h' }), false)
+  assert.equal(isHallUnlinked({ status: 'rejected', requestedAmenityId: 'h' }), false)
+  assert.equal(isHallUnlinked({ status: 'pending' }), false)
 })
