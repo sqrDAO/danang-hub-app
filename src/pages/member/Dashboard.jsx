@@ -4,18 +4,15 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
 import Layout from '../../components/Layout'
-import Modal from '../../components/Modal'
-import Avatar from '../../components/Avatar'
 import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { getMember } from '../../services/members'
-import { formatEventDate, formatEventTime, formatDateDDMMYYYY } from '../../utils/timezone'
+import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { getProjects } from '../../services/projects'
+import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import './Profile.css'
-
-const DESCRIPTION_MAX_LENGTH = 120
 
 // Member dashboard surfaces upcoming activity; 30 back, 90 forward.
 const getMemberDashboardWindow = () => {
@@ -38,9 +35,6 @@ const getTodayStart = () => {
 const isRegistered = (event, uid) =>
   event.attendees?.includes(uid) ?? false
 
-const isFull = (event) =>
-  event.capacity != null && (event.attendees?.length ?? 0) >= event.capacity
-
 const isOnWaitlist = (event, uid) =>
   event.waitlist?.includes(uid) ?? false
 
@@ -49,122 +43,28 @@ const getWaitlistPosition = (event, uid) => {
   return event.waitlist.indexOf(uid) + 1
 }
 
-const truncateDescription = (text) => {
-  if (!text || typeof text !== 'string') return ''
-  return text.length <= DESCRIPTION_MAX_LENGTH
-    ? text
-    : `${text.slice(0, DESCRIPTION_MAX_LENGTH).trim()}…`
+const getMyEventStatus = (event, uid, t) => {
+  if (isRegistered(event, uid)) return t('memberDashboard.attending')
+  if (!isOnWaitlist(event, uid)) return null
+  const position = getWaitlistPosition(event, uid)
+  return position
+    ? t('memberDashboard.onWaitlistPosition', { position })
+    : t('memberDashboard.onWaitlist')
 }
 
-const EventMeta = ({ event, onOpenHost }) => {
+const UpcomingEventItem = ({ event, currentUid, projects }) => {
   const { t } = useTranslation()
+  const myStatus = getMyEventStatus(event, currentUid, t)
   return (
-    <div className="event-meta">
-      <span className="event-datetime">
-        {event.date ? formatEventDate(event.date) : 'N/A'}
-        {event.date && (
-          <span className="event-time"> {t('memberDashboard.at')} {formatEventTime(event.date)}</span>
-        )}
-      </span>
-      <span className="event-organizer">
-        Organizer:{' '}
-        <button
-          className="organizer-link"
-          onClick={() => onOpenHost(event.organizerId)}
-        >
-          {event.organizerDisplayName || '—'}
-        </button>
-      </span>
-    </div>
-  )
-}
-
-const EventCapacityRow = ({ attendeeCount, capacity, full, spotsLeft }) => {
-  const { t } = useTranslation()
-  return (
-    <div className="event-capacity-row">
-      <span className="event-capacity">
-        {t('memberDashboard.attendees', { current: attendeeCount, total: capacity || '∞' })}
-      </span>
-      {capacity > 0 && (
-        <span className="event-spots">
-          {full ? t('memberDashboard.full') : t('memberDashboard.spotsLeft', { count: spotsLeft })}
-        </span>
-      )}
-    </div>
-  )
-}
-
-const EventMyStatus = ({ registered, onWaitlist, waitlistPosition }) => {
-  const { t } = useTranslation()
-  if (!registered && !onWaitlist) return null
-  return (
-    <span className="event-my-status">
-      {registered ? t('memberDashboard.attending') : onWaitlist ? (waitlistPosition ? t('memberDashboard.onWaitlistPosition', { position: waitlistPosition }) : t('memberDashboard.onWaitlist')) : ''}
-    </span>
-  )
-}
-
-const UpcomingEventItem = ({ event, currentUid, onOpenHost }) => {
-  const { t } = useTranslation()
-  const registered = isRegistered(event, currentUid)
-  const full = isFull(event)
-  const onWaitlist = isOnWaitlist(event, currentUid)
-  const waitlistPosition = getWaitlistPosition(event, currentUid)
-  const attendeeCount = event.attendees?.length ?? 0
-  const capacity = event.capacity ?? 0
-  const spotsLeft = capacity > 0 ? Math.max(0, capacity - attendeeCount) : null
-  const title = event.title || event.name || t('memberDashboard.untitledEvent')
-  const isExternal = Boolean(event.eventLink)
-  return (
-    <li className="event-item event-item-detailed">
-      {event.bannerUrl && (
-        <div className="event-item-banner">
-          <img src={event.bannerUrl} alt="" loading="lazy" decoding="async" />
-        </div>
-      )}
-      <div className="event-item-main">
-        <div className="event-item-header">
-          <h4 className="event-title">{title}</h4>
-        </div>
-        <EventMeta event={event} onOpenHost={onOpenHost} />
-        {event.description && (
-          <p className="event-description-truncated">
-            {truncateDescription(event.description)}
-          </p>
-        )}
-        <EventCapacityRow
-          attendeeCount={attendeeCount}
-          capacity={capacity}
-          full={full}
-          spotsLeft={spotsLeft}
-        />
-        <EventMyStatus
-          registered={registered}
-          onWaitlist={onWaitlist}
-          waitlistPosition={waitlistPosition}
-        />
-      </div>
-      <div className="event-item-actions">
-        <Link
-          to="/member/events"
-          className="event-view-details"
-          aria-label={`View details for ${title}`}
-        >
-          {t('common.viewDetails')}
-        </Link>
-        {isExternal && (
-          <a
-            href={event.eventLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="event-signup-link"
-            aria-label={`Sign up for ${title}`}
-          >
-            {t('common.signup')}
-          </a>
-        )}
-      </div>
+    <li>
+      <EventCard
+        event={event}
+        view="member"
+        compact
+        to="/member/events"
+        projects={projects}
+        context={myStatus && <p className="ecard-note ecard-note-accent">{myStatus}</p>}
+      />
     </li>
   )
 }
@@ -205,73 +105,6 @@ const BookingsPagination = ({ page, totalPages, startIndex, endIndex, total, set
   )
 }
 
-const HostProfessionalSection = ({ member }) => (
-  <section className="profile-section">
-    <h3 className="profile-section-title">Professional</h3>
-    <div className="profile-detail-item">
-      <span className="detail-label">Company</span>
-      <span className="detail-value">{member.company || '—'}</span>
-    </div>
-    <div className="profile-detail-item">
-      <span className="detail-label">Role</span>
-      <span className="detail-value">{member.jobTitle || '—'}</span>
-    </div>
-    {member.linkedIn && (
-      <div className="profile-detail-item">
-        <span className="detail-label">LinkedIn</span>
-        <span className="detail-value">
-          <a href={member.linkedIn} target="_blank" rel="noopener noreferrer" className="profile-link">
-            {member.linkedIn}
-          </a>
-        </span>
-      </div>
-    )}
-    {member.website && (
-      <div className="profile-detail-item">
-        <span className="detail-label">Website</span>
-        <span className="detail-value">
-          <a href={member.website} target="_blank" rel="noopener noreferrer" className="profile-link">
-            {member.website}
-          </a>
-        </span>
-      </div>
-    )}
-  </section>
-)
-
-const HostProfileContent = ({ member }) => {
-  const { t } = useTranslation()
-  return (
-    <div className="profile-modal-content">
-      <div className="profile-header">
-        <div className="profile-avatar-wrap">
-          <Avatar src={member.photoURL} name={member.displayName} size="xl" />
-        </div>
-        <div className="profile-info">
-          <h2 className="profile-name">{member.displayName || '—'}</h2>
-          {(member.jobTitle || member.company) && (
-            <p className="profile-email">
-              {[member.jobTitle, member.company].filter(Boolean).join(' · ')}
-            </p>
-          )}
-          <span className={`membership-badge ${member.membershipType || 'member'}`}>
-            {member.membershipType === 'admin' ? t('adminMembers.adminOption') : t('adminMembers.memberOption')}
-          </span>
-        </div>
-      </div>
-
-      <HostProfessionalSection member={member} />
-
-      <section className="profile-section">
-        <h3 className="profile-section-title">About</h3>
-        <div className="profile-detail-item profile-detail-bio">
-          <span className="detail-value">{member.bio || '—'}</span>
-        </div>
-      </section>
-    </div>
-  )
-}
-
 const MemberDashboard = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
@@ -292,6 +125,11 @@ const MemberDashboard = () => {
   const { data: events = [] } = useQuery({
     queryKey: ['upcomingEvents'],
     queryFn: () => getUpcomingEvents()
+  })
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjects
   })
 
   const { data: amenities = [] } = useQuery({
@@ -336,21 +174,6 @@ const MemberDashboard = () => {
       return eventDate > now
     })
     .slice(0, 5)
-
-  const [hostModalMember, setHostModalMember] = useState(null)
-
-  // On-demand fetch for the host modal — avoids loading the full members list
-  // just to render organizer names.
-  const handleOpenHostModal = async (organizerId) => {
-    if (!organizerId) return
-    setHostModalMember(null)
-    try {
-      const member = await getMember(organizerId)
-      if (member) setHostModalMember(member)
-    } catch (err) {
-      console.warn('Failed to load organizer profile:', err)
-    }
-  }
 
   return (
     <Layout>
@@ -436,7 +259,7 @@ const MemberDashboard = () => {
                     key={event.id}
                     event={event}
                     currentUid={currentUser?.uid}
-                    onOpenHost={handleOpenHostModal}
+                    projects={projects}
                   />
                 ))}
               </ul>
@@ -449,13 +272,6 @@ const MemberDashboard = () => {
         <UnifiedCalendar />
       </div>
 
-      <Modal
-        isOpen={!!hostModalMember}
-        onClose={() => setHostModalMember(null)}
-        title={hostModalMember?.displayName || 'Host'}
-      >
-        {hostModalMember && <HostProfileContent member={hostModalMember} />}
-      </Modal>
     </Layout>
   )
 }

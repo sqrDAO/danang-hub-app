@@ -6,8 +6,8 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
-import EventDetailModal from '../../components/EventDetailModal'
-import EventTitleButton from '../../components/EventTitleButton'
+import EventDetailModal from '../../components/event/EventDetailModal'
+import EventCard from '../../components/event/EventCard'
 import {
   getApprovedEvents,
   getUpcomingEvents,
@@ -26,24 +26,14 @@ import { uploadEventBanner } from '../../services/storage'
 import { editOwnEvent } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
-import { getCardOpenProps } from '../../utils/eventCardClick'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
-import { parseHubDateTime, toDatetimeLocalHub, formatEventDate, formatEventTime } from '../../utils/timezone'
+import { parseHubDateTime, toDatetimeLocalHub } from '../../utils/timezone'
 import { consumeCreateAction } from '../../utils/consumeCreateAction'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
 
 const MAX_EVENT_CAPACITY = 50
-
-const getStatusBadge = (status) => {
-  const statusClasses = {
-    pending: 'status-badge pending',
-    approved: 'status-badge approved',
-    rejected: 'status-badge rejected'
-  }
-  return statusClasses[status] || 'status-badge'
-}
 
 const isEventRegistered = (event, uid) => {
   return event.attendees?.includes(uid) || false
@@ -77,14 +67,6 @@ const filterPastEvents = (events) => events.filter(e => {
   const now = new Date()
   return eventDate <= now
 })
-
-const getHostNames = (hostingProjects, projects) => {
-  if (typeof hostingProjects === 'string') return hostingProjects
-  return hostingProjects.map(projectId => {
-    const project = projects.find(p => p.id === projectId)
-    return project?.name || projectId
-  }).join(', ')
-}
 
 const clearActionParams = (searchParams, setSearchParams) => {
   const newParams = new URLSearchParams(searchParams)
@@ -446,90 +428,36 @@ const useEventActionMutations = ({
   }
 }
 
-const EventBanner = ({ url }) => {
-  if (!url) return null
-  return (
-    <div className="event-card-banner">
-      <img src={url} alt="" loading="lazy" decoding="async" />
-    </div>
-  )
-}
-
-const EventDurationLine = ({ duration, t }) => {
-  if (!duration) return null
-  return (
-    <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: duration })}</p>
-  )
-}
-
-const HostedProjectsLine = ({ hostingProjects, projects, t }) => {
-  if (!hostingProjects) return null
-  return (
-    <p className="event-projects">
-      🏢 {t('memberEvents.hosted', { hosts: getHostNames(hostingProjects, projects) })}
-    </p>
-  )
-}
-
-const EventLinkLine = ({ eventLink, t }) => {
-  if (!eventLink) return null
-  return (
-    <p className="event-link">
-      🔗 <a href={eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
-    </p>
-  )
-}
+const MyEventActions = ({ event, onDelete, onEdit, deletePending, t }) => (
+  <div className="event-actions">
+    {isFutureEvent(event) && (
+      <button className="btn btn-secondary btn-full-width" onClick={() => onEdit(event)}>
+        {event.status === 'rejected' ? t('memberEvents.editResubmit') : t('common.edit')}
+      </button>
+    )}
+    {event.status === 'pending' && !event.everApproved && (
+      <button
+        className="btn btn-danger btn-full-width"
+        onClick={() => onDelete(event.id)}
+        disabled={deletePending}
+      >
+        {t('memberEvents.cancelRequest')}
+      </button>
+    )}
+    {event.status === 'approved' && (
+      <p className="event-approved-note">{t('memberEvents.eventLive')}</p>
+    )}
+  </div>
+)
 
 const MyEventCard = ({ event, projects, onDelete, onEdit, onOpenDetails, deletePending, t }) => (
-  <div className={`event-card event-card-clickable my-event ${event.status}`} {...getCardOpenProps(() => onOpenDetails(event))}>
-    <EventBanner url={event.bannerUrl} />
-    <div className="event-header">
-      <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
-      <span className={getStatusBadge(event.status)}>
-        {event.status}
-      </span>
-    </div>
-    <div className="event-info">
-      <p className="event-date">
-        📅 {formatEventDate(event.date)} at {formatEventTime(event.date)}
-      </p>
-      <EventDurationLine duration={event.duration} t={t} />
-      <p className="event-capacity">
-        👥 {t('memberEvents.capacity', { count: event.capacity || MAX_EVENT_CAPACITY })}
-      </p>
-      <HostedProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
-      <EventLinkLine eventLink={event.eventLink} t={t} />
-      {event.status === 'rejected' && (
-        <p className="event-rejection-reason">
-          ❌ {event.rejectionReason
-            ? t('memberEvents.reason', { reason: event.rejectionReason })
-            : t('memberEvents.noReasonProvided')}
-        </p>
-      )}
-      {event.description && (
-        <p className="event-description">{event.description}</p>
-      )}
-    </div>
-    <div className="event-actions">
-      {isFutureEvent(event) && (
-        <button className="btn btn-secondary btn-full-width" onClick={() => onEdit(event)}>
-          {event.status === 'rejected' ? t('memberEvents.editResubmit') : t('common.edit')}
-        </button>
-      )}
-      {event.status === 'pending' && !event.everApproved && (
-        <button
-          className="btn btn-danger btn-full-width"
-          onClick={() => onDelete(event.id)}
-          disabled={deletePending}
-        >
-          {t('memberEvents.cancelRequest')}
-        </button>
-      )}
-      {event.status === 'approved' && (
-        <p className="event-approved-note">{t('memberEvents.eventLive')}</p>
-      )}
-    </div>
-  </div>
+  <EventCard
+    event={event}
+    view="organizer"
+    onOpen={onOpenDetails}
+    projects={projects}
+    actions={<MyEventActions event={event} onDelete={onDelete} onEdit={onEdit} deletePending={deletePending} t={t} />}
+  />
 )
 
 const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, onOpenDetails, deletingId, t }) => {
@@ -557,40 +485,6 @@ const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, onOpenDetails, 
     </div>
   )
 }
-
-const UpcomingEventInfo = ({ event, projects, isMyEvent, waitlistPosition, onOpenHost, t }) => (
-  <div className="event-info">
-    <p className="event-organizer">
-      Organizer:{' '}
-      <button
-        className="organizer-link"
-        onClick={() => onOpenHost(event.organizerId)}
-      >
-        {event.organizerDisplayName || event.organizerId}
-      </button>
-      {isMyEvent && <span className="my-event-tag"> {t('memberEvents.organizerYou')}</span>}
-    </p>
-    <EventDurationLine duration={event.duration} t={t} />
-    <p className="event-capacity">
-      👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || MAX_EVENT_CAPACITY })}
-    </p>
-    <HostedProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
-    <EventLinkLine eventLink={event.eventLink} t={t} />
-    {event.waitlist && event.waitlist.length > 0 && (
-      <p className="event-waitlist">
-        {t('memberEvents.onWaitlist', { count: event.waitlist.length })}
-      </p>
-    )}
-    {waitlistPosition && (
-      <p className="event-waitlist-position">
-        {t('memberEvents.yourPosition', { position: waitlistPosition })}
-      </p>
-    )}
-    {event.description && (
-      <p className="event-description">{event.description}</p>
-    )}
-  </div>
-)
 
 const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t }) => (
   <div className="event-actions">
@@ -634,41 +528,39 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
   </div>
 )
 
+const UpcomingEventContext = ({ isMyEvent, waitlistPosition, t }) => (
+  <>
+    {isMyEvent && <p className="ecard-note ecard-note-accent">{t('eventCard.organizerYou')}</p>}
+    {waitlistPosition && (
+      <p className="ecard-note ecard-note-accent">{t('memberEvents.yourPosition', { position: waitlistPosition })}</p>
+    )}
+  </>
+)
+
 const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, handlers, t }) => {
-  const registered = isEventRegistered(event, currentUserId)
-  const full = isEventFull(event)
-  const onWaitlist = isOnEventWaitlist(event, currentUserId)
   const waitlistPosition = getEventWaitlistPosition(event, currentUserId)
   const isMyEvent = event.organizerId === currentUserId
   return (
-    <div
-      className={`event-card event-card-clickable ${isMyEvent ? 'my-event-approved' : ''}`}
-      {...getCardOpenProps(() => onOpenDetails(event))}
-    >
-      <EventBanner url={event.bannerUrl} />
-      <div className="event-header">
-        <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
-        <span className="event-date-badge">
-          {formatEventDate(event.date) || 'N/A'}
-        </span>
-      </div>
-      <UpcomingEventInfo
-        event={event}
-        projects={projects}
-        isMyEvent={isMyEvent}
-        waitlistPosition={waitlistPosition}
-        onOpenHost={onOpenHost}
-        t={t}
-      />
-      <UpcomingEventActions
-        event={event}
-        registered={registered}
-        onWaitlist={onWaitlist}
-        full={full}
-        handlers={handlers}
-        t={t}
-      />
-    </div>
+    <EventCard
+      event={event}
+      view="member"
+      onOpen={onOpenDetails}
+      projects={projects}
+      onShowHost={onOpenHost}
+      context={(isMyEvent || waitlistPosition) && (
+        <UpcomingEventContext isMyEvent={isMyEvent} waitlistPosition={waitlistPosition} t={t} />
+      )}
+      actions={
+        <UpcomingEventActions
+          event={event}
+          registered={isEventRegistered(event, currentUserId)}
+          onWaitlist={isOnEventWaitlist(event, currentUserId)}
+          full={isEventFull(event)}
+          handlers={handlers}
+          t={t}
+        />
+      }
+    />
   )
 }
 
@@ -719,37 +611,19 @@ const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, a
   </div>
 )
 
-const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, t }) => {
-  const registered = isEventRegistered(event, currentUserId)
-  return (
-    <div className="event-card event-card-clickable past-event" {...getCardOpenProps(() => onOpenDetails(event))}>
-      <EventBanner url={event.bannerUrl} />
-      <div className="event-header">
-        <h3 className="event-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h3>
-        <span className="event-date-badge">
-          {formatEventDate(event.date) || 'N/A'}
-        </span>
-      </div>
-      <div className="event-info">
-        <p className="event-organizer">
-          Organizer:{' '}
-          <button
-            className="organizer-link"
-            onClick={() => onOpenHost(event.organizerId)}
-          >
-            {event.organizerDisplayName || event.organizerId}
-          </button>
-        </p>
-        <EventDurationLine duration={event.duration} t={t} />
-        <HostedProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
-        <EventLinkLine eventLink={event.eventLink} t={t} />
-        {registered && (
-          <p className="event-attended">{t('memberEvents.attended')}</p>
-        )}
-      </div>
-    </div>
-  )
-}
+const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, t }) => (
+  <EventCard
+    event={event}
+    view="member"
+    onOpen={onOpenDetails}
+    projects={projects}
+    onShowHost={onOpenHost}
+    past
+    context={isEventRegistered(event, currentUserId) && (
+      <p className="ecard-note ecard-note-success">{t('memberEvents.attended')}</p>
+    )}
+  />
+)
 
 const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, onOpenDetails, t }) => (
   <div className="events-section glass">
@@ -1064,7 +938,9 @@ const useMemberEventInteractions = ({
   deleteMutation
 }) => {
   const [hostModalMember, setHostModalMember] = useState(null)
+  // { event, view }: the modal shows the same view as the card it came from.
   const [detailEvent, setDetailEvent] = useState(null)
+  const openDetails = (event, view) => setDetailEvent({ event, view })
   const actions = useEventActionMutations({
     t,
     currentUser,
@@ -1093,7 +969,7 @@ const useMemberEventInteractions = ({
   }
 
   return {
-    ...actions, hostModalMember, setHostModalMember, detailEvent, setDetailEvent,
+    ...actions, hostModalMember, setHostModalMember, detailEvent, setDetailEvent, openDetails,
     handleDeleteMyEvent, handleOpenHostModal
   }
 }
@@ -1371,6 +1247,7 @@ const MemberEvents = () => {
     setHostModalMember,
     detailEvent,
     setDetailEvent,
+    openDetails,
     handleDeleteMyEvent,
     handleOpenHostModal
   } = interactions
@@ -1397,7 +1274,7 @@ const MemberEvents = () => {
           projects={projects}
           onDelete={handleDeleteMyEvent}
           onEdit={handleEditMyEvent}
-          onOpenDetails={setDetailEvent}
+          onOpenDetails={openDetails}
           deletingId={pendingTargetId(deleteMutation)}
           t={t}
         />
@@ -1411,7 +1288,7 @@ const MemberEvents = () => {
           currentUserId={currentUser?.uid}
           projects={projects}
           onOpenHost={handleOpenHostModal}
-          onOpenDetails={setDetailEvent}
+          onOpenDetails={openDetails}
           handlers={{
             onRegister: handleRegister,
             onUnregister: handleUnregister,
@@ -1431,7 +1308,7 @@ const MemberEvents = () => {
           projects={projects}
           currentUserId={currentUser?.uid}
           onOpenHost={handleOpenHostModal}
-          onOpenDetails={setDetailEvent}
+          onOpenDetails={openDetails}
           t={t}
         />
 
@@ -1456,7 +1333,8 @@ const MemberEvents = () => {
         />
 
         <EventDetailModal
-          event={detailEvent}
+          event={detailEvent?.event}
+          view={detailEvent?.view}
           onClose={() => setDetailEvent(null)}
           projects={projects}
           onShowHost={handleOpenHostModal}

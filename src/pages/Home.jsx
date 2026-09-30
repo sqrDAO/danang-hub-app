@@ -4,13 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion'
-import { formatEventDate } from '../utils/timezone'
-import { getCardOpenProps } from '../utils/eventCardClick'
 import Layout from '../components/Layout'
 import AuthPrompt from '../components/AuthPrompt'
 import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
-import EventDetailModal from '../components/EventDetailModal'
-import EventTitleButton from '../components/EventTitleButton'
+import EventCard from '../components/event/EventCard'
+import EventDetailModal from '../components/event/EventDetailModal'
 import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import { getProjects } from '../services/projects'
@@ -28,14 +26,6 @@ const HeroWallpaper = () => {
       <HeroCanvas3D />
     </Suspense>
   )
-}
-
-const getHostingProjectsLabel = (hostingProjects, projects) => {
-  if (typeof hostingProjects === 'string') return hostingProjects
-  return hostingProjects.map(projectId => {
-    const project = projects.find(p => p.id === projectId)
-    return project?.name || projectId
-  }).join(', ')
 }
 
 const isEventFull = (event) => event.capacity && event.attendees?.length >= event.capacity
@@ -75,87 +65,35 @@ const HeroCta = ({ currentUser, isAdmin, t }) => {
   )
 }
 
-const EventBanner = ({ url }) => (
-  url ? (
-    <div className="event-preview-banner">
-      <img src={url} alt="" loading="lazy" decoding="async" />
-    </div>
-  ) : null
-)
-
-const HostedBy = ({ event, projects, t }) => (
-  event.hostingProjects ? (
-    <p className="event-preview-projects">
-      🏢 {t('home.eventsHostedBy', {
-        hosts: getHostingProjectsLabel(event.hostingProjects, projects)
-      })}
-    </p>
-  ) : null
-)
-
-const EventLinkLine = ({ event, t }) => (
-  event.eventLink ? (
-    <p className="event-preview-link">
-      🔗{' '}
-      <a href={event.eventLink} target="_blank" rel="noopener noreferrer">
-        {t('home.eventsLink')}
-      </a>
-    </p>
-  ) : null
-)
-
 const EventPreviewCard = ({ event, projects, onRegister, onOpenDetails, t }) => (
-  <div className="event-preview-card event-card-clickable" {...getCardOpenProps(() => onOpenDetails(event))}>
-    <EventBanner url={event.bannerUrl} />
-    <div>
-      <h4 className="event-preview-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h4>
-      <p className="event-preview-date">
-        {event.date ? formatEventDate(event.date) : null}
-      </p>
-      {event.duration && (
-        <p className="event-preview-duration">
-          ⏱️ {t('home.eventsDuration', { minutes: event.duration })}
-        </p>
-      )}
-      {event.capacity && (
-        <p className="event-preview-capacity">
-          👥 {t('home.eventsCapacity', {
-            attendees: event.attendees?.length || 0,
-            capacity: event.capacity
-          })}
-        </p>
-      )}
-      <HostedBy event={event} projects={projects} t={t} />
-      <EventLinkLine event={event} t={t} />
-      {event.description && (
-        <p className="event-preview-description">{event.description}</p>
-      )}
-    </div>
-    <button
-      className="btn btn-primary btn-full-width"
-      onClick={() => onRegister(event)}
-      disabled={isEventFull(event)}
-    >
-      {isEventFull(event) ? t('home.eventsFull') : t('home.eventsRegister')}
-    </button>
-  </div>
+  <EventCard
+    event={event}
+    view="member"
+    onOpen={onOpenDetails}
+    projects={projects}
+    actions={
+      <button
+        className="btn btn-primary btn-full-width"
+        onClick={() => onRegister(event)}
+        disabled={isEventFull(event)}
+      >
+        {isEventFull(event) ? t('home.eventsFull') : t('home.eventsRegister')}
+      </button>
+    }
+  />
 )
 
 const PastEventCard = ({ event, projects, currentUser, onOpenDetails, t }) => (
-  <div className="event-preview-card event-card-clickable past-event" {...getCardOpenProps(() => onOpenDetails(event))}>
-    <EventBanner url={event.bannerUrl} />
-    <div>
-      <h4 className="event-preview-title"><EventTitleButton title={event.title} onOpen={() => onOpenDetails(event)} /></h4>
-      <p className="event-preview-date">
-        {event.date ? formatEventDate(event.date) : null}
-      </p>
-      <HostedBy event={event} projects={projects} t={t} />
-      <EventLinkLine event={event} t={t} />
-      {currentUser && event.attendees?.includes(currentUser.uid) && (
-        <p className="event-attended">✅ {t('home.pastEventsAttended')}</p>
-      )}
-    </div>
-  </div>
+  <EventCard
+    event={event}
+    view="member"
+    onOpen={onOpenDetails}
+    projects={projects}
+    past
+    context={currentUser && event.attendees?.includes(currentUser.uid) && (
+      <p className="ecard-note ecard-note-success">✅ {t('home.pastEventsAttended')}</p>
+    )}
+  />
 )
 
 const AmenityPreviewCard = ({ amenity, onBook, onLightbox, t }) => (
@@ -389,6 +327,7 @@ const Home = () => {
 
         <EventDetailModal
           event={detailEvent}
+          view="member"
           onClose={() => setDetailEvent(null)}
           projects={projects}
         />
