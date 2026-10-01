@@ -30,7 +30,8 @@ Reproduced on `main`:
     whole hub day. `occurrences` counts only allowed, open days (current behavior). An
     unknown frequency throws, and a step cap stops a filter that rejects every day.
 - `src/utils/timezone.js` (edited) — add `addHubMonths(date, months)`. Same hub wall
-  time, day clamped to the target month's length (Jan 31 + 1 → Feb 28/29).
+  time, day clamped to the target month's length (Jan 31 + 1 → Feb 28/29). Format
+  `toDatetimeLocalHub` with `hourCycle: 'h23'` so midnight never renders as `24`.
 - `src/services/bookings.js` (edited) — `createFixedDeskPlan` uses
   `getFixedDeskPlanWindow`. `createRecurringBooking` iterates `planRecurrenceStarts`.
   Delete `advanceRecurrenceDate` and `isAllowedWeekday`.

@@ -19,6 +19,7 @@ import {
   makeHubDateAtTime,
   parseHubDateTime,
   toDateInputHub,
+  toDatetimeLocalHub,
 } from '../src/utils/timezone.js'
 
 test('parses datetime-local strings as hub time, not browser time', () => {
@@ -111,4 +112,9 @@ test('adds hub calendar months, clamping the day and keeping the hub time', () =
   // 23:30 hub is still the previous UTC day; the hub day must be the one that moves.
   assert.equal(addHubMonths(parseHubDateTime('2026-01-31T23:30'), 1).toISOString(), '2026-02-28T16:30:00.000Z')
   assert.equal(addHubMonths(parseHubDateTime('2026-03-31T09:00'), -1).toISOString(), '2026-02-28T02:00:00.000Z')
+})
+
+test('formats hub midnight as 00, not 24', () => {
+  assert.equal(toDatetimeLocalHub(parseHubDateTime('2026-01-31T00:30')), '2026-01-31T00:30')
+  assert.equal(addHubMonths(parseHubDateTime('2026-01-31T00:30'), 1).toISOString(), '2026-02-27T17:30:00.000Z')
 })

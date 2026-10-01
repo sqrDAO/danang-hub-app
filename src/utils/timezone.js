@@ -119,7 +119,9 @@ export function toDatetimeLocalHub(date) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    // h23, not hour12: false: some engines map hour12: false to h24 and render
+    // midnight as "24", which parseHubDateTime would read as the next day.
+    hourCycle: 'h23'
   }).formatToParts(d)
   const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
