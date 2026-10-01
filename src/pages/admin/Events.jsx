@@ -237,7 +237,7 @@ const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting 
   const rejectMutation = useMutation({
     mutationFn: (payload) => reviewEvent({ ...payload, action: 'rejected' }),
     onSuccess: () => {
-      invalidate('events', 'pendingEvents', 'myEvents', 'upcomingEvents', 'bookings')
+      invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents', 'bookings')
       showToast(t('toast.eventRejected'), 'info')
     },
     onError: () => {
