@@ -119,7 +119,9 @@ export function toDatetimeLocalHub(date) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    // h23, not hour12: false: some engines map hour12: false to h24 and render
+    // midnight as "24", which parseHubDateTime would read as the next day.
+    hourCycle: 'h23'
   }).formatToParts(d)
   const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
@@ -202,6 +204,24 @@ export function getHubStartOfToday() {
  */
 export function addHubDays(date, days) {
   return new Date(getHubStartOfDay(date).getTime() + days * HUB_DAY_MS)
+}
+
+/**
+ * Shift a date by whole hub calendar months, keeping its hub wall time (to the
+ * minute). The day clamps to the target month's length: Jan 31 + 1 → Feb 28/29.
+ * @param {Date|string} date
+ * @param {number} months
+ * @returns {Date}
+ */
+export function addHubMonths(date, months) {
+  const [datePart, timePart] = toDatetimeLocalHub(date).split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const target = new Date(Date.UTC(year, month - 1 + months, 1))
+  const targetYear = target.getUTCFullYear()
+  const targetMonth = target.getUTCMonth()
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate()
+  const targetDate = `${targetYear}-${pad2(targetMonth + 1)}-${pad2(Math.min(day, lastDay))}`
+  return parseHubDateTime(`${targetDate}T${timePart}`)
 }
 
 /**

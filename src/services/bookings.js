@@ -16,6 +16,7 @@ import { db } from './firebase'
 import { isHubClosed } from '../utils/hubClosures'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { isSameHubDay } from '../utils/timezone'
+import { getFixedDeskPlanWindow, planRecurrenceStarts } from '../utils/recurrence'
 import {
   cancelLocalFixedDeskPlan,
   countLocalCompletedBookings,
@@ -248,10 +249,6 @@ export const checkOut = async (id) => {
   })
 }
 
-// Whether a candidate occurrence date falls on an open weekday
-const isAllowedWeekday = (allowedWeekdays, date) =>
-  !allowedWeekdays || allowedWeekdays.includes(date.getDay())
-
 // Whether the Hub is open at all that day. Separate from the weekday check so a
 // closure skips the date without consuming an occurrence, exactly as a
 // non-working weekday does.
@@ -298,59 +295,37 @@ const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, booki
   }
 }
 
-// Move to next potential occurrence date
-const advanceRecurrenceDate = (currentDate, frequency) => {
-  switch (frequency) {
-    case 'daily':
-      currentDate.setDate(currentDate.getDate() + 1)
-      break
-    case 'weekly':
-      currentDate.setDate(currentDate.getDate() + 7)
-      break
-    case 'monthly':
-      currentDate.setMonth(currentDate.getMonth() + 1)
-      break
-    default:
-      break
-  }
-}
-
-// Create recurring bookings
-// Optional options.allowedWeekdays: array of JS getDay() numbers (0-6) that are open
+// Create recurring bookings. Dates are planned on the hub calendar by
+// planRecurrenceStarts, so the browser's timezone never shifts a day.
+// Optional options.allowedWeekdays: hub weekday numbers (0 = Sunday) that are open
 export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
   const { frequency, endDate, occurrences } = recurrence
-  const allowedWeekdays = Array.isArray(options.allowedWeekdays) ? options.allowedWeekdays : null
+  const durationMs = new Date(baseBooking.endTime) - new Date(baseBooking.startTime)
+  const starts = planRecurrenceStarts({
+    start: baseBooking.startTime,
+    frequency,
+    endDate,
+    occurrences,
+    allowedWeekdays: Array.isArray(options.allowedWeekdays) ? options.allowedWeekdays : null,
+    isOpen: isOpenDate,
+  })
   const bookings = []
   const createdIds = []
-  const durationMs = new Date(baseBooking.endTime) - new Date(baseBooking.startTime)
 
-  let currentDate = new Date(baseBooking.startTime)
-  const end = endDate ? new Date(endDate) : null
-  let count = 0
-  const maxOccurrences = occurrences || 999
-
-  while (count < maxOccurrences && (!end || currentDate <= end)) {
-    const bookingStart = new Date(currentDate)
-    const bookingEnd = new Date(bookingStart)
-    bookingEnd.setTime(bookingStart.getTime() + durationMs)
-
-    if (isAllowedWeekday(allowedWeekdays, bookingStart) && isOpenDate(bookingStart)) {
-      const created = await tryCreateOccurrence({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn })
-      if (created) {
-        createdIds.push(created.id)
-        bookings.push(created)
-      }
-      count++
+  for (const bookingStart of starts) {
+    const bookingEnd = new Date(bookingStart.getTime() + durationMs)
+    const created = await tryCreateOccurrence({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn })
+    if (created) {
+      createdIds.push(created.id)
+      bookings.push(created)
     }
-
-    advanceRecurrenceDate(currentDate, frequency)
   }
 
   return { createdIds, bookings, totalCreated: createdIds.length }
 }
 
-// Create a fixed desk plan: books a desk for all working days (Mon–Fri, 9am–6pm)
-// over a weekly (current week) or monthly (next 30 days) period.
+// Create a fixed desk plan: books a desk for all working days (Mon–Fri, 9am–6pm
+// hub time) over a weekly (current week) or monthly (one month) period.
 export const createFixedDeskPlan = async ({
   memberId,
   amenityId,
@@ -360,30 +335,12 @@ export const createFixedDeskPlan = async ({
   checkConflictsFn = null,
 }) => {
   const planGroupId = crypto.randomUUID()
-  const DESK_START_HOUR = 9
-  const DESK_END_HOUR = 18
-
-  const planStart = new Date(startDate)
-  planStart.setHours(DESK_START_HOUR, 0, 0, 0)
-
-  const planEnd = new Date(startDate)
-  if (period === 'weekly') {
-    const day = planStart.getDay()
-    const daysUntilFriday = day === 0 ? 5 : (5 - day + 7) % 7
-    planEnd.setDate(planEnd.getDate() + daysUntilFriday)
-  } else {
-    planEnd.setMonth(planEnd.getMonth() + 1)
-    planEnd.setDate(planEnd.getDate() - 1)
-  }
-  planEnd.setHours(DESK_END_HOUR, 0, 0, 0)
-
-  const durationMs = (DESK_END_HOUR - DESK_START_HOUR) * 60 * 60 * 1000
-  const firstDayEnd = new Date(planStart.getTime() + durationMs)
+  const { start, firstDayEnd, end } = getFixedDeskPlanWindow({ startDate, period })
 
   const baseBooking = {
     memberId,
     amenityId,
-    startTime: planStart.toISOString(),
+    startTime: start.toISOString(),
     endTime: firstDayEnd.toISOString(),
     planType: 'fixed-desk',
     planPeriod: period,
@@ -393,7 +350,7 @@ export const createFixedDeskPlan = async ({
 
   return createRecurringBooking(
     baseBooking,
-    { frequency: 'daily', endDate: planEnd.toISOString() },
+    { frequency: 'daily', endDate: end.toISOString() },
     checkConflictsFn,
     { allowedWeekdays: [1, 2, 3, 4, 5] }
   )
