@@ -37,9 +37,10 @@ overlapping-time events can both pass the check and both book the same slot.
 - `npm run lint && cd functions && npm run lint` → both clean.
 - `npm run build` → production build succeeds.
 - `npm test` → existing tests pass.
-- `firebase emulators:exec --only firestore,functions "node functions/scripts/repro-reviewevent-race.js"`
-  → the script reports exactly one booking created for the contested amenity/window, and
-  logs that the second `reviewEvent` call rejected with `failed-precondition`.
+- `firebase emulators:exec --project demo-danang-hub-race --only firestore,functions "node functions/scripts/repro-reviewevent-race.js"`
+  → every round reports exactly one booking created for the contested amenity/window, and
+  the other `reviewEvent` call rejected with `failed-precondition`. Against `main`'s
+  `reviewEvent` the same script reports two bookings per round.
 - regression: re-run the existing organizer-edit-event emulator matrix
   (`docs/knowledge/organizer-event-edit-verification.md`) to confirm normal single-approval
   Event Hall bookings still succeed.

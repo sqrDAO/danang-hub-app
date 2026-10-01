@@ -185,10 +185,12 @@ function isWithinBusinessHours(startTime, endTime) {
  * @param {string} params.startTime ISO string
  * @param {string} params.endTime ISO string
  * @param {string} [params.excludeBookingId] Booking id to ignore (e.g. self)
+ * @param {object} [params.tx] Transaction to read through, so the query joins
+ *   the caller's transaction instead of reading outside it
  * @return {Promise<{hasConflicts: boolean, conflicts: Array}>}
  */
 async function computeBookingAvailability({
-  amenityId, amenity, startTime, endTime, excludeBookingId,
+  amenityId, amenity, startTime, endTime, excludeBookingId, tx,
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
@@ -202,7 +204,8 @@ async function computeBookingAvailability({
       .where("amenityId", "==", amenityId)
       .where("status", "in", ["pending", "approved", "checked-in"]);
 
-  const snapshot = await bookingsQuery.get();
+  const snapshot = tx ?
+    await tx.get(bookingsQuery) : await bookingsQuery.get();
   const conflicts = [];
   const newStart = new Date(startTime);
   const newEnd = new Date(endTime);
@@ -328,6 +331,29 @@ const requireAdmin = async (uid) => {
   const member = await db.collection("members").doc(uid).get();
   if (!member.exists || member.data().membershipType !== "admin") {
     throw new HttpsError("permission-denied", "Admin access is required.");
+  }
+};
+
+// reviewEvent's pre-transaction availability check is only a fast-fail: two
+// concurrent approvals can both pass it. Re-reading the slot inside the
+// transaction makes the second one retry and see the first one's booking.
+const assertEventSlotFree = async (tx, amenityId, window) => {
+  const amenitySnap = await tx.get(db.collection("amenities").doc(amenityId));
+  if (!amenitySnap.exists) {
+    throw new HttpsError(
+        "failed-precondition", "Requested amenity no longer exists.");
+  }
+  const {hasConflicts} = await computeBookingAvailability({
+    amenityId,
+    amenity: amenitySnap.data(),
+    startTime: window.startTime.toISOString(),
+    endTime: window.endTime.toISOString(),
+    tx,
+  });
+  if (hasConflicts) {
+    throw new HttpsError(
+        "failed-precondition",
+        "The requested Event Hall time is no longer available.");
   }
 };
 
@@ -520,6 +546,7 @@ exports.reviewEvent = onCall(async (request) => {
           const window = getBookingWindow(eventDate, event.duration || 60);
           const existing = activeBookings[0];
           if (!existing) {
+            await assertEventSlotFree(tx, event.requestedAmenityId, window);
             const bookingRef = db.collection("bookings").doc();
             tx.create(bookingRef, {
               memberId: event.organizerId,
