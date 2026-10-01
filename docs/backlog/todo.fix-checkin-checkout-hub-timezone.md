@@ -17,10 +17,10 @@ allowed.
 ## Acceptance
 - [ ] `checkIn` and `checkOut` both use `isSameHubDay` from `src/utils/timezone.js`
       instead of `Date.prototype.toDateString()`.
-- [ ] A booking starting at 2026-09-15 00:30 Asia/Ho_Chi_Minh (hub day 2026-09-15) can be
-      checked in when the server/client instant is 2026-09-14 17:30 UTC — still
-      2026-09-14 in UTC and in any browser running US/European local time, but already
-      2026-09-15 on the hub calendar.
+- [ ] A booking starting at 2026-09-15 12:00 Asia/Ho_Chi_Minh can be checked in at
+      2026-09-15 08:00 hub time from an `America/New_York` browser, where the two
+      instants fall on different local days (Sep 14 21:00 vs Sep 15 01:00) but the same
+      hub day.
 - [ ] NOT: this does not change the check-in/check-out status transitions themselves or
       any rules-level enforcement — both remain admin-only client-side guards, per
       CLAUDE.md's "all other transitions are admin or scheduler."
@@ -28,6 +28,8 @@ allowed.
 ## Verify
 - `npm run lint` → clean.
 - `npm test` → existing `test/timezone.test.js` continues to pass.
+- `TZ=America/New_York node --input-type=module -e "import {isSameHubDay} from './src/utils/timezone.js'; const b=new Date('2026-09-15T12:00:00+07:00'), n=new Date('2026-09-15T08:00:00+07:00'); console.log(b.toDateString()===n.toDateString(), isSameHubDay(b,n))"`
+  → `false true`.
 - Manual (dev server, browser devtools clock/timezone override): set the browser
   timezone to `America/New_York`, create a booking for "today" in hub time, and confirm
   check-in succeeds even when it's still the previous calendar day in the browser's local
