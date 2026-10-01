@@ -20,21 +20,22 @@ Reproduced on `main`:
 ## Files
 - `src/utils/recurrence.js` (new) — pure planners, import `./timezone.js` with the
   extension so Node's test runner can load it:
-  - `getFixedDeskPlanWindow({ startDate, period })` → `{ start, end }`. Start is 09:00 hub
-    on `startDate` (`YYYY-MM-DD`). End is 18:00 hub on that week's Friday (`weekly`) or
-    one calendar month minus a day later (`monthly`).
+  - `getFixedDeskPlanWindow({ startDate, period })` → `{ start, firstDayEnd, end }`.
+    Start is 09:00 hub on `startDate` (`YYYY-MM-DD`), `firstDayEnd` 18:00 that day. End
+    is 18:00 hub on that week's Friday (`weekly`) or a calendar month less a day later.
   - `planRecurrenceStarts({ start, frequency, endDate, occurrences, allowedWeekdays,
     isOpen })` → array of start `Date`s. Uses the hub weekday, steps daily/weekly by exact
     24h multiples (the hub has no DST), and steps monthly by hub calendar month at the
-    same hub wall time. The end date is inclusive of its whole hub day. `occurrences`
-    counts only allowed, open days (current behavior).
+    same hub wall time, counted from the original start. The end date is inclusive of its
+    whole hub day. `occurrences` counts only allowed, open days (current behavior). An
+    unknown frequency throws, and a step cap stops a filter that rejects every day.
 - `src/utils/timezone.js` (edited) — add `addHubMonths(date, months)`. Same hub wall
   time, day clamped to the target month's length (Jan 31 + 1 → Feb 28/29).
 - `src/services/bookings.js` (edited) — `createFixedDeskPlan` uses
   `getFixedDeskPlanWindow`. `createRecurringBooking` iterates `planRecurrenceStarts`.
   Delete `advanceRecurrenceDate` and `isAllowedWeekday`.
-- `test/recurrence.test.js` (new) — the three repros above plus month-end clamping, with
-  `process.env.TZ = 'America/New_York'` set at the top like `test/timezone.test.js`.
+- `test/recurrence.test.js` (new) — the three repros above plus month-end clamping. TZ
+  defaults to `America/New_York` but honors an outer `TZ`, so Verify's Auckland run is real.
 - `test/timezone.test.js` (edited) — `addHubMonths` cases.
 
 ## Acceptance

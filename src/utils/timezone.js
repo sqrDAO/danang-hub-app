@@ -205,6 +205,24 @@ export function addHubDays(date, days) {
 }
 
 /**
+ * Shift a date by whole hub calendar months, keeping its hub wall time (to the
+ * minute). The day clamps to the target month's length: Jan 31 + 1 → Feb 28/29.
+ * @param {Date|string} date
+ * @param {number} months
+ * @returns {Date}
+ */
+export function addHubMonths(date, months) {
+  const [datePart, timePart] = toDatetimeLocalHub(date).split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const target = new Date(Date.UTC(year, month - 1 + months, 1))
+  const targetYear = target.getUTCFullYear()
+  const targetMonth = target.getUTCMonth()
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate()
+  const targetDate = `${targetYear}-${pad2(targetMonth + 1)}-${pad2(Math.min(day, lastDay))}`
+  return parseHubDateTime(`${targetDate}T${timePart}`)
+}
+
+/**
  * Day of week (0 = Sunday) of a date's hub calendar day.
  * @param {Date|string} date
  * @returns {number}
