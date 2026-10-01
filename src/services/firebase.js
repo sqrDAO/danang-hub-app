@@ -19,6 +19,7 @@ export const storage = getStorage(app)
 
 // Connect to local emulators when VITE_USE_EMULATORS=true.
 // Guarded against HMR double-connects via a window flag.
+// Ports must match the `emulators` block in firebase.json.
 if (import.meta.env.VITE_USE_EMULATORS === 'true' && !globalThis.__FIREBASE_EMULATORS_CONNECTED__) {
   const host = import.meta.env.VITE_EMULATOR_HOST || 'localhost'
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true })
