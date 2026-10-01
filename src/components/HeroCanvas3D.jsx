@@ -290,11 +290,23 @@ const attachLoop = (ctx) => {
     animId = 0
   }
 
+  // Reduced motion may never resume the loop, so jump to the reveal's end instead of freezing mid-way.
+  const finishReveal = () => {
+    const world = ctx.getWorld()
+    if (revealed || !world) return
+    revealed = true
+    elapsed = Math.max(elapsed, world.tiles.revealEnd, SETTLE_DURATION)
+    ctx.camera.position.z = CAM_Z
+    for (const tile of world.tiles.list) tile.scale.setScalar(1)
+    waveTiles(world.tiles.list, elapsed, false)
+  }
+
   const sync = () => {
     if (running()) {
       if (!animId) tick()
     } else {
       stop()
+      if (ctx.getReduced()) finishReveal()
       draw(false)
     }
     // A tab mounted hidden holds the fade until it is shown, so the fade plays with the reveal.
