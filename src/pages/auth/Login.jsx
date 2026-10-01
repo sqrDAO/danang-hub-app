@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/walletAuth'
+import { toSafeRedirectPath } from '../../utils/safeRedirect'
 import './Login.css'
 
 // Icon components
@@ -504,6 +505,20 @@ const ForgotPasswordView = ({ theme, error, message, formData, submitting, onInp
   )
 }
 
+// Where to land after sign-in: the `?redirect=` path when it is a safe in-app
+// path (plus the amenityId/eventId/action passthrough), else the role default.
+const resolvePostLoginPath = (searchParams, isAdminUser) => {
+  const redirectPath = toSafeRedirectPath(searchParams.get('redirect'))
+  if (!redirectPath) return isAdminUser ? '/admin' : '/member'
+  const params = new URLSearchParams()
+  for (const key of ['amenityId', 'eventId', 'action']) {
+    const value = searchParams.get(key)
+    if (value) params.set(key, value)
+  }
+  const queryString = params.toString()
+  return queryString ? `${redirectPath}?${queryString}` : redirectPath
+}
+
 const Login = () => {
   const { theme } = useTheme()
   const {
@@ -557,31 +572,7 @@ const Login = () => {
 
   useEffect(() => {
     if (currentUser && !loading && userProfile) {
-      // Check for redirect parameter first
-      const redirectParam = searchParams.get('redirect')
-      if (redirectParam) {
-        // Preserve query parameters from redirect
-        const amenityId = searchParams.get('amenityId')
-        const eventId = searchParams.get('eventId')
-        const action = searchParams.get('action')
-
-        let redirectUrl = redirectParam
-        const params = new URLSearchParams()
-        if (amenityId) params.set('amenityId', amenityId)
-        if (eventId) params.set('eventId', eventId)
-        if (action) params.set('action', action)
-
-        const queryString = params.toString()
-        if (queryString) {
-          redirectUrl += `?${queryString}`
-        }
-
-        navigate(redirectUrl, { replace: true })
-      } else if (isAdmin()) {
-        navigate('/admin', { replace: true })
-      } else {
-        navigate('/member', { replace: true })
-      }
+      navigate(resolvePostLoginPath(searchParams, isAdmin()), { replace: true })
     }
   }, [currentUser, userProfile, loading, navigate, isAdmin, searchParams])
 
