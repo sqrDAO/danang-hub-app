@@ -15,6 +15,7 @@ import {
 import { db } from './firebase'
 import { isHubClosed } from '../utils/hubClosures'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { isSameHubDay } from '../utils/timezone'
 import {
   cancelLocalFixedDeskPlan,
   countLocalCompletedBookings,
@@ -222,7 +223,7 @@ export const checkIn = async (id) => {
   }
   const bookingDate = new Date(booking.startTime)
   const today = new Date()
-  if (bookingDate.toDateString() !== today.toDateString()) {
+  if (!isSameHubDay(bookingDate, today)) {
     throw new Error('Check in is only allowed on the same day as the booking')
   }
   await updateBooking(id, {
@@ -238,7 +239,7 @@ export const checkOut = async (id) => {
   }
   const bookingDate = new Date(booking.startTime)
   const today = new Date()
-  if (bookingDate.toDateString() !== today.toDateString()) {
+  if (!isSameHubDay(bookingDate, today)) {
     throw new Error('Check out is only allowed on the same day as the booking')
   }
   await updateBooking(id, {
