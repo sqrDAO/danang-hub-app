@@ -38,5 +38,5 @@
 - regression: DevTools Network on those pages shows no `projects` collection read
 
 ## Notes
-- No writer has ever stored an array (see `done.event-organizers-cleanup.md` Notes). A hand-edited array in the console would render as joined text, not crash.
+- No writer has ever stored an array (see `done.event-organizers-cleanup.md` Notes). A hand-edited array in the console would not crash: cards and the detail modal run the names together with no separator.
 - `services/projects.js` stays because project linking is planned; it just has no callers until then.
