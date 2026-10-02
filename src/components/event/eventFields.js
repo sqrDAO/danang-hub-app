@@ -36,14 +36,7 @@ export const getWhenText = (event) => {
   return `${start} – ${formatEventTime(end)}`
 }
 
-export const getHostNames = (hostingProjects, projects) => {
-  if (!hostingProjects) return ''
-  if (typeof hostingProjects === 'string') return hostingProjects
-  return hostingProjects.map(projectId => {
-    const project = projects.find(p => p.id === projectId)
-    return project?.name || projectId
-  }).join(', ')
-}
+export const getHostNames = (hostingProjects) => hostingProjects || ''
 
 export const getAmenityName = (amenities, amenityId) =>
   amenities.find(a => a.id === amenityId)?.name || amenityId

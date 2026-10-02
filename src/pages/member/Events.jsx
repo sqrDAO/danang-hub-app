@@ -21,7 +21,6 @@ import {
 } from '../../services/events'
 import { getMember } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
-import { getProjects } from '../../services/projects'
 import { uploadEventBanner } from '../../services/storage'
 import { editOwnEvent } from '../../services/functions'
 import { showToast } from '../../utils/toast'
@@ -221,16 +220,11 @@ const useEventsQueries = (currentUser) => {
     queryFn: getAmenities
   })
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
-  })
-
   if (eventsError) {
     console.error('Error loading upcoming events:', eventsError)
   }
 
-  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, isLoadingAmenities, projects }
+  return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, isLoadingAmenities }
 }
 
 const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOptedIn }) => {
@@ -450,17 +444,16 @@ const MyEventActions = ({ event, onDelete, onEdit, deletePending, t }) => (
   </div>
 )
 
-const MyEventCard = ({ event, projects, onDelete, onEdit, onOpenDetails, deletePending, t }) => (
+const MyEventCard = ({ event, onDelete, onEdit, onOpenDetails, deletePending, t }) => (
   <EventCard
     event={event}
     view="organizer"
     onOpen={onOpenDetails}
-    projects={projects}
     actions={<MyEventActions event={event} onDelete={onDelete} onEdit={onEdit} deletePending={deletePending} t={t} />}
   />
 )
 
-const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, onOpenDetails, deletingId, t }) => {
+const MyEventsSection = ({ myEvents, onDelete, onEdit, onOpenDetails, deletingId, t }) => {
   if (myEvents.length === 0) return null
   return (
     <div className="events-section glass">
@@ -473,7 +466,6 @@ const MyEventsSection = ({ myEvents, projects, onDelete, onEdit, onOpenDetails, 
           <MyEventCard
             key={event.id}
             event={event}
-            projects={projects}
             onDelete={onDelete}
             onEdit={onEdit}
             onOpenDetails={onOpenDetails}
@@ -537,7 +529,7 @@ const UpcomingEventContext = ({ isMyEvent, waitlistPosition, t }) => (
   </>
 )
 
-const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, handlers, t }) => {
+const UpcomingEventCard = ({ event, currentUserId, onOpenHost, onOpenDetails, handlers, t }) => {
   const waitlistPosition = getEventWaitlistPosition(event, currentUserId)
   const isMyEvent = event.organizerId === currentUserId
   return (
@@ -545,7 +537,6 @@ const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenD
       event={event}
       view="member"
       onOpen={onOpenDetails}
-      projects={projects}
       onShowHost={onOpenHost}
       context={(isMyEvent || waitlistPosition) && (
         <UpcomingEventContext isMyEvent={isMyEvent} waitlistPosition={waitlistPosition} t={t} />
@@ -564,7 +555,7 @@ const UpcomingEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenD
   )
 }
 
-const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, approvedEvents, currentUserId, projects, onOpenHost, onOpenDetails, handlers, t }) => (
+const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, approvedEvents, currentUserId, onOpenHost, onOpenDetails, handlers, t }) => (
   <div className="events-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberEvents.upcomingEvents')}</h2>
@@ -589,7 +580,6 @@ const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, a
           <UpcomingEventCard
             key={event.id}
             event={event}
-            projects={projects}
             currentUserId={currentUserId}
             onOpenHost={onOpenHost}
             onOpenDetails={onOpenDetails}
@@ -611,12 +601,11 @@ const UpcomingEventsSection = ({ isLoadingEvents, eventsError, upcomingEvents, a
   </div>
 )
 
-const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetails, t }) => (
+const PastEventCard = ({ event, currentUserId, onOpenHost, onOpenDetails, t }) => (
   <EventCard
     event={event}
     view="member"
     onOpen={onOpenDetails}
-    projects={projects}
     onShowHost={onOpenHost}
     past
     context={isEventRegistered(event, currentUserId) && (
@@ -625,7 +614,7 @@ const PastEventCard = ({ event, projects, currentUserId, onOpenHost, onOpenDetai
   />
 )
 
-const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, onOpenDetails, t }) => (
+const PastEventsSection = ({ pastEvents, currentUserId, onOpenHost, onOpenDetails, t }) => (
   <div className="events-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberEvents.pastEvents')}</h2>
@@ -636,7 +625,6 @@ const PastEventsSection = ({ pastEvents, projects, currentUserId, onOpenHost, on
           <PastEventCard
             key={event.id}
             event={event}
-            projects={projects}
             currentUserId={currentUserId}
             onOpenHost={onOpenHost}
             onOpenDetails={onOpenDetails}
@@ -1196,7 +1184,6 @@ const MemberEvents = () => {
     myEvents,
     amenities,
     isLoadingAmenities,
-    projects
   } = useEventsQueries(currentUser)
 
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
@@ -1271,7 +1258,6 @@ const MemberEvents = () => {
         {/* My Created Events */}
         <MyEventsSection
           myEvents={myEvents}
-          projects={projects}
           onDelete={handleDeleteMyEvent}
           onEdit={handleEditMyEvent}
           onOpenDetails={openDetails}
@@ -1286,7 +1272,6 @@ const MemberEvents = () => {
           upcomingEvents={upcomingEvents}
           approvedEvents={approvedEvents}
           currentUserId={currentUser?.uid}
-          projects={projects}
           onOpenHost={handleOpenHostModal}
           onOpenDetails={openDetails}
           handlers={{
@@ -1305,7 +1290,6 @@ const MemberEvents = () => {
         {/* Past Events */}
         <PastEventsSection
           pastEvents={pastEvents}
-          projects={projects}
           currentUserId={currentUser?.uid}
           onOpenHost={handleOpenHostModal}
           onOpenDetails={openDetails}
@@ -1336,7 +1320,6 @@ const MemberEvents = () => {
           event={detailEvent?.event}
           view={detailEvent?.view}
           onClose={() => setDetailEvent(null)}
-          projects={projects}
           onShowHost={handleOpenHostModal}
         />
 

@@ -14,7 +14,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
       // Avoid back-to-back refetches when navigating between pages that share
-      // the same query keys (amenities, members, projects, etc.).
+      // the same query keys (amenities, members, etc.).
       staleTime: 30 * 1000,
     },
   },

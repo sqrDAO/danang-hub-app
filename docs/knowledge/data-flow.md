@@ -249,6 +249,6 @@ those live in the callable / client and are advisory.
 | `push_tokens` | Profile page push opt-in (§6) | Cloud Functions only |
 | `push_notifications` | Cloud Functions only (§6) | push dedupe markers for booking/event review and status |
 | `nonces` | wallet callables (§1) — single-use | `verifyWalletSignature` |
-| `projects` | admin (rules allow; no write service yet) | Home page showcase |
+| `projects` | admin (rules allow; no write service yet) | none yet (`src/services/projects.js` kept for planned project linking) |
 
 Field-level details are in [`README.md` § Firestore Collections](../../README.md#firestore-collections).

@@ -26,11 +26,11 @@ const Fact = ({ label, value, sub, className = 'event-detail-fact' }) => {
 
 // Hosts are the main line, the organizer a sub line under them. Without hosts
 // (or with hosts hidden) the organizer takes the main line.
-const HostFact = ({ event, fields, projects, onShowHost, t }) => {
+const HostFact = ({ event, fields, onShowHost, t }) => {
   const organizer = fields.has('organizer') && event.organizerId
     ? <OrganizerName event={event} onShowHost={onShowHost} className="event-detail-link" />
     : null
-  const hosts = fields.has('hosts') ? getHostNames(event.hostingProjects, projects) : ''
+  const hosts = fields.has('hosts') ? getHostNames(event.hostingProjects) : ''
   if (!hosts) return <Fact label={t('eventDetails.organizer')} value={organizer} />
   return (
     <Fact
@@ -52,7 +52,7 @@ const AttendeesFact = ({ event, t }) => (
   />
 )
 
-const EventFacts = ({ event, fields, projects, onShowHost, t }) => (
+const EventFacts = ({ event, fields, onShowHost, t }) => (
   <div className="event-detail-facts">
     {fields.has('date') && (
       <Fact
@@ -61,7 +61,7 @@ const EventFacts = ({ event, fields, projects, onShowHost, t }) => (
         sub={event.duration ? t('eventDetails.durationValue', { minutes: event.duration }) : null}
       />
     )}
-    <HostFact event={event} fields={fields} projects={projects} onShowHost={onShowHost} t={t} />
+    <HostFact event={event} fields={fields} onShowHost={onShowHost} t={t} />
     {fields.has('attendees') && <AttendeesFact event={event} t={t} />}
   </div>
 )
@@ -112,7 +112,7 @@ const RestrictedDetails = ({ event, fields, amenities, t }) => {
   )
 }
 
-const EventDetailBody = ({ event, view, projects, amenities, onShowHost, t }) => {
+const EventDetailBody = ({ event, view, amenities, onShowHost, t }) => {
   const fields = getVisibleFields(view)
   const status = event.status || 'approved'
   return (
@@ -123,7 +123,7 @@ const EventDetailBody = ({ event, view, projects, amenities, onShowHost, t }) =>
       {fields.has('status') && (
         <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>
       )}
-      <EventFacts event={event} fields={fields} projects={projects} onShowHost={onShowHost} t={t} />
+      <EventFacts event={event} fields={fields} onShowHost={onShowHost} t={t} />
       {fields.has('eventLink') && isWebLink(event.eventLink) && (
         <a href={event.eventLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm event-detail-open-link">
           {t('eventDetails.openLink')} ↗
@@ -142,7 +142,7 @@ const EventDetailBody = ({ event, view, projects, amenities, onShowHost, t }) =>
 }
 
 // `view` names an entry in EVENT_VIEWS (eventFields.js).
-const EventDetailModal = ({ event, view, onClose, projects = [], amenities = [], onShowHost }) => {
+const EventDetailModal = ({ event, view, onClose, amenities = [], onShowHost }) => {
   const { t } = useTranslation()
   return (
     <Modal isOpen={!!event} onClose={onClose} title={event && (event.title || t('eventCard.untitled'))} className="event-detail-modal">
@@ -150,7 +150,6 @@ const EventDetailModal = ({ event, view, onClose, projects = [], amenities = [],
         <EventDetailBody
           event={event}
           view={view}
-          projects={projects}
           amenities={amenities}
           onShowHost={onShowHost}
           t={t}

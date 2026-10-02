@@ -22,8 +22,8 @@ const getCardOpenProps = (onOpen) => ({
   }
 })
 
-const HostLine = ({ event, fields, projects, onShowHost, t }) => {
-  const hosts = fields.has('hosts') ? getHostNames(event.hostingProjects, projects) : ''
+const HostLine = ({ event, fields, onShowHost, t }) => {
+  const hosts = fields.has('hosts') ? getHostNames(event.hostingProjects) : ''
   const showOrganizer = fields.has('organizer') && Boolean(event.organizerId)
   if (!hosts && !showOrganizer) return null
   return (
@@ -70,10 +70,10 @@ const RevisionLine = ({ event, t }) => {
   )
 }
 
-const CardRows = ({ event, fields, projects, onShowHost, t }) => (
+const CardRows = ({ event, fields, onShowHost, t }) => (
   <div className="ecard-rows">
     {fields.has('date') && event.date && <p className="ecard-row ecard-row-date">{getWhenText(event)}</p>}
-    <HostLine event={event} fields={fields} projects={projects} onShowHost={onShowHost} t={t} />
+    <HostLine event={event} fields={fields} onShowHost={onShowHost} t={t} />
     {fields.has('attendees') && <AttendeesLine event={event} t={t} />}
     {fields.has('rejection') && <RejectionLine event={event} t={t} />}
     {fields.has('venue') && isHallUnlinked(event) && (
@@ -95,7 +95,7 @@ const getCardClassName = ({ status, showStatus, past, compact }) => [
 // which fields show; `context` (viewer-specific lines) and `actions` (buttons)
 // come from the page. `compact` is the smaller size used in dashboard widgets.
 // Pass `to` for a display-only card that navigates, else `onOpen(event)`.
-const EventCard = ({ event, view, to, onOpen, projects = [], onShowHost, context, actions, past = false, compact = false }) => {
+const EventCard = ({ event, view, to, onOpen, onShowHost, context, actions, past = false, compact = false }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const fields = getVisibleFields(view)
@@ -119,7 +119,7 @@ const EventCard = ({ event, view, to, onOpen, projects = [], onShowHost, context
           </h3>
           {showStatus && <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>}
         </div>
-        <CardRows event={event} fields={fields} projects={projects} onShowHost={onShowHost} t={t} />
+        <CardRows event={event} fields={fields} onShowHost={onShowHost} t={t} />
         {context && <div className="ecard-context">{context}</div>}
       </div>
       {actions && <div className="ecard-actions">{actions}</div>}
