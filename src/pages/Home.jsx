@@ -11,7 +11,6 @@ import EventCard from '../components/event/EventCard'
 import EventDetailModal from '../components/event/EventDetailModal'
 import { getAmenities } from '../services/amenities'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
-import { getProjects } from '../services/projects'
 import './Home.css'
 
 const HeroCanvas3D = lazy(() =>
@@ -65,12 +64,11 @@ const HeroCta = ({ currentUser, isAdmin, t }) => {
   )
 }
 
-const EventPreviewCard = ({ event, projects, onRegister, onOpenDetails, t }) => (
+const EventPreviewCard = ({ event, onRegister, onOpenDetails, t }) => (
   <EventCard
     event={event}
     view="member"
     onOpen={onOpenDetails}
-    projects={projects}
     actions={
       <button
         className="btn btn-primary btn-full-width"
@@ -83,12 +81,11 @@ const EventPreviewCard = ({ event, projects, onRegister, onOpenDetails, t }) => 
   />
 )
 
-const PastEventCard = ({ event, projects, currentUser, onOpenDetails, t }) => (
+const PastEventCard = ({ event, currentUser, onOpenDetails, t }) => (
   <EventCard
     event={event}
     view="member"
     onOpen={onOpenDetails}
-    projects={projects}
     past
     context={currentUser && event.attendees?.includes(currentUser.uid) && (
       <p className="ecard-note ecard-note-success">✅ {t('home.pastEventsAttended')}</p>
@@ -173,11 +170,6 @@ const Home = () => {
   const { data: approvedEvents = [] } = useQuery({
     queryKey: ['approvedEvents'],
     queryFn: getApprovedEvents
-  })
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
   })
 
   const handleBookAmenity = (amenity) => {
@@ -267,7 +259,6 @@ const Home = () => {
                 <EventPreviewCard
                   key={event.id}
                   event={event}
-                  projects={projects}
                   onRegister={handleRegisterEvent}
                   onOpenDetails={setDetailEvent}
                   t={t}
@@ -287,7 +278,6 @@ const Home = () => {
                     <PastEventCard
                       key={event.id}
                       event={event}
-                      projects={projects}
                       currentUser={currentUser}
                       onOpenDetails={setDetailEvent}
                       t={t}
@@ -329,7 +319,6 @@ const Home = () => {
           event={detailEvent}
           view="member"
           onClose={() => setDetailEvent(null)}
-          projects={projects}
         />
 
         <AmenityPhotoLightbox

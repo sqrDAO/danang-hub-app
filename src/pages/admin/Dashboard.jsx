@@ -8,7 +8,6 @@ import { getBookings, getCompletedBookingsCount } from '../../services/bookings'
 import { getEvents, getCompletedEventsCount } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
-import { getProjects } from '../../services/projects'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import '../member/Profile.css'
@@ -29,9 +28,9 @@ const getDashboardWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-const UpcomingEventItem = ({ event, projects }) => (
+const UpcomingEventItem = ({ event }) => (
   <li>
-    <EventCard event={event} view="admin" compact to="/admin/events" projects={projects} />
+    <EventCard event={event} view="admin" compact to="/admin/events" />
   </li>
 )
 
@@ -71,11 +70,6 @@ const useAdminDashboardData = () => {
     queryFn: getCompletedEventsCount
   })
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
-  })
-
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
     queryFn: getAmenities
@@ -87,7 +81,6 @@ const useAdminDashboardData = () => {
     events,
     completedBookingsCount,
     completedEventsCount,
-    projects,
     amenities,
   }
 }
@@ -104,7 +97,6 @@ const AdminDashboard = () => {
     events,
     completedBookingsCount,
     completedEventsCount,
-    projects,
     amenities,
   } = useAdminDashboardData()
 
@@ -287,7 +279,6 @@ const AdminDashboard = () => {
                   <UpcomingEventItem
                     key={event.id}
                     event={event}
-                    projects={projects}
                   />
                 ))}
               </ul>

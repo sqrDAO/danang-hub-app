@@ -9,29 +9,20 @@ import Modal from '../components/Modal'
 import Avatar from '../components/Avatar'
 import { getApprovedEvents, getUpcomingEvents } from '../services/events'
 import { getMember } from '../services/members'
-import { getProjects } from '../services/projects'
 import { formatEventDate } from '../utils/timezone'
 import './Events.css'
 import './member/Profile.css'
 
-const getHostingProjectsLabel = (hostingProjects, projects) => {
-  if (typeof hostingProjects === 'string') return hostingProjects
-  return hostingProjects.map(projectId => {
-    const project = projects.find(p => p.id === projectId)
-    return project?.name || projectId
-  }).join(', ')
-}
-
-const HostingProjectsLine = ({ hostingProjects, projects, t }) => {
+const HostingProjectsLine = ({ hostingProjects, t }) => {
   if (!hostingProjects) return null
   return (
     <p className="event-projects">
-      🏢 {t('memberEvents.hosted', { hosts: getHostingProjectsLabel(hostingProjects, projects) })}
+      🏢 {t('memberEvents.hosted', { hosts: hostingProjects })}
     </p>
   )
 }
 
-const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost, t }) => (
+const UpcomingEventInfo = ({ event, waitlistPosition, onOpenHost, t }) => (
   <div className="event-info">
     <p className="event-organizer">
       {t('publicEvents.organizerLabel')}{' '}
@@ -48,7 +39,7 @@ const UpcomingEventInfo = ({ event, projects, waitlistPosition, onOpenHost, t })
     <p className="event-capacity">
       👥 {t('memberEvents.attendees', { current: event.attendees?.length || 0, total: event.capacity || 50 })}
     </p>
-    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
+    <HostingProjectsLine hostingProjects={event.hostingProjects} t={t} />
     {event.eventLink && (
       <p className="event-link">
         🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>
@@ -216,11 +207,6 @@ const Events = () => {
     queryFn: getApprovedEvents
   })
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
-  })
-
   // On-demand fetch for the host modal. Skips loading the whole members
   // collection just to render organizer names — the event now carries those
   // denormalized fields.
@@ -337,7 +323,6 @@ const Events = () => {
                     </div>
                     <UpcomingEventInfo
                       event={event}
-                      projects={projects}
                       waitlistPosition={waitlistPosition}
                       onOpenHost={handleOpenHostModal}
                       t={t}
@@ -396,7 +381,7 @@ const Events = () => {
                     {event.duration && (
                       <p className="event-duration">⏱️ {t('memberEvents.duration', { minutes: event.duration })}</p>
                     )}
-                    <HostingProjectsLine hostingProjects={event.hostingProjects} projects={projects} t={t} />
+                    <HostingProjectsLine hostingProjects={event.hostingProjects} t={t} />
                     {event.eventLink && (
                       <p className="event-link">
                         🔗 <a href={event.eventLink} target="_blank" rel="noopener noreferrer">{t('memberEvents.eventLink')}</a>

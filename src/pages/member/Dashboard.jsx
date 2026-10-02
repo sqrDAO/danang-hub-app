@@ -9,7 +9,6 @@ import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
-import { getProjects } from '../../services/projects'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import './Profile.css'
@@ -52,7 +51,7 @@ const getMyEventStatus = (event, uid, t) => {
     : t('memberDashboard.onWaitlist')
 }
 
-const UpcomingEventItem = ({ event, currentUid, projects }) => {
+const UpcomingEventItem = ({ event, currentUid }) => {
   const { t } = useTranslation()
   const myStatus = getMyEventStatus(event, currentUid, t)
   return (
@@ -62,7 +61,6 @@ const UpcomingEventItem = ({ event, currentUid, projects }) => {
         view="member"
         compact
         to="/member/events"
-        projects={projects}
         context={myStatus && <p className="ecard-note ecard-note-accent">{myStatus}</p>}
       />
     </li>
@@ -125,11 +123,6 @@ const MemberDashboard = () => {
   const { data: events = [] } = useQuery({
     queryKey: ['upcomingEvents'],
     queryFn: () => getUpcomingEvents()
-  })
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
   })
 
   const { data: amenities = [] } = useQuery({
@@ -259,7 +252,6 @@ const MemberDashboard = () => {
                     key={event.id}
                     event={event}
                     currentUid={currentUser?.uid}
-                    projects={projects}
                   />
                 ))}
               </ul>

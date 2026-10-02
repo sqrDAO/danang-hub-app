@@ -17,7 +17,6 @@ import {
 } from '../../services/events'
 import { getMembers } from '../../services/members'
 import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
-import { getProjects } from '../../services/projects'
 import { createBooking } from '../../services/bookings'
 import { reviewEvent } from '../../services/functions'
 import { uploadEventBanner } from '../../services/storage'
@@ -182,12 +181,7 @@ const useAdminEventsData = () => {
     queryFn: getAmenities
   })
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: getProjects
-  })
-
-  return { allEvents, pendingEvents, members, amenities, projects, isLoading }
+  return { allEvents, pendingEvents, members, amenities, isLoading }
 }
 
 const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting }) => {
@@ -344,12 +338,11 @@ const EventCardActions = ({
   </div>
 )
 
-const AdminEventCard = ({ event, t, projects, onShowHost, onOpenDetails, ...actionProps }) => (
+const AdminEventCard = ({ event, t, onShowHost, onOpenDetails, ...actionProps }) => (
   <EventCard
     event={event}
     view="admin"
     onOpen={onOpenDetails}
-    projects={projects}
     onShowHost={onShowHost}
     actions={<EventCardActions event={event} t={t} {...actionProps} />}
   />
@@ -408,7 +401,7 @@ const EventDateField = ({ selectedEvent, dateError, linkAmenity, validateEventHa
   </div>
 )
 
-const HostingProjectsField = ({ selectedEvent, projects, t }) => (
+const HostingProjectsField = ({ selectedEvent, t }) => (
   <div className="form-group">
     <label className="form-label">{t('adminEvents.modal.hostingLabel')}</label>
     <input
@@ -416,12 +409,7 @@ const HostingProjectsField = ({ selectedEvent, projects, t }) => (
       name="hostingProjects"
       className="form-field"
       placeholder={t('adminEvents.modal.hostingPlaceholder')}
-      defaultValue={typeof selectedEvent?.hostingProjects === 'string'
-        ? selectedEvent.hostingProjects
-        : selectedEvent?.hostingProjects?.map(projectId => {
-            const project = projects.find(p => p.id === projectId)
-            return project?.name || projectId
-          }).join(', ') || ''}
+      defaultValue={selectedEvent?.hostingProjects ?? ''}
     />
     <small className="form-hint">{t('adminEvents.modal.hostingHint')}</small>
   </div>
@@ -484,7 +472,6 @@ const EventFormModal = ({
   bannerInputRef,
   members,
   amenities,
-  projects,
   t
 }) => (
   <Modal
@@ -559,7 +546,7 @@ const EventFormModal = ({
           {t('adminEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
         </small>
       </div>
-      <HostingProjectsField selectedEvent={selectedEvent} projects={projects} t={t} />
+      <HostingProjectsField selectedEvent={selectedEvent} t={t} />
       <div className="form-group">
         <label className="form-label">{t('adminEvents.modal.eventLinkLabel')}</label>
         <input
@@ -742,7 +729,7 @@ const AdminEvents = () => {
     return true
   }
 
-  const { allEvents, pendingEvents, members, amenities, projects, isLoading } = useAdminEventsData()
+  const { allEvents, pendingEvents, members, amenities, isLoading } = useAdminEventsData()
 
   const resetForm = () => {
     setSelectedEvent(null)
@@ -921,7 +908,6 @@ const AdminEvents = () => {
                 key={event.id}
                 event={event}
                 t={t}
-                projects={projects}
                 onShowHost={() => setHostModalMember(getOrganizer(event.organizerId))}
                 onOpenDetails={setDetailEvent}
                 onApprove={handleApprove}
@@ -959,14 +945,12 @@ const AdminEvents = () => {
           bannerInputRef={bannerInputRef}
           members={members}
           amenities={amenities}
-          projects={projects}
           t={t}
         />
 
         <EventDetailModal
           event={detailEvent}
           onClose={() => setDetailEvent(null)}
-          projects={projects}
           amenities={amenities}
           onShowHost={(organizerId) => setHostModalMember(getOrganizer(organizerId))}
           view="admin"
