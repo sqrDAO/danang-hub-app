@@ -64,6 +64,8 @@ Phase gate: for specs tagged `Phase: 1–4`, the rename IS the phase gate — do
 
 Branch off `main` per spec. Never commit to `main`; human merges PRs. Spec rename ships in the same PR as the implementation. Prefixes: `feat/` · `fix/` · `ref/` · `chore/`
 
+Issues created from weekly reviews are assigned to GitHub user `Th0dium` by default.
+
 ## Spec format
 
 `docs/backlog/todo.<slug>.md` — agent-readable, ≤ 80 lines, drop empty sections (don't pad). Required: **Goal · Files · Acceptance · Verify**. Notes optional.
