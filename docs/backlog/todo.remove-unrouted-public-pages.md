@@ -2,7 +2,7 @@
 **Phase**: — · **Deps**: —
 
 ## Goal
-`src/pages/Events.jsx` and `src/pages/Amenities.jsx` have never had a route in `App.jsx`. They are older copies of the home page's events and amenities sections, and the weekly review (#104) mistook `/events` for a live page. Delete them and everything only they use, so dead code stops reading as live behavior.
+`src/pages/Events.jsx` and `src/pages/Amenities.jsx` duplicate the home page's events and amenities sections and add nothing of their own; they also have no route in `App.jsx`, so no visitor can reach them. Delete them and everything only they use, so the redundant copies stop drifting from the live cards and reading as live behavior.
 
 ## Files
 - `src/pages/Events.jsx` (deleted) — unrouted public events page
