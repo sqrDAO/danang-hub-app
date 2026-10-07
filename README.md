@@ -283,9 +283,7 @@ src/
 │   │   └── Profile.jsx
 │   ├── auth/
 │   │   └── Login.jsx             # Sign-in, sign-up, password reset, wallet login
-│   ├── Home.jsx                  # Public homepage
-│   ├── Amenities.jsx             # Public amenities page
-│   └── Events.jsx                # Public events page
+│   └── Home.jsx                  # Public homepage
 ├── services/
 │   ├── firebase.js               # Firebase initialization
 │   ├── firebaseConfig.js         # Shared Firebase config + VAPID key

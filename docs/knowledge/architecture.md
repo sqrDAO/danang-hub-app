@@ -18,9 +18,7 @@ static structure.
 ## Route protection (two layers)
 
 <!-- TODO: ProtectedRoute (requireAdmin / requireProfileComplete) as UX layer vs
-     firestore.rules as the enforcement layer. Why client checks alone are never trusted.
-     Note: src/pages/Amenities.jsx and src/pages/Events.jsx are currently unrouted
-     (not referenced from App.jsx) — confirm dead or wire up. -->
+     firestore.rules as the enforcement layer. Why client checks alone are never trusted. -->
 
 ## Cloud Functions region pin
 
