@@ -21,6 +21,7 @@ const {
 } = require("./eventLifecycle");
 const {rangeOverlapsClosure} = require("./hubClosures");
 const {getCancellationNotice} = require("./bookingNotifications");
+const {getNewlyPromoted} = require("./waitlist");
 
 initializeApp();
 
@@ -2548,21 +2549,8 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
       const afterSnap = event.data.after;
       const after = afterSnap.data();
 
-      // A real promotion moves a uid from `waitlist` into `attendees` in the
-      // SAME write. Requiring removal from `after.waitlist` (not just prior
-      // membership in `before.waitlist`) matters because firestore.rules only
-      // restricts which *fields* a member write may touch, not which uid or
-      // by whom — a bare `attendees`-only registerForEvent write naming a uid
-      // still sitting in `waitlist` would otherwise pass this diff and fire a
-      // spoofed promotion notification at an arbitrary member.
-      const beforeAttendeeSet = new Set(before.attendees || []);
-      const beforeWaitlistSet = new Set(before.waitlist || []);
-      const afterWaitlistSet = new Set(after.waitlist || []);
-      const newlyPromoted = (after.attendees || []).filter((uid) =>
-        !beforeAttendeeSet.has(uid) &&
-        beforeWaitlistSet.has(uid) &&
-        !afterWaitlistSet.has(uid),
-      );
+      // Spoof guard lives in getNewlyPromoted (functions/waitlist.js).
+      const newlyPromoted = getNewlyPromoted(before, after);
 
       // Best-effort: a notification failure must never block the actual
       // promotion transaction below, which is the load-bearing behavior here.

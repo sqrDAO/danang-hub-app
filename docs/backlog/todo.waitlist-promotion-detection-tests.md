@@ -5,7 +5,7 @@
 `autoPromoteWaitlist` decides who was "newly promoted" with inline set logic (PR #86) that guards against spoofed notifications, but nothing in `npm test` covers it. Extract it as a pure helper and test the spoof case.
 
 ## Files
-- `functions/lib/waitlist.js` (new) — `getNewlyPromoted(before, after)` pure function
+- `functions/waitlist.js` (new) — `getNewlyPromoted(before, after)` pure function
 - `functions/index.js` (edited) — call the helper from `autoPromoteWaitlist`
 - `test/waitlist.test.js` (new) — cases below
 
