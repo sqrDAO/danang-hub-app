@@ -6,7 +6,7 @@ import {
   getHostNames,
   getAmenityName,
   isWebLink,
-  isHallUnlinked
+  getEventVenueId
 } from './eventFields'
 import OrganizerName from './OrganizerName'
 import './EventDetailModal.css'
@@ -76,21 +76,15 @@ const RejectionNotice = ({ event, t }) => {
   )
 }
 
-const getLinkedVenueText = (event, amenities, t) => {
-  if (event.linkedAmenityId) return getAmenityName(amenities, event.linkedAmenityId)
-  return isHallUnlinked(event) ? t('eventDetails.notLinked') : null
-}
-
 const AdminRow = (props) => <Fact {...props} className="event-detail-admin-row" />
 
 const VenueRows = ({ event, amenities, t }) => (
   <>
     <AdminRow
-      label={t('eventDetails.requestedVenue')}
-      value={event.requestedAmenityId ? getAmenityName(amenities, event.requestedAmenityId) : null}
+      label={t('eventDetails.venue')}
+      value={getEventVenueId(event) ? getAmenityName(amenities, getEventVenueId(event)) : null}
     />
     <AdminRow label={t('eventDetails.venueNote')} value={event.amenityNote || null} />
-    <AdminRow label={t('eventDetails.linkedVenue')} value={getLinkedVenueText(event, amenities, t)} />
   </>
 )
 

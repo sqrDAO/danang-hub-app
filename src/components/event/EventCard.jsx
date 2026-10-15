@@ -4,8 +4,7 @@ import OrganizerName from './OrganizerName'
 import {
   getVisibleFields,
   getWhenText,
-  getHostNames,
-  isHallUnlinked
+  getHostNames
 } from './eventFields'
 import './EventCard.css'
 
@@ -76,9 +75,6 @@ const CardRows = ({ event, fields, onShowHost, t }) => (
     <HostLine event={event} fields={fields} onShowHost={onShowHost} t={t} />
     {fields.has('attendees') && <AttendeesLine event={event} t={t} />}
     {fields.has('rejection') && <RejectionLine event={event} t={t} />}
-    {fields.has('venue') && isHallUnlinked(event) && (
-      <p className="ecard-row ecard-row-warning">⚠ {t('eventCard.hallNotLinked')}</p>
-    )}
     {fields.has('revision') && <RevisionLine event={event} t={t} />}
     {fields.has('description') && event.description && <p className="ecard-teaser">{event.description}</p>}
   </div>

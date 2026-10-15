@@ -13,6 +13,7 @@ import {
   arrayRemove,
   runTransaction,
   getCountFromServer,
+  deleteField,
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -308,6 +309,8 @@ export const getMyEvents = async (organizerId) => {
   }))
 }
 
+const LEGACY_VENUE_LINK_FIELDS = ['linkedAmenityId', 'linkedAmenityStartTime', 'linkedAmenityEndTime']
+
 export const updateEvent = async (id, data) => {
   if (LOCAL_DEV_MODE) return updateLocalEvent(id, data)
   const eventRef = doc(db, EVENTS_COLLECTION, id)
@@ -331,6 +334,12 @@ export const updateEvent = async (id, data) => {
       updateData.organizerPhotoURL = fetched.organizerPhotoURL
     }
   }
+
+  // Admin edits send null to drop the legacy venue link; delete the fields so
+  // the doc matches editOwnEvent's FieldValue.delete().
+  LEGACY_VENUE_LINK_FIELDS.forEach(key => {
+    if (updateData[key] === null) updateData[key] = deleteField()
+  })
 
   updateData.updatedAt = new Date().toISOString()
 
