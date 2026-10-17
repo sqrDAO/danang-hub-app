@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, isHallUnlinked } from '../src/components/event/eventFields.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, getEventVenueId, getVenuePayload } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -35,9 +35,15 @@ test('isWebLink accepts only http(s)', () => {
   assert.equal(isWebLink(undefined), false)
 })
 
-test('isHallUnlinked only when pending, requested and not linked', () => {
-  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h' }), true)
-  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h', linkedAmenityId: 'h' }), false)
-  assert.equal(isHallUnlinked({ status: 'rejected', requestedAmenityId: 'h' }), false)
-  assert.equal(isHallUnlinked({ status: 'pending' }), false)
+test('getEventVenueId prefers a legacy link, falls back to the venue field', () => {
+  assert.equal(getEventVenueId({ requestedAmenityId: 'r', linkedAmenityId: 'l' }), 'l')
+  assert.equal(getEventVenueId({ requestedAmenityId: 'r' }), 'r')
+  assert.equal(getEventVenueId({ requestedAmenityId: '' }), '')
+  assert.equal(getEventVenueId(null), '')
+})
+
+test('getVenuePayload clears both venue fields when unticked', () => {
+  const form = new Map([['linkedAmenityId', 'hall'], ['amenityNote', 'mic']])
+  assert.deepEqual(getVenuePayload(form, true), { requestedAmenityId: 'hall', amenityNote: 'mic' })
+  assert.deepEqual(getVenuePayload(form, false), { requestedAmenityId: '', amenityNote: '' })
 })

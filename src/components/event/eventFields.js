@@ -45,7 +45,21 @@ export const getAmenityName = (amenities, amenityId) =>
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
 
-// Approval links the hall or fails, and rejection unlinks it, so only a
-// pending event can be waiting on a link.
-export const isHallUnlinked = (event) =>
-  event.status === 'pending' && Boolean(event.requestedAmenityId) && !event.linkedAmenityId
+// An event's venue is `requestedAmenityId`. Events approved before bookings were
+// dropped may still carry `linkedAmenityId` (cleared on their next edit), and
+// there it is the venue ops agreed to.
+export const getEventVenueId = (event) => event?.linkedAmenityId || event?.requestedAmenityId || ''
+
+// Both roles write the venue the same way, so either form reads it back.
+export const getVenuePayload = (formData, linkAmenity) => ({
+  requestedAmenityId: linkAmenity ? formData.get('linkedAmenityId') || '' : '',
+  amenityNote: linkAmenity ? formData.get('amenityNote') || '' : ''
+})
+
+export const getEventSpaces = (amenities) =>
+  amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'event-space')
+
+export const getDefaultEventSpace = (amenities) => {
+  const eventSpaces = getEventSpaces(amenities)
+  return eventSpaces.find(amenity => /event hall|event space|main hall/i.test(amenity.name)) || eventSpaces[0]
+}

@@ -16,8 +16,7 @@ const nacl = require("tweetnacl");
 const bs58 = require("bs58");
 const nodemailer = require("nodemailer");
 const {
-  getRevision, normalizeEditPayload, getBookingWindow,
-  getNotificationSubjectId, getEventSpaceValidationError,
+  getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
 const {rangeOverlapsClosure} = require("./hubClosures");
 const {getCancellationNotice} = require("./bookingNotifications");
@@ -186,12 +185,10 @@ function isWithinBusinessHours(startTime, endTime) {
  * @param {string} params.startTime ISO string
  * @param {string} params.endTime ISO string
  * @param {string} [params.excludeBookingId] Booking id to ignore (e.g. self)
- * @param {object} [params.tx] Transaction to read through, so the query joins
- *   the caller's transaction instead of reading outside it
  * @return {Promise<{hasConflicts: boolean, conflicts: Array}>}
  */
 async function computeBookingAvailability({
-  amenityId, amenity, startTime, endTime, excludeBookingId, tx,
+  amenityId, amenity, startTime, endTime, excludeBookingId,
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
@@ -205,8 +202,7 @@ async function computeBookingAvailability({
       .where("amenityId", "==", amenityId)
       .where("status", "in", ["pending", "approved", "checked-in"]);
 
-  const snapshot = tx ?
-    await tx.get(bookingsQuery) : await bookingsQuery.get();
+  const snapshot = await bookingsQuery.get();
   const conflicts = [];
   const newStart = new Date(startTime);
   const newEnd = new Date(endTime);
@@ -335,38 +331,8 @@ const requireAdmin = async (uid) => {
   }
 };
 
-// reviewEvent's pre-transaction availability check is only a fast-fail: two
-// concurrent approvals can both pass it. Re-reading the slot inside the
-// transaction makes the second one retry and see the first one's booking.
-const assertEventSlotFree = async (tx, amenityId, window) => {
-  const amenitySnap = await tx.get(db.collection("amenities").doc(amenityId));
-  if (!amenitySnap.exists) {
-    throw new HttpsError(
-        "failed-precondition", "Requested amenity no longer exists.");
-  }
-  const {hasConflicts} = await computeBookingAvailability({
-    amenityId,
-    amenity: amenitySnap.data(),
-    startTime: window.startTime.toISOString(),
-    endTime: window.endTime.toISOString(),
-    tx,
-  });
-  if (hasConflicts) {
-    throw new HttpsError(
-        "failed-precondition",
-        "The requested Event Hall time is no longer available.");
-  }
-};
-
-const getActiveEventBookings = (snapshot) => snapshot.docs.filter((doc) => {
-  const status = doc.data().status;
-  return status === "pending" || status === "approved" ||
-      status === "checked-in";
-});
-
-// Organizer content writes go through this callable so the status transition,
-// revision check, and linked Event Hall cleanup are one server-authorized
-// action.
+// Organizer content writes go through this callable so the status transition
+// and revision check are one server-authorized action.
 exports.editOwnEvent = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated.");
@@ -416,21 +382,11 @@ exports.editOwnEvent = onCall(async (request) => {
         update.rejectionReason = FieldValue.delete();
       }
       if (event.status === "approved") update.everApproved = true;
-
-      if (event.status === "approved") {
-        const bookingQuery = db.collection("bookings")
-            .where("eventId", "==", eventId);
-        const bookingSnapshot = await tx.get(bookingQuery);
-        getActiveEventBookings(bookingSnapshot).forEach((booking) => {
-          tx.update(booking.ref, {
-            status: "cancelled",
-            updatedAt: new Date().toISOString(),
-          });
-        });
-        update.linkedAmenityId = FieldValue.delete();
-        update.linkedAmenityStartTime = FieldValue.delete();
-        update.linkedAmenityEndTime = FieldValue.delete();
-      }
+      // Events no longer book the hall; drop the legacy link so the venue in
+      // requestedAmenityId is the only one left.
+      update.linkedAmenityId = FieldValue.delete();
+      update.linkedAmenityStartTime = FieldValue.delete();
+      update.linkedAmenityEndTime = FieldValue.delete();
 
       tx.update(eventRef, update);
       return {
@@ -445,8 +401,8 @@ exports.editOwnEvent = onCall(async (request) => {
   }
 });
 
-// Approval/rejection is a server-side transaction so Event Hall bookings cannot
-// be best-effort follow-up writes after the event status has changed.
+// Approval/rejection only changes status: events reach the Hub after ops and
+// the organizer agree, so there is no Event Hall booking to create or cancel.
 exports.reviewEvent = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated.");
@@ -461,49 +417,6 @@ exports.reviewEvent = onCall(async (request) => {
   try {
     await requireAdmin(request.auth.uid);
     const eventRef = db.collection("events").doc(eventId);
-    const initial = await eventRef.get();
-    if (!initial.exists) {
-      throw new HttpsError("not-found", "Event not found.");
-    }
-    const initialData = initial.data();
-    const initialRevision = getRevision(initialData);
-    if (expectedRevision !== initialRevision) {
-      throw new HttpsError(
-          "aborted", "This event changed. Refresh and try again.");
-    }
-
-    if (action === "approved" && initialData.requestedAmenityId) {
-      const initialDate = initialData.date.toDate();
-      const window = getBookingWindow(
-          initialDate, initialData.duration || 60);
-      const amenitySnap = await db.collection("amenities")
-          .doc(initialData.requestedAmenityId).get();
-      if (!amenitySnap.exists) {
-        throw new HttpsError(
-            "failed-precondition", "Requested amenity no longer exists.");
-      }
-      const amenity = amenitySnap.data();
-      const eventSpaceError = getEventSpaceValidationError({
-        eventDate: initialDate,
-        duration: initialData.duration || 60,
-        amenity,
-      });
-      if (eventSpaceError) {
-        throw new HttpsError("failed-precondition", eventSpaceError);
-      }
-      const availability = await computeBookingAvailability({
-        amenityId: initialData.requestedAmenityId,
-        amenity,
-        startTime: window.startTime.toISOString(),
-        endTime: window.endTime.toISOString(),
-      });
-      if (availability.hasConflicts) {
-        throw new HttpsError(
-            "failed-precondition",
-            "The requested Event Hall time is no longer available.");
-      }
-    }
-
     return await db.runTransaction(async (tx) => {
       const eventSnap = await tx.get(eventRef);
       if (!eventSnap.exists) {
@@ -516,8 +429,7 @@ exports.reviewEvent = onCall(async (request) => {
             "aborted", "This event changed. Refresh and try again.");
       }
 
-      const eventDate = event.date.toDate();
-      if (eventDate <= new Date()) {
+      if (event.date.toDate() <= new Date()) {
         throw new HttpsError(
             "failed-precondition", "Past events cannot be reviewed.");
       }
@@ -531,51 +443,17 @@ exports.reviewEvent = onCall(async (request) => {
             "failed-precondition", "This event cannot be rejected.");
       }
 
-      const bookingQuery = db.collection("bookings")
-          .where("eventId", "==", eventId);
-      const bookingSnapshot = await tx.get(bookingQuery);
-      const activeBookings = getActiveEventBookings(bookingSnapshot);
       const update = {status: action, updatedAt: new Date().toISOString()};
-
       if (action === "approved") {
         update.approvedAt = new Date().toISOString();
         update.approvedRevision = revision;
         update.everApproved = true;
         update.rejectedAt = FieldValue.delete();
         update.rejectionReason = FieldValue.delete();
-        if (event.requestedAmenityId) {
-          const window = getBookingWindow(eventDate, event.duration || 60);
-          const existing = activeBookings[0];
-          if (!existing) {
-            await assertEventSlotFree(tx, event.requestedAmenityId, window);
-            const bookingRef = db.collection("bookings").doc();
-            tx.create(bookingRef, {
-              memberId: event.organizerId,
-              amenityId: event.requestedAmenityId,
-              startTime: Timestamp.fromDate(window.startTime),
-              endTime: Timestamp.fromDate(window.endTime),
-              eventId,
-              status: "approved",
-              createdAt: new Date().toISOString(),
-            });
-          }
-          update.linkedAmenityId = event.requestedAmenityId;
-          update.linkedAmenityStartTime = window.startTime.toISOString();
-          update.linkedAmenityEndTime = window.endTime.toISOString();
-        }
       } else {
-        getActiveEventBookings(bookingSnapshot).forEach((booking) => {
-          tx.update(booking.ref, {
-            status: "cancelled",
-            updatedAt: new Date().toISOString(),
-          });
-        });
         update.rejectionReason = typeof reason === "string" ?
           reason.trim() : "";
         update.rejectedAt = new Date().toISOString();
-        update.linkedAmenityId = FieldValue.delete();
-        update.linkedAmenityStartTime = FieldValue.delete();
-        update.linkedAmenityEndTime = FieldValue.delete();
       }
       tx.update(eventRef, update);
       return {eventId, status: action, revision};

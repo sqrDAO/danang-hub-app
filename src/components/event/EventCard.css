@@ -126,10 +126,6 @@
   color: var(--color-error);
 }
 
-.ecard-row-warning {
-  color: var(--color-warning);
-}
-
 .ecard-row-muted {
   font-style: italic;
 }
