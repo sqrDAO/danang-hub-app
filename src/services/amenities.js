@@ -10,8 +10,7 @@ import {
   orderBy
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { getHubDayOfWeek, parseHubDateTime, toDatetimeLocalHub } from '../utils/timezone'
-import { getHubClosure } from '../utils/hubClosures'
+import { EVENT_SPACE_AVAILABILITY } from '../utils/eventSpaceHours'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import {
   createLocalAmenity,
@@ -62,17 +61,6 @@ export const DEFAULT_AVAILABILITY = {
   timezone: 'Asia/Ho_Chi_Minh'
 }
 
-// Event spaces: after 6 PM on weekdays, 9 AM–10 PM on weekends
-export const EVENT_SPACE_AVAILABILITY = {
-  isAvailable: true,
-  startHour: 9,          // Weekend start: 9 AM
-  weekdayStartHour: 18,  // Weekday start: 6 PM (after office hours)
-  endHour: 22,           // All days end: 10 PM
-  availableDays: [0, 1, 2, 3, 4, 5, 6],
-  slotDuration: 60,
-  timezone: 'Asia/Ho_Chi_Minh'
-}
-
 export const getDefaultAvailability = (type) =>
   type === 'event-space' ? EVENT_SPACE_AVAILABILITY : DEFAULT_AVAILABILITY
 
@@ -99,43 +87,6 @@ export const getDayAvailability = (dayOfWeek, amenity) => {
   }
 }
 
-
-// Fractional hour-of-day on the hub clock, e.g. 18:30 -> 18.5
-const getHubHourOfDay = (date) => {
-  const timePart = toDatetimeLocalHub(date).split('T')[1] || '00:00'
-  const [hours, minutes] = timePart.split(':').map(Number)
-  return hours + minutes / 60
-}
-
-// Translation key for an event-space slot that falls outside opening hours.
-const getEventSpaceHoursError = (startHour, endHour, isWeekend) => {
-  if (!isWeekend && startHour < EVENT_SPACE_AVAILABILITY.weekdayStartHour) {
-    return 'memberEvents.modal.weekdayHoursError'
-  }
-  if (isWeekend && startHour < EVENT_SPACE_AVAILABILITY.startHour) {
-    return 'memberEvents.modal.weekendHoursError'
-  }
-  if (endHour > EVENT_SPACE_AVAILABILITY.endHour) {
-    return 'memberEvents.modal.endTimeError'
-  }
-  return null
-}
-
-// Returns a translation key if the date/duration violates event-space hours, null if valid.
-export const validateEventSpaceTime = (dateValue, durationMinutes = 60) => {
-  if (!dateValue) return null
-  const date = parseHubDateTime(dateValue)
-  if (Number.isNaN(date.getTime())) return null
-
-  // A Hub closure outranks the hour rules: no start time on that day is valid.
-  if (getHubClosure(date)) return 'memberEvents.modal.hubClosedError'
-
-  const dayOfWeek = getHubDayOfWeek(date)
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-  const startHour = getHubHourOfDay(date)
-
-  return getEventSpaceHoursError(startHour, startHour + durationMinutes / 60, isWeekend)
-}
 
 export const createAmenity = async (data) => {
   if (LOCAL_DEV_MODE) return createLocalAmenity(data)

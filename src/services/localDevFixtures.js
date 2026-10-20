@@ -40,34 +40,6 @@ const hubDateTime = (daysAhead, hour, minute = 0) =>
 const officeDateTime = (officeDaysAhead, hour, minute = 0) =>
   makeHubDateAtTime(addOfficeDays(new Date(), officeDaysAhead), hour, minute)
 
-const eventEndTime = (event) =>
-  new Date(event.date.getTime() + (event.duration || 60) * 60 * 1000)
-
-// Event Hall is never a standalone amenity booking. Approval writes one
-// linked booking (memberId = organizer, amenityId = requested hall).
-const linkedHallBooking = (event, id, status = 'approved') => ({
-  id,
-  memberId: event.organizerId,
-  amenityId: event.requestedAmenityId,
-  eventId: event.id,
-  startTime: event.date,
-  endTime: eventEndTime(event),
-  status,
-  createdAt: new Date().toISOString()
-})
-
-const hallBookingsForApprovedEvents = (events) =>
-  events
-    .filter((event) => event.status === 'approved' && event.requestedAmenityId)
-    .map((event) => {
-      const past = event.date.getTime() < Date.now()
-      return linkedHallBooking(
-        event,
-        `local-hall-${event.id}`,
-        past ? 'completed' : 'approved'
-      )
-    })
-
 const officeAmenity = (id, fields) => ({
   isAvailable: true,
   startHour: 9,
@@ -230,7 +202,6 @@ export const buildLocalDevEvents = () => [
     capacity: 30,
     requestedAmenityId: 'local-hall',
     hostingProjects: 'Da Nang Blockchain Hub',
-    linkedAmenityId: 'local-hall',
     eventLink: 'https://example.com/web3-builders-demo-day'
   },
   // Upcoming Approved Event hosted by Alice Nguyen (user can register/test host profile modal)
@@ -267,7 +238,6 @@ export const buildLocalDevEvents = () => [
     capacity: 25,
     requestedAmenityId: 'local-hall',
     hostingProjects: 'SuperteamVN, PayStream Protocol',
-    linkedAmenityId: 'local-hall',
     eventLink: 'https://example.com/ai-agents-smart-contracts-workshop'
   },
   // Pending Event submitted by Bob Tran (for testing admin review / approval / rejection)
@@ -337,13 +307,11 @@ export const buildLocalDevEvents = () => [
     duration: 120,
     capacity: 40,
     requestedAmenityId: 'local-hall',
-    hostingProjects: 'Da Nang Blockchain Hub',
-    linkedAmenityId: 'local-hall'
+    hostingProjects: 'Da Nang Blockchain Hub'
   }
 ]
 
 export const buildLocalDevBookings = () => [
-  ...hallBookingsForApprovedEvents(buildLocalDevEvents()),
   // This office day: Approved Meeting Room booking for Local Dev
   {
     id: 'local-booking-1',

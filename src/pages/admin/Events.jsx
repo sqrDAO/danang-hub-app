@@ -7,6 +7,9 @@ import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
 import EventCard from '../../components/event/EventCard'
+import EventFormModal from '../../components/event/EventFormModal'
+import { getEventVenueId, getEventFormPayload } from '../../components/event/eventFields'
+import { useEventHallCheck } from '../../components/event/useEventHallCheck'
 import {
   getEvents,
   getPendingEvents,
@@ -16,17 +19,14 @@ import {
   promoteFromWaitlist
 } from '../../services/events'
 import { getMembers } from '../../services/members'
-import { getAmenities, validateEventSpaceTime } from '../../services/amenities'
-import { createBooking } from '../../services/bookings'
+import { getAmenities } from '../../services/amenities'
 import { reviewEvent } from '../../services/functions'
 import { uploadEventBanner } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
-import { parseHubDateTime, toDatetimeLocalHub } from '../../utils/timezone'
+import { parseHubDateTime } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
-
-const MAX_EVENT_CAPACITY = 50
 
 // Admin event management ("view all" intent): ±365 day window.
 const getAdminEventsWindow = () => {
@@ -39,92 +39,23 @@ const getAdminEventsWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-const buildBaseEventData = (formData, eventDate) => {
-  const rawCapacity = parseInt(formData.get('capacity'), 10)
-  const capacity = Number.isNaN(rawCapacity)
-    ? MAX_EVENT_CAPACITY
-    : Math.min(Math.max(rawCapacity, 1), MAX_EVENT_CAPACITY)
-
-  return {
-    title: formData.get('title'),
-    description: formData.get('description'),
-    date: eventDate.toISOString(),
-    capacity,
-    duration: parseInt(formData.get('duration')) || 60, // Duration in minutes
-    organizerId: formData.get('organizerId'),
-    waitlist: []
-  }
-}
-
 // On create, pre-fill denormalized organizer fields from the already-loaded
 // members list so createEvent doesn't need to round-trip Firestore. On
 // update, leave them off — updateEvent re-fetches when organizerId changes.
-const applyOrganizerDenorm = (data, members, isCreateMode) => {
-  if (!isCreateMode || !data.organizerId) return
+const applyOrganizerDenorm = (data, members) => {
   const organizer = members.find(m => m.id === data.organizerId)
   if (!organizer) return
   data.organizerDisplayName = organizer.displayName || null
   data.organizerPhotoURL = organizer.photoURL || null
 }
 
-const applyOptionalFields = (data, formData) => {
-  // Handle hosting projects (text input)
-  const hostingProjects = formData.get('hostingProjects')
-  if (hostingProjects && hostingProjects.trim()) {
-    data.hostingProjects = hostingProjects.trim()
-  }
-
-  // Optional event link
-  const eventLink = formData.get('eventLink')
-  if (eventLink && eventLink.trim()) {
-    data.eventLink = eventLink.trim()
-  }
-}
-
-// Handle amenity linking
-const applyAmenityLink = (data, eventDate, linkedAmenityId) => {
-  const duration = data.duration || 60
-  const startTime = new Date(eventDate)
-  startTime.setHours(startTime.getHours() - 1) // 1 hour before event
-  const endTime = new Date(eventDate)
-  endTime.setMinutes(endTime.getMinutes() + duration + 60) // Duration + 1 hour buffer after event
-
-  data.linkedAmenityId = linkedAmenityId
-  data.linkedAmenityStartTime = startTime.toISOString()
-  data.linkedAmenityEndTime = endTime.toISOString()
-}
-
-const buildEventData = ({ formData, eventDate, isCreateMode, members, linkAmenity, linkedAmenityId }) => {
-  const data = buildBaseEventData(formData, eventDate)
-  applyOrganizerDenorm(data, members, isCreateMode)
-  applyOptionalFields(data, formData)
-  if (linkAmenity && linkedAmenityId) {
-    applyAmenityLink(data, eventDate, linkedAmenityId)
+const buildEventData = ({ formData, eventDate, isCreateMode, members, linkAmenity }) => {
+  const data = { ...getEventFormPayload(formData, eventDate, linkAmenity), organizerId: formData.get('organizerId') }
+  if (isCreateMode) {
+    data.waitlist = []
+    applyOrganizerDenorm(data, members)
   }
   return data
-}
-
-const createEventWithBooking = async (data, t) => {
-  const eventId = await createEvent({ ...data, status: 'approved' })
-
-  // If amenity is linked, create booking
-  if (data.linkedAmenityId && data.linkedAmenityStartTime && data.linkedAmenityEndTime) {
-    try {
-      await createBooking({
-        memberId: data.organizerId,
-        amenityId: data.linkedAmenityId,
-        startTime: data.linkedAmenityStartTime,
-        endTime: data.linkedAmenityEndTime,
-        eventId: eventId,
-        status: 'approved'
-      })
-    } catch (error) {
-      console.error('Failed to create linked amenity booking:', error)
-      showToast(t('toast.eventCreatedWithLinkError'), 'warning')
-    }
-  }
-
-  return eventId
 }
 
 const submitCreateEvent = async (data, ctx) => {
@@ -200,9 +131,9 @@ const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting 
   }
 
   const createMutation = useMutation({
-    mutationFn: (data) => createEventWithBooking(data, t),
+    mutationFn: (data) => createEvent({ ...data, status: 'approved' }),
     onSuccess: () => {
-      invalidate('events', 'pendingEvents', 'approvedEvents', 'upcomingEvents', 'myEvents', 'bookings')
+      invalidate('events', 'pendingEvents', 'approvedEvents', 'upcomingEvents', 'myEvents')
       closeFormWithToast('toast.eventCreated')
     },
     onError: () => failSubmitWithToast('toast.eventCreateFailed')
@@ -220,7 +151,7 @@ const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting 
   const approveMutation = useMutation({
     mutationFn: (payload) => reviewEvent({ ...payload, action: 'approved' }),
     onSuccess: () => {
-      invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents', 'bookings')
+      invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents')
       showToast(t('toast.eventApproved'), 'success')
     },
     onError: () => {
@@ -231,7 +162,7 @@ const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting 
   const rejectMutation = useMutation({
     mutationFn: (payload) => reviewEvent({ ...payload, action: 'rejected' }),
     onSuccess: () => {
-      invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents', 'bookings')
+      invalidate('events', 'pendingEvents', 'approvedEvents', 'myEvents', 'upcomingEvents')
       showToast(t('toast.eventRejected'), 'info')
     },
     onError: () => {
@@ -348,252 +279,6 @@ const AdminEventCard = ({ event, t, onShowHost, onOpenDetails, ...actionProps })
   />
 )
 
-const EventBannerField = ({ isCreateMode, selectedEvent, bannerInputRef, t }) => (
-  <div className="form-group">
-    <label className="form-label">
-      {t('adminEvents.modal.bannerLabel')} {isCreateMode && <span className="form-required">*</span>}
-    </label>
-    <div className="event-banner-upload">
-      <input
-        ref={bannerInputRef}
-        type="file"
-        name="banner"
-        id="event-banner-input"
-        className="event-banner-input"
-        accept="image/jpeg,image/jpg,image/png,image/webp"
-        required={isCreateMode}
-        aria-required={isCreateMode}
-      />
-      <span className="event-banner-upload-label">
-        {isCreateMode ? t('adminEvents.modal.bannerUploadCreate') : t('adminEvents.modal.bannerUploadEdit')}
-      </span>
-    </div>
-    {isCreateMode ? (
-      <small className="form-hint">{t('adminEvents.modal.bannerHintRequired')}</small>
-    ) : selectedEvent?.bannerUrl ? (
-      <div className="event-banner-preview">
-        <img src={selectedEvent.bannerUrl} alt={t('adminEvents.modal.currentBanner')} />
-        <small className="form-hint">{t('adminEvents.modal.bannerHintReplace')}</small>
-      </div>
-    ) : (
-      <small className="form-hint">{t('adminEvents.modal.bannerHintOptional')}</small>
-    )}
-  </div>
-)
-
-const EventDateField = ({ selectedEvent, dateError, linkAmenity, validateEventHallDate, t }) => (
-  <div className="form-group">
-    <label className="form-label">{t('adminEvents.modal.dateTimeLabel')}</label>
-    <input
-      type="datetime-local"
-      name="date"
-      className={`form-field ${dateError ? 'form-field-error' : ''}`}
-      defaultValue={selectedEvent?.date ? toDatetimeLocalHub(selectedEvent.date) : ''}
-      onChange={(e) => validateEventHallDate(e.target.value)}
-      required
-    />
-    {linkAmenity && (
-      <small className="form-hint">{t('memberEvents.modal.availabilityHint')}</small>
-    )}
-    {dateError && (
-      <p className="form-error">{dateError}</p>
-    )}
-  </div>
-)
-
-const HostingProjectsField = ({ selectedEvent, t }) => (
-  <div className="form-group">
-    <label className="form-label">{t('adminEvents.modal.hostingLabel')}</label>
-    <input
-      type="text"
-      name="hostingProjects"
-      className="form-field"
-      placeholder={t('adminEvents.modal.hostingPlaceholder')}
-      defaultValue={selectedEvent?.hostingProjects ?? ''}
-    />
-    <small className="form-hint">{t('adminEvents.modal.hostingHint')}</small>
-  </div>
-)
-
-const AmenityLinkSection = ({ isCreateMode, linkAmenity, setLinkAmenity, selectedEvent, amenities, t }) => (
-  <>
-    <div className="form-group">
-      <label className="form-checkbox">
-        <input
-          type="checkbox"
-          checked={isCreateMode ? true : linkAmenity}
-          disabled={isCreateMode}
-          readOnly={isCreateMode}
-          onChange={(e) => !isCreateMode && setLinkAmenity(e.target.checked)}
-        />
-        <span>{t('adminEvents.modal.linkAmenity')}</span>
-      </label>
-    </div>
-    {(linkAmenity || isCreateMode) && (() => {
-      const eventSpaceAmenities = amenities.filter(a => a.isAvailable !== false && a.type === 'event-space')
-      const defaultEventHallId = eventSpaceAmenities.find(a => /event hall|event space|main hall/i.test(a.name))?.id || eventSpaceAmenities[0]?.id
-      const selectDefaultValue = selectedEvent?.linkedAmenityId || defaultEventHallId || ''
-      return (
-      <>
-        <div className="event-hall-notice">
-          <p><strong>{t('adminEvents.modal.eventHallNotice')}</strong> {t('adminEvents.modal.parkingFeeRequirement')}</p>
-        </div>
-        <div className="form-group">
-          <label className="form-label">{t('adminEvents.modal.amenityLabel')}</label>
-          <select name="linkedAmenityId" className="form-field" defaultValue={selectDefaultValue}>
-            <option value="">{t('adminEvents.modal.amenityPlaceholder')}</option>
-            {eventSpaceAmenities.map(amenity => (
-              <option key={amenity.id} value={amenity.id}>
-                {amenity.name}
-              </option>
-            ))}
-          </select>
-          <small className="form-hint">{t('adminEvents.modal.amenityHint')}</small>
-        </div>
-      </>
-      )
-    })()}
-  </>
-)
-
-const EventFormModal = ({
-  isOpen,
-  onClose,
-  isCreateMode,
-  selectedEvent,
-  onSubmit,
-  isSubmitting,
-  dateError,
-  linkAmenity,
-  setLinkAmenity,
-  eventDuration,
-  setEventDuration,
-  validateEventHallDate,
-  bannerInputRef,
-  members,
-  amenities,
-  t
-}) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title={isCreateMode ? t('adminEvents.modal.createTitle') : t('adminEvents.modal.editTitle')}
-  >
-    <form onSubmit={onSubmit}>
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.titleLabel')}</label>
-        <input
-          type="text"
-          name="title"
-          className="form-field"
-          defaultValue={selectedEvent?.title || ''}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.descriptionLabel')} <span className="form-required">*</span></label>
-        <textarea
-          name="description"
-          className="form-field"
-          defaultValue={selectedEvent?.description || ''}
-          rows="3"
-          required
-          aria-required
-        />
-      </div>
-      <EventBannerField
-        isCreateMode={isCreateMode}
-        selectedEvent={selectedEvent}
-        bannerInputRef={bannerInputRef}
-        t={t}
-      />
-      <EventDateField
-        selectedEvent={selectedEvent}
-        dateError={dateError}
-        linkAmenity={linkAmenity}
-        validateEventHallDate={validateEventHallDate}
-        t={t}
-      />
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.durationLabel')}</label>
-        <input
-          type="number"
-          name="duration"
-          className="form-field"
-          placeholder={t('adminEvents.modal.durationPlaceholder')}
-          value={eventDuration}
-          onChange={(e) => {
-            const mins = parseInt(e.target.value) || 60
-            setEventDuration(mins)
-          }}
-          min="15"
-          step="15"
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.capacityLabel')}</label>
-        <input
-          type="number"
-          name="capacity"
-          className="form-field"
-          defaultValue={selectedEvent?.capacity || MAX_EVENT_CAPACITY}
-          min="1"
-          max={MAX_EVENT_CAPACITY}
-          required
-        />
-        <small className="form-hint">
-          {t('adminEvents.modal.capacityHint', { max: MAX_EVENT_CAPACITY })}
-        </small>
-      </div>
-      <HostingProjectsField selectedEvent={selectedEvent} t={t} />
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.eventLinkLabel')}</label>
-        <input
-          type="url"
-          name="eventLink"
-          className="form-field"
-          placeholder={t('adminEvents.modal.eventLinkPlaceholder')}
-          defaultValue={selectedEvent?.eventLink || ''}
-        />
-        <small className="form-hint">{t('adminEvents.modal.eventLinkHint')}</small>
-      </div>
-      <div className="form-group">
-        <label className="form-label">{t('adminEvents.modal.organizerLabel')}</label>
-        <select name="organizerId" className="form-field" defaultValue={selectedEvent?.organizerId || ''} required>
-          <option value="">{t('adminEvents.modal.organizerPlaceholder')}</option>
-          {members.map(member => (
-            <option key={member.id} value={member.id}>
-              {member.displayName || member.email}
-            </option>
-          ))}
-        </select>
-      </div>
-      <AmenityLinkSection
-        isCreateMode={isCreateMode}
-        linkAmenity={linkAmenity}
-        setLinkAmenity={setLinkAmenity}
-        selectedEvent={selectedEvent}
-        amenities={amenities}
-        t={t}
-      />
-      <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? t('common.saving') : isCreateMode ? t('common.create') : t('common.save')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={isSubmitting}
-          onClick={onClose}
-        >
-          {t('common.cancel')}
-        </button>
-      </div>
-    </form>
-  </Modal>
-)
-
 const HostProfileHeader = ({ member }) => {
   const { t } = useTranslation()
   return (
@@ -708,35 +393,19 @@ const AdminEvents = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateMode, setIsCreateMode] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const [linkAmenity, setLinkAmenity] = useState(false)
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [dateError, setDateError] = useState(null)
-  const [eventDuration, setEventDuration] = useState(60)
   const bannerInputRef = useRef(null)
-
-  const validateEventHallDate = (dateValue, durationMinutes = eventDuration) => {
-    if (!linkAmenity || !dateValue) {
-      setDateError(null)
-      return true
-    }
-    const errorKey = validateEventSpaceTime(dateValue, durationMinutes)
-    if (errorKey) {
-      setDateError(t(errorKey))
-      return false
-    }
-    setDateError(null)
-    return true
-  }
-
   const { allEvents, pendingEvents, members, amenities, isLoading } = useAdminEventsData()
+  const {
+    linkAmenity, eventDuration, dateError,
+    checkEventHall, setEventHallRequest, changeEventDuration, resetEventHallCheck
+  } = useEventHallCheck(t, amenities)
 
   const resetForm = () => {
     setSelectedEvent(null)
     setIsCreateMode(true)
-    setLinkAmenity(false)
-    setDateError(null)
-    setEventDuration(60)
+    resetEventHallCheck()
     if (bannerInputRef.current) {
       bannerInputRef.current.value = ''
     }
@@ -754,18 +423,14 @@ const AdminEvents = () => {
   const handleCreate = () => {
     setIsCreateMode(true)
     setSelectedEvent(null)
-    setLinkAmenity(true)
-    setDateError(null)
-    setEventDuration(60)
+    resetEventHallCheck(true)
     setIsModalOpen(true)
   }
 
   const handleEdit = (event) => {
     setIsCreateMode(false)
     setSelectedEvent(event)
-    setLinkAmenity(!!event.linkedAmenityId)
-    setDateError(null)
-    setEventDuration(event.duration || 60)
+    resetEventHallCheck(Boolean(getEventVenueId(event)), event.duration || 60)
     setIsModalOpen(true)
   }
 
@@ -816,18 +481,14 @@ const AdminEvents = () => {
     if (isSubmitting) return
     setIsSubmitting(true)
     const formData = new FormData(e.target)
-    const linkedAmenityId = formData.get('linkedAmenityId')
     const eventDate = parseHubDateTime(formData.get('date'))
 
-    if (linkAmenity && linkedAmenityId) {
-      const duration = parseInt(formData.get('duration')) || 60
-      if (!validateEventHallDate(formData.get('date'), duration)) {
-        setIsSubmitting(false)
-        return
-      }
+    if (!checkEventHall(e.target)) {
+      setIsSubmitting(false)
+      return
     }
 
-    const data = buildEventData({ formData, eventDate, isCreateMode, members, linkAmenity, linkedAmenityId })
+    const data = buildEventData({ formData, eventDate, isCreateMode, members, linkAmenity })
     const ctx = { bannerInputRef, t, setIsSubmitting, createMutation, updateMutation, selectedEvent }
 
     if (isCreateMode) {
@@ -927,24 +588,25 @@ const AdminEvents = () => {
         </div>
 
         <EventFormModal
-          isOpen={isModalOpen}
-          onClose={() => {
+          isModalOpen={isModalOpen}
+          editingEvent={selectedEvent}
+          linkAmenity={linkAmenity}
+          prefillAmenityId={null}
+          amenities={amenities}
+          members={members}
+          isAdmin
+          dateError={dateError}
+          eventDuration={eventDuration}
+          changeEventDuration={changeEventDuration}
+          checkEventHall={checkEventHall}
+          bannerInputRef={bannerInputRef}
+          isSubmitting={isSubmitting}
+          setEventHallRequest={setEventHallRequest}
+          resetEventModal={() => {
             setIsModalOpen(false)
             resetForm()
           }}
-          isCreateMode={isCreateMode}
-          selectedEvent={selectedEvent}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          dateError={dateError}
-          linkAmenity={linkAmenity}
-          setLinkAmenity={setLinkAmenity}
-          eventDuration={eventDuration}
-          setEventDuration={setEventDuration}
-          validateEventHallDate={validateEventHallDate}
-          bannerInputRef={bannerInputRef}
-          members={members}
-          amenities={amenities}
+          handleSubmit={handleSubmit}
           t={t}
         />
 

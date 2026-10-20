@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, isHallUnlinked } from '../src/components/event/eventFields.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, getEventVenueId, getVenuePayload, getEventFormPayload } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -35,9 +35,25 @@ test('isWebLink accepts only http(s)', () => {
   assert.equal(isWebLink(undefined), false)
 })
 
-test('isHallUnlinked only when pending, requested and not linked', () => {
-  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h' }), true)
-  assert.equal(isHallUnlinked({ status: 'pending', requestedAmenityId: 'h', linkedAmenityId: 'h' }), false)
-  assert.equal(isHallUnlinked({ status: 'rejected', requestedAmenityId: 'h' }), false)
-  assert.equal(isHallUnlinked({ status: 'pending' }), false)
+test('getEventVenueId reads only requestedAmenityId', () => {
+  assert.equal(getEventVenueId({ requestedAmenityId: 'r', linkedAmenityId: 'l' }), 'r')
+  assert.equal(getEventVenueId({ linkedAmenityId: 'l' }), '')
+  assert.equal(getEventVenueId({ requestedAmenityId: '' }), '')
+  assert.equal(getEventVenueId(null), '')
+})
+
+test('getVenuePayload clears both venue fields when unticked', () => {
+  const form = new Map([['amenityId', 'hall'], ['amenityNote', 'mic']])
+  assert.deepEqual(getVenuePayload(form, true), { requestedAmenityId: 'hall', amenityNote: 'mic' })
+  assert.deepEqual(getVenuePayload(form, false), { requestedAmenityId: '', amenityNote: '' })
+})
+
+test('getEventFormPayload clears optional fields and clamps capacity', () => {
+  const form = new Map([['title', 'T'], ['description', 'D'], ['capacity', '999'], ['duration', ''], ['hostingProjects', '  '], ['eventLink', '']])
+  const payload = getEventFormPayload(form, new Date('2026-11-01T11:00:00.000Z'), false)
+  assert.equal(payload.capacity, 50)
+  assert.equal(payload.duration, 60)
+  assert.equal(payload.hostingProjects, '')
+  assert.equal(payload.eventLink, '')
+  assert.equal('waitlist' in payload, false)
 })
