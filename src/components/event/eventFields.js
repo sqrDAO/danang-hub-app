@@ -45,7 +45,38 @@ export const getAmenityName = (amenities, amenityId) =>
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
 
-// Approval links the hall or fails, and rejection unlinks it, so only a
-// pending event can be waiting on a link.
-export const isHallUnlinked = (event) =>
-  event.status === 'pending' && Boolean(event.requestedAmenityId) && !event.linkedAmenityId
+// An event's venue. Older events may also carry `linkedAmenityId`; they are
+// decorative only, so it is deliberately ignored.
+export const getEventVenueId = (event) => event?.requestedAmenityId || ''
+
+export const MAX_EVENT_CAPACITY = 50
+
+const clampCapacity = (rawValue) => {
+  const capacity = parseInt(rawValue, 10)
+  return Number.isNaN(capacity) ? MAX_EVENT_CAPACITY : Math.min(Math.max(capacity, 1), MAX_EVENT_CAPACITY)
+}
+
+// Both roles write the venue the same way, so either form reads it back.
+export const getVenuePayload = (formData, linkAmenity) => ({
+  requestedAmenityId: linkAmenity ? formData.get('amenityId') || '' : '',
+  amenityNote: linkAmenity ? formData.get('amenityNote') || '' : ''
+})
+
+// Every field the shared form edits, read the same way for both roles. Cleared
+// optional fields are '' so an edit actually clears them.
+export const getEventFormPayload = (formData, eventDate, linkAmenity) => ({
+  title: formData.get('title'),
+  description: formData.get('description'),
+  date: eventDate.toISOString(),
+  capacity: clampCapacity(formData.get('capacity')),
+  duration: parseInt(formData.get('duration'), 10) || 60,
+  hostingProjects: formData.get('hostingProjects')?.trim() || '',
+  eventLink: formData.get('eventLink')?.trim() || '',
+  ...getVenuePayload(formData, linkAmenity)
+})
+
+export const getEventSpaces = (amenities) =>
+  amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'event-space')
+
+export const getDefaultEventSpace = (eventSpaces) =>
+  eventSpaces.find(amenity => /event hall|event space|main hall/i.test(amenity.name)) || eventSpaces[0]

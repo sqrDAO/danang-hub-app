@@ -30,7 +30,9 @@ Live app: **https://app.danangblockchainhub.com**
 ### Event Management
 - **Event Creation** — title, description, date, capacity, hosting project, banner image
 - **Revisioned Approval Workflow** — organizers can revise future events; approved or
-  rejected revisions return to pending review and safely replace any Event Hall booking
+  rejected revisions return to pending review
+- **Venue** — one optional Hub venue per event (Event Hall hours and Hub closures apply);
+  events don't book the hall, since ops agrees each event with its organizer
 - **Waitlist System** — automatic waitlist + promotion when spots open
 - **Organizer Profile Modal** — view host details inline on any event card
 - **Event Reminders** — scheduled email reminders sent 24 hours before events
@@ -223,8 +225,8 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 |----------|------|-------------|
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
 | `checkSlotAvailability` | Callable | Public slot availability check |
-| `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events and cancels a linked Event Hall booking |
-| `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; atomically creates or cancels the linked Event Hall booking |
+| `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
+| `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
@@ -329,7 +331,7 @@ functions/
 | `members` | Profiles, membership type (admin/member), wallet address |
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and fixed-desk support |
-| `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and linked Event Hall metadata |
+| `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |

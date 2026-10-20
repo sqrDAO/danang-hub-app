@@ -105,9 +105,7 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
   from writing it, so its presence means an admin or a script cancelled *for* the
   member, and a member cancelling their own booking is correctly silent. The
   admin page stamps `hub-closure-<id>` when the booking falls in a closure and
-  `admin` otherwise. Cancellations made by `editOwnEvent`/`reviewEvent` unlinking
-  an Event Hall booking set no reason and stay silent by design — the organizer
-  already acted. The notification is an upsert rather than create-if-absent, so a
+  `admin` otherwise. The notification is an upsert rather than create-if-absent, so a
   fixed-desk plan cancelled in two batches notifies twice while one batch still
   collapses to a single message.
 - **Check-in / check-out** (`checkIn`/`checkOut` in `src/services/bookings.js`) are
@@ -134,7 +132,7 @@ pending ──admin reviewEvent(approve)──▶ approved      attendees[] ⇄ 
    └──admin reviewEvent(reject)──▶ rejected │    autoPromoteWaitlist (trigger)
             ▲                               │
             └──── organizer edits a future approved/rejected event ────┘
-                      (new revision: pending; linked Event Hall booking cancelled)
+                      (new revision: pending)
 ```
 
 - **Create** — `createEvent()` (`src/services/events.js`) writes `status: 'pending'` and
@@ -146,13 +144,14 @@ pending ──admin reviewEvent(approve)──▶ approved      attendees[] ⇄ 
   authenticated `editOwnEvent` callable. The server accepts an allowlisted content payload
   and matching `expectedRevision`; each successful edit increments `revision`. A pending
   request stays pending without another review alert. An approved or rejected event becomes
-  pending, retains registrations, cancels active `bookings` with its `eventId`, clears the
-  linked-amenity metadata, and is re-notified to admins as a revision. `everApproved` keeps
+  pending, retains registrations, and is re-notified to admins as a revision.
+  `requestedAmenityId` is the venue; legacy `linkedAmenity*` fields are ignored. `everApproved` keeps
   previously live pending revisions from being deleted.
 - **Approve / reject** — admin (`src/pages/admin/Events.jsx`) calls the admin-only
-  `reviewEvent` callable with the expected revision. Approval rechecks Event Hall
-  availability and atomically creates at most one setup/teardown booking; rejection cancels
-  active linked bookings. The status flip fires
+  `reviewEvent` callable with the expected revision. Review changes status only: events
+  don't book the Event Hall (ops agrees each event with its organizer), so there is no
+  availability check or booking. Hall hours and closures are checked in the form. The
+  status flip fires
   **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
   `notifications` doc for the organizer and (2) sends a styled HTML email via
   **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
@@ -191,8 +190,8 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 |---|---|---|
 | `checkBookingConflicts` | callable (auth required) | Day/hours + overlap check, desk capacity-aware |
 | `checkSlotAvailability` | callable (public) | Same check for public availability views |
-| `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content and cancel linked booking atomically |
-| `reviewEvent` | callable (admin) | Revision-aware review; atomically approve/create or reject/cancel Event Hall booking |
+| `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content |
+| `reviewEvent` | callable (admin) | Revision-aware approve/reject; status only |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
 | `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
