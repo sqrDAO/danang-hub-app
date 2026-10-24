@@ -19,8 +19,9 @@ the user-facing copy so nothing implies approving or editing an event books or f
 
 ## Verify
 - `npm run lint && npm run build && npm test` → all exit 0
-- `grep -n -i "reservation\|đặt Event Hall\|event booking" src/locales/en.json src/locales/vi.json` → only the
-  unrendered `memberEvents.modal.hallRequirementsItem` and amenity-booking `availableAmenitiesDesc`
+- `grep -n -i "reservation\|event hall\|event booking" src/locales/en.json src/locales/vi.json` → only
+  amenity-booking `availableAmenitiesDesc`, the unrendered `memberEvents.modal.hallRequirementsItem`, and
+  `memberEvents.modal.hallRequirementsTitle` — a parking-fee heading that implies no booking
 - `npm run dev` as a member: edit an approved event → confirm shows the new wording (EN and VI)
 
 ## Notes
