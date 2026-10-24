@@ -12,10 +12,10 @@ the user-facing copy so nothing implies approving or editing an event books or f
 - `src/locales/vi.json` (edited) — `memberEvents.confirmEditApproved` without the reservation clause.
 
 ## Acceptance
-- [ ] Neither locale's `memberEvents.confirmEditApproved` mentions an Event Hall reservation.
-- [ ] Both still say the event goes back for review and registration pauses until re-approved.
-- [ ] No rendered locale string implies approving or editing an event books or releases the Event Hall.
-- [ ] NOT: no code changes; no translation keys added, renamed or deleted.
+- [x] Neither locale's `memberEvents.confirmEditApproved` mentions an Event Hall reservation.
+- [x] Both still say the event goes back for review and registration pauses until re-approved.
+- [x] No rendered locale string implies approving or editing an event books or releases the Event Hall.
+- [x] NOT: no code changes; no translation keys added, renamed or deleted.
 
 ## Verify
 - `npm run lint && npm run build && npm test` → all exit 0
