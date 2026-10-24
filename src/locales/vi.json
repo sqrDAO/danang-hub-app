@@ -538,7 +538,7 @@
     "myEventRequestsDesc": "Sự kiện bạn đã tạo. Sự kiện đang chờ sẽ được admin duyệt.",
     "cancelRequest": "Hủy yêu cầu",
     "editResubmit": "Chỉnh sửa và gửi lại",
-    "confirmEditApproved": "Chỉnh sửa sự kiện đang hoạt động sẽ gửi lại để duyệt. Đăng ký sẽ tạm dừng và lịch đặt Event Hall sẽ được hủy. Tiếp tục?",
+    "confirmEditApproved": "Chỉnh sửa sự kiện đang hoạt động sẽ gửi lại để duyệt và tạm dừng đăng ký cho đến khi được duyệt lại. Tiếp tục?",
     "eventLive": "✅ Sự kiện đã lên sóng!",
     "upcomingEvents": "Sự kiện sắp diễn ra",
     "upcomingEventsDesc": "Nhấn \"Đăng ký\" để tham gia sự kiện. Nếu đã đầy, hãy tham gia danh sách chờ!",
