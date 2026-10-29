@@ -13,7 +13,7 @@ import {
 
 const require = createRequire(import.meta.url)
 const { deskPlanLabel, isDeskPlan: isDeskPlanServer } = require('../functions/bookingNotifications.js')
-const { matchPartnerForCompany, normalizePartnerName } = require('../functions/partners.js')
+const { matchPartnerForCompany, normalizePartnerName, unusedAliasKeys } = require('../functions/partners.js')
 
 const partners = [
   { id: 'p-9am', name: '9AM Games', deskAmenityId: 'desk-1' },
@@ -82,6 +82,32 @@ test('company matching ignores case, spacing and punctuation', () => {
     assert.equal(matchPartnerForCompany(company, partners)?.id, 'p-9am', company)
   }
   assert.equal(matchPartnerForCompany('diid', partners)?.id, 'p-diid')
+})
+
+test("a partner's aliases match too", () => {
+  for (const company of ['Công ty Trí tuệ số', 'Công ty TNHH Phát triển Trí tuệ số', 'Công ty Phát triển Trí tuệ số', 'tri tue so']) {
+    assert.equal(matchPartnerForCompany(company, partners)?.id, 'p-diid', company)
+  }
+  assert.equal(matchPartnerForCompany('Công ty Trí tuệ nhân tạo', partners), null)
+  // Whole words only: "sống" is not "số".
+  assert.equal(matchPartnerForCompany('Trí tuệ sống', partners), null)
+})
+
+test("on a tie, a partner's own name beats another partner's alias", () => {
+  // A partner literally named "Trí tuệ số" ties DiiD's alias in length.
+  const rival = [{ id: 'p-diid', name: 'DiiD' }, { id: 'p-rival', name: 'Trí tuệ số' }]
+  assert.equal(matchPartnerForCompany('Công ty Trí tuệ số', rival)?.id, 'p-rival')
+  assert.equal(matchPartnerForCompany('Công ty Trí tuệ số', [...rival].reverse())?.id, 'p-rival')
+})
+
+test('alias keys that name no partner are reported', () => {
+  assert.deepEqual(unusedAliasKeys(partners), [])
+  assert.deepEqual(unusedAliasKeys([{ id: 'p', name: 'DiiD JSC' }]), ['diid'])
+})
+
+test('đ folds to d', () => {
+  assert.equal(normalizePartnerName('Đổi mới số'), normalizePartnerName('Doi moi so'))
+  assert.equal(normalizePartnerNameClient('Đổi mới số'), normalizePartnerName('Doi moi so'))
 })
 
 test('unrelated or empty companies match nothing', () => {

@@ -11,7 +11,7 @@
 //   node functions/scripts/assign-partners-by-company.cjs --apply
 const {initializeApp, applicationDefault} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
-const {matchPartnerForCompany} = require("../partners");
+const {matchPartnerForCompany, unusedAliasKeys} = require("../partners");
 
 const PROJECT_ID = "danang-hub-app";
 const APPLY = process.argv.includes("--apply");
@@ -29,6 +29,10 @@ async function run() {
     return;
   }
   console.log(`Partners: ${partners.map((p) => `${p.name} [${p.id}]`).join(", ")}\n`);
+  const unused = unusedAliasKeys(partners);
+  if (unused.length > 0) {
+    console.log(`WARNING: PARTNER_ALIASES keys match no partner name (renamed?): ${unused.join(", ")}\n`);
+  }
 
   const membersSnap = await db.collection("members").get();
   const affected = [];
