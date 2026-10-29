@@ -79,6 +79,23 @@ if (!hasEmulator) {
       { ...booking({ status: 'pending' }), planType: 'fixed-desk' }))
   })
 
+  test('owners cannot move or stretch a booking after creating it', async () => {
+    await seed('bookings', 'own-fixed-times', booking())
+    const ref = doc(testEnv.authenticatedContext('member-a').firestore(), 'bookings', 'own-fixed-times')
+    await assertFails(updateDoc(ref, { endTime: new Date('2030-01-01T23:00:00.000Z') }))
+    await assertFails(updateDoc(ref, { startTime: new Date('2030-01-01T00:00:00.000Z') }))
+    await assertFails(updateDoc(ref, { amenityId: 'desk-2' }))
+    await assertFails(updateDoc(ref, { memberId: 'member-b' }))
+    await assertFails(updateDoc(ref, { limitHoursLeft: 40 }))
+    await assertSucceeds(updateDoc(ref, { status: 'cancelled' }))
+  })
+
+  test('admins can still reschedule a booking', async () => {
+    await seed('bookings', 'admin-move', booking())
+    const adminDb = testEnv.authenticatedContext('admin-a').firestore()
+    await assertSucceeds(updateDoc(doc(adminDb, 'bookings', 'admin-move'), { endTime: new Date('2030-01-01T11:00:00.000Z') }))
+  })
+
   test('admins may write cancelledReason', async () => {
     await seed('bookings', 'admin-cancel', booking())
     const adminDb = testEnv.authenticatedContext('admin-a').firestore()

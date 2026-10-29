@@ -13,7 +13,8 @@ import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, des
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
 import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
-import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
+import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, planRecurringRanges, waitForBookingsSettled } from '../../services/bookings'
+import { MONTHLY_DESK_HOURS, hoursUsedThisMonth, monthOverLimit } from '../../utils/monthlyHours'
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
@@ -345,7 +346,51 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
   }
 }
 
-const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) => {
+// What a booking about to be confirmed would add: one range, or every
+// occurrence of the series it starts.
+const pendingRanges = (form) => {
+  const base = { amenityId: form.selectedAmenity.id, startTime: form.selectedStartTime, endTime: form.selectedEndTime }
+  if (!form.recurrence) return [base]
+  return planRecurringRanges(base, form.recurrence, { allowedWeekdays: form.selectedAmenity?.availableDays })
+    .map(({ start, end }) => ({ amenityId: base.amenityId, startTime: start, endTime: end }))
+}
+
+// The 40h monthly desk limit, checked before anything is written. The server
+// (autoApproveDeskBooking) enforces it too; this saves the member a booking
+// that would only be cancelled. `limit` is null for exempt members (admins).
+const blockedByMonthlyHours = (form, limit, t) => {
+  if (!limit) return false
+  const over = monthOverLimit(pendingRanges(form), limit.bookings, limit.amenities)
+  if (!over) return false
+  const [year, month] = over.month.split('-')
+  showToast(t('monthlyHours.blocked', {
+    limit: MONTHLY_DESK_HOURS,
+    month: `${month}/${year}`,
+    left: Math.round(over.hoursLeft * 10) / 10
+  }), 'error')
+  return true
+}
+
+// Checks before a booking is confirmed; each failure has already told the
+// member why.
+const canConfirmBooking = (form, limit, t) => {
+  if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return false
+  if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
+    showToast(t('memberBookings.hubClosedError'), 'error')
+    form.setBookingStep(1)
+    return false
+  }
+  if (form.isSubmittingRef.current) return false
+  return !blockedByMonthlyHours(form, limit, t)
+}
+
+// The monthly desk-hours limit for this member: null when exempt (admins).
+const useMonthlyLimit = (userProfile, bookings, amenities) => {
+  const limit = userProfile?.membershipType === 'admin' ? null : { bookings, amenities }
+  return { limit, deskHoursUsed: limit ? hoursUsedThisMonth(bookings, amenities) : null }
+}
+
+const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, limit }) => {
   const handleBookAmenity = (amenity) => {
     if (amenity.type === 'event-space') {
       navigate(`/member/events?action=create&amenityId=${amenity.id}`)
@@ -407,13 +452,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
   }
 
   const handleConfirmBooking = async () => {
-    if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
-    if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
-      showToast(t('memberBookings.hubClosedError'), 'error')
-      form.setBookingStep(1)
-      return
-    }
-    if (form.isSubmittingRef.current) return
+    if (!canConfirmBooking(form, limit, t)) return
     form.isSubmittingRef.current = true
     form.setIsSubmittingBooking(true)
 
@@ -577,11 +616,20 @@ const AmenityCard = ({ amenity, t, onBook, onShowPhotos, onRegisterFixedDesk }) 
   </div>
 )
 
-const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onShowPhotos, onRegisterFixedDesk }) => (
+const DeskHoursUsed = ({ hours, t }) => (
+  hours === null ? null : (
+    <p className="section-description desk-hours-used">
+      {t('monthlyHours.used', { used: Math.round(hours * 10) / 10, limit: MONTHLY_DESK_HOURS })}
+    </p>
+  )
+)
+
+const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onShowPhotos, onRegisterFixedDesk, deskHoursUsed }) => (
   <div className="bookings-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberBookings.availableAmenities')}</h2>
       <p className="section-description">{t('memberBookings.availableAmenitiesDesc')}</p>
+      <DeskHoursUsed hours={deskHoursUsed} t={t} />
     </div>
     {amenitiesLoading ? (
       <CardSkeleton count={3} />
@@ -1220,7 +1268,8 @@ const MemberBookings = () => {
   const form = useBookingForm(amenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()
   const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
-  const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t })
+  const { limit, deskHoursUsed } = useMonthlyLimit(userProfile, myBookings, amenities)
+  const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t, limit })
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)
   const deskAmenities = availableAmenities.filter(a => a.type === 'desk')
@@ -1243,6 +1292,7 @@ const MemberBookings = () => {
 
         <AmenitiesSection
           t={t}
+          deskHoursUsed={deskHoursUsed}
           amenitiesLoading={amenitiesLoading}
           availableAmenities={availableAmenities}
           onBook={handlers.handleBookAmenity}

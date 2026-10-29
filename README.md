@@ -19,6 +19,7 @@ Live app: **https://app.danangblockchainhub.com**
 ### Amenity Booking System
 - **Visual Calendar** — day and week view for booking selection
 - **Fixed Desk Plans** — members subscribe to recurring fixed-desk allocations; admins assign desks
+- **Monthly desk-hours limit** — members can book up to 40 hours of ordinary desk time per calendar month (hub time); Fixed/Partner Desk days and admins are exempt. The booking page shows hours used and blocks over-limit bookings, and the server cancels any that slip through
 - **Fixed Desk Renewal** — members renew from 7 days before a plan ends to 7 days after; renewals wait for admin approval (approved or rejected as one plan) and don't hold the desk meanwhile; a reminder goes out 3 days before the end
 - **Partner Desks** — members of a partner organization (e.g. 9AM Games, DiiD) are booked on the partner's desk every working day, four weeks ahead, for as long as they stay attached; they can skip single days
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
@@ -237,7 +238,7 @@ Add partner organizations on `/admin/members`, pick each one's desk, then attach
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members); cancels unapproved renewal days instead of completing them, and sends Fixed Desk ending reminders 3 days ahead |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
-| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available single desk bookings (never desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Cancels a member's single desk booking that would go over 40 desk hours that month (`monthly-hours-limit`), otherwise auto-approves available single desk bookings (never desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |

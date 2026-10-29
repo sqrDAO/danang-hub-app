@@ -102,12 +102,19 @@ service cloud.firestore {
       // a renewal day, which holds no seat while pending: an owner adding it
       // to a booking could free a seat they hold, or claim one they never had.
       // rejectionReason is the admin's note on a rejected renewal.
+      // startTime, endTime, amenityId and memberId are fixed once created:
+      // conflict checks, auto-approval and the monthly desk-hours limit all
+      // judge a booking when it is written, and stretching or moving it later
+      // would slip past every one of them. limitHoursLeft is written by the
+      // monthly-limit check and drives the member's notice.
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
                        (!('status' in request.resource.data) || 
                         request.resource.data.status == resource.data.status ||
                         request.resource.data.status == 'cancelled') &&
                        !request.resource.data.diff(resource.data)
-                           .affectedKeys().hasAny(['planGroupId', 'cancelledReason', 'renewalOf', 'rejectionReason']);
+                           .affectedKeys().hasAny(['planGroupId', 'cancelledReason', 'renewalOf', 'rejectionReason',
+                                                    'startTime', 'endTime', 'amenityId', 'memberId',
+                                                    'limitHoursLeft']);
       // Admins can update any booking; planGroupId format still enforced when set
       allow update: if isAdmin() &&
                        (!('planGroupId' in request.resource.data) ||

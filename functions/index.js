@@ -40,6 +40,11 @@ const {
   isPendingRenewal,
   plansEndingSoon,
 } = require("./renewals");
+const {
+  MONTHLY_DESK_HOURS,
+  MONTHLY_HOURS_LIMIT_REASON,
+  monthOverLimit,
+} = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
 
 initializeApp();
@@ -1342,6 +1347,36 @@ async function notifyBookingApproved(booking, bookingId) {
 }
 
 /**
+ * Push copy for a booking cancelled by the monthly desk-hours limit.
+ * @param {string} amenityName Resolved amenity name
+ * @param {Object} notice Result of getCancellationNotice
+ * @return {Object} {en, vi} title/body pair
+ */
+function getMonthlyLimitPushMessages(amenityName, notice) {
+  const left = formatHours(notice.limitHoursLeft || 0);
+  return {
+    en: {
+      title: "Booking cancelled",
+      body: `Your booking for "${amenityName}" goes over your ` +
+        `${MONTHLY_DESK_HOURS} desk hours this month (${left}h left).`,
+    },
+    vi: {
+      title: "Đặt chỗ đã bị huỷ",
+      body: `Đặt chỗ "${amenityName}" vượt quá ${MONTHLY_DESK_HOURS} giờ ` +
+        `bàn trong tháng này của bạn (còn ${left} giờ).`,
+    },
+  };
+}
+
+/**
+ * @param {number} hours Hours, possibly fractional
+ * @return {string} Up to one decimal, no trailing ".0"
+ */
+function formatHours(hours) {
+  return String(Math.round(hours * 10) / 10);
+}
+
+/**
  * Push copy for a rejected Fixed Desk renewal, with the admin's reason.
  * @param {string} amenityName Resolved amenity name
  * @param {Object} notice Result of getCancellationNotice
@@ -1374,6 +1409,9 @@ function getRenewalRejectedPushMessages(amenityName, notice) {
  * @return {Object} {en, vi} title/body pair
  */
 function getCancellationPushMessages(amenityName, notice) {
+  if (notice.reason === MONTHLY_HOURS_LIMIT_REASON) {
+    return getMonthlyLimitPushMessages(amenityName, notice);
+  }
   if (notice.isRenewalRejection) {
     return getRenewalRejectedPushMessages(amenityName, notice);
   }
@@ -1450,6 +1488,7 @@ async function notifyBookingCancelled(booking, bookingId, notice) {
         cancelledReason: notice.reason,
         isHubClosure: notice.isHubClosure,
         rejectionReason: notice.rejectionReason,
+        limitHoursLeft: notice.limitHoursLeft,
         link: "/member/bookings",
       },
   );
@@ -2101,6 +2140,41 @@ exports.sendBookingConfirmation = onDocumentCreated(
     });
 
 /**
+ * The 40-hour monthly desk limit (monthlyHours.js), enforced here because
+ * members write bookings straight to Firestore and rules cannot add up hours.
+ * Runs only on member-created (pending) single desk bookings, so anything an
+ * admin books for a member is exempt; admins' own bookings are exempt too.
+ * The booking page checks first, so this rarely fires.
+ * @param {Object} booking New booking data
+ * @param {string} bookingId Booking document id
+ * @param {Object} ref Booking document reference
+ * @return {Promise<boolean>} Whether the booking was cancelled
+ */
+async function cancelIfOverMonthlyHours(booking, bookingId, ref) {
+  const [memberDoc, memberBookings, amenities] = await Promise.all([
+    db.collection("members").doc(booking.memberId).get(),
+    db.collection("bookings").where("memberId", "==", booking.memberId).get(),
+    db.collection("amenities").get(),
+  ]);
+  if (memberDoc.exists && memberDoc.get("membershipType") === "admin") {
+    return false;
+  }
+  const over = monthOverLimit(
+      {id: bookingId, ...booking},
+      memberBookings.docs.map((d) => ({id: d.id, ...d.data()})),
+      new Map(amenities.docs.map((d) => [d.id, d.data()])),
+  );
+  if (!over) return false;
+  await ref.update({
+    status: "cancelled",
+    cancelledReason: MONTHLY_HOURS_LIMIT_REASON,
+    limitHoursLeft: over.hoursLeft,
+    updatedAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+/**
  * Single desk bookings only. Desk plans never are: Fixed Desk plans wait for
  * an admin, and real Partner Desk days are written already approved by
  * syncPartnerDesks — a client-written partner-desk booking (rules let any
@@ -2137,6 +2211,11 @@ exports.autoApproveDeskBooking = onDocumentCreated(
         const amenityDoc = await db.collection("amenities")
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
+
+        if (isAutoApprovable(booking, amenity) &&
+            await cancelIfOverMonthlyHours(booking, bookingId, snap.ref)) {
+          return null;
+        }
 
         if (isAutoApprovable(booking, amenity)) {
           const {hasConflicts} = await computeBookingAvailability({

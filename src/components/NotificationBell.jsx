@@ -79,6 +79,12 @@ const getRenewalRejectedBody = (notification, t) => (
 )
 
 const getBookingCancelledBody = (notification, t) => {
+  if (notification.cancelledReason === 'monthly-hours-limit') {
+    return t('notifications.monthlyLimitCancelledBody', {
+      amenity: notification.amenityName,
+      left: Math.round((notification.limitHoursLeft || 0) * 10) / 10
+    })
+  }
   if (notification.cancelledReason === 'renewal-unavailable') {
     return t('notifications.renewalUnavailableBody', { amenity: notification.amenityName })
   }
