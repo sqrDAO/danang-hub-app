@@ -81,3 +81,19 @@ test('hours used this month reads the hub month of now', () => {
   assert.equal(client.hoursUsedThisMonth(march, amenityList, at('2030-03-20', 12)), 36)
   assert.equal(client.hoursUsedThisMonth(march, amenityList, at('2030-04-01', 6)), 0)
 })
+
+test('of two bookings written together, only the later one is judged against the other', () => {
+  const used30 = ['2030-06-03', '2030-06-04', '2030-06-05'].map(d => booking(d, 9, 19, { createMs: 1 }))
+  const first = booking('2030-06-10', 9, 15, { status: 'pending', createMs: 100 })
+  const second = booking('2030-06-11', 9, 15, { status: 'pending', createMs: 101 })
+  const all = [...used30, first, second]
+  // The first fits (30 + 6); only the second goes over (30 + 6 + 6).
+  assert.equal(server.monthOverLimit(first, all, amenityMap), null)
+  assert.deepEqual(server.monthOverLimit(second, all, amenityMap), { month: '2030-06', hoursLeft: 4 })
+})
+
+test('the server reads only the month a booking touches, plus a day before', () => {
+  const { from, to } = server.monthWindow(at('2030-06-10', 9), at('2030-06-10', 18))
+  assert.equal(new Date(from).toISOString(), '2030-05-30T17:00:00.000Z')
+  assert.equal(new Date(to).toISOString(), '2030-06-30T17:00:00.000Z')
+})

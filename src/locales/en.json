@@ -101,7 +101,7 @@
     "fixedDeskEndingTitle": "Fixed desk ending soon",
     "fixedDeskEndingBody": "Your fixed desk plan for \"{{amenity}}\" ends on {{date}}. Renew it from your bookings.",
     "renewalUnavailableBody": "Your fixed desk renewal for \"{{amenity}}\" could not be approved — the desk is no longer free on those days.",
-    "monthlyLimitCancelledBody": "Your booking for \"{{amenity}}\" was cancelled: it goes over your 40 desk hours this month ({{left}}h left)."
+    "monthlyLimitCancelledBody": "Your booking for \"{{amenity}}\" was cancelled: it goes over your {{limit}} desk hours for {{month}} ({{left}}h left)."
   },
   "status": {
     "pending": "pending",

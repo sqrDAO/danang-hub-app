@@ -23,7 +23,10 @@ Each member may book at most 40 hours of ordinary desk time per calendar month, 
 - [ ] NOT counted: Fixed Desk and Partner Desk days, cancelled bookings, non-desk amenities
 - [ ] Hours are split by hub calendar month (Asia/Ho_Chi_Minh)
 - [ ] A member-created booking that would take the month over 40h is cancelled server-side with `cancelledReason: 'monthly-hours-limit'` and `limitHoursLeft`
-- [ ] The member gets one notification saying how many hours were left
+- [ ] The member gets one notification naming the month and how many hours were left in it
+- [ ] Of two bookings written at nearly the same moment, only the later one is judged against the other (Firestore create time)
+- [ ] A failing limit check fails open: the booking still gets auto-approval or an admin review notice
+- [ ] A `fixed-desk` booking must have a `planGroupId` (rules)
 - [ ] Admins' own bookings and bookings an admin creates for a member are not limited
 - [ ] Admin-created bookings still count toward the member's hours
 - [ ] The booking page shows hours used this month out of 40
@@ -40,5 +43,6 @@ Each member may book at most 40 hours of ordinary desk time per calendar month, 
 - regression: single desk booking auto-approval, Fixed Desk plan registration, Partner Desk sync, member cancel
 
 ## Notes
-- The client check is a courtesy; the trigger is the guard. Two bookings created in the same instant may both pass the trigger (no transaction); the client check makes that rare.
-- The trigger reads the member's bookings with a single-field `memberId ==` query and filters in memory.
+- The client check is a courtesy; the trigger is the guard. There is no transaction: two bookings created together are ordered by create time, so the earlier one keeps its hours. If the client's cached bookings are stale, the member may briefly see "booking created" before the cancellation notice.
+- The trigger reads only the booking's month(s), plus a day before, with `memberId ==` + `startTime` range + `orderBy startTime desc`: the member bookings page query, served by the existing `memberId`+`startTime` DESC index.
+- Desk plans stay outside the limit. A member can still create a fake one-day "plan", but desk plans never auto-approve, so an admin sees it.

@@ -7,6 +7,8 @@
  * pending, approved, checked-in or completed. Hours split by hub month.
  */
 export const MONTHLY_DESK_HOURS = 40
+// Server cancellation reason (functions/monthlyHours.js).
+export const MONTHLY_HOURS_LIMIT_REASON = 'monthly-hours-limit'
 const COUNTED_STATUSES = ['pending', 'approved', 'checked-in', 'completed']
 const DESK_PLAN_TYPES = ['fixed-desk', 'partner-desk']
 const HOUR_MS = 60 * 60 * 1000
@@ -28,7 +30,7 @@ export const countsTowardLimit = (booking, amenities) => {
   const amenity = amenityById(amenities, booking.amenityId)
   return amenity?.type === 'desk' &&
     !DESK_PLAN_TYPES.includes(booking.planType) &&
-    COUNTED_STATUSES.includes(booking.status ?? 'pending')
+    COUNTED_STATUSES.includes(booking.status)
 }
 
 export const hoursByMonth = (startTime, endTime) => {

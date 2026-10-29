@@ -101,7 +101,7 @@
     "fixedDeskEndingTitle": "Gói bàn cố định sắp kết thúc",
     "fixedDeskEndingBody": "Gói bàn cố định \"{{amenity}}\" kết thúc ngày {{date}}. Gia hạn trong mục đặt chỗ.",
     "renewalUnavailableBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" không thể được duyệt — bàn không còn trống vào những ngày đó.",
-    "monthlyLimitCancelledBody": "Đặt chỗ \"{{amenity}}\" của bạn đã bị huỷ: vượt quá 40 giờ bàn trong tháng này (còn {{left}} giờ)."
+    "monthlyLimitCancelledBody": "Đặt chỗ \"{{amenity}}\" của bạn đã bị huỷ: vượt quá {{limit}} giờ bàn trong tháng {{month}} (còn {{left}} giờ)."
   },
   "status": {
     "pending": "chờ duyệt",

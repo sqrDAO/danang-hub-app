@@ -44,6 +44,7 @@ const {
   MONTHLY_DESK_HOURS,
   MONTHLY_HOURS_LIMIT_REASON,
   monthOverLimit,
+  monthWindow,
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
 
@@ -1354,18 +1355,29 @@ async function notifyBookingApproved(booking, bookingId) {
  */
 function getMonthlyLimitPushMessages(amenityName, notice) {
   const left = formatHours(notice.limitHoursLeft || 0);
+  const month = formatMonth(notice.limitMonth);
   return {
     en: {
       title: "Booking cancelled",
       body: `Your booking for "${amenityName}" goes over your ` +
-        `${MONTHLY_DESK_HOURS} desk hours this month (${left}h left).`,
+        `${MONTHLY_DESK_HOURS} desk hours for ${month} (${left}h left).`,
     },
     vi: {
       title: "Đặt chỗ đã bị huỷ",
       body: `Đặt chỗ "${amenityName}" vượt quá ${MONTHLY_DESK_HOURS} giờ ` +
-        `bàn trong tháng này của bạn (còn ${left} giờ).`,
+        `bàn của bạn trong tháng ${month} (còn ${left} giờ).`,
     },
   };
+}
+
+/**
+ * @param {?string} key Hub month, "YYYY-MM"
+ * @return {string} "MM/YYYY", or "" when missing
+ */
+function formatMonth(key) {
+  if (typeof key !== "string" || !/^\d{4}-\d{2}$/.test(key)) return "";
+  const [year, month] = key.split("-");
+  return `${month}/${year}`;
 }
 
 /**
@@ -1489,6 +1501,8 @@ async function notifyBookingCancelled(booking, bookingId, notice) {
         isHubClosure: notice.isHubClosure,
         rejectionReason: notice.rejectionReason,
         limitHoursLeft: notice.limitHoursLeft,
+        limitMonth: notice.limitMonth,
+        limitHours: MONTHLY_DESK_HOURS,
         link: "/member/bookings",
       },
   );
@@ -2147,31 +2161,60 @@ exports.sendBookingConfirmation = onDocumentCreated(
  * The booking page checks first, so this rarely fires.
  * @param {Object} booking New booking data
  * @param {string} bookingId Booking document id
- * @param {Object} ref Booking document reference
+ * @param {Object} snap Booking document snapshot
  * @return {Promise<boolean>} Whether the booking was cancelled
  */
-async function cancelIfOverMonthlyHours(booking, bookingId, ref) {
+async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
+  // The member's bookings in the month(s) this one touches. Same shape as
+  // the member bookings page query (memberId ==, startTime range, newest
+  // first), so it is served by the existing memberId+startTime DESC index.
+  const {from, to} = monthWindow(booking.startTime, booking.endTime);
   const [memberDoc, memberBookings, amenities] = await Promise.all([
     db.collection("members").doc(booking.memberId).get(),
-    db.collection("bookings").where("memberId", "==", booking.memberId).get(),
+    db.collection("bookings")
+        .where("memberId", "==", booking.memberId)
+        .where("startTime", ">=", Timestamp.fromMillis(from))
+        .where("startTime", "<", Timestamp.fromMillis(to))
+        .orderBy("startTime", "desc")
+        .get(),
     db.collection("amenities").get(),
   ]);
   if (memberDoc.exists && memberDoc.get("membershipType") === "admin") {
     return false;
   }
   const over = monthOverLimit(
-      {id: bookingId, ...booking},
-      memberBookings.docs.map((d) => ({id: d.id, ...d.data()})),
+      {id: bookingId, createMs: snap.createTime.toMillis(), ...booking},
+      memberBookings.docs.map((d) => ({
+        id: d.id, createMs: d.createTime.toMillis(), ...d.data(),
+      })),
       new Map(amenities.docs.map((d) => [d.id, d.data()])),
   );
   if (!over) return false;
-  await ref.update({
+  await snap.ref.update({
     status: "cancelled",
     cancelledReason: MONTHLY_HOURS_LIMIT_REASON,
     limitHoursLeft: over.hoursLeft,
+    limitMonth: over.month,
     updatedAt: new Date().toISOString(),
   });
   return true;
+}
+
+/**
+ * cancelIfOverMonthlyHours, failing open: a read error must not leave the
+ * booking stranded without auto-approval or an admin review notice.
+ * @param {Object} booking New booking data
+ * @param {string} bookingId Booking document id
+ * @param {Object} snap Booking document snapshot
+ * @return {Promise<boolean>} Whether the booking was cancelled
+ */
+async function enforceMonthlyHours(booking, bookingId, snap) {
+  try {
+    return await cancelIfOverMonthlyHours(booking, bookingId, snap);
+  } catch (error) {
+    console.error("Monthly desk-hours check failed:", error);
+    return false;
+  }
 }
 
 /**
@@ -2213,7 +2256,7 @@ exports.autoApproveDeskBooking = onDocumentCreated(
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
         if (isAutoApprovable(booking, amenity) &&
-            await cancelIfOverMonthlyHours(booking, bookingId, snap.ref)) {
+            await enforceMonthlyHours(booking, bookingId, snap)) {
           return null;
         }
 

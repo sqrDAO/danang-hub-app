@@ -44,6 +44,24 @@ function nextHubMonthStart(ms) {
 }
 
 /**
+ * The span of hub months a range touches, padded by a day before so a
+ * booking starting the evening before a month counts: [from, to) epoch ms.
+ * @param {*} startTime Range start
+ * @param {*} endTime Range end
+ * @return {{from: number, to: number}}
+ */
+function monthWindow(startTime, endTime) {
+  const start = toMs(startTime);
+  const hub = new Date(start + OFFSET_MS);
+  const monthStart =
+    Date.UTC(hub.getUTCFullYear(), hub.getUTCMonth(), 1) - OFFSET_MS;
+  return {
+    from: monthStart - 24 * HOUR_MS,
+    to: nextHubMonthStart(toMs(endTime)),
+  };
+}
+
+/**
  * Whether a booking uses up monthly desk hours.
  * @param {Object} booking Booking data
  * @param {Map<string, Object>} amenities id -> amenity
@@ -76,16 +94,38 @@ function hoursByMonth(startTime, endTime) {
 }
 
 /**
+ * Whether `other` was written before `booking`. Bookings made at nearly the
+ * same moment each see the other still pending; ordering them lets the
+ * earlier one keep its hours, so the later one alone is judged against them
+ * instead of both being cancelled. Ties break on id.
+ * @param {Object} other Another booking, with id and createMs
+ * @param {Object} booking The booking being judged, with id and createMs
+ * @return {boolean}
+ */
+function writtenBefore(other, booking) {
+  if (typeof other.createMs !== "number" ||
+      typeof booking.createMs !== "number") {
+    return true;
+  }
+  if (other.createMs !== booking.createMs) {
+    return other.createMs < booking.createMs;
+  }
+  return other.id < booking.id;
+}
+
+/**
  * Desk hours a member has used in each month, from their bookings.
  * @param {Array<Object>} bookings The member's bookings, with ids
  * @param {Map<string, Object>} amenities id -> amenity
- * @param {string} [excludeId] A booking to leave out
+ * @param {Object} [judged] The booking being judged: it and anything
+ *   written after it are left out
  * @return {Map<string, number>} "YYYY-MM" -> hours
  */
-function usageByMonth(bookings, amenities, excludeId) {
+function usageByMonth(bookings, amenities, judged) {
   const usage = new Map();
   bookings.forEach((b) => {
-    if (b.id === excludeId || !countsTowardLimit(b, amenities)) return;
+    if (judged && (b.id === judged.id || !writtenBefore(b, judged))) return;
+    if (!countsTowardLimit(b, amenities)) return;
     hoursByMonth(b.startTime, b.endTime).forEach((h, key) => {
       usage.set(key, (usage.get(key) || 0) + h);
     });
@@ -96,14 +136,16 @@ function usageByMonth(bookings, amenities, excludeId) {
 /**
  * The first month a new booking would take over the limit, given the
  * member's other bookings; null when it fits.
- * @param {Object} booking The new booking, with id
- * @param {Array<Object>} memberBookings All the member's bookings
+ * @param {Object} booking The new booking, with id and createMs (its
+ *   Firestore create time, epoch ms)
+ * @param {Array<Object>} memberBookings The member's bookings around it,
+ *   each with id and createMs
  * @param {Map<string, Object>} amenities id -> amenity
  * @return {?{month: string, hoursLeft: number}}
  */
 function monthOverLimit(booking, memberBookings, amenities) {
   if (!countsTowardLimit(booking, amenities)) return null;
-  const usage = usageByMonth(memberBookings, amenities, booking.id);
+  const usage = usageByMonth(memberBookings, amenities, booking);
   for (const [month, hours] of hoursByMonth(booking.startTime,
       booking.endTime)) {
     const used = usage.get(month) || 0;
@@ -123,5 +165,6 @@ module.exports = {
   hoursByMonth,
   hubMonthKey,
   monthOverLimit,
+  monthWindow,
   usageByMonth,
 };

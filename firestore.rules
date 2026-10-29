@@ -82,6 +82,12 @@ service cloud.firestore {
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
                        request.resource.data.get('planType', null) != 'partner-desk' &&
+                       // A Fixed Desk day belongs to a plan. Desk plans sit
+                       // outside the monthly desk-hours limit, and always go
+                       // to an admin, so an ungrouped one would just be a
+                       // single booking dodging the limit.
+                       (request.resource.data.get('planType', null) != 'fixed-desk' ||
+                        'planGroupId' in request.resource.data) &&
                        (!('renewalOf' in request.resource.data) ||
                         (request.resource.data.renewalOf is string &&
                          request.resource.data.renewalOf.matches('^[A-Za-z0-9_-]{1,64}$') &&
@@ -114,7 +120,7 @@ service cloud.firestore {
                        !request.resource.data.diff(resource.data)
                            .affectedKeys().hasAny(['planGroupId', 'cancelledReason', 'renewalOf', 'rejectionReason',
                                                     'startTime', 'endTime', 'amenityId', 'memberId',
-                                                    'limitHoursLeft']);
+                                                    'limitHoursLeft', 'limitMonth']);
       // Admins can update any booking; planGroupId format still enforced when set
       allow update: if isAdmin() &&
                        (!('planGroupId' in request.resource.data) ||

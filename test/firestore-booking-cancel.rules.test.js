@@ -76,6 +76,12 @@ if (!hasEmulator) {
     await assertFails(setDoc(doc(memberDb, 'bookings', 'pd_member-a_desk-1_20300101'),
       { ...booking({ status: 'pending' }), planType: 'partner-desk', planGroupId: 'partner_member-a' }))
     await assertSucceeds(setDoc(doc(memberDb, 'bookings', 'own-fixed'),
+      { ...booking({ status: 'pending' }), planType: 'fixed-desk', planGroupId: 'plan-1' }))
+  })
+
+  test('a Fixed Desk day must belong to a plan', async () => {
+    const memberDb = testEnv.authenticatedContext('member-a').firestore()
+    await assertFails(setDoc(doc(memberDb, 'bookings', 'loose-fixed'),
       { ...booking({ status: 'pending' }), planType: 'fixed-desk' }))
   })
 
@@ -87,6 +93,7 @@ if (!hasEmulator) {
     await assertFails(updateDoc(ref, { amenityId: 'desk-2' }))
     await assertFails(updateDoc(ref, { memberId: 'member-b' }))
     await assertFails(updateDoc(ref, { limitHoursLeft: 40 }))
+    await assertFails(updateDoc(ref, { limitMonth: '2030-01' }))
     await assertSucceeds(updateDoc(ref, { status: 'cancelled' }))
   })
 

@@ -6,6 +6,7 @@ import { getUnreadNotifications, markNotificationRead, markNotificationsRead } f
 import { playDesktopNotificationSound } from '../utils/desktopNotificationSound'
 import { formatHubDateTimeCompact } from '../utils/timezone'
 import { deskPlanCopyPrefix, isDeskPlan } from '../utils/deskPlans'
+import { MONTHLY_DESK_HOURS, MONTHLY_HOURS_LIMIT_REASON } from '../utils/monthlyHours'
 import './NotificationBell.css'
 
 const BellIcon = () => (
@@ -72,6 +73,16 @@ const getBookingApprovedCopy = (notification, t) => ({
 
 // A closure cancellation says why; anything else stays generic, since the raw
 // `cancelledReason` is an internal marker and not member-facing copy.
+const getMonthlyLimitBody = (notification, t) => {
+  const [year, month] = String(notification.limitMonth || '').split('-')
+  return t('notifications.monthlyLimitCancelledBody', {
+    amenity: notification.amenityName,
+    limit: notification.limitHours || MONTHLY_DESK_HOURS,
+    month: month && year ? `${month}/${year}` : '',
+    left: Math.round((notification.limitHoursLeft || 0) * 10) / 10
+  })
+}
+
 const getRenewalRejectedBody = (notification, t) => (
   notification.rejectionReason
     ? t('notifications.renewalRejectedReasonBody', { amenity: notification.amenityName, reason: notification.rejectionReason })
@@ -79,12 +90,7 @@ const getRenewalRejectedBody = (notification, t) => (
 )
 
 const getBookingCancelledBody = (notification, t) => {
-  if (notification.cancelledReason === 'monthly-hours-limit') {
-    return t('notifications.monthlyLimitCancelledBody', {
-      amenity: notification.amenityName,
-      left: Math.round((notification.limitHoursLeft || 0) * 10) / 10
-    })
-  }
+  if (notification.cancelledReason === MONTHLY_HOURS_LIMIT_REASON) return getMonthlyLimitBody(notification, t)
   if (notification.cancelledReason === 'renewal-unavailable') {
     return t('notifications.renewalUnavailableBody', { amenity: notification.amenityName })
   }
