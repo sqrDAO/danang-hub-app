@@ -6,7 +6,7 @@ import {
   buildLocalDevProjects
 } from './localDevFixtures.js'
 import { holdsSeat } from '../utils/renewals.js'
-import { AMENITY_RESERVED, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
+import { AMENITY_RESERVED, PARTNER_DESK, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved', 'checked-in']
 const STORE_KEY = '__DANANG_LOCAL_DEV_STORE__'
@@ -342,13 +342,14 @@ export const getLocalMember = (uid) => {
 export const listLocalPartners = () =>
   getStore().partners.map((item) => ({ ...item })).sort((a, b) => a.name.localeCompare(b.name))
 export const createLocalPartner = ({ deskAmenityId, ...data }) => {
+  // Same as createPartner: no partner without its desk, checked before adding.
+  if (!deskAmenityId) throw new Error(PARTNER_DESK_MISSING)
   const now = new Date().toISOString()
-  const partner = { ...data, deskAmenityId: null, id: nextId('partner'), createdAt: now, updatedAt: now }
-  // Check the desk before adding, as the Firestore transaction does.
-  checkLocalPartnerDesk(partner.id, deskAmenityId)
+  const partner = { ...data, deskAmenityId, id: nextId('partner'), createdAt: now, updatedAt: now }
+  const desk = checkLocalPartnerDesk(partner.id, deskAmenityId)
   getStore().partners.push(partner)
-  setLocalPartnerDesk(partner.id, deskAmenityId)
-  return { ...partner, deskAmenityId }
+  desk.reservedForPartnerId = partner.id
+  return { ...partner }
 }
 // Mirrors setPartnerDesk / deletePartner in partners.js: a partner holds at
 // most one reserved desk (amenities.reservedForPartnerId).
@@ -359,10 +360,7 @@ const releaseLocalPartnerDesks = (partnerId) => {
 }
 // The desk partner `id` may take (null for none), or throws as reserveDesk does.
 const checkLocalPartnerDesk = (id, deskAmenityId) => {
-  if (!deskAmenityId) {
-    if (deskAmenityId === undefined) throw new Error(PARTNER_DESK_MISSING)
-    return null
-  }
+  if (!deskAmenityId) return null
   const store = getStore()
   const desk = store.amenities.find((item) => item.id === deskAmenityId)
   if (!desk || desk.type !== 'desk') throw new Error(PARTNER_DESK_MISSING)
@@ -391,7 +389,7 @@ export const deleteLocalPartner = (id) => {
   // Mirrors deletePartner: their partner days not yet started are cancelled.
   const groups = new Set(detached.map((item) => `partner_${item.id}`))
   store.bookings
-    .filter((b) => b.planType === 'partner-desk' && groups.has(b.planGroupId) &&
+    .filter((b) => b.planType === PARTNER_DESK && groups.has(b.planGroupId) &&
       b.planGroupId === `partner_${b.memberId}` && ['pending', 'approved'].includes(b.status) &&
       new Date(b.startTime).getTime() > Date.now())
     .forEach((b) => Object.assign(b, { status: 'cancelled', cancelledReason: 'partner-removed', updatedAt: now }))

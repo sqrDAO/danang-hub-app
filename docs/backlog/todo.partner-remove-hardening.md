@@ -8,12 +8,17 @@ Make Remove on the Partners panel work for partners of any size and leave alone 
 - `src/services/partners.js` (edited) — remove detaches first, then cancels days in re-read chunks; `countAttachedMembers`; `reserveDesk` refuses non-desks
 - `src/services/localDevStore.js` (edited) — desk check before create; same sync-owned-day test on remove
 - `src/pages/admin/PartnersPanel.jsx` (edited) — Remove reads the member count fresh
-- `test/localDevStore.test.js` (edited) — non-desk refused; non-synced bookings kept
+- `src/locales/en.json`, `src/locales/vi.json` (edited) — `toast.partnerRemovedDaysPending`
+- `test/localDevStore.test.js` (edited) — non-desk refused; null desk refused; non-synced bookings kept
 
 ## Acceptance
 - [ ] Removing a partner with more than 25 members does not exceed a transaction's write limit
 - [ ] Members are detached before any of their days are cancelled
 - [ ] A day checked in, cancelled or deleted after the first read is not written
+- [ ] A day that has started by the time its chunk runs is not cancelled
+- [ ] If cancelling days fails after the partner is removed, the admin sees a notice that the hourly run will finish, not an error
+- [ ] A member moved to another partner during Remove keeps that partner and its days
+- [ ] A double click on Remove opens one confirmation
 - [ ] Only days the sync owns (`planType` `partner-desk`, `planGroupId` `partner_<memberId>`) are cancelled
 - [ ] Members attached while Remove runs are detached, and their upcoming days cancelled
 - [ ] A non-desk amenity cannot be reserved as a partner desk

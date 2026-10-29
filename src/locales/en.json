@@ -833,6 +833,7 @@
     "bookingAssignFailed": "Failed to assign booking. Please try again.",
     "partnerAddFailed": "Failed to add partner. Please try again.",
     "partnerRemoveFailed": "Failed to remove partner. Please try again.",
+    "partnerRemovedDaysPending": "Partner removed. Some of its members' upcoming desk days will be cancelled at the next hourly run.",
     "partnerDuplicate": "A partner with that name already exists.",
     "partnerDeskFailed": "Failed to update the partner's desk. Please try again.",
     "partnerDeskTaken": "That desk is already reserved for another partner. The list has been refreshed.",

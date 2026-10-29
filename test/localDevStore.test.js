@@ -115,6 +115,7 @@ test('a partner is created with its desk reserved, or not at all', () => {
   assert.equal(getLocalAmenity(desk).reservedForPartnerId, nineAm.id)
   assert.throws(() => createLocalPartner({ name: 'DiiD', deskAmenityId: desk }), /partner-desk-taken/)
   assert.throws(() => createLocalPartner({ name: 'No desk' }), /partner-desk-missing/)
+  assert.throws(() => createLocalPartner({ name: 'Null desk', deskAmenityId: null }), /partner-desk-missing/)
   assert.deepEqual(listLocalPartners().map(p => p.name), ['9AM Games'])
 })
 

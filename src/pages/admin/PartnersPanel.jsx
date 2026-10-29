@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { PARTNER_DESK_TAKEN, countAttachedMembers, createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
@@ -143,7 +143,11 @@ const usePartnerMutations = (t, onDeskSaved) => {
     }),
     remove: useMutation({
       mutationFn: deletePartner,
-      onSuccess: () => invalidate('partners', 'amenities', 'members', 'bookings'),
+      onSuccess: (result) => {
+        invalidate('partners', 'amenities', 'members', 'bookings')
+        // The partner is gone either way; the sync finishes what was left.
+        if (result?.daysPending) showToast(t('toast.partnerRemovedDaysPending'), 'info')
+      },
       onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
     })
   }
@@ -151,6 +155,9 @@ const usePartnerMutations = (t, onDeskSaved) => {
 
 const PartnersPanel = ({ partners, members, t }) => {
   const [changingId, setChangingId] = useState(null)
+  // Partners whose Remove is waiting on the member count or the confirm, so
+  // a double click cannot start two removals.
+  const confirming = useRef(new Set())
   // Close only the changer whose save finished, not one opened since.
   const mutations = usePartnerMutations(t, (id) => setChangingId(cur => (cur === id ? null : cur)))
 
@@ -185,10 +192,15 @@ const PartnersPanel = ({ partners, members, t }) => {
     // The count is read fresh: the members list may be cached, and the
     // warning is what tells the admin people will be detached.
     onRemove: async (partner, cachedCount) => {
-      if (isPendingFor(mutations.remove, partner.id)) return
-      const count = await countAttachedMembers(partner.id).catch(() => cachedCount)
-      const key = count > 0 ? 'adminPartners.confirmRemoveMembers' : 'adminPartners.confirmRemove'
-      if (window.confirm(t(key, { name: partner.name, count }))) mutations.remove.mutate(partner.id)
+      if (isPendingFor(mutations.remove, partner.id) || confirming.current.has(partner.id)) return
+      confirming.current.add(partner.id)
+      try {
+        const count = await countAttachedMembers(partner.id).catch(() => cachedCount)
+        const key = count > 0 ? 'adminPartners.confirmRemoveMembers' : 'adminPartners.confirmRemove'
+        if (window.confirm(t(key, { name: partner.name, count }))) mutations.remove.mutate(partner.id)
+      } finally {
+        confirming.current.delete(partner.id)
+      }
     }
   }
 
