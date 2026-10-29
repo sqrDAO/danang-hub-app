@@ -378,7 +378,7 @@ Vite loads `.env.local` in every mode. Do not put `VITE_SKIP_AUTH=true` there, o
 
 The app version is `version` in `package.json` ([semver](https://semver.org)). The footer shows it with the commit the build came from, e.g. `v1.0.0 (38164ca)`; hover for the build time.
 
-To release, bump the version in a PR: `npm version minor --no-git-tag-version` for features, `patch` for fixes, `major` for breaking changes. When that PR merges, the deploy workflow tags the merge commit `v<version>`. Merges that don't bump the version deploy as usual and add no tag; their footer still shows the new commit.
+To release, bump the version in a PR: `npm version minor --no-git-tag-version` for features, `patch` for fixes, `major` for breaking changes. When that PR merges, the deploy workflow tags the merge commit `v<version>` and publishes a GitHub release from that version's section in `CHANGELOG.md`, so add the section in the same PR. Merges that don't bump the version deploy as usual and add no tag; their footer still shows the new commit.
 
 ---
 

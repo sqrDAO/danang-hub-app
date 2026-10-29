@@ -63,7 +63,8 @@ jobs:
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
 
   # Tags the deployed commit v<package.json version> the first time that
-  # version ships, so each release maps to a commit. Unbumped merges skip.
+  # version ships, so each release maps to a commit, and publishes a GitHub
+  # release from that version's CHANGELOG.md section. Unbumped merges skip.
   tag_release:
     needs: build_and_deploy
     runs-on: ubuntu-latest
@@ -75,13 +76,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Tag version
+      - name: Tag and release version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="v$(node -p "require('./package.json').version")"
           if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
             echo "$VERSION already tagged; nothing to do."
+            exit 0
+          fi
+          git tag "$VERSION" "$GITHUB_SHA"
+          git push origin "$VERSION"
+          echo "Tagged $GITHUB_SHA as $VERSION."
+          # Notes: the "## $VERSION" section of CHANGELOG.md, up to the next
+          # version heading; GitHub's generated notes when there is none.
+          awk -v v="$VERSION" '$0 ~ "^## " v "( |$)" {on=1; next} /^## v/ {on=0} on' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then
+            gh release create "$VERSION" --title "$VERSION" --notes-file notes.md
           else
-            git tag "$VERSION" "$GITHUB_SHA"
-            git push origin "$VERSION"
-            echo "Tagged $GITHUB_SHA as $VERSION."
+            gh release create "$VERSION" --title "$VERSION" --generate-notes
           fi
