@@ -1,0 +1,104 @@
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
+import { createPartner, deletePartner } from '../../services/partners'
+import { isPendingFor } from '../../utils/mutationTarget'
+import { normalizePartnerName } from '../../utils/deskPlans'
+import { showToast } from '../../utils/toast'
+
+// Partner organizations (9AM Games, DiiD, …). Members attached to one get
+// Partner Desk plans; a partner can only be removed once nobody is attached.
+const PartnerRow = ({ partner, memberCount, t, onRemove, removing }) => (
+  <li className="partner-row">
+    <span className="partner-row-name">{partner.name}</span>
+    <span className="partner-row-count">{t('adminPartners.memberCount', { count: memberCount })}</span>
+    <button
+      type="button"
+      className="btn btn-danger btn-sm"
+      onClick={() => onRemove(partner)}
+      disabled={memberCount > 0 || removing}
+      title={memberCount > 0 ? t('adminPartners.removeBlocked') : undefined}
+    >
+      {t('adminPartners.remove')}
+    </button>
+  </li>
+)
+
+const PartnersPanel = ({ partners, members, t }) => {
+  const [name, setName] = useState('')
+  const invalidate = useInvalidateQueries()
+
+  const createMutation = useMutation({
+    mutationFn: createPartner,
+    onSuccess: () => {
+      invalidate('partners')
+      setName('')
+    },
+    onError: () => showToast(t('toast.partnerAddFailed'), 'error')
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePartner,
+    onSuccess: () => invalidate('partners'),
+    onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
+  })
+
+  const handleAdd = (e) => {
+    e.preventDefault()
+    if (!name.trim() || createMutation.isPending) return
+    // Duplicates would split members across two orgs ("9AM Games" / "9am games").
+    if (partners.some(p => normalizePartnerName(p.name) === normalizePartnerName(name))) {
+      showToast(t('toast.partnerDuplicate'), 'error')
+      return
+    }
+    createMutation.mutate(name)
+  }
+
+  const handleRemove = (partner) => {
+    if (isPendingFor(deleteMutation, partner.id)) return
+    if (window.confirm(t('adminPartners.confirmRemove', { name: partner.name }))) {
+      deleteMutation.mutate(partner.id)
+    }
+  }
+
+  const memberCount = (partnerId) => members.filter(m => m.partnerId === partnerId).length
+
+  return (
+    <section className="partners-panel glass">
+      <div className="partners-panel-header">
+        <h2 className="section-title">{t('adminPartners.title')}</h2>
+        <p className="partners-panel-description">{t('adminPartners.description')}</p>
+      </div>
+      {partners.length === 0 ? (
+        <p className="partners-empty">{t('adminPartners.empty')}</p>
+      ) : (
+        <ul className="partners-list">
+          {partners.map(partner => (
+            <PartnerRow
+              key={partner.id}
+              partner={partner}
+              memberCount={memberCount(partner.id)}
+              t={t}
+              onRemove={handleRemove}
+              removing={isPendingFor(deleteMutation, partner.id)}
+            />
+          ))}
+        </ul>
+      )}
+      <form className="partners-add-form" onSubmit={handleAdd}>
+        <input
+          type="text"
+          className="form-field"
+          placeholder={t('adminPartners.namePlaceholder')}
+          value={name}
+          onChange={e => setName(e.target.value)}
+        />
+        <button type="submit" className="btn btn-primary" disabled={!name.trim() || createMutation.isPending}>
+          {createMutation.isPending ? t('common.saving') : t('adminPartners.add')}
+        </button>
+      </form>
+    </section>
+  )
+}
+
+export default PartnersPanel

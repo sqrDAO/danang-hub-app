@@ -19,7 +19,11 @@ const {
   getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
 const {rangeOverlapsClosure} = require("./hubClosures");
-const {getCancellationNotice} = require("./bookingNotifications");
+const {
+  deskPlanLabel,
+  getCancellationNotice,
+  isDeskPlan,
+} = require("./bookingNotifications");
 const {getNewlyPromoted} = require("./waitlist");
 
 initializeApp();
@@ -1248,14 +1252,15 @@ async function notifyPendingBookingReview(booking, bookingId) {
     planType: booking.planType || "standard",
     link: "/admin/bookings",
   }, admins.docs);
-  const isFixedDesk = booking.planType === "fixed-desk";
+  const isPlan = isDeskPlan(booking.planType);
+  const plan = deskPlanLabel(booking.planType);
   const requesterName = memberName || "A member";
   const requesterNameVi = memberName || "Một thành viên";
-  const reviewBodyEn = isFixedDesk ?
-    `${requesterName} requested a fixed desk plan for "${amenityName}".` :
+  const reviewBodyEn = isPlan ?
+    `${requesterName} requested a ${plan.en} plan for "${amenityName}".` :
     `${requesterName} requested "${amenityName}".`;
-  const reviewBodyVi = isFixedDesk ?
-    `${requesterNameVi} đã yêu cầu gói bàn cố định cho "${amenityName}".` :
+  const reviewBodyVi = isPlan ?
+    `${requesterNameVi} đã yêu cầu gói ${plan.vi} cho "${amenityName}".` :
     `${requesterNameVi} đã yêu cầu "${amenityName}".`;
   try {
     await notifyAdminsPush(subjectId, {
@@ -1291,19 +1296,20 @@ async function notifyBookingApproved(booking, bookingId) {
       },
   );
   try {
-    const isFixedDesk = booking.planType === "fixed-desk";
+    const isPlan = isDeskPlan(booking.planType);
+    const plan = deskPlanLabel(booking.planType);
     await notifyMemberPush(booking.memberId, {
       messages: {
         en: {
           title: "Booking approved",
-          body: isFixedDesk ?
-            `Your fixed desk plan for "${amenityName}" has been approved.` :
+          body: isPlan ?
+            `Your ${plan.en} plan for "${amenityName}" has been approved.` :
             `Your booking for "${amenityName}" has been approved.`,
         },
         vi: {
           title: "Đặt chỗ đã được duyệt",
-          body: isFixedDesk ?
-            `Gói bàn cố định cho "${amenityName}" đã được duyệt.` :
+          body: isPlan ?
+            `Gói ${plan.vi} cho "${amenityName}" đã được duyệt.` :
             `Đặt chỗ "${amenityName}" của bạn đã được duyệt.`,
         },
       },
@@ -1323,8 +1329,9 @@ async function notifyBookingApproved(booking, bookingId) {
  * @return {Object} {en, vi} title/body pair
  */
 function getCancellationPushMessages(amenityName, notice) {
-  const key = `${notice.isFixedDesk ? "plan" : "booking"}` +
+  const key = `${notice.isPlan ? "plan" : "booking"}` +
     `${notice.isHubClosure ? "Closure" : ""}`;
+  const plan = deskPlanLabel(notice.planType);
   const bodies = {
     booking: {
       en: `Your booking for "${amenityName}" has been cancelled.`,
@@ -1337,15 +1344,15 @@ function getCancellationPushMessages(amenityName, notice) {
         "Hub đóng cửa vào ngày đó.",
     },
     plan: {
-      en: `Some days of your fixed desk plan for "${amenityName}" ` +
+      en: `Some days of your ${plan.en} plan for "${amenityName}" ` +
         "have been cancelled.",
-      vi: `Một số ngày trong gói bàn cố định cho "${amenityName}" ` +
+      vi: `Một số ngày trong gói ${plan.vi} cho "${amenityName}" ` +
         "đã bị huỷ.",
     },
     planClosure: {
-      en: `Some days of your fixed desk plan for "${amenityName}" ` +
+      en: `Some days of your ${plan.en} plan for "${amenityName}" ` +
         "have been cancelled — the Hub is closed.",
-      vi: `Một số ngày trong gói bàn cố định cho "${amenityName}" ` +
+      vi: `Một số ngày trong gói ${plan.vi} cho "${amenityName}" ` +
         "đã bị huỷ — Hub đóng cửa.",
     },
   };
@@ -1821,6 +1828,36 @@ exports.sendBookingConfirmation = onDocumentCreated(
       }
     });
 
+/**
+ * Whether the member is attached to an existing partner org.
+ * @param {string} memberId Member uid
+ * @return {Promise<boolean>}
+ */
+async function isPartnerMember(memberId) {
+  const memberDoc = await db.collection("members").doc(memberId).get();
+  const partnerId = memberDoc.exists ? memberDoc.get("partnerId") : null;
+  if (typeof partnerId !== "string" || !partnerId) return false;
+  const partnerDoc = await db.collection("partners").doc(partnerId).get();
+  return partnerDoc.exists;
+}
+
+/**
+ * Fixed Desk plans always wait for an admin. Partner Desk plans are
+ * auto-approved like single desk bookings, but only for a real partner
+ * member: rules let any member write planType, so the server checks.
+ * @param {Object} booking Booking document data
+ * @param {Object|null} amenity Amenity document data
+ * @return {Promise<boolean>}
+ */
+async function isAutoApprovable(booking, amenity) {
+  if (!amenity || amenity.type !== "desk") return false;
+  if (booking.planType === "fixed-desk") return false;
+  if (booking.planType === "partner-desk") {
+    return isPartnerMember(booking.memberId);
+  }
+  return true;
+}
+
 // Auto-approve desk bookings (excluding Fixed Desk plans) when the desk
 // still has capacity for that time slot; otherwise leave pending for
 // manual admin review.
@@ -1843,8 +1880,7 @@ exports.autoApproveDeskBooking = onDocumentCreated(
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        if (amenity && amenity.type === "desk" &&
-            booking.planType !== "fixed-desk") {
+        if (await isAutoApprovable(booking, amenity)) {
           const {hasConflicts} = await computeBookingAvailability({
             amenityId: booking.amenityId,
             amenity,

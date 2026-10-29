@@ -6,6 +6,8 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import { getMembers, getMemberStats, updateMember, deleteMember } from '../../services/members'
+import { getPartners } from '../../services/partners'
+import PartnersPanel from './PartnersPanel'
 import { isPendingFor } from '../../utils/mutationTarget'
 import './Members.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
@@ -31,7 +33,15 @@ const profileModalTitle = (member, t) =>
     ? t('adminMembers.memberProfileTitle', { name: member.displayName || t('adminMembers.title') })
     : t('adminMembers.memberProfile')
 
-const MemberEditForm = ({ member, t, onSubmit, onCancel, isSubmitting }) => {
+const partnerNameFor = (partners, partnerId) =>
+  partners.find(p => p.id === partnerId)?.name || null
+
+const PartnerBadge = ({ member, partners }) => {
+  const name = partnerNameFor(partners, member.partnerId)
+  return name ? <span className="membership-badge partner">{name}</span> : null
+}
+
+const MemberEditForm = ({ member, partners, t, onSubmit, onCancel, isSubmitting }) => {
   if (!member) return null
   return (
     <form onSubmit={onSubmit}>
@@ -60,6 +70,20 @@ const MemberEditForm = ({ member, t, onSubmit, onCancel, isSubmitting }) => {
         <select name="membershipType" className="form-field" defaultValue={member.membershipType}>
           <option value="member">{t('adminMembers.memberOption')}</option>
           <option value="admin">{t('adminMembers.adminOption')}</option>
+        </select>
+      </div>
+      <div className="form-group">
+        <label className="form-label">{t('adminMembers.partner')}</label>
+        <select name="partnerId" className="form-field" defaultValue={member.partnerId || ''}>
+          <option value="">{t('adminMembers.noPartner')}</option>
+          {/* Keeps the saved partner selected until the partners list loads
+              (an uncontrolled select would otherwise fall back to "None"). */}
+          {member.partnerId && !partnerNameFor(partners, member.partnerId) && (
+            <option value={member.partnerId}>{t('adminMembers.unknownPartner')}</option>
+          )}
+          {partners.map(partner => (
+            <option key={partner.id} value={partner.id}>{partner.name}</option>
+          ))}
         </select>
       </div>
       <div className="form-actions">
@@ -256,6 +280,11 @@ const AdminMembers = () => {
     queryFn: getMembers
   })
 
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners'],
+    queryFn: getPartners
+  })
+
   const { data: profileStats, isLoading: statsLoading } = useQuery({
     queryKey: ['memberStats', profileModalMember?.id],
     queryFn: () => getMemberStats(profileModalMember.id),
@@ -267,7 +296,8 @@ const AdminMembers = () => {
         const q = searchQuery.toLowerCase()
         return (
           (m.displayName || '').toLowerCase().includes(q) ||
-          (m.company || '').toLowerCase().includes(q)
+          (m.company || '').toLowerCase().includes(q) ||
+          (partnerNameFor(partners, m.partnerId) || '').toLowerCase().includes(q)
         )
       })
     : members
@@ -329,7 +359,8 @@ const AdminMembers = () => {
     const data = {
       displayName: formData.get('displayName'),
       email: formData.get('email'),
-      membershipType: formData.get('membershipType')
+      membershipType: formData.get('membershipType'),
+      partnerId: formData.get('partnerId') || null
     }
     updateMutation.mutate({ uid: selectedMember.id, data })
   }
@@ -369,6 +400,8 @@ const AdminMembers = () => {
           </div>
         </div>
 
+        <PartnersPanel partners={partners} members={members} t={t} />
+
         <div className="members-table-container glass">
           <table className="members-table">
             <thead>
@@ -403,6 +436,7 @@ const AdminMembers = () => {
                     <span className={`membership-badge ${member.membershipType}`}>
                       {t(`status.${member.membershipType || 'member'}`)}
                     </span>
+                    <PartnerBadge member={member} partners={partners} />
                   </td>
                   <td>{member.createdAt ? formatDateDDMMYYYY(member.createdAt) : t('common.na')}</td>
                   <td>
@@ -451,6 +485,7 @@ const AdminMembers = () => {
                     <span className={`membership-badge ${member.membershipType}`}>
                       {t(`status.${member.membershipType || 'member'}`)}
                     </span>
+                    <PartnerBadge member={member} partners={partners} />
                   </div>
                 </div>
                 <div className="member-card-mobile-field">
@@ -496,6 +531,7 @@ const AdminMembers = () => {
         >
           <MemberEditForm
             member={selectedMember}
+            partners={partners}
             t={t}
             onSubmit={handleSubmit}
             onCancel={closeEditModal}

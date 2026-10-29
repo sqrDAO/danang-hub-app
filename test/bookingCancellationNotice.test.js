@@ -13,7 +13,7 @@ test('notifies when an active booking is cancelled with a reason', () => {
   assert.ok(notice)
   assert.equal(notice.reason, 'admin')
   assert.equal(notice.isHubClosure, false)
-  assert.equal(notice.isFixedDesk, false)
+  assert.equal(notice.isPlan, false)
 })
 
 test('stays silent when the member cancels their own booking', () => {
@@ -45,7 +45,7 @@ test('flags Hub closure reasons by prefix so future closures need no code change
 
 test('flags fixed desk plans so the copy can name the plan', () => {
   const notice = getCancellationNotice(approved, cancelledBy('admin', { planType: 'fixed-desk' }))
-  assert.equal(notice.isFixedDesk, true)
+  assert.equal(notice.isPlan, true)
 })
 
 test('tolerates missing documents', () => {

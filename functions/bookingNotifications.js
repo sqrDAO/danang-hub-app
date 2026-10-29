@@ -10,6 +10,31 @@ const ACTIVE_BOOKING_STATUSES = ["pending", "approved", "checked-in"];
 // closure ("hub-closure-tet-2027") gets the same wording without a code change.
 const HUB_CLOSURE_REASON_PREFIX = "hub-closure";
 
+// Desk plans: one booking per working day sharing a planGroupId. Members of a
+// partner org (members.partnerId) get partner-desk plans; everyone else
+// fixed-desk. Mirrors src/utils/deskPlans.js.
+const DESK_PLAN_TYPES = ["fixed-desk", "partner-desk"];
+
+/**
+ * @param {string} planType Booking planType
+ * @return {boolean} Whether the booking belongs to a desk plan
+ */
+function isDeskPlan(planType) {
+  return DESK_PLAN_TYPES.includes(planType);
+}
+
+/**
+ * How notification copy names a desk plan's desk ("fixed desk plan",
+ * "gói bàn cố định").
+ * @param {string} planType Booking planType
+ * @return {{en: string, vi: string}} Desk name in each locale
+ */
+function deskPlanLabel(planType) {
+  return planType === "partner-desk" ?
+    {en: "partner desk", vi: "bàn đối tác"} :
+    {en: "fixed desk", vi: "bàn cố định"};
+}
+
 /**
  * Decides whether a booking write means "someone else cancelled this member's
  * booking", and what the notification should say.
@@ -22,7 +47,8 @@ const HUB_CLOSURE_REASON_PREFIX = "hub-closure";
  *
  * @param {Object} before Booking document data before the write
  * @param {Object} after Booking document data after the write
- * @return {{reason: string, isHubClosure: boolean, isFixedDesk: boolean}|null}
+ * @return {{reason: string, isHubClosure: boolean, isPlan: boolean,
+ *   planType: string}|null}
  */
 function getCancellationNotice(before, after) {
   if (!before || !after) return null;
@@ -37,12 +63,16 @@ function getCancellationNotice(before, after) {
   return {
     reason,
     isHubClosure: reason.startsWith(HUB_CLOSURE_REASON_PREFIX),
-    isFixedDesk: after.planType === "fixed-desk",
+    isPlan: isDeskPlan(after.planType),
+    planType: after.planType || "standard",
   };
 }
 
 module.exports = {
   ACTIVE_BOOKING_STATUSES,
+  DESK_PLAN_TYPES,
   HUB_CLOSURE_REASON_PREFIX,
+  deskPlanLabel,
   getCancellationNotice,
+  isDeskPlan,
 };

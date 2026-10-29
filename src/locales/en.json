@@ -90,7 +90,11 @@
     "pushOptInBody": "Get booking and event updates on this phone.",
     "pushOptInDismiss": "Dismiss",
     "pushOptInEnabled": "Notifications enabled on this phone.",
-    "pushOptInFailed": "Could not enable notifications on this phone."
+    "pushOptInFailed": "Could not enable notifications on this phone.",
+    "partnerDeskPendingReviewBody": "{{member}} requested a partner desk plan for \"{{amenity}}\".",
+    "partnerDeskApprovedBody": "Your partner desk plan for \"{{amenity}}\" has been approved.",
+    "partnerDeskCancelledBody": "Some days of your partner desk plan for \"{{amenity}}\" have been cancelled.",
+    "partnerDeskCancelledClosureBody": "Some days of your partner desk plan for \"{{amenity}}\" have been cancelled — the Hub is closed."
   },
   "status": {
     "pending": "pending",
@@ -314,7 +318,21 @@
     "memberProfileTitle": "{{name}}'s profile",
     "confirmDelete": "Are you sure you want to delete this member?",
     "searchPlaceholder": "Search by name or company…",
-    "noResults": "No members match your search."
+    "noResults": "No members match your search.",
+    "partner": "Partner",
+    "noPartner": "None",
+    "unknownPartner": "Current partner"
+  },
+  "adminPartners": {
+    "title": "Partner organizations",
+    "description": "Members attached to a partner get Partner Desk plans instead of Fixed Desk plans.",
+    "namePlaceholder": "Partner name, e.g. 9AM Games",
+    "add": "Add partner",
+    "remove": "Remove",
+    "memberCount": "{{count}} member(s)",
+    "removeBlocked": "Detach its members before removing this partner.",
+    "confirmRemove": "Remove the partner \"{{name}}\"?",
+    "empty": "No partner organizations yet."
   },
   "adminBookings": {
     "title": "Bookings",
@@ -688,6 +706,15 @@
     "confirm": "Confirm Registration",
     "adminAssignNote": "Admin-assigned fixed desk plans are auto-approved."
   },
+  "partnerDesk": {
+    "title": "Partner Desk Plans",
+    "description": "Your partner organization's desk plans: a desk for all working hours across a week or month (Mon–Fri, 9am–6pm).",
+    "registerShort": "🤝 Partner Desk",
+    "badge": "Partner Desk",
+    "modalTitle": "Register Partner Desk",
+    "summaryNote": "Bookings will be created for all Mon–Fri working days and approved automatically. Days where the desk is already fully booked will be skipped.",
+    "confirmCancel": "Cancel this partner desk plan? All pending/approved bookings in this plan will be cancelled."
+  },
   "toast": {
     "amenityCreatedWithUploadErrors": "Amenity created but some photos failed to upload: {{message}}",
     "amenityCreated": "Amenity created successfully!",
@@ -760,6 +787,11 @@
     "bookingAssigned": "Booking assigned and approved!",
     "fixedDeskAssigned": "Fixed desk assigned — {{count}} booking(s) created!",
     "fixedDeskAssignedNone": "No bookings were created — every day in that range is a weekend or a Hub closure.",
-    "bookingAssignFailed": "Failed to assign booking. Please try again."
+    "bookingAssignFailed": "Failed to assign booking. Please try again.",
+    "partnerDeskCreated": "Partner desk plan created — {{count}} booking(s) registered!",
+    "partnerDeskCancelled": "Partner desk plan cancelled.",
+    "partnerAddFailed": "Failed to add partner. Please try again.",
+    "partnerRemoveFailed": "Failed to remove partner. Please try again.",
+    "partnerDuplicate": "A partner with that name already exists."
   }
 }
