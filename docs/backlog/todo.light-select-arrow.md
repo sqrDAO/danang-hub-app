@@ -1,22 +1,23 @@
-# Light theme select arrow
+# Select arrow position
 **Phase**: — · **Deps**: —
 
 ## Goal
-Fix two dropdown display bugs. In the light theme every `select.form-field` drew its dropdown arrow in the top-left corner, over the text, instead of on the right. The light `.form-field` rules used the `background` shorthand, which outranks `select.form-field` and resets its arrow position. On desktop, the Partners panel desk pickers sized to their longest option, so rows had different widths.
+Keep every `select.form-field` arrow on the right, in both themes and on focus. Rules that outranked `select.form-field` used the `background` shorthand, which reset the arrow's image and position (top-left over the text in the light theme, missing on the admin Bookings filter).
 
 ## Files
-- `src/styles/globals.css` (edited) — light `.form-field` and `.form-field:focus` set `background-color` instead of `background`
-- `src/pages/admin/Members.css` (edited) — the partner desk picker has a fixed width
+- `src/styles/globals.css` (edited) — `.form-field` and `.form-field:focus` set `background-color`; the redundant light `.form-field` overrides are removed
+- `src/pages/admin/Bookings.css` (edited) — `.page-filters .form-field` sets `background-color`
 
 ## Acceptance
-- [ ] In the light theme, select arrows sit right-aligned and vertically centred
-- [ ] In the light theme, a focused select keeps its orange arrow on the right
-- [ ] Light-theme inputs and textareas keep the same background colours
-- [ ] On desktop, every partner row's desk picker has the same width
-- [ ] On phones, the desk picker still fills its own line
-- [ ] NOT: no change to the dark theme
+- [ ] In the light theme, select arrows sit on the right, vertically centred
+- [ ] In the dark theme, select arrows sit on the right, vertically centred
+- [ ] A focused select keeps its orange arrow on the right
+- [ ] The `/admin/bookings` status filter shows its arrow before focus
+- [ ] Inputs and textareas keep the same background colours in both themes
+- [ ] NOT: no change to any select's width
 
 ## Verify
 - `npm run lint && npm run build` → green
-- `npm run dev`, light theme, `/admin/members` Partner organizations at 375px wide → desk picker arrow on the right
-- regression: light theme selects on `/member/bookings`, `/admin/bookings`, `/member/profile`, the event form
+- `npm run dev`, light and dark theme, 375px and desktop: `/admin/members` partner rows → arrow on the right
+- `/admin/bookings` → status filter arrow visible before and after focus
+- regression: selects on `/member/bookings`, `/member/profile` and the event form, both themes

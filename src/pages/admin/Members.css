@@ -276,13 +276,9 @@
   font-weight: 600;
 }
 
-/* Fixed width, not auto: an auto select is as wide as its longest option,
-   and each row lists the other partners' desks with their names, so rows
-   came out different widths. */
 .partner-row-desk {
-  width: 16rem;
-  max-width: 100%;
-  text-overflow: ellipsis;
+  width: auto;
+  min-width: 10rem;
 }
 
 .partners-add-form {

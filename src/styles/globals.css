@@ -401,10 +401,13 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 500;
 }
 
+/* Form fields set background-color, never the background shorthand: a
+   shorthand here or in any rule outranking select.form-field resets the
+   select arrow's image and position. */
 .form-field {
   width: 100%;
   padding: 1rem;
-  background: var(--form-field-bg);
+  background-color: var(--form-field-bg);
   border: 1px solid var(--form-field-border);
   border-radius: var(--border-radius);
   color: var(--text-primary);
@@ -412,19 +415,6 @@ h1, h2, h3, h4, h5, h6,
   font-size: 16px;
   transition: var(--transition);
   min-height: 44px;
-}
-
-/* background-color, not the background shorthand: these outrank
-   select.form-field, and the shorthand would reset its arrow to the top-left
-   corner (only the arrow image is set again for light selects below). */
-[data-theme="light"] .form-field {
-  background-color: var(--form-field-bg);
-  border: 1px solid var(--form-field-border);
-}
-
-[data-theme="light"] .form-field:focus {
-  background-color: var(--form-field-focus-bg);
-  border-color: var(--accent-primary);
 }
 
 input[type="date"].form-field,
@@ -453,7 +443,7 @@ input[type="number"].form-field::-webkit-outer-spin-button {
 .form-field:focus {
   outline: none;
   border-color: var(--accent-primary);
-  background: var(--form-field-focus-bg);
+  background-color: var(--form-field-focus-bg);
 }
 
 textarea.form-field {
