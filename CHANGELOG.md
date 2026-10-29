@@ -30,7 +30,7 @@ are capped so the shared seats stay fair for everyone.
   Change desk confirms how many people will move before anything happens.
   Remove works even with members attached: it detaches them, cancels their
   upcoming partner desk days (they're notified) and frees the desk, all in one
-  step. (#127)
+  step, for a team of any size. (#127, #129)
 
 ### Fixed Desk renewals
 
