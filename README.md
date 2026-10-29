@@ -222,7 +222,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 
 ### 9. Partner Organizations (optional)
 
-Add partner organizations on `/admin/members`, pick each one's desk, then attach members from the member edit form. Their bookings appear on the next hourly run. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`.
+Add partner organizations on `/admin/members`, pick each one's desk, then attach members from the member edit form. Their bookings appear on the next hourly run. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`. Other company names for a partner (DiiD's legal name, "Trí tuệ số") are listed in `PARTNER_ALIASES` in `functions/partners.js`.
 
 ---
 

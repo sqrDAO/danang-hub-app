@@ -83,6 +83,13 @@ test('company matching ignores case, spacing and punctuation', () => {
   assert.equal(matchPartnerForCompany('diid', partners)?.id, 'p-diid')
 })
 
+test("a partner's aliases match too", () => {
+  for (const company of ['Công ty Trí tuệ số', 'Công ty TNHH Phát triển Trí tuệ số', 'Công ty Phát triển Trí tuệ số', 'tri tue so']) {
+    assert.equal(matchPartnerForCompany(company, partners)?.id, 'p-diid', company)
+  }
+  assert.equal(matchPartnerForCompany('Công ty Trí tuệ nhân tạo', partners), null)
+})
+
 test('unrelated or empty companies match nothing', () => {
   assert.equal(matchPartnerForCompany('Acme Labs', partners), null)
   assert.equal(matchPartnerForCompany('', partners), null)
