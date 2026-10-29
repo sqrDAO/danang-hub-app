@@ -102,9 +102,17 @@ service cloud.firestore {
       // written only by the server's hourly sync, so members cannot create
       // a partner-desk booking that the server would treat as one. A desk
       // reserved for a partner takes bookings only from that partner's members.
+      // Fields only an admin or the server writes cannot be set at create
+      // either, and the pd_ ids and partner_ plan groups the sync uses for
+      // Partner Desk days are the server's alone.
       allow create: if isAuthenticated() && isOwner(request.resource.data.memberId) &&
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
+                       !bookingId.matches('^pd_.*') &&
+                       !request.resource.data.keys().hasAny(['cancelledReason', 'rejectionReason',
+                                                             'limitHoursLeft', 'limitMonth', 'partnerId',
+                                                             'checkInTime', 'checkOutTime']) &&
+                       !request.resource.data.get('planGroupId', '').matches('^partner_.*') &&
                        amenityOpenToCaller(request.resource.data.amenityId) &&
                        request.resource.data.get('planType', null) != 'partner-desk' &&
                        // A Fixed Desk day belongs to a plan. Desk plans sit
@@ -125,27 +133,19 @@ service cloud.firestore {
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
-      // Users can update their own bookings (limited fields);
-      // planGroupId is identity: may not be added, changed, or removed.
-      // cancelledReason marks a cancellation made *for* the member by an admin
-      // or script, and drives their cancellation notification — an owner who
-      // could write it could forge that notice to themselves. renewalOf marks
-      // a renewal day, which holds no seat while pending: an owner adding it
-      // to a booking could free a seat they hold, or claim one they never had.
-      // rejectionReason is the admin's note on a rejected renewal.
-      // startTime, endTime, amenityId and memberId are fixed once created:
-      // conflict checks, auto-approval and the monthly desk-hours limit all
-      // judge a booking when it is written, and stretching or moving it later
-      // would slip past every one of them. limitHoursLeft is written by the
-      // monthly-limit check and drives the member's notice.
+      // Users can update their own bookings only to cancel them: status and
+      // updatedAt are the only fields they may touch. Everything else is fixed
+      // once written. Conflict checks, auto-approval and the monthly
+      // desk-hours limit all judge a booking when it is created, and plan
+      // fields (planType, planGroupId, planPeriod, renewalOf) decide seats,
+      // limits and renewals; cancelledReason, rejectionReason and the limit
+      // fields are admin or server marks that drive the member's notices.
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
-                       (!('status' in request.resource.data) || 
+                       (!('status' in request.resource.data) ||
                         request.resource.data.status == resource.data.status ||
                         request.resource.data.status == 'cancelled') &&
-                       !request.resource.data.diff(resource.data)
-                           .affectedKeys().hasAny(['planGroupId', 'cancelledReason', 'renewalOf', 'rejectionReason',
-                                                    'startTime', 'endTime', 'amenityId', 'memberId',
-                                                    'limitHoursLeft', 'limitMonth']);
+                       request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['status', 'updatedAt']);
       // Admins can update any booking; planGroupId format still enforced when set
       allow update: if isAdmin() &&
                        (!('planGroupId' in request.resource.data) ||
