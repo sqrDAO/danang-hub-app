@@ -276,6 +276,11 @@
   font-weight: 600;
 }
 
+.partner-row-desk {
+  width: auto;
+  min-width: 10rem;
+}
+
 .partners-add-form {
   display: flex;
   gap: var(--spacing-sm);
@@ -297,5 +302,15 @@
 @media (max-width: 600px) {
   .partners-add-form {
     flex-direction: column;
+  }
+
+  .partner-row {
+    flex-wrap: wrap;
+  }
+
+  /* Desk picker drops to its own full-width line under name and count. */
+  .partner-row-desk {
+    order: 3;
+    flex: 1 1 100%;
   }
 }

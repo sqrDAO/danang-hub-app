@@ -75,10 +75,13 @@ service cloud.firestore {
       allow read: if isAdmin();
       // Users can create their own bookings, always starting as pending
       // (auto-approval, if any, happens server-side); admins can create
-      // on behalf of any member with any status
+      // on behalf of any member with any status. Partner Desk days are
+      // written only by the server's hourly sync, so members cannot create
+      // a partner-desk booking that the server would treat as one.
       allow create: if isAuthenticated() && isOwner(request.resource.data.memberId) &&
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
+                       request.resource.data.get('planType', null) != 'partner-desk' &&
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));

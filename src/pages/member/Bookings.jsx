@@ -9,7 +9,7 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan } from '../../utils/deskPlans'
+import { PARTNER_DESK, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
@@ -87,10 +87,16 @@ const deduplicateBookings = (bookings) => bookings.filter((booking, index, arr) 
   )
 )
 
+// A partner desk ends by cancellation (detach, skipped days), so its cancelled
+// days are left out; Fixed Desk plans keep showing as before.
+const isListedPlanDay = (b) => isDeskPlan(b.planType) &&
+  !(b.planType === PARTNER_DESK && b.status === 'cancelled') &&
+  new Date(b.startTime) > new Date()
+
 const buildFixedDeskPlans = (deduplicatedBookings) => {
   const grouped = {}
   deduplicatedBookings
-    .filter(b => isDeskPlan(b.planType) && new Date(b.startTime) > new Date())
+    .filter(isListedPlanDay)
     .forEach(b => {
       if (!grouped[b.planGroupId]) grouped[b.planGroupId] = []
       grouped[b.planGroupId].push(b)
@@ -322,11 +328,11 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
   })
 
   const fixedDeskMutation = useMutation({
-    mutationFn: ({ memberId, amenityId, period, startDate, planType }) =>
-      createFixedDeskPlan({ memberId, amenityId, period, startDate, planType, checkConflictsFn: checkBookingConflicts }),
-    onSuccess: (result, { planType }) => {
+    mutationFn: ({ memberId, amenityId, period, startDate }) =>
+      createFixedDeskPlan({ memberId, amenityId, period, startDate, checkConflictsFn: checkBookingConflicts }),
+    onSuccess: (result) => {
       invalidate('bookings', 'memberStats')
-      showToast(t(`toast.${deskPlanCopyPrefix(planType)}Created`, { count: result.totalCreated }), 'success')
+      showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
       promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
@@ -353,7 +359,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
   }
 }
 
-const useBookingHandlers = ({ currentUser, deskPlanType, navigate, form, fd, mutations, t }) => {
+const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) => {
   const handleBookAmenity = (amenity) => {
     if (amenity.type === 'event-space') {
       navigate(`/member/events?action=create&amenityId=${amenity.id}`)
@@ -509,10 +515,11 @@ const useBookingHandlers = ({ currentUser, deskPlanType, navigate, form, fd, mut
       amenityId: fd.fdAmenity.id,
       period: fd.fdPeriod,
       startDate: fd.fdStartDate,
-      planType: deskPlanType,
     })
   }
 
+  // Only Fixed Desk plans and partner plans registered by hand (#115) reach
+  // here; the synced Partner Desk has no Cancel Plan button.
   const handleCancelPlan = async ({ planGroupId, planType }) => {
     if (isPendingFor(mutations.cancelPlanMutation, planGroupId)) return
     if (window.confirm(t(`${deskPlanCopyPrefix(planType)}.confirmCancel`))) {
@@ -535,7 +542,8 @@ const useBookingHandlers = ({ currentUser, deskPlanType, navigate, form, fd, mut
   }
 }
 
-const AmenityCard = ({ amenity, t, planPrefix, onBook, onShowPhotos, onRegisterFixedDesk }) => (
+// onRegisterFixedDesk is omitted for partner members: their desk is automatic.
+const AmenityCard = ({ amenity, t, onBook, onShowPhotos, onRegisterFixedDesk }) => (
   <div className="amenity-card">
     {amenity.photos && amenity.photos.length > 0 ? (
       <button
@@ -571,19 +579,19 @@ const AmenityCard = ({ amenity, t, planPrefix, onBook, onShowPhotos, onRegisterF
       >
         {t('memberBookings.bookNow')}
       </button>
-      {amenity.type === 'desk' && (
+      {amenity.type === 'desk' && onRegisterFixedDesk && (
         <button
           className="btn btn-secondary btn-book"
           onClick={() => onRegisterFixedDesk(amenity)}
         >
-          {t(`${planPrefix}.registerShort`)}
+          {t('fixedDesk.registerShort')}
         </button>
       )}
     </div>
   </div>
 )
 
-const AmenitiesSection = ({ t, planPrefix, amenitiesLoading, availableAmenities, onBook, onShowPhotos, onRegisterFixedDesk }) => (
+const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onShowPhotos, onRegisterFixedDesk }) => (
   <div className="bookings-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberBookings.availableAmenities')}</h2>
@@ -598,7 +606,6 @@ const AmenitiesSection = ({ t, planPrefix, amenitiesLoading, availableAmenities,
             key={amenity.id}
             amenity={amenity}
             t={t}
-            planPrefix={planPrefix}
             onBook={onBook}
             onShowPhotos={onShowPhotos}
             onRegisterFixedDesk={onRegisterFixedDesk}
@@ -650,6 +657,15 @@ const BookingCard = ({
     </div>
     {showActions && (
       <div className="booking-actions">
+        {booking.status === 'approved' && booking.planType === PARTNER_DESK && (
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => onCancel(booking.id)}
+            disabled={cancelPending}
+          >
+            {t('partnerDesk.cancelDay')}
+          </button>
+        )}
         {booking.status === 'pending' && (
           <>
             <button
@@ -713,6 +729,13 @@ const BookingsListSection = ({
   </div>
 )
 
+const PlanPeriod = ({ plan, t }) => {
+  if (isSyncedPartnerPlan(plan)) return t('partnerDesk.ongoing')
+  return plan.planPeriod === 'weekly' ? t('fixedDesk.weekly') : t('fixedDesk.monthly')
+}
+
+// The synced Partner Desk runs while the member is attached, so it has no
+// Cancel Plan button; single days are skipped from the bookings list.
 const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) => (
   <div className="fixed-desk-plan-card">
     <div className="fixed-desk-plan-band" />
@@ -726,7 +749,7 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
       </div>
       <div className="fixed-desk-plan-meta">
         <span className="fixed-desk-plan-period">
-          {plan.planPeriod === 'weekly' ? t('fixedDesk.weekly') : t('fixedDesk.monthly')}
+          <PlanPeriod plan={plan} t={t} />
         </span>
         <span className="fixed-desk-plan-dates">
           {formatDateDDMMYYYY(plan.startDate)} – {formatDateDDMMYYYY(plan.endDate)}
@@ -735,13 +758,15 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
           {t('fixedDesk.workingDays', { count: plan.count })}
         </span>
       </div>
-      <button
-        className="btn btn-danger btn-sm"
-        onClick={() => onCancelPlan(plan)}
-        disabled={cancelPending}
-      >
-        {t('fixedDesk.cancelPlan')}
-      </button>
+      {!isSyncedPartnerPlan(plan) && (
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={() => onCancelPlan(plan)}
+          disabled={cancelPending}
+        >
+          {t('fixedDesk.cancelPlan')}
+        </button>
+      )}
     </div>
   </div>
 )
@@ -1033,7 +1058,7 @@ const BookingModalContent = ({ form, handlers, mutations, t, locale, isMobile })
   )
 }
 
-const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, planPrefix, isPending }) => (
+const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, isPending }) => (
   <>
     {fd.fdStep === 1 && (
       <div className="booking-step">
@@ -1108,7 +1133,7 @@ const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, planPrefix, isP
           <div className="summary-item">
             <strong>{t('fixedDesk.summaryHours')}</strong> {t('fixedDesk.workingHours')}
           </div>
-          <p className="form-hint">{t(`${planPrefix}.summaryNote`)}</p>
+          <p className="form-hint">{t('fixedDesk.summaryNote')}</p>
         </div>
         <div className="form-actions">
           <button type="button" className="btn btn-secondary" onClick={() => fd.setFdStep(1)}>
@@ -1130,14 +1155,21 @@ const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, planPrefix, isP
 
 // The AuthContext profile loads once at sign-in, so read partnerId fresh: an
 // admin may attach or detach the member, or remove the partner, mid-session.
-const useDeskPlanType = (uid, userProfile) => {
+const useDeskPlanType = (uid, userProfile, amenities) => {
   const { data: member } = useQuery({
     queryKey: ['members', uid],
     queryFn: () => getMember(uid),
-    enabled: !!uid
+    enabled: !!uid,
+    refetchOnWindowFocus: false,
+    retry: 1
   })
-  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: getPartners })
-  return deskPlanTypeFor(member ?? userProfile, partners)
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners'],
+    queryFn: getPartners,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
+  return deskPlanTypeFor(member ?? userProfile, partners, amenities)
 }
 
 const MemberBookings = () => {
@@ -1150,8 +1182,6 @@ const MemberBookings = () => {
   const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
-  const deskPlanType = useDeskPlanType(currentUser?.uid, userProfile)
-  const planPrefix = deskPlanCopyPrefix(deskPlanType)
 
   const { data: myBookings = [] } = useQuery({
     // Scoped key: /member/dashboard reads a narrower window for the same uid.
@@ -1167,11 +1197,13 @@ const MemberBookings = () => {
     retry: 1
   })
   const amenities = remoteAmenities
+  const deskPlanType = useDeskPlanType(currentUser?.uid, userProfile, amenities)
+  const planPrefix = deskPlanCopyPrefix(deskPlanType)
 
   const form = useBookingForm(amenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()
   const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
-  const handlers = useBookingHandlers({ currentUser, deskPlanType, navigate, form, fd, mutations, t })
+  const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t })
 
   const availableAmenities = amenities.filter(a => a.isAvailable !== false)
   const deskAmenities = availableAmenities.filter(a => a.type === 'desk')
@@ -1192,12 +1224,11 @@ const MemberBookings = () => {
 
         <AmenitiesSection
           t={t}
-          planPrefix={planPrefix}
           amenitiesLoading={amenitiesLoading}
           availableAmenities={availableAmenities}
           onBook={handlers.handleBookAmenity}
           onShowPhotos={setLightboxAmenity}
-          onRegisterFixedDesk={fd.openForAmenity}
+          onRegisterFixedDesk={deskPlanType === PARTNER_DESK ? null : fd.openForAmenity}
         />
 
         <BookingsListSection
@@ -1252,14 +1283,13 @@ const MemberBookings = () => {
         <Modal
           isOpen={fd.fdModalOpen}
           onClose={fd.resetFdForm}
-          title={t(`${planPrefix}.modalTitle`)}
+          title={t('fixedDesk.modalTitle')}
         >
           <FixedDeskModalContent
             fd={fd}
             deskAmenities={deskAmenities}
             handlers={handlers}
             t={t}
-            planPrefix={planPrefix}
             isPending={mutations.fixedDeskMutation.isPending}
           />
         </Modal>

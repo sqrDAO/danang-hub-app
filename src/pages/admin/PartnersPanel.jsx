@@ -1,17 +1,36 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
-import { createPartner, deletePartner } from '../../services/partners'
+import { createPartner, deletePartner, updatePartner } from '../../services/partners'
+import { getAmenities } from '../../services/amenities'
 import { isPendingFor } from '../../utils/mutationTarget'
 import { normalizePartnerName } from '../../utils/deskPlans'
 import { showToast } from '../../utils/toast'
 
-// Partner organizations (9AM Games, DiiD, …). Members attached to one get
-// Partner Desk plans; a partner can only be removed once nobody is attached.
-const PartnerRow = ({ partner, memberCount, t, onRemove, removing }) => (
+// Partner organizations (9AM Games, DiiD, …). Members attached to one are
+// booked on the org's desk automatically; a partner can only be removed once
+// nobody is attached.
+const PartnerRow = ({ partner, memberCount, desks, t, onRemove, onDeskChange, removing, savingDesk }) => (
   <li className="partner-row">
     <span className="partner-row-name">{partner.name}</span>
     <span className="partner-row-count">{t('adminPartners.memberCount', { count: memberCount })}</span>
+    <select
+      className="form-field partner-row-desk"
+      aria-label={t('adminPartners.desk')}
+      value={partner.deskAmenityId || ''}
+      onChange={e => onDeskChange(partner, e.target.value || null)}
+      disabled={savingDesk}
+    >
+      <option value="">{t('adminPartners.noDesk')}</option>
+      {/* A deleted or no-longer-desk amenity would otherwise show as "No desk"
+          while the partner still points at it and members get nothing. */}
+      {partner.deskAmenityId && !desks.some(d => d.id === partner.deskAmenityId) && (
+        <option value={partner.deskAmenityId}>{t('adminPartners.unknownDesk')}</option>
+      )}
+      {desks.map(desk => (
+        <option key={desk.id} value={desk.id}>{desk.name}</option>
+      ))}
+    </select>
     <button
       type="button"
       className="btn btn-danger btn-sm"
@@ -35,6 +54,20 @@ const PartnersPanel = ({ partners, members, t }) => {
       setName('')
     },
     onError: () => showToast(t('toast.partnerAddFailed'), 'error')
+  })
+
+  const { data: amenities = [] } = useQuery({
+    queryKey: ['amenities'],
+    queryFn: getAmenities,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
+  const desks = amenities.filter(a => a.type === 'desk')
+
+  const deskMutation = useMutation({
+    mutationFn: ({ id, deskAmenityId }) => updatePartner(id, { deskAmenityId }),
+    onSuccess: () => invalidate('partners'),
+    onError: () => showToast(t('toast.partnerDeskFailed'), 'error')
   })
 
   const deleteMutation = useMutation({
@@ -61,6 +94,11 @@ const PartnersPanel = ({ partners, members, t }) => {
     }
   }
 
+  const handleDeskChange = (partner, deskAmenityId) => {
+    if (isPendingFor(deskMutation, partner.id)) return
+    deskMutation.mutate({ id: partner.id, deskAmenityId })
+  }
+
   const memberCount = (partnerId) => members.filter(m => m.partnerId === partnerId).length
 
   return (
@@ -78,9 +116,12 @@ const PartnersPanel = ({ partners, members, t }) => {
               key={partner.id}
               partner={partner}
               memberCount={memberCount(partner.id)}
+              desks={desks}
               t={t}
               onRemove={handleRemove}
+              onDeskChange={handleDeskChange}
               removing={isPendingFor(deleteMutation, partner.id)}
+              savingDesk={isPendingFor(deskMutation, partner.id)}
             />
           ))}
         </ul>

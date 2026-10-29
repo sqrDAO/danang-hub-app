@@ -325,14 +325,17 @@
   },
   "adminPartners": {
     "title": "Partner organizations",
-    "description": "Members attached to a partner get Partner Desk plans instead of Fixed Desk plans.",
+    "description": "Members attached to a partner are booked on the partner's desk every working day, for as long as they stay attached.",
     "namePlaceholder": "Partner name, e.g. 9AM Games",
     "add": "Add partner",
     "remove": "Remove",
     "memberCount": "{{count}} member(s)",
     "removeBlocked": "Detach its members before removing this partner.",
     "confirmRemove": "Remove the partner \"{{name}}\"?",
-    "empty": "No partner organizations yet."
+    "empty": "No partner organizations yet.",
+    "desk": "Desk",
+    "noDesk": "No desk",
+    "unknownDesk": "Missing desk — choose another"
   },
   "adminBookings": {
     "title": "Bookings",
@@ -708,11 +711,10 @@
   },
   "partnerDesk": {
     "title": "Partner Desk Plans",
-    "description": "Your partner organization's desk plans: a desk for all working hours across a week or month (Mon–Fri, 9am–6pm).",
-    "registerShort": "🤝 Partner Desk",
+    "description": "Your partner organization's desk, booked for you every working day (Mon–Fri, 9am–6pm) for as long as you're with them.",
     "badge": "Partner Desk",
-    "modalTitle": "Register Partner Desk",
-    "summaryNote": "Bookings will be created for all Mon–Fri working days and approved automatically. Days where the desk is already fully booked will be skipped.",
+    "ongoing": "Ongoing — renewed automatically",
+    "cancelDay": "Skip this day",
     "confirmCancel": "Cancel this partner desk plan? All pending/approved bookings in this plan will be cancelled."
   },
   "toast": {
@@ -788,10 +790,10 @@
     "fixedDeskAssigned": "Fixed desk assigned — {{count}} booking(s) created!",
     "fixedDeskAssignedNone": "No bookings were created — every day in that range is a weekend or a Hub closure.",
     "bookingAssignFailed": "Failed to assign booking. Please try again.",
-    "partnerDeskCreated": "Partner desk plan created — {{count}} booking(s) registered!",
-    "partnerDeskCancelled": "Partner desk plan cancelled.",
     "partnerAddFailed": "Failed to add partner. Please try again.",
     "partnerRemoveFailed": "Failed to remove partner. Please try again.",
-    "partnerDuplicate": "A partner with that name already exists."
+    "partnerDuplicate": "A partner with that name already exists.",
+    "partnerDeskFailed": "Failed to update the partner's desk. Please try again.",
+    "partnerDeskCancelled": "Partner desk plan cancelled."
   }
 }

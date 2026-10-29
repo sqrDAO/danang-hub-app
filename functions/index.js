@@ -18,12 +18,22 @@ const nodemailer = require("nodemailer");
 const {
   getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
-const {rangeOverlapsClosure} = require("./hubClosures");
+const {
+  HUB_UTC_OFFSET_HOURS,
+  rangeOverlapsClosure,
+} = require("./hubClosures");
 const {
   deskPlanLabel,
   getCancellationNotice,
   isDeskPlan,
 } = require("./bookingNotifications");
+const {
+  deskCapacity,
+  partnerDeskDays,
+  isSyncedPartnerDay,
+  partnerDeskPlanGroupId,
+  planPartnerDeskSync,
+} = require("./partnerDesks");
 const {getNewlyPromoted} = require("./waitlist");
 
 initializeApp();
@@ -196,11 +206,7 @@ async function computeBookingAvailability({
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
-  let amenityCapacityRaw = 1;
-  if (amenity && typeof amenity.capacity === "number") {
-    amenityCapacityRaw = amenity.capacity;
-  }
-  const amenityCapacity = amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+  const amenityCapacity = deskCapacity(amenity);
 
   const bookingsQuery = db.collection("bookings")
       .where("amenityId", "==", amenityId)
@@ -1363,6 +1369,23 @@ function getCancellationPushMessages(amenityName, notice) {
 }
 
 /**
+ * A synced partner desk keeps one planGroupId for the whole membership, so a
+ * second detach months later would reuse the first one's push dedupe marker
+ * and go unsent. Its cancellations are keyed per hub day of the cancellation
+ * instead; every other booking keeps its plan or booking subject.
+ * @param {Object} booking Booking document data
+ * @param {string} bookingId Booking document id
+ * @return {string} Notification subject id
+ */
+function getCancellationSubjectId(booking, bookingId) {
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  if (!isSyncedPartnerDay(booking)) return subjectId;
+  const day = new Intl.DateTimeFormat("en-CA", {timeZone: HUB_TIMEZONE})
+      .format(new Date()).replace(/-/g, "");
+  return `${subjectId}_${day}`;
+}
+
+/**
  * Tells a member that someone else cancelled their booking. Fixed-desk plans
  * collapse to one message via the shared planGroupId subject, so cancelling
  * three days of a plan notifies once.
@@ -1373,7 +1396,7 @@ function getCancellationPushMessages(amenityName, notice) {
  */
 async function notifyBookingCancelled(booking, bookingId, notice) {
   const amenityName = await getAmenityName(booking.amenityId);
-  const subjectId = getBookingSubjectId(booking, bookingId);
+  const subjectId = getCancellationSubjectId(booking, bookingId);
   await upsertNotification(
       booking.memberId,
       "booking_cancelled",
@@ -1398,8 +1421,6 @@ async function notifyBookingCancelled(booking, bookingId, notice) {
     console.error("Error sending booking cancellation push:", error);
   }
 }
-
-const HUB_UTC_OFFSET_HOURS = 7;
 
 /**
  * Get start-of-day timestamp for today in hub timezone (Asia/Ho_Chi_Minh).
@@ -1474,14 +1495,118 @@ async function commitSweep(toComplete) {
   }
 }
 
-// Auto check-out expired bookings + auto-complete past-day bookings.
+/**
+ * Load everything planPartnerDeskSync needs. Bookings come from one
+ * single-field range query (auto-indexed; CI does not deploy composite
+ * indexes), filtered in memory.
+ * @param {Timestamp} startOfToday Hub midnight today
+ * @return {Promise<Object>} Planner input, minus days
+ */
+async function loadPartnerDeskState(startOfToday) {
+  const [members, partners, amenities, bookings] = await Promise.all([
+    db.collection("members").where("partnerId", "!=", null).get(),
+    db.collection("partners").get(),
+    db.collection("amenities").get(),
+    db.collection("bookings").where("startTime", ">=", startOfToday).get(),
+  ]);
+  return {
+    members: members.docs.map((d) => ({
+      id: d.id, partnerId: d.get("partnerId"),
+    })),
+    partners: partners.docs.map((d) => ({id: d.id, ...d.data()})),
+    amenities: new Map(amenities.docs.map((d) => [d.id, d.data()])),
+    bookings: bookings.docs.map((d) => ({
+      id: d.id, updateTime: d.updateTime, ...d.data(),
+    })),
+  };
+}
+
+// Firestore error codes a sync write may hit when the snapshot it planned
+// from is out of date. They are expected, not failures.
+const STALE_WRITE_CODES = [
+  5, // NOT_FOUND: the booking was deleted
+  6, // ALREADY_EXISTS: a retried or overlapping run created the day
+  9, // FAILED_PRECONDITION: the booking changed since it was read
+];
+
+/**
+ * Data for a new synced partner day.
+ * @param {Object} b Planned booking from planPartnerDeskSync
+ * @param {string} now ISO timestamp
+ * @return {Object} Booking document data
+ */
+function partnerDayData(b, now) {
+  return {
+    memberId: b.memberId,
+    amenityId: b.amenityId,
+    partnerId: b.partnerId,
+    startTime: Timestamp.fromDate(b.startTime),
+    endTime: Timestamp.fromDate(b.endTime),
+    status: "approved",
+    planType: "partner-desk",
+    planGroupId: partnerDeskPlanGroupId(b.memberId),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Keep partner members booked on their partner's desk (see partnerDesks.js).
+ * Days are written approved and send no approval notice (an hourly rolling
+ * window would otherwise keep pushing one); a detach still notifies through
+ * the cancellation path.
+ *
+ * Writes go through a BulkWriter, each on its own: updates carry the read's
+ * update time as a precondition, so a check-in or a member's own cancel made
+ * after the read is never overwritten, and one stale write skips just itself.
+ * @param {Timestamp} startOfToday Hub midnight today
+ * @return {Promise<Object>} Counts of written and skipped days
+ */
+async function syncPartnerDesks(startOfToday) {
+  const state = await loadPartnerDeskState(startOfToday);
+  const nowMs = Date.now();
+  const days = partnerDeskDays(startOfToday.toMillis(), nowMs);
+  const {create, reactivate, cancel} =
+    planPartnerDeskSync({...state, days, nowMs});
+  const now = new Date().toISOString();
+  const readTimes = new Map(state.bookings.map((b) => [b.id, b.updateTime]));
+  const ref = (id) => db.collection("bookings").doc(id);
+  const counts = {created: 0, reactivated: 0, cancelled: 0, skipped: 0};
+  const unexpected = [];
+  const track = (key) => (promise) => promise.then(
+      () => counts[key]++,
+      (error) => STALE_WRITE_CODES.includes(error.code) ?
+        counts.skipped++ : unexpected.push(error));
+
+  const writer = db.bulkWriter();
+  writer.onWriteError((error) =>
+    !STALE_WRITE_CODES.includes(error.code) && error.failedAttempts < 3);
+  const pending = [
+    ...cancel.map(({id, reason}) => track("cancelled")(writer.update(ref(id), {
+      status: "cancelled", cancelledReason: reason, updatedAt: now,
+    }, {lastUpdateTime: readTimes.get(id)}))),
+    ...reactivate.map((id) => track("reactivated")(writer.update(ref(id), {
+      status: "approved", cancelledReason: FieldValue.delete(), updatedAt: now,
+    }, {lastUpdateTime: readTimes.get(id)}))),
+    ...create.map((b) => track("created")(
+        writer.create(ref(b.id), partnerDayData(b, now)))),
+  ];
+  await writer.close();
+  await Promise.all(pending);
+  if (unexpected.length > 0) throw unexpected[0];
+  return counts;
+}
+
+// Auto check-out expired bookings + auto-complete past-day bookings, then
+// sync Partner Desk days. The sync rides on this schedule because a new
+// scheduled function is a first-of-kind deploy CI cannot do.
 //
 // Every step runs independently and the commit runs on whatever was
 // collected, so one broken query degrades the sweep instead of cancelling
 // it. The handler rethrows at the end: a partial sweep must show up as a
 // failed run in Cloud Scheduler, not as a success that quietly did nothing.
 exports.autoCheckoutExpiredBookings = onSchedule(
-    "every 1 hours",
+    {schedule: "every 1 hours", timeoutSeconds: 300},
     async () => {
       const now = Timestamp.now();
       const oneHourAgo = Timestamp.fromMillis(
@@ -1527,6 +1652,14 @@ exports.autoCheckoutExpiredBookings = onSchedule(
       } catch (error) {
         commitFailure = error;
         console.error("Auto checkout commit failed:", error);
+      }
+
+      try {
+        const counts = await syncPartnerDesks(startOfToday);
+        console.log("Partner desk sync", counts);
+      } catch (error) {
+        failures.push("partner desk sync");
+        console.error("Partner desk sync failed:", error);
       }
 
       if (commitFailure) throw commitFailure;
@@ -1829,33 +1962,17 @@ exports.sendBookingConfirmation = onDocumentCreated(
     });
 
 /**
- * Whether the member is attached to an existing partner org.
- * @param {string} memberId Member uid
- * @return {Promise<boolean>}
- */
-async function isPartnerMember(memberId) {
-  const memberDoc = await db.collection("members").doc(memberId).get();
-  const partnerId = memberDoc.exists ? memberDoc.get("partnerId") : null;
-  if (typeof partnerId !== "string" || !partnerId) return false;
-  const partnerDoc = await db.collection("partners").doc(partnerId).get();
-  return partnerDoc.exists;
-}
-
-/**
- * Fixed Desk plans always wait for an admin. Partner Desk plans are
- * auto-approved like single desk bookings, but only for a real partner
- * member: rules let any member write planType, so the server checks.
+ * Single desk bookings only. Desk plans never are: Fixed Desk plans wait for
+ * an admin, and real Partner Desk days are written already approved by
+ * syncPartnerDesks — a client-written partner-desk booking (rules let any
+ * member set planType) is left for an admin like any plan.
  * @param {Object} booking Booking document data
  * @param {Object|null} amenity Amenity document data
- * @return {Promise<boolean>}
+ * @return {boolean}
  */
-async function isAutoApprovable(booking, amenity) {
+function isAutoApprovable(booking, amenity) {
   if (!amenity || amenity.type !== "desk") return false;
-  if (booking.planType === "fixed-desk") return false;
-  if (booking.planType === "partner-desk") {
-    return isPartnerMember(booking.memberId);
-  }
-  return true;
+  return !isDeskPlan(booking.planType);
 }
 
 // Auto-approve desk bookings (excluding Fixed Desk plans) when the desk
@@ -1870,7 +1987,9 @@ exports.autoApproveDeskBooking = onDocumentCreated(
       const bookingId = event.params.bookingId;
 
       if (booking.status === "approved") {
-        await notifyBookingApproved(booking, bookingId);
+        if (!isSyncedPartnerDay(booking)) {
+          await notifyBookingApproved(booking, bookingId);
+        }
         return null;
       }
       if (booking.status !== "pending") return null;
@@ -1880,7 +1999,7 @@ exports.autoApproveDeskBooking = onDocumentCreated(
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        if (await isAutoApprovable(booking, amenity)) {
+        if (isAutoApprovable(booking, amenity)) {
           const {hasConflicts} = await computeBookingAvailability({
             amenityId: booking.amenityId,
             amenity,
@@ -1924,6 +2043,8 @@ exports.notifyBookingApproval = onDocumentUpdated(
       const bookingId = event.params.bookingId;
 
       if (before.status !== after.status && after.status === "approved") {
+        // Synced partner days are reactivated by the hourly sync, silently.
+        if (isSyncedPartnerDay(after)) return null;
         try {
           await notifyBookingApproved(after, bookingId);
         } catch (error) {

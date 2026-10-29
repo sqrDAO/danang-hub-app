@@ -7,6 +7,8 @@
 // the primary guard.
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
+// Vietnam has no DST, so hub time is always UTC+7.
+const HUB_UTC_OFFSET_HOURS = 7;
 
 const HUB_CLOSURES = [
   {
@@ -66,4 +68,9 @@ function rangeOverlapsClosure(start, end) {
       (closure) => closure.start <= to && closure.end >= from) || null;
 }
 
-module.exports = {HUB_CLOSURES, getHubClosure, rangeOverlapsClosure};
+module.exports = {
+  HUB_CLOSURES,
+  HUB_UTC_OFFSET_HOURS,
+  getHubClosure,
+  rangeOverlapsClosure,
+};
