@@ -2,7 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   checkLocalBookingConflicts,
+  createLocalAmenity,
   createLocalBooking,
+  createLocalPartner,
+  deleteLocalPartner,
+  getLocalAmenity,
+  setLocalPartnerDesk,
   filterLocalBookings,
   overlappingLocalBookings,
   resetLocalDevStore
@@ -49,4 +54,25 @@ test('desk conflicts only after capacity is full', () => {
   assert.equal(checkLocalBookingConflicts('local-desk', start, end).hasConflicts, false)
   for (let i = 2; i <= 8; i += 1) book(`m${i}`)
   assert.equal(checkLocalBookingConflicts('local-desk', start, end).hasConflicts, true)
+})
+
+test('a partner desk is reserved for its partner and released on change or removal', () => {
+  resetLocalDevStore()
+  const deskA = createLocalAmenity({ name: 'Desk A', type: 'desk' })
+  const deskB = createLocalAmenity({ name: 'Desk B', type: 'desk' })
+  const partner = createLocalPartner({ name: '9AM Games' })
+
+  setLocalPartnerDesk(partner.id, deskA)
+  assert.equal(getLocalAmenity(deskA).reservedForPartnerId, partner.id)
+
+  setLocalPartnerDesk(partner.id, deskB)
+  assert.equal(getLocalAmenity(deskA).reservedForPartnerId, null)
+  assert.equal(getLocalAmenity(deskB).reservedForPartnerId, partner.id)
+
+  setLocalPartnerDesk(partner.id, null)
+  assert.equal(getLocalAmenity(deskB).reservedForPartnerId, null)
+
+  setLocalPartnerDesk(partner.id, deskA)
+  deleteLocalPartner(partner.id)
+  assert.equal(getLocalAmenity(deskA).reservedForPartnerId, null)
 })

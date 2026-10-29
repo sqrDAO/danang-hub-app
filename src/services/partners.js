@@ -1,21 +1,22 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   orderBy,
   query,
-  updateDoc
+  where,
+  writeBatch
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
-import { createLocalPartner, deleteLocalPartner, listLocalPartners, updateLocalPartner } from './localDevStore'
+import { createLocalPartner, deleteLocalPartner, listLocalPartners, setLocalPartnerDesk } from './localDevStore'
 
 // Partner organizations (e.g. 9AM Games, DiiD). Admins attach members to one
 // through members.partnerId and pick the org's desk (deskAmenityId); the
 // hourly scheduler keeps those members booked on it (functions/partnerDesks.js).
 const PARTNERS_COLLECTION = 'partners'
+const AMENITIES_COLLECTION = 'amenities'
 
 export const getPartners = async () => {
   if (LOCAL_DEV_MODE) return listLocalPartners()
@@ -32,13 +33,34 @@ export const createPartner = async (name) => {
   return { id: ref.id, ...data, createdAt: now, updatedAt: now }
 }
 
+// The desk a partner picks is reserved for it (amenities.reservedForPartnerId):
+// other members cannot see or book it (firestore.rules). Every desk still
+// marked for the partner is released first, so a changed, cleared or deleted
+// partner never leaves a stale reservation behind, even after drift.
+const releasePartnerDesks = async (batch, partnerId, keepAmenityId, now) => {
+  const reserved = await getDocs(query(collection(db, AMENITIES_COLLECTION), where('reservedForPartnerId', '==', partnerId)))
+  reserved.docs
+    .filter(d => d.id !== keepAmenityId)
+    .forEach(d => batch.update(d.ref, { reservedForPartnerId: null, updatedAt: now }))
+}
+
 // deskAmenityId: a desk amenity id, or null for no automatic desk.
-export const updatePartner = async (id, data) => {
-  if (LOCAL_DEV_MODE) return updateLocalPartner(id, data)
-  await updateDoc(doc(db, PARTNERS_COLLECTION, id), { ...data, updatedAt: new Date().toISOString() })
+export const setPartnerDesk = async (id, deskAmenityId) => {
+  if (LOCAL_DEV_MODE) return setLocalPartnerDesk(id, deskAmenityId)
+  const now = new Date().toISOString()
+  const batch = writeBatch(db)
+  await releasePartnerDesks(batch, id, deskAmenityId, now)
+  batch.update(doc(db, PARTNERS_COLLECTION, id), { deskAmenityId, updatedAt: now })
+  if (deskAmenityId) {
+    batch.update(doc(db, AMENITIES_COLLECTION, deskAmenityId), { reservedForPartnerId: id, updatedAt: now })
+  }
+  await batch.commit()
 }
 
 export const deletePartner = async (id) => {
   if (LOCAL_DEV_MODE) return deleteLocalPartner(id)
-  await deleteDoc(doc(db, PARTNERS_COLLECTION, id))
+  const batch = writeBatch(db)
+  await releasePartnerDesks(batch, id, null, new Date().toISOString())
+  batch.delete(doc(db, PARTNERS_COLLECTION, id))
+  await batch.commit()
 }

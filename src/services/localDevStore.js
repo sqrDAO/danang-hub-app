@@ -339,13 +339,26 @@ export const createLocalPartner = (data) => {
   getStore().partners.push(partner)
   return { ...partner }
 }
-export const updateLocalPartner = (id, data) => {
-  const partner = getStore().partners.find((item) => item.id === id)
-  if (partner) Object.assign(partner, data, { updatedAt: new Date().toISOString() })
+// Mirrors setPartnerDesk / deletePartner in partners.js: a partner holds at
+// most one reserved desk (amenities.reservedForPartnerId).
+const releaseLocalPartnerDesks = (partnerId) => {
+  getStore().amenities
+    .filter((item) => item.reservedForPartnerId === partnerId)
+    .forEach((item) => { item.reservedForPartnerId = null })
+}
+export const setLocalPartnerDesk = (id, deskAmenityId) => {
+  const store = getStore()
+  const partner = store.partners.find((item) => item.id === id)
+  if (!partner) return
+  Object.assign(partner, { deskAmenityId, updatedAt: new Date().toISOString() })
+  releaseLocalPartnerDesks(id)
+  const desk = store.amenities.find((item) => item.id === deskAmenityId)
+  if (desk) desk.reservedForPartnerId = id
 }
 export const deleteLocalPartner = (id) => {
   const store = getStore()
   store.partners = store.partners.filter((item) => item.id !== id)
+  releaseLocalPartnerDesks(id)
 }
 
 export const countLocalCompletedBookings = () =>

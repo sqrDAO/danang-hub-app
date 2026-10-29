@@ -6,6 +6,7 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
+import { getPartners } from '../../services/partners'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
@@ -189,8 +190,26 @@ const AmenityCardPhoto = ({ amenity, t, onView }) => {
   )
 }
 
-const AmenityCardInfo = ({ amenity, t }) => (
+// Name of the partner a desk is reserved for (amenities.reservedForPartnerId),
+// set from the Partners panel on /admin/members.
+const useReservedPartnerName = () => {
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners'],
+    queryFn: getPartners,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
+  return (amenity) => {
+    if (amenity.reservedForPartnerId == null) return null
+    return partners.find(p => p.id === amenity.reservedForPartnerId)?.name || amenity.reservedForPartnerId
+  }
+}
+
+const AmenityCardInfo = ({ amenity, reservedFor, t }) => (
   <div className="amenity-info">
+    {reservedFor && (
+      <p className="amenity-reserved">{t('adminAmenities.reservedFor', { name: reservedFor })}</p>
+    )}
     <p className="amenity-type">{t('adminAmenities.type', { type: amenity.type || t('common.na') })}</p>
     <p className="amenity-capacity">{t('adminAmenities.capacity', { count: amenity.capacity ?? t('common.na') })}</p>
     <p className="amenity-hours">
@@ -246,6 +265,7 @@ const AmenityCardActions = ({
 
 const AmenityCard = ({
   amenity,
+  reservedFor,
   t,
   onViewPhotos,
   onToggleAvailability,
@@ -262,7 +282,7 @@ const AmenityCard = ({
         {amenity.isAvailable !== false ? t('status.available') : t('status.unavailable')}
       </span>
     </div>
-    <AmenityCardInfo amenity={amenity} t={t} />
+    <AmenityCardInfo amenity={amenity} reservedFor={reservedFor} t={t} />
     <AmenityCardActions
       amenity={amenity}
       t={t}
@@ -576,6 +596,7 @@ const AdminAmenities = () => {
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
+  const reservedPartnerName = useReservedPartnerName()
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -751,6 +772,7 @@ const AdminAmenities = () => {
             <AmenityCard
               key={amenity.id}
               amenity={amenity}
+              reservedFor={reservedPartnerName(amenity)}
               t={t}
               onViewPhotos={setLightboxAmenity}
               onToggleAvailability={handleToggleAvailability}

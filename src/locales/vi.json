@@ -446,6 +446,7 @@
     "addButton": "Thêm tiện ích",
     "photos": "{{count}} ảnh",
     "type": "Loại: {{type}}",
+    "reservedFor": "Dành riêng cho đối tác: {{name}}",
     "capacity": "Sức chứa: {{count}}",
     "hours": "Giờ: {{start}}:00 - {{end}}:00",
     "days": "Ngày: {{days}}",

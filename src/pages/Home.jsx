@@ -10,6 +10,7 @@ import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
 import EventCard from '../components/event/EventCard'
 import EventDetailModal from '../components/event/EventDetailModal'
 import { getAmenities } from '../services/amenities'
+import { isAmenityOpenTo } from '../utils/deskPlans'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import './Home.css'
 
@@ -205,7 +206,8 @@ const Home = () => {
     navigate(signup ? '/login?signup=true' : '/login')
   }
 
-  const availableAmenities = amenities.filter(a => a.isAvailable !== false)
+  // A partner's reserved desk is not open to the public or other members.
+  const availableAmenities = amenities.filter(a => a.isAvailable !== false && isAmenityOpenTo(a))
   const now = new Date()
   const upcomingEvents = events.filter(e => e.date && asDate(e.date) > now)
   const pastEvents = approvedEvents.filter(e => e.date && asDate(e.date) <= now)

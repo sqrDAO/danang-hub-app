@@ -9,7 +9,7 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isSyncedPartnerPlan } from '../../utils/deskPlans'
+import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isAmenityOpenTo, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
 import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
@@ -1220,6 +1220,7 @@ const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, isPending }) =>
 
 // The AuthContext profile loads once at sign-in, so read partnerId fresh: an
 // admin may attach or detach the member, or remove the partner, mid-session.
+// partnerId also decides which partner-reserved desks the member may book.
 const useDeskPlanType = (uid, userProfile, amenities) => {
   const { data: member } = useQuery({
     queryKey: ['members', uid],
@@ -1234,7 +1235,8 @@ const useDeskPlanType = (uid, userProfile, amenities) => {
     refetchOnWindowFocus: false,
     retry: 1
   })
-  return deskPlanTypeFor(member ?? userProfile, partners, amenities)
+  const profile = member ?? userProfile
+  return { deskPlanType: deskPlanTypeFor(profile, partners, amenities), partnerId: profile?.partnerId ?? null }
 }
 
 const MemberBookings = () => {
@@ -1262,17 +1264,22 @@ const MemberBookings = () => {
     retry: 1
   })
   const amenities = remoteAmenities
-  const deskPlanType = useDeskPlanType(currentUser?.uid, userProfile, amenities)
+  const { deskPlanType, partnerId } = useDeskPlanType(currentUser?.uid, userProfile, amenities)
   const planPrefix = deskPlanCopyPrefix(deskPlanType)
+  // Another partner's desk is neither listed nor deep-linkable; bookings
+  // already on it still resolve their names through `amenities`.
+  const bookableAmenities = useMemo(
+    () => amenities.filter(a => a.isAvailable !== false && isAmenityOpenTo(a, partnerId)),
+    [amenities, partnerId]
+  )
 
-  const form = useBookingForm(amenities, searchParams, setSearchParams, navigate)
+  const form = useBookingForm(bookableAmenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()
   const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
   const { limit, deskHoursUsed } = useMonthlyLimit(userProfile, myBookings, amenities)
   const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t, limit })
 
-  const availableAmenities = amenities.filter(a => a.isAvailable !== false)
-  const deskAmenities = availableAmenities.filter(a => a.type === 'desk')
+  const deskAmenities = bookableAmenities.filter(a => a.type === 'desk')
 
   const deduplicatedBookings = deduplicateBookings(myBookings)
   const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
@@ -1294,7 +1301,7 @@ const MemberBookings = () => {
           t={t}
           deskHoursUsed={deskHoursUsed}
           amenitiesLoading={amenitiesLoading}
-          availableAmenities={availableAmenities}
+          availableAmenities={bookableAmenities}
           onBook={handlers.handleBookAmenity}
           onShowPhotos={setLightboxAmenity}
           onRegisterFixedDesk={deskPlanType === PARTNER_DESK ? null : fd.openForAmenity}

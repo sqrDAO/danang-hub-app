@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
-import { createPartner, deletePartner, updatePartner } from '../../services/partners'
+import { createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
 import { getAmenities } from '../../services/amenities'
 import { isPendingFor } from '../../utils/mutationTarget'
 import { normalizePartnerName } from '../../utils/deskPlans'
@@ -10,7 +10,7 @@ import { showToast } from '../../utils/toast'
 // Partner organizations (9AM Games, DiiD, …). Members attached to one are
 // booked on the org's desk automatically; a partner can only be removed once
 // nobody is attached.
-const PartnerRow = ({ partner, memberCount, desks, t, onRemove, onDeskChange, removing, savingDesk }) => (
+const PartnerRow = ({ partner, partnerNames, memberCount, desks, t, onRemove, onDeskChange, removing, savingDesk }) => (
   <li className="partner-row">
     <span className="partner-row-name">{partner.name}</span>
     <span className="partner-row-count">{t('adminPartners.memberCount', { count: memberCount })}</span>
@@ -27,9 +27,15 @@ const PartnerRow = ({ partner, memberCount, desks, t, onRemove, onDeskChange, re
       {partner.deskAmenityId && !desks.some(d => d.id === partner.deskAmenityId) && (
         <option value={partner.deskAmenityId}>{t('adminPartners.unknownDesk')}</option>
       )}
-      {desks.map(desk => (
-        <option key={desk.id} value={desk.id}>{desk.name}</option>
-      ))}
+      {/* A desk is reserved for one partner at a time (reservedForPartnerId). */}
+      {desks.map(desk => {
+        const holder = desk.reservedForPartnerId !== partner.id && partnerNames[desk.reservedForPartnerId]
+        return (
+          <option key={desk.id} value={desk.id} disabled={!!holder}>
+            {holder ? `${desk.name} (${holder})` : desk.name}
+          </option>
+        )
+      })}
     </select>
     <button
       type="button"
@@ -65,14 +71,14 @@ const PartnersPanel = ({ partners, members, t }) => {
   const desks = amenities.filter(a => a.type === 'desk')
 
   const deskMutation = useMutation({
-    mutationFn: ({ id, deskAmenityId }) => updatePartner(id, { deskAmenityId }),
-    onSuccess: () => invalidate('partners'),
+    mutationFn: ({ id, deskAmenityId }) => setPartnerDesk(id, deskAmenityId),
+    onSuccess: () => invalidate('partners', 'amenities'),
     onError: () => showToast(t('toast.partnerDeskFailed'), 'error')
   })
 
   const deleteMutation = useMutation({
     mutationFn: deletePartner,
-    onSuccess: () => invalidate('partners'),
+    onSuccess: () => invalidate('partners', 'amenities'),
     onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
   })
 
@@ -99,6 +105,7 @@ const PartnersPanel = ({ partners, members, t }) => {
     deskMutation.mutate({ id: partner.id, deskAmenityId })
   }
 
+  const partnerNames = Object.fromEntries(partners.map(p => [p.id, p.name]))
   const memberCount = (partnerId) => members.filter(m => m.partnerId === partnerId).length
 
   return (
@@ -115,6 +122,7 @@ const PartnersPanel = ({ partners, members, t }) => {
             <PartnerRow
               key={partner.id}
               partner={partner}
+              partnerNames={partnerNames}
               memberCount={memberCount(partner.id)}
               desks={desks}
               t={t}

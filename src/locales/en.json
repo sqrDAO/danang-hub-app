@@ -446,6 +446,7 @@
     "addButton": "Add Amenity",
     "photos": "{{count}} photos",
     "type": "Type: {{type}}",
+    "reservedFor": "Reserved for partner: {{name}}",
     "capacity": "Capacity: {{count}}",
     "hours": "Hours: {{start}}:00 - {{end}}:00",
     "days": "Days: {{days}}",

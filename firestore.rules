@@ -17,6 +17,20 @@ service cloud.firestore {
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+
+    // A partner's desk (amenities.reservedForPartnerId, set from the admin
+    // Partners panel) is bookable only by members attached to that partner.
+    // A missing amenity reads as unreserved, so this never errors on its own.
+    // Two documents read (the amenity and the caller's profile, which isAdmin
+    // already reads in the same request).
+    function amenityOpenToCaller(amenityId) {
+      let amenityPath = /databases/$(database)/documents/amenities/$(amenityId);
+      let memberPath = /databases/$(database)/documents/members/$(request.auth.uid);
+      return !exists(amenityPath) ||
+             get(amenityPath).data.get('reservedForPartnerId', null) == null ||
+             (exists(memberPath) &&
+              get(memberPath).data.get('partnerId', null) == get(amenityPath).data.reservedForPartnerId);
+    }
     
     // Members collection
     // Profile fields: uid, displayName, email, photoURL, membershipType,
@@ -60,7 +74,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Amenities collection
+    // Amenities collection. reservedForPartnerId (id in /partners, optional)
+    // marks a partner's desk; see amenityOpenToCaller.
     match /amenities/{amenityId} {
       // Everyone can read amenities (public access)
       allow read: if true;
@@ -85,10 +100,12 @@ service cloud.firestore {
       // (auto-approval, if any, happens server-side); admins can create
       // on behalf of any member with any status. Partner Desk days are
       // written only by the server's hourly sync, so members cannot create
-      // a partner-desk booking that the server would treat as one.
+      // a partner-desk booking that the server would treat as one. A desk
+      // reserved for a partner takes bookings only from that partner's members.
       allow create: if isAuthenticated() && isOwner(request.resource.data.memberId) &&
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
+                       amenityOpenToCaller(request.resource.data.amenityId) &&
                        request.resource.data.get('planType', null) != 'partner-desk' &&
                        // A Fixed Desk day belongs to a plan. Desk plans sit
                        // outside the monthly desk-hours limit, and always go

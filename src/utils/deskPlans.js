@@ -97,3 +97,9 @@ export const buildDeskPlans = (bookings, now = new Date()) =>
   [...groupPlanDays(bookings).entries()]
     .map(([id, days]) => summarizePlan(id, days, now))
     .filter(plan => isListedPlan(plan, now.getTime()))
+
+// A partner's desk (amenities.reservedForPartnerId) is bookable only by that
+// partner's members; firestore.rules enforces the same test on member creates.
+// partnerId is the viewer's members.partnerId (null for everyone else).
+export const isAmenityOpenTo = (amenity, partnerId = null) =>
+  amenity?.reservedForPartnerId == null || amenity.reservedForPartnerId === partnerId
