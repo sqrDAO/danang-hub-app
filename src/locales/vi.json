@@ -94,7 +94,12 @@
     "partnerDeskPendingReviewBody": "{{member}} đã yêu cầu gói bàn đối tác cho \"{{amenity}}\".",
     "partnerDeskApprovedBody": "Gói bàn đối tác \"{{amenity}}\" của bạn đã được duyệt.",
     "partnerDeskCancelledBody": "Một số ngày trong gói bàn đối tác cho \"{{amenity}}\" đã bị huỷ.",
-    "partnerDeskCancelledClosureBody": "Một số ngày trong gói bàn đối tác cho \"{{amenity}}\" đã bị huỷ — Hub đóng cửa."
+    "partnerDeskCancelledClosureBody": "Một số ngày trong gói bàn đối tác cho \"{{amenity}}\" đã bị huỷ — Hub đóng cửa.",
+    "fixedDeskRenewalPendingReviewBody": "{{member}} đã yêu cầu gia hạn gói bàn cố định cho \"{{amenity}}\".",
+    "renewalRejectedBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" của bạn không được duyệt.",
+    "renewalRejectedReasonBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" của bạn không được duyệt: {{reason}}",
+    "fixedDeskEndingTitle": "Gói bàn cố định sắp kết thúc",
+    "fixedDeskEndingBody": "Gói bàn cố định \"{{amenity}}\" kết thúc ngày {{date}}. Gia hạn trong mục đặt chỗ."
   },
   "status": {
     "pending": "chờ duyệt",
@@ -384,6 +389,19 @@
     "assignCreateFailed": "Không thể tạo đặt chỗ. Hãy kiểm tra danh sách đặt chỗ trước khi thử lại.",
     "assignAndApprove": "Tạo & Duyệt",
     "noBookings": "Không có đặt chỗ nào khớp với bộ lọc."
+  },
+  "adminRenewals": {
+    "title": "Yêu cầu gia hạn cần duyệt ({{count}})",
+    "description": "Ngày gia hạn không giữ bàn khi đang chờ. Khi duyệt, từng ngày được kiểm tra lại; ngày đã có người đặt sẽ bị bỏ.",
+    "approve": "Duyệt gia hạn",
+    "rejectTitle": "Từ chối gia hạn",
+    "reasonLabel": "Lý do (không bắt buộc, thành viên sẽ thấy)",
+    "reasonPlaceholder": "Ví dụ: Bàn đã được giữ cho sự kiện trong tháng đó.",
+    "confirmReject": "Từ chối gia hạn",
+    "approved": "Đã duyệt gia hạn: {{approved}} ngày, bỏ {{dropped}} ngày (đã có người đặt).",
+    "approveFailed": "Chưa duyệt xong yêu cầu gia hạn. Các ngày đã duyệt vẫn giữ nguyên; hãy thử lại.",
+    "rejected": "Đã từ chối gia hạn.",
+    "rejectFailed": "Không thể từ chối gia hạn. Vui lòng thử lại."
   },
   "amenityTypes": {
     "desk": "Bàn làm việc",
@@ -705,7 +723,16 @@
     "summaryHours": "Giờ:",
     "summaryNote": "Đặt chỗ sẽ được tạo cho tất cả ngày làm việc (Thứ 2–6). Những ngày bàn đã đầy chỗ sẽ được bỏ qua.",
     "confirm": "Xác nhận đăng ký",
-    "adminAssignNote": "Gói bàn cố định do quản trị viên tạo sẽ được tự động duyệt."
+    "adminAssignNote": "Gói bàn cố định do quản trị viên tạo sẽ được tự động duyệt.",
+    "ended": "Đã kết thúc",
+    "renewal": {
+      "renew": "Gia hạn",
+      "renewing": "Đang gửi…",
+      "hint": "Cùng bàn và thời hạn, bắt đầu từ ngày làm việc kế tiếp. Quản trị viên sẽ duyệt; trước đó bàn không được giữ cho bạn.",
+      "pending": "Đã yêu cầu gia hạn — đang chờ quản trị viên.",
+      "approved": "Đã gia hạn.",
+      "badge": "Gia hạn"
+    }
   },
   "partnerDesk": {
     "title": "Gói bàn đối tác",
@@ -792,6 +819,9 @@
     "partnerRemoveFailed": "Không thể xóa đối tác. Vui lòng thử lại.",
     "partnerDuplicate": "Đã có đối tác với tên này.",
     "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại.",
-    "partnerDeskCancelled": "Đã hủy gói bàn đối tác."
+    "partnerDeskCancelled": "Đã hủy gói bàn đối tác.",
+    "renewalRequested": "Đã yêu cầu gia hạn — {{count}} ngày đang chờ duyệt.",
+    "renewalNone": "Không tạo được ngày gia hạn nào — bàn đã kín hoặc Hub đóng cửa.",
+    "renewalFailed": "Không thể gửi yêu cầu gia hạn. Vui lòng thử lại."
   }
 }

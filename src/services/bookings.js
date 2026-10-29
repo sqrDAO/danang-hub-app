@@ -17,6 +17,7 @@ import { isHubClosed } from '../utils/hubClosures'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { isSameHubDay } from '../utils/timezone'
 import { getFixedDeskPlanWindow, planRecurrenceStarts } from '../utils/recurrence'
+import { renewalStartDate } from '../utils/renewals'
 import {
   cancelLocalFixedDeskPlan,
   countLocalCompletedBookings,
@@ -333,6 +334,7 @@ export const createFixedDeskPlan = async ({
   startDate,
   createdByAdmin = false,
   checkConflictsFn = null,
+  renewalOf = null,
 }) => {
   const planGroupId = crypto.randomUUID()
   const { start, firstDayEnd, end } = getFixedDeskPlanWindow({ startDate, period })
@@ -345,6 +347,7 @@ export const createFixedDeskPlan = async ({
     planType: 'fixed-desk',
     planPeriod: period,
     planGroupId,
+    ...(renewalOf && { renewalOf }),
     ...(createdByAdmin && { status: 'approved' }),
   }
 
@@ -354,6 +357,63 @@ export const createFixedDeskPlan = async ({
     checkConflictsFn,
     { allowedWeekdays: [1, 2, 3, 4, 5] }
   )
+}
+
+// Renew a Fixed Desk plan: same desk and period, starting the first working day
+// after it (src/utils/renewals.js). The days start pending and wait for an
+// admin; while they wait they hold no seat, so days already full are skipped.
+export const renewFixedDeskPlan = ({ plan, memberId, checkConflictsFn = null }) =>
+  createFixedDeskPlan({
+    memberId,
+    amenityId: plan.amenityId,
+    period: plan.planPeriod,
+    startDate: renewalStartDate(plan),
+    checkConflictsFn,
+    renewalOf: plan.planGroupId,
+  })
+
+const toDate = (value) => value?.toDate?.() || new Date(value)
+
+const getPlanBookings = async (planGroupId) => {
+  if (LOCAL_DEV_MODE) return listLocalBookings().filter(b => b.planGroupId === planGroupId)
+  const q = query(collection(db, BOOKINGS_COLLECTION), where('planGroupId', '==', planGroupId))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+// Approve a renewal as one unit. Its pending days held no seat while they
+// waited, so each is re-checked, in order, and a day whose seat has gone is
+// cancelled instead. Fails closed: a check that errors stops the approval.
+export const approveFixedDeskRenewal = async (planGroupId, checkConflictsFn) => {
+  const days = (await getPlanBookings(planGroupId))
+    .filter(b => b.status === 'pending')
+    .sort((a, b) => toDate(a.startTime) - toDate(b.startTime))
+  let approved = 0
+  let dropped = 0
+  for (const day of days) {
+    const { hasConflicts } = await checkConflictsFn(day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id)
+    if (hasConflicts) {
+      await updateBooking(day.id, { status: 'cancelled', cancelledReason: 'renewal-seat-taken' })
+      dropped++
+    } else {
+      await updateBooking(day.id, { status: 'approved' })
+      approved++
+    }
+  }
+  return { approved, dropped }
+}
+
+// Reject a renewal: every pending day is cancelled; the member is told once,
+// with the reason when one is given.
+export const rejectFixedDeskRenewal = async (planGroupId, reason = '') => {
+  const days = (await getPlanBookings(planGroupId)).filter(b => b.status === 'pending')
+  const note = reason.trim()
+  await Promise.all(days.map(b => updateBooking(b.id, {
+    status: 'cancelled',
+    cancelledReason: 'renewal-rejected',
+    ...(note && { rejectionReason: note }),
+  })))
+  return days.length
 }
 
 // Cancel all active bookings belonging to a fixed desk plan group.

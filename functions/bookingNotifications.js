@@ -47,8 +47,8 @@ function deskPlanLabel(planType) {
  *
  * @param {Object} before Booking document data before the write
  * @param {Object} after Booking document data after the write
- * @return {{reason: string, isHubClosure: boolean, isPlan: boolean,
- *   planType: string}|null}
+ * @return {?Object} null, or {reason, isHubClosure, isPlan, planType,
+ *   isRenewalRejection, rejectionReason}
  */
 function getCancellationNotice(before, after) {
   if (!before || !after) return null;
@@ -68,6 +68,9 @@ function getCancellationNotice(before, after) {
     isHubClosure: reason.startsWith(HUB_CLOSURE_REASON_PREFIX),
     isPlan: isDeskPlan(after.planType),
     planType: after.planType || "standard",
+    isRenewalRejection: reason === "renewal-rejected",
+    rejectionReason: typeof after.rejectionReason === "string" &&
+      after.rejectionReason.trim() ? after.rejectionReason.trim() : null,
   };
 }
 

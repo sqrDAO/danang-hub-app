@@ -52,6 +52,7 @@ const getBookingPendingReviewBody = (notification, t) => {
     amenity: notification.amenityName
   }
 
+  if (notification.isRenewal) return t('notifications.fixedDeskRenewalPendingReviewBody', args)
   return t(`notifications.${planCopyPrefix(notification)}PendingReviewBody`, args)
 }
 
@@ -71,7 +72,14 @@ const getBookingApprovedCopy = (notification, t) => ({
 
 // A closure cancellation says why; anything else stays generic, since the raw
 // `cancelledReason` is an internal marker and not member-facing copy.
+const getRenewalRejectedBody = (notification, t) => (
+  notification.rejectionReason
+    ? t('notifications.renewalRejectedReasonBody', { amenity: notification.amenityName, reason: notification.rejectionReason })
+    : t('notifications.renewalRejectedBody', { amenity: notification.amenityName })
+)
+
 const getBookingCancelledBody = (notification, t) => {
+  if (notification.cancelledReason === 'renewal-rejected') return getRenewalRejectedBody(notification, t)
   const args = { amenity: notification.amenityName }
   const suffix = notification.isHubClosure ? 'CancelledClosureBody' : 'CancelledBody'
   return t(`notifications.${planCopyPrefix(notification)}${suffix}`, args)
@@ -138,6 +146,11 @@ const getWaitlistPromotedCopy = (notification, t) => ({
   body: t('notifications.waitlistPromotedBody', { title: notification.eventTitle })
 })
 
+const getFixedDeskEndingCopy = (notification, t) => ({
+  title: t('notifications.fixedDeskEndingTitle'),
+  body: t('notifications.fixedDeskEndingBody', { amenity: notification.amenityName, date: notification.endDate })
+})
+
 const getDefaultNotificationCopy = (t) => ({
   title: t('notifications.defaultTitle'),
   body: t('notifications.defaultBody')
@@ -151,7 +164,8 @@ const NOTIFICATION_COPY_BY_TYPE = {
   booking_cancelled: getBookingCancelledCopy,
   event_reminder: getEventReminderCopy,
   event_revision: getEventRevisionCopy,
-  waitlist_promoted: getWaitlistPromotedCopy
+  waitlist_promoted: getWaitlistPromotedCopy,
+  fixed_desk_ending: getFixedDeskEndingCopy
 }
 
 const getNotificationCopyFactory = (type) => NOTIFICATION_COPY_BY_TYPE[type]
@@ -190,6 +204,7 @@ const NOTIFICATION_FALLBACK_PATH_BY_TYPE = {
   booking_pending_review: '/admin/bookings',
   booking_approved: '/member/bookings',
   booking_cancelled: '/member/bookings',
+  fixed_desk_ending: '/member/bookings',
   event_status: '/member/events',
   event_reminder: '/member/events',
   event_revision: '/member/events',

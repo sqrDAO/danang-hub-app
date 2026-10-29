@@ -1,0 +1,53 @@
+# Fixed Desk renewal with admin approval
+**Phase**: — · **Deps**: partner-desk-auto-assign
+
+## Goal
+Members renew a Fixed Desk plan instead of registering a new one, and every renewal waits for an admin (issue #114). A renewal does not hold the desk while it waits. Admins approve or reject it as one unit, and members get a reminder 3 days before their plan ends.
+
+## Files
+- `functions/renewals.js` (new) — pure: `holdsSeat`, pending-renewal checks, ending-soon detection
+- `functions/index.js` (edited) — occupancy ignores pending renewals; renewal review copy; sweep cancels unapproved renewal days; reminder step in the hourly run
+- `functions/bookingNotifications.js` (edited) — rejection notice carries `rejectionReason`
+- `functions/partnerDesks.js` (edited) — pending renewals do not take a partner seat
+- `firestore.rules` (edited) — `renewalOf` format on create; owners cannot change `renewalOf` or `rejectionReason`
+- `src/utils/renewals.js` (new) — renew window, renewal start date, renewal state of a plan
+- `src/services/bookings.js` (edited) — `renewFixedDeskPlan`, `approveFixedDeskRenewal`, `rejectFixedDeskRenewal`
+- `src/services/localDevStore.js` (edited) — pending renewals do not occupy
+- `src/pages/member/Bookings.jsx` (edited) — Renew button and renewal state on the plan card; ended plans stay listed 7 days
+- `src/pages/admin/RenewalsPanel.jsx` (new) — pending renewals, approve all / reject with optional reason
+- `src/pages/admin/Bookings.jsx` (edited) — renders the panel; renewal days skip the global Approve all and the per-row Approve
+- `src/pages/admin/Bookings.css`, `src/pages/member/Bookings.css` (edited) — panel and Renew styles
+- `src/components/NotificationBell.jsx` (edited) — renewal review, rejection and ending-soon copy
+- `src/locales/en.json`, `src/locales/vi.json` (edited) — renewal strings
+- `test/renewals.test.js` (new) — client and server helpers
+- `test/firestore-booking-renewal.rules.test.js` (new) — `renewalOf` rules (emulator)
+- `README.md` (edited) — renewal feature line, scheduler row
+
+## Acceptance
+- [ ] A member sees "Renew" on a Fixed Desk plan from 7 days before its last day until 7 days after it
+- [ ] Renewing creates the same desk and period, starting the next working day after the plan (or tomorrow, if it has lapsed)
+- [ ] Renewal days are `pending` with `renewalOf: <planGroupId>`
+- [ ] A plan with a non-cancelled renewal shows its renewal state instead of "Renew"
+- [ ] Pending renewal days do not block other bookings (conflict check, calendar ranges, partner sync, local dev mode)
+- [ ] Admins see pending renewals grouped one per plan on `/admin/bookings`
+- [ ] Approving a renewal approves each day that still has a free seat
+- [ ] Approving a renewal cancels days whose seat was taken, with reason `renewal-seat-taken`
+- [ ] Rejecting cancels every pending day with reason `renewal-rejected`, and an optional `rejectionReason`
+- [ ] The member gets one notification per decision, showing the rejection reason if one was given
+- [ ] Renewal days skip the global "Approve all" and have no per-row Approve button
+- [ ] A renewal day still pending when it ends is cancelled with reason `renewal-expired`, not completed
+- [ ] Members get one in-app + push reminder 3 days before an approved plan's last day, unless they have already renewed
+- [ ] Owners cannot add, change or remove `renewalOf` or `rejectionReason` after creation (rules)
+- [ ] NOT: first-time Fixed Desk plans and admin-assigned plans unchanged
+- [ ] NOT: no change of desk or period on renewal
+- [ ] NOT: no new Cloud Function exports, no composite index
+
+## Verify
+- `npm run lint && npm run build` → green; `cd functions && npm run lint` → green
+- `npm test` → green, including `test/renewals.test.js`
+- `firebase emulators:exec --only firestore "node --test test/firestore-booking-renewal.rules.test.js"` → all pass
+- regression: register a first-time Fixed Desk plan (still pending), single desk booking auto-approval, partner desk sync
+
+## Notes
+- Releasing the desk means a renewal can lose days to other bookings while it waits; approval re-checks each day with `checkBookingConflictsStrict`.
+- The reminder rides the hourly run (no new scheduled function) and dedupes on `fixed_desk_ending_<uid>_<planGroupId>`.

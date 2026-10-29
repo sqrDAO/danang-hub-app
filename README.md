@@ -19,6 +19,7 @@ Live app: **https://app.danangblockchainhub.com**
 ### Amenity Booking System
 - **Visual Calendar** — day and week view for booking selection
 - **Fixed Desk Plans** — members subscribe to recurring fixed-desk allocations; admins assign desks
+- **Fixed Desk Renewal** — members renew from 7 days before a plan ends to 7 days after; renewals wait for admin approval (approved or rejected as one plan) and don't hold the desk meanwhile; a reminder goes out 3 days before the end
 - **Partner Desks** — members of a partner organization (e.g. 9AM Games, DiiD) are booked on the partner's desk every working day, four weeks ahead, for as long as they stay attached; they can skip single days
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
 - **Recurring Bookings** — weekly recurring reservations
@@ -234,7 +235,7 @@ Add partner organizations on `/admin/members`, pick each one's desk, then attach
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
-| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members) |
+| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members); cancels unapproved renewal days instead of completing them, and sends Fixed Desk ending reminders 3 days ahead |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
 | `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available single desk bookings (never desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
@@ -283,6 +284,7 @@ src/
 │   │   ├── PartnersPanel.jsx     # Partner organizations (add/remove)
 │   │   ├── Amenities.jsx         # Amenity CRUD + photo gallery
 │   │   ├── Bookings.jsx          # Booking management + bulk approval
+│   │   ├── RenewalsPanel.jsx     # Fixed Desk renewals to approve/reject
 │   │   └── Events.jsx            # Event approval + rejection with reason
 │   ├── member/
 │   │   ├── Dashboard.jsx
@@ -338,7 +340,7 @@ functions/
 | `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it) |
 | `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
-| `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`) |
+| `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |

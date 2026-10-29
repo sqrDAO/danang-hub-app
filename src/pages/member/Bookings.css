@@ -615,3 +615,10 @@
     font-size: 0.95rem;
   }
 }
+
+.fixed-desk-plan-renew {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
