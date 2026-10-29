@@ -27,6 +27,7 @@ export const isSyncedPartnerPlan = (plan) =>
 export const normalizePartnerName = (value) => String(value || '')
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[đĐ]/g, 'd')
   .toLowerCase()
   .replace(/[^a-z0-9]/g, '')
 
