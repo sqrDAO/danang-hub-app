@@ -19,7 +19,7 @@ Live app: **https://app.danangblockchainhub.com**
 ### Amenity Booking System
 - **Visual Calendar** — day and week view for booking selection
 - **Fixed Desk Plans** — members subscribe to recurring fixed-desk allocations; admins assign desks
-- **Partner Desk Plans** — members of a partner organization (e.g. 9AM Games, DiiD) register Partner Desk plans instead, auto-approved while the desk has capacity
+- **Partner Desks** — members of a partner organization (e.g. 9AM Games, DiiD) are booked on the partner's desk every working day, four weeks ahead, for as long as they stay attached; they can skip single days
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
 - **Recurring Bookings** — weekly recurring reservations
 - **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
@@ -220,7 +220,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 
 ### 9. Partner Organizations (optional)
 
-Add partner organizations on `/admin/members`, then attach members from the member edit form. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`.
+Add partner organizations on `/admin/members`, pick each one's desk, then attach members from the member edit form. Their bookings appear on the next hourly run. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`.
 
 ---
 
@@ -234,9 +234,9 @@ Add partner organizations on `/admin/members`, then attach members from the memb
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
-| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
+| `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members) |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
-| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings (Partner Desk plans only for members with a valid `partnerId`; never Fixed Desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available single desk bookings (never desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
@@ -336,7 +336,7 @@ functions/
 | Collection | Description |
 |------------|-------------|
 | `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it) |
-| `partners` | Partner organizations (`name`); admin-written, readable by signed-in users |
+| `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`) |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |

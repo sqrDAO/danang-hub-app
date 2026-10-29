@@ -338,6 +338,10 @@ export const createLocalPartner = (data) => {
   getStore().partners.push(partner)
   return { ...partner }
 }
+export const updateLocalPartner = (id, data) => {
+  const partner = getStore().partners.find((item) => item.id === id)
+  if (partner) Object.assign(partner, data, { updatedAt: new Date().toISOString() })
+}
 export const deleteLocalPartner = (id) => {
   const store = getStore()
   store.partners = store.partners.filter((item) => item.id !== id)

@@ -325,14 +325,16 @@
   },
   "adminPartners": {
     "title": "Tổ chức đối tác",
-    "description": "Thành viên thuộc một đối tác sẽ dùng gói bàn đối tác thay cho gói bàn cố định.",
+    "description": "Thành viên thuộc một đối tác được tự động đặt bàn của đối tác vào mọi ngày làm việc, khi họ còn thuộc đối tác đó.",
     "namePlaceholder": "Tên đối tác, ví dụ 9AM Games",
     "add": "Thêm đối tác",
     "remove": "Xóa",
     "memberCount": "{{count}} thành viên",
     "removeBlocked": "Hãy gỡ các thành viên khỏi đối tác này trước khi xóa.",
     "confirmRemove": "Xóa đối tác \"{{name}}\"?",
-    "empty": "Chưa có tổ chức đối tác nào."
+    "empty": "Chưa có tổ chức đối tác nào.",
+    "desk": "Bàn",
+    "noDesk": "Chưa có bàn"
   },
   "adminBookings": {
     "title": "Đặt chỗ",
@@ -706,12 +708,10 @@
   },
   "partnerDesk": {
     "title": "Gói bàn đối tác",
-    "description": "Gói bàn của tổ chức đối tác của bạn: một bàn cho mọi giờ làm việc trong một tuần hoặc một tháng (Thứ 2–Thứ 6, 9h–18h).",
-    "registerShort": "🤝 Bàn đối tác",
+    "description": "Bàn của tổ chức đối tác, được đặt sẵn cho bạn mọi ngày làm việc (Thứ 2–Thứ 6, 9h–18h) khi bạn còn thuộc tổ chức đó.",
     "badge": "Bàn đối tác",
-    "modalTitle": "Đăng ký bàn đối tác",
-    "summaryNote": "Lịch đặt chỗ sẽ được tạo cho tất cả các ngày làm việc từ Thứ 2 đến Thứ 6 và được duyệt tự động. Những ngày bàn đã kín chỗ sẽ được bỏ qua.",
-    "confirmCancel": "Hủy gói bàn đối tác này? Tất cả lượt đặt chỗ đang chờ/đã duyệt trong gói sẽ bị hủy."
+    "ongoing": "Đang hiệu lực — tự động gia hạn",
+    "cancelDay": "Bỏ ngày này"
   },
   "toast": {
     "amenityCreatedWithUploadErrors": "Đã tạo tiện ích nhưng một số ảnh tải lên thất bại: {{message}}",
@@ -786,10 +786,9 @@
     "fixedDeskAssigned": "Đã gán bàn cố định — tạo {{count}} lượt đặt chỗ!",
     "fixedDeskAssignedNone": "Không có lượt đặt chỗ nào được tạo — mọi ngày trong khoảng đó đều là cuối tuần hoặc ngày Hub đóng cửa.",
     "bookingAssignFailed": "Không thể tạo đặt chỗ. Vui lòng thử lại.",
-    "partnerDeskCreated": "Đã tạo gói bàn đối tác — {{count}} lịch đặt chỗ!",
-    "partnerDeskCancelled": "Đã hủy gói bàn đối tác.",
     "partnerAddFailed": "Không thể thêm đối tác. Vui lòng thử lại.",
     "partnerRemoveFailed": "Không thể xóa đối tác. Vui lòng thử lại.",
-    "partnerDuplicate": "Đã có đối tác với tên này."
+    "partnerDuplicate": "Đã có đối tác với tên này.",
+    "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại."
   }
 }
