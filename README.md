@@ -362,6 +362,7 @@ functions/
 | `npm run build` | Production build |
 | `npm run lint` | ESLint (max-warnings 0) |
 | `npm test` | Node test runner over `test/*.test.js` (Firestore rules tests skip unless the emulator host is configured) |
+| `npm run test:rules` | Firestore rules tests against the Firestore emulator (needs Java); also runs in CI on every PR and push to `main` |
 | `npm run preview` | Preview production build |
 | `firebase deploy` | Deploy Firestore rules, Storage rules, Functions |
 | `firebase deploy --only functions` | Deploy Cloud Functions only |
