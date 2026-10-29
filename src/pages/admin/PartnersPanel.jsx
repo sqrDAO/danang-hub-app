@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
-import { PARTNER_DESK_TAKEN, createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
+import { PARTNER_DESK_TAKEN, countAttachedMembers, createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
 import { getAmenities } from '../../services/amenities'
 import { isPendingFor } from '../../utils/mutationTarget'
 import { normalizePartnerName } from '../../utils/deskPlans'
@@ -182,8 +182,11 @@ const PartnersPanel = ({ partners, members, t }) => {
 
   const actions = {
     onChangeDesk: (partner) => setChangingId(partner.id),
-    onRemove: (partner, count) => {
+    // The count is read fresh: the members list may be cached, and the
+    // warning is what tells the admin people will be detached.
+    onRemove: async (partner, cachedCount) => {
       if (isPendingFor(mutations.remove, partner.id)) return
+      const count = await countAttachedMembers(partner.id).catch(() => cachedCount)
       const key = count > 0 ? 'adminPartners.confirmRemoveMembers' : 'adminPartners.confirmRemove'
       if (window.confirm(t(key, { name: partner.name, count }))) mutations.remove.mutate(partner.id)
     }

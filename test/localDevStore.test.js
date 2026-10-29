@@ -140,3 +140,26 @@ test('removing a partner detaches its members and releases its desk', () => {
   assert.equal(byId[second.id].partnerId, 'another-partner')
   assert.equal(getLocalAmenity(desk).reservedForPartnerId, null)
 })
+
+test('only a desk can be a partner desk', () => {
+  resetLocalDevStore()
+  const room = createLocalAmenity({ name: 'Room', type: 'meeting-room' })
+  assert.throws(() => createLocalPartner({ name: '9AM Games', deskAmenityId: room }), /partner-desk-missing/)
+  assert.equal(getLocalAmenity(room).reservedForPartnerId ?? null, null)
+  assert.deepEqual(listLocalPartners(), [])
+})
+
+test('removing a partner leaves bookings the sync does not own alone', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const partner = createLocalPartner({ name: 'DiiD', deskAmenityId: desk })
+  const [member] = listLocalMembers()
+  updateLocalMember(member.id, { partnerId: partner.id })
+  const start = new Date(Date.now() + 2 * 24 * 3600e3)
+  const manual = createLocalBooking({
+    memberId: member.id, amenityId: desk, status: 'approved', planType: 'fixed-desk',
+    planGroupId: `partner_${member.id}`, startTime: start, endTime: new Date(start.getTime() + 9 * 3600e3)
+  })
+  deleteLocalPartner(partner.id)
+  assert.equal(getLocalBooking(manual).status, 'approved')
+})
