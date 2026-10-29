@@ -299,23 +299,29 @@ const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, booki
 // Create recurring bookings. Dates are planned on the hub calendar by
 // planRecurrenceStarts, so the browser's timezone never shifts a day.
 // Optional options.allowedWeekdays: hub weekday numbers (0 = Sunday) that are open
-export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
+// Every occurrence a recurring booking would create, as { start, end } — the
+// same days createRecurringBooking books, so callers can check a whole series
+// (e.g. against the monthly desk-hours limit) before writing any of it.
+export const planRecurringRanges = (baseBooking, recurrence, options = {}) => {
   const { frequency, endDate, occurrences } = recurrence
   const durationMs = new Date(baseBooking.endTime) - new Date(baseBooking.startTime)
-  const starts = planRecurrenceStarts({
+  return planRecurrenceStarts({
     start: baseBooking.startTime,
     frequency,
     endDate,
     occurrences,
     allowedWeekdays: Array.isArray(options.allowedWeekdays) ? options.allowedWeekdays : null,
     isOpen: isOpenDate,
-  })
+  }).map(start => ({ start, end: new Date(start.getTime() + durationMs) }))
+}
+
+export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
+  const ranges = planRecurringRanges(baseBooking, recurrence, options)
   const bookings = []
   const createdIds = []
 
-  for (const bookingStart of starts) {
-    const bookingEnd = new Date(bookingStart.getTime() + durationMs)
-    const created = await tryCreateOccurrence({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn })
+  for (const { start: bookingStart, end: bookingEnd } of ranges) {
+    const created = await tryCreateOccurrence({ baseBooking, frequency: recurrence.frequency, bookingStart, bookingEnd, checkConflictsFn })
     if (created) {
       createdIds.push(created.id)
       bookings.push(created)

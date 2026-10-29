@@ -61,7 +61,7 @@ const SILENT_CANCEL_REASONS = [
  * @param {Object} before Booking document data before the write
  * @param {Object} after Booking document data after the write
  * @return {?Object} null, or {reason, isHubClosure, isPlan, planType,
- *   isRenewalRejection, rejectionReason}
+ *   isRenewalRejection, rejectionReason, limitHoursLeft, limitMonth}
  */
 function getCancellationNotice(before, after) {
   if (!before || !after) return null;
@@ -85,6 +85,9 @@ function getCancellationNotice(before, after) {
         .includes(reason),
     rejectionReason: typeof after.rejectionReason === "string" &&
       after.rejectionReason.trim() ? after.rejectionReason.trim() : null,
+    limitHoursLeft: typeof after.limitHoursLeft === "number" ?
+      after.limitHoursLeft : null,
+    limitMonth: typeof after.limitMonth === "string" ? after.limitMonth : null,
   };
 }
 

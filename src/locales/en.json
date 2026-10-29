@@ -100,7 +100,8 @@
     "renewalRejectedReasonBody": "Your fixed desk renewal for \"{{amenity}}\" was not approved: {{reason}}",
     "fixedDeskEndingTitle": "Fixed desk ending soon",
     "fixedDeskEndingBody": "Your fixed desk plan for \"{{amenity}}\" ends on {{date}}. Renew it from your bookings.",
-    "renewalUnavailableBody": "Your fixed desk renewal for \"{{amenity}}\" could not be approved — the desk is no longer free on those days."
+    "renewalUnavailableBody": "Your fixed desk renewal for \"{{amenity}}\" could not be approved — the desk is no longer free on those days.",
+    "monthlyLimitCancelledBody": "Your booking for \"{{amenity}}\" was cancelled: it goes over your {{limit}} desk hours for {{month}} ({{left}}h left)."
   },
   "status": {
     "pending": "pending",
@@ -545,6 +546,10 @@
       "occurrencesHint": "Leave empty if using end date",
       "setRecurrence": "Set Recurrence"
     }
+  },
+  "monthlyHours": {
+    "used": "Desk hours this month: {{used}} of {{limit}}",
+    "blocked": "That goes over your {{limit}} desk hours for {{month}} — {{left}}h left. Choose a shorter time."
   },
   "eventCard": {
     "untitled": "Untitled Event",
