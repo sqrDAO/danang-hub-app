@@ -8,7 +8,7 @@ Notable changes to the Da Nang Blockchain Hub member portal. Versions follow
 
 The first versioned release. It covers everything already in production,
 plus today's desk-plan work: Partner Desks, Fixed Desk renewals, and the
-monthly coworking limit.
+monthly coworking limit, plus a simpler Partners panel.
 
 ### Partner Desks
 
@@ -25,6 +25,11 @@ monthly coworking limit.
 - **Bulk attach by company.** Admins can attach existing members in bulk
   from the company on their profile, including other names a partner goes by
   (DiiD also matches "Trí tuệ số"). (#123)
+- **A simpler Partners panel.** A partner's desk is chosen when it's added,
+  and each row shows the desk as text with a Change desk button that
+  confirms how many members will move. Remove now works while members are
+  attached: it detaches them, cancels their upcoming partner desk days
+  (they're notified) and releases the desk in one step. (#127)
 
 ### Fixed Desk renewals
 
@@ -53,10 +58,17 @@ monthly coworking limit.
 
 - **Member profiles are validated more strictly.** This applies both when a
   profile is created and when it's updated. (#118, #120)
-- **Booking time, desk and plan details are locked once a booking is
-  created.**
+- **Booking details are locked once a booking is created.** Members can
+  only cancel their own bookings, and fields set by admins or the server
+  can't be set by members. (#119, #125)
 - **The Firestore rules tests run in CI** on every pull request and every
   push to `main`. (#121)
+
+### Fixes
+
+- **Dropdown arrows stay in place.** In the light theme, dropdown arrows were
+  drawn over the selected text, and the admin Bookings status filter had none
+  until clicked. (#126)
 
 ### Under the hood
 

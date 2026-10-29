@@ -12,7 +12,7 @@ Give the app a real version so a deployed build can be identified. Show it in th
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — `footer.version`, `footer.builtAt`
 - `.github/workflows/firebase-hosting-merge.yml` (edited) — `tag_release` job after deploy
 - `test/appVersion.test.js` (new) — fallback and label
-- `CHANGELOG.md` (new) — v1.0.0 release notes (#115–#123 and this change)
+- `CHANGELOG.md` (new) — v1.0.0 release notes (#115–#127 and this change)
 - `README.md`, `CLAUDE.md` (edited) — release steps
 
 ## Acceptance
