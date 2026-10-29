@@ -26,8 +26,9 @@ service cloud.firestore {
     // partnerId (id in /partners) is admin-set: the hourly partner-desk sync
     // (autoCheckoutExpiredBookings, functions/partnerDesks.js) keeps attached
     // members booked on their partner's desk.
-    // Owners create with membershipType absent or 'member' and no partnerId;
-    // only admins change either field afterwards.
+    // Owners create with membershipType 'member' and no partnerId, and can
+    // neither change nor remove either field afterwards; only admins can,
+    // and only to 'member' or 'admin'.
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
@@ -36,15 +37,18 @@ service cloud.firestore {
       // Users can create their own profile as a regular member, not attached
       // to a partner
       allow create: if isOwner(userId) &&
-                       request.resource.data.get('membershipType', 'member') == 'member' &&
+                       request.resource.data.get('membershipType', null) == 'member' &&
                        !('partnerId' in request.resource.data);
-      // Users can update their own profile (except membershipType and partnerId)
+      // Users can update their own profile (except membershipType and partnerId,
+      // which they may not change or remove)
       allow update: if isOwner(userId) &&
-                       (!('membershipType' in request.resource.data) ||
-                        request.resource.data.membershipType == resource.data.membershipType) &&
+                       request.resource.data.get('membershipType', null) == resource.data.get('membershipType', null) &&
                        request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null);
-      // Only admins can update membershipType or any member
-      allow update: if isAdmin();
+      // Only admins can update membershipType or any member. A profile with no
+      // membershipType (legacy) reads as 'member' here, so admins can still
+      // edit its other fields.
+      allow update: if isAdmin() &&
+                       request.resource.data.get('membershipType', 'member') in ['member', 'admin'];
       // Only admins can delete members
       allow delete: if isAdmin();
     }

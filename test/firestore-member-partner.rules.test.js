@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 
 const hasEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST)
 const projectId = process.env.GCLOUD_PROJECT || 'danang-hub-member-partner-rules'
@@ -52,22 +52,44 @@ if (!hasEmulator) {
 
   test('owners cannot create a profile already attached to a partner', async () => {
     await assertFails(setDoc(doc(memberDb('new-a'), 'members', 'new-a'), { partnerId: 'p-9am' }))
-    await assertSucceeds(setDoc(doc(memberDb('new-b'), 'members', 'new-b'), { displayName: 'B' }))
+    await assertSucceeds(setDoc(doc(memberDb('new-b'), 'members', 'new-b'), { displayName: 'B', membershipType: 'member' }))
   })
 
-  test('owners cannot create a profile with a non-member membershipType', async () => {
+  test('owners create their profile only as a member', async () => {
     await assertFails(setDoc(doc(memberDb('new-c'), 'members', 'new-c'), { membershipType: 'admin' }))
-  })
-
-  test('owners can create a profile as a member or without membershipType', async () => {
+    await assertFails(setDoc(doc(memberDb('new-f'), 'members', 'new-f'), { membershipType: null }))
+    await assertFails(setDoc(doc(memberDb('new-g'), 'members', 'new-g'), { membershipType: 'Admin' }))
+    await assertFails(setDoc(doc(memberDb('new-e'), 'members', 'new-e'), { displayName: 'E' }))
     await assertSucceeds(setDoc(doc(memberDb('new-d'), 'members', 'new-d'), { membershipType: 'member' }))
-    await assertSucceeds(setDoc(doc(memberDb('new-e'), 'members', 'new-e'), { displayName: 'E' }))
   })
 
-  test('admins can still set membershipType', async () => {
-    const ref = doc(memberDb('admin-a'), 'members', 'member-a')
+  test('owners cannot change or remove their membershipType', async () => {
+    await seed('members', 'member-t', { membershipType: 'member' })
+    const ref = doc(memberDb('member-t'), 'members', 'member-t')
+    await assertFails(updateDoc(ref, { membershipType: 'admin' }))
+    await assertFails(updateDoc(ref, { membershipType: deleteField() }))
+    await assertSucceeds(updateDoc(ref, { bio: 'still editable' }))
+  })
+
+  test('a legacy profile with no membershipType cannot be promoted by its owner', async () => {
+    await seed('members', 'member-legacy', { displayName: 'Old' })
+    const ref = doc(memberDb('member-legacy'), 'members', 'member-legacy')
+    await assertFails(updateDoc(ref, { membershipType: 'admin' }))
+    await assertSucceeds(updateDoc(ref, { bio: 'still editable' }))
+  })
+
+  test('admins set membershipType only to member or admin', async () => {
+    await seed('members', 'member-promote', { membershipType: 'member' })
+    const ref = doc(memberDb('admin-a'), 'members', 'member-promote')
     await assertSucceeds(updateDoc(ref, { membershipType: 'admin' }))
     await assertSucceeds(updateDoc(ref, { membershipType: 'member' }))
+    await assertFails(updateDoc(ref, { membershipType: 'Admin' }))
+    await assertFails(updateDoc(ref, { membershipType: '' }))
+  })
+
+  test('admins can still edit a legacy profile with no membershipType', async () => {
+    await seed('members', 'member-legacy-2', { displayName: 'Old' })
+    await assertSucceeds(updateDoc(doc(memberDb('admin-a'), 'members', 'member-legacy-2'), { displayName: 'New' }))
   })
 
   test('admins can attach and detach members', async () => {
