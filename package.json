@@ -9,6 +9,7 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "node --test $(find test -name '*.test.js' -not -name '._*')",
+    "test:rules": "npx --yes firebase-tools@15.25.1 emulators:exec --only firestore --project demo-danang \"node --test --test-concurrency=1 'test/*.rules.test.js'\"",
     "preview": "vite preview"
   },
   "dependencies": {

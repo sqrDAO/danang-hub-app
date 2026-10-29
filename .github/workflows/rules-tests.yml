@@ -1,0 +1,48 @@
+# Firestore security rules tests, against the Firestore emulator.
+#
+# `npm test` skips test/*.rules.test.js unless FIRESTORE_EMULATOR_HOST is set,
+# and the deploy workflows never start an emulator, so without this job the
+# rules that CI deploys to production were only ever tested on someone's
+# machine. Needs no secrets: the emulator runs against the fake demo-danang
+# project, so this also runs for pull requests from forks.
+name: Firestore rules tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  rules_tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # The Firestore emulator is a Java program.
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Firebase emulators
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-15.25.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Firestore rules tests
+        run: npm run test:rules
