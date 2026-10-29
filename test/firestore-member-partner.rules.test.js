@@ -55,6 +55,21 @@ if (!hasEmulator) {
     await assertSucceeds(setDoc(doc(memberDb('new-b'), 'members', 'new-b'), { displayName: 'B' }))
   })
 
+  test('owners cannot create a profile with a non-member membershipType', async () => {
+    await assertFails(setDoc(doc(memberDb('new-c'), 'members', 'new-c'), { membershipType: 'admin' }))
+  })
+
+  test('owners can create a profile as a member or without membershipType', async () => {
+    await assertSucceeds(setDoc(doc(memberDb('new-d'), 'members', 'new-d'), { membershipType: 'member' }))
+    await assertSucceeds(setDoc(doc(memberDb('new-e'), 'members', 'new-e'), { displayName: 'E' }))
+  })
+
+  test('admins can still set membershipType', async () => {
+    const ref = doc(memberDb('admin-a'), 'members', 'member-a')
+    await assertSucceeds(updateDoc(ref, { membershipType: 'admin' }))
+    await assertSucceeds(updateDoc(ref, { membershipType: 'member' }))
+  })
+
   test('admins can attach and detach members', async () => {
     const ref = doc(memberDb('admin-a'), 'members', 'member-a')
     await assertSucceeds(updateDoc(ref, { partnerId: 'p-9am' }))
