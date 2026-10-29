@@ -414,13 +414,16 @@ h1, h2, h3, h4, h5, h6,
   min-height: 44px;
 }
 
+/* background-color, not the background shorthand: these outrank
+   select.form-field, and the shorthand would reset its arrow to the top-left
+   corner (only the arrow image is set again for light selects below). */
 [data-theme="light"] .form-field {
-  background: var(--form-field-bg);
+  background-color: var(--form-field-bg);
   border: 1px solid var(--form-field-border);
 }
 
 [data-theme="light"] .form-field:focus {
-  background: var(--form-field-focus-bg);
+  background-color: var(--form-field-focus-bg);
   border-color: var(--accent-primary);
 }
 
