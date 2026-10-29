@@ -61,3 +61,27 @@ jobs:
 
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
+
+  # Tags the deployed commit v<package.json version> the first time that
+  # version ships, so each release maps to a commit. Unbumped merges skip.
+  tag_release:
+    needs: build_and_deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag version
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "$VERSION already tagged; nothing to do."
+          else
+            git tag "$VERSION" "$GITHUB_SHA"
+            git push origin "$VERSION"
+            echo "Tagged $GITHUB_SHA as $VERSION."
+          fi

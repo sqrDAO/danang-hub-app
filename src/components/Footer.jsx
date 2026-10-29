@@ -2,6 +2,7 @@ import './Footer.css'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
+import { APP_BUILT_AT, appVersionLabel } from '../utils/appVersion'
 
 const MARKETING_BASE = 'https://www.danangblockchainhub.com'
 
@@ -81,6 +82,9 @@ const Footer = () => {
         <div className="footer-bottom">
           <p className="footer-copyright">
             {t('footer.copyright', { year: currentYear })}
+          </p>
+          <p className="footer-version" title={APP_BUILT_AT ? t('footer.builtAt', { date: APP_BUILT_AT }) : undefined}>
+            {t('footer.version', { version: appVersionLabel() })}
           </p>
         </div>
       </div>

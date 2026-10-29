@@ -149,7 +149,9 @@
     "activities": "Activities",
     "location": "Location",
     "calendar": "Calendar",
-    "copyright": "© {{year}} sqrDAO. All rights reserved."
+    "copyright": "© {{year}} sqrDAO. All rights reserved.",
+    "version": "Version {{version}}",
+    "builtAt": "Built {{date}}"
   },
   "auth": {
     "welcomeBack": "Welcome Back",
