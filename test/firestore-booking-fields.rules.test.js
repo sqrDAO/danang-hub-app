@@ -48,7 +48,7 @@ if (!hasEmulator) {
 
   // These are written only by admins or the server; set at create they would
   // pass for the server's own marks.
-  for (const field of ['cancelledReason', 'rejectionReason', 'limitHoursLeft', 'limitMonth']) {
+  for (const field of ['cancelledReason', 'rejectionReason', 'limitHoursLeft', 'limitMonth', 'partnerId', 'checkInTime', 'checkOutTime']) {
     test(`members cannot create a booking with ${field}`, async () => {
       const value = field === 'limitHoursLeft' ? 4 : 'x'
       await assertFails(setDoc(doc(memberDb(), 'bookings', `with-${field}`), booking({ [field]: value })))
@@ -57,6 +57,16 @@ if (!hasEmulator) {
 
   test('members cannot create a booking at a Partner Desk sync id', async () => {
     await assertFails(setDoc(doc(memberDb(), 'bookings', 'pd_member-a_desk-1_20300101'), booking()))
+  })
+
+  test("members cannot create a booking in a Partner Desk sync's plan group", async () => {
+    await assertFails(setDoc(doc(memberDb(), 'bookings', 'in-sync-group'),
+      booking({ planType: 'fixed-desk', planGroupId: 'partner_member-a' })))
+  })
+
+  test('members can still create a Fixed Desk day in their own plan group', async () => {
+    await assertSucceeds(setDoc(doc(memberDb(), 'bookings', 'own-plan'),
+      booking({ planType: 'fixed-desk', planGroupId: 'plan-1', planPeriod: 'weekly' })))
   })
 
   test('admins may still create at any id with any field', async () => {
@@ -69,6 +79,14 @@ if (!hasEmulator) {
     await assertFails(updateDoc(doc(memberDb(), 'bookings', 'relabel'), { planType: 'fixed-desk' }))
     await assertFails(updateDoc(doc(memberDb(), 'bookings', 'relabel'), { planType: 'partner-desk' }))
   })
+
+  // Owners may only cancel: any other field, named or not, is fixed.
+  for (const [field, value] of [['planPeriod', 'monthly'], ['notes', 'x'], ['status', 'approved']]) {
+    test(`owners cannot write ${field}`, async () => {
+      await seed('bookings', `own-${field}`, booking({ status: 'pending', planType: 'fixed-desk', planGroupId: 'g2', planPeriod: 'weekly' }))
+      await assertFails(updateDoc(doc(memberDb(), 'bookings', `own-${field}`), { [field]: value }))
+    })
+  }
 
   test('owners can still cancel a desk plan day', async () => {
     await seed('bookings', 'plan-day', booking({ status: 'approved', planType: 'fixed-desk', planGroupId: 'g1' }))

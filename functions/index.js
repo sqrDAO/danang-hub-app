@@ -1676,12 +1676,21 @@ function partnerDayData(b, now) {
 async function syncPartnerDesks(state, startOfToday) {
   const nowMs = Date.now();
   const days = partnerDeskDays(startOfToday.toMillis(), nowMs);
-  const {create, reactivate, cancel} =
+  const {create, reactivate, cancel, blocked} =
     planPartnerDeskSync({...state, days, nowMs});
   const now = new Date().toISOString();
   const readTimes = new Map(state.bookings.map((b) => [b.id, b.updateTime]));
   const ref = (id) => db.collection("bookings").doc(id);
-  const counts = {created: 0, reactivated: 0, cancelled: 0, skipped: 0};
+  // blocked: day ids held by a doc the sync does not own, so never written.
+  const counts = {
+    created: 0, reactivated: 0, cancelled: 0, skipped: 0,
+    blocked: blocked.length,
+  };
+  if (blocked.length > 0) {
+    console.warn("Partner desk days blocked by docs the sync does not own", {
+      ids: blocked,
+    });
+  }
   const unexpected = [];
   const track = (key) => (promise) => promise.then(
       () => counts[key]++,
@@ -1695,9 +1704,15 @@ async function syncPartnerDesks(state, startOfToday) {
     ...cancel.map(({id, reason}) => track("cancelled")(writer.update(ref(id), {
       status: "cancelled", cancelledReason: reason, updatedAt: now,
     }, {lastUpdateTime: readTimes.get(id)}))),
-    ...reactivate.map((id) => track("reactivated")(writer.update(ref(id), {
-      status: "approved", cancelledReason: FieldValue.delete(), updatedAt: now,
-    }, {lastUpdateTime: readTimes.get(id)}))),
+    // A reactivated day is rewritten as planned now (hours, partner), keeping
+    // only its original createdAt.
+    ...reactivate.map((b) => {
+      const day = partnerDayData(b, now);
+      delete day.createdAt;
+      return track("reactivated")(writer.update(ref(b.id), {
+        ...day, cancelledReason: FieldValue.delete(),
+      }, {lastUpdateTime: readTimes.get(b.id)}));
+    }),
     ...create.map((b) => track("created")(
         writer.create(ref(b.id), partnerDayData(b, now)))),
   ];
