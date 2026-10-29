@@ -347,7 +347,8 @@ export const createLocalPartner = ({ deskAmenityId = null, ...data }) => {
   const store = getStore()
   store.partners.push(partner)
   try {
-    if (deskAmenityId) setLocalPartnerDesk(partner.id, deskAmenityId)
+    setLocalPartnerDesk(partner.id, deskAmenityId)
+    if (!deskAmenityId) throw new Error(PARTNER_DESK_MISSING)
   } catch (error) {
     // Same as the Firestore transaction: no partner without its desk.
     store.partners = store.partners.filter((item) => item.id !== partner.id)
@@ -380,9 +381,15 @@ export const deleteLocalPartner = (id) => {
   const store = getStore()
   store.partners = store.partners.filter((item) => item.id !== id)
   releaseLocalPartnerDesks(id)
-  store.members
-    .filter((item) => item.partnerId === id)
-    .forEach((item) => { item.partnerId = null })
+  const now = new Date().toISOString()
+  const detached = store.members.filter((item) => item.partnerId === id)
+  detached.forEach((item) => Object.assign(item, { partnerId: null, updatedAt: now }))
+  // Mirrors deletePartner: their partner days not yet started are cancelled.
+  const groups = new Set(detached.map((item) => `partner_${item.id}`))
+  store.bookings
+    .filter((b) => groups.has(b.planGroupId) && ['pending', 'approved'].includes(b.status) &&
+      new Date(b.startTime).getTime() > Date.now())
+    .forEach((b) => Object.assign(b, { status: 'cancelled', cancelledReason: 'partner-removed', updatedAt: now }))
 }
 
 export const countLocalCompletedBookings = () =>

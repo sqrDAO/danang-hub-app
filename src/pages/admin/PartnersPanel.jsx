@@ -32,8 +32,12 @@ const DeskSelect = ({ desks, value, onChange, t, disabled }) => (
   </select>
 )
 
+// A value with no matching option (a stale or missing desk) reads as unset.
+const offered = (desks, deskId) => (desks.some(d => d.id === deskId) ? deskId : '')
+
 const DeskChanger = ({ partner, desks, t, onSave, onCancel, saving }) => {
-  const [deskId, setDeskId] = useState(partner.deskAmenityId || '')
+  const [picked, setDeskId] = useState(partner.deskAmenityId || '')
+  const deskId = offered(desks, picked)
   return (
     <div className="partner-row-change">
       <DeskSelect desks={desks} value={deskId} onChange={setDeskId} t={t} disabled={saving} />
@@ -82,7 +86,9 @@ const PartnerRow = ({ partner, deskName, memberCount, t, actions, changer }) => 
 
 const AddPartnerForm = ({ desks, t, onAdd, pending }) => {
   const [name, setName] = useState('')
-  const [deskId, setDeskId] = useState('')
+  const [picked, setDeskId] = useState('')
+  // A desk taken meanwhile drops out of the list, and with it the choice.
+  const deskId = offered(desks, picked)
   const submit = (e) => {
     e.preventDefault()
     if (!name.trim() || !deskId || pending) return
@@ -129,15 +135,15 @@ const usePartnerMutations = (t, onDeskSaved) => {
     }),
     desk: useMutation({
       mutationFn: ({ id, deskAmenityId }) => setPartnerDesk(id, deskAmenityId),
-      onSuccess: () => {
+      onSuccess: (_, { id }) => {
         invalidate('partners', 'amenities')
-        onDeskSaved()
+        onDeskSaved(id)
       },
       onError: onDeskError('toast.partnerDeskFailed')
     }),
     remove: useMutation({
       mutationFn: deletePartner,
-      onSuccess: () => invalidate('partners', 'amenities', 'members'),
+      onSuccess: () => invalidate('partners', 'amenities', 'members', 'bookings'),
       onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
     })
   }
@@ -145,7 +151,8 @@ const usePartnerMutations = (t, onDeskSaved) => {
 
 const PartnersPanel = ({ partners, members, t }) => {
   const [changingId, setChangingId] = useState(null)
-  const mutations = usePartnerMutations(t, () => setChangingId(null))
+  // Close only the changer whose save finished, not one opened since.
+  const mutations = usePartnerMutations(t, (id) => setChangingId(cur => (cur === id ? null : cur)))
 
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
