@@ -47,6 +47,7 @@ export const summarizePlan = (planGroupId, days, now = new Date()) => {
   const first = counted[0]
   const last = counted[counted.length - 1]
   const nowMs = now.getTime()
+  const lastLiveMs = live.length > 0 ? new Date(last.startTime).getTime() : -Infinity
   const statusOf = () => {
     if (live.length === 0) return 'cancelled'
     return live.some(b => b.status === 'pending') ? 'pending' : first.status
@@ -63,5 +64,36 @@ export const summarizePlan = (planGroupId, days, now = new Date()) => {
     status: statusOf(),
     count: live.filter(b => new Date(b.endTime).getTime() > nowMs).length,
     ended: new Date(last.endTime).getTime() <= nowMs,
+    // Days cancelled after the last live one: the plan was ended early (by
+    // the member or an admin), not run to its end. Hub closures do not count.
+    cutShort: byStart.some(b => b.status === 'cancelled' &&
+      !String(b.cancelledReason || '').startsWith('hub-closure') &&
+      new Date(b.startTime).getTime() > lastLiveMs),
   }
 }
+
+const PLAN_LISTED_AFTER_END_MS = 7 * 24 * 60 * 60 * 1000
+
+const groupPlanDays = (bookings) => {
+  const groups = new Map()
+  bookings
+    .filter(b => isDeskPlan(b.planType) && b.planGroupId)
+    .forEach(b => groups.set(b.planGroupId, [...(groups.get(b.planGroupId) || []), b]))
+  return groups
+}
+
+// Whether a plan belongs in the member's plan list. A Partner Desk ends by
+// cancellation (detach, skipped days), so it shows only while it has days
+// left. A Fixed Desk plan shows until 7 days after its end, so a member who
+// missed the end can still renew it (src/utils/renewals.js).
+const isListedPlan = (plan, nowMs) => {
+  if (plan.planType === PARTNER_DESK) return plan.count > 0
+  return new Date(plan.endDate).getTime() > nowMs - PLAN_LISTED_AFTER_END_MS
+}
+
+// The member's desk plans: all of a plan's days grouped once, then filtered
+// per plan, so each plan appears exactly once.
+export const buildDeskPlans = (bookings, now = new Date()) =>
+  [...groupPlanDays(bookings).entries()]
+    .map(([id, days]) => summarizePlan(id, days, now))
+    .filter(plan => isListedPlan(plan, now.getTime()))

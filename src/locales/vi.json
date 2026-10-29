@@ -99,7 +99,8 @@
     "renewalRejectedBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" của bạn không được duyệt.",
     "renewalRejectedReasonBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" của bạn không được duyệt: {{reason}}",
     "fixedDeskEndingTitle": "Gói bàn cố định sắp kết thúc",
-    "fixedDeskEndingBody": "Gói bàn cố định \"{{amenity}}\" kết thúc ngày {{date}}. Gia hạn trong mục đặt chỗ."
+    "fixedDeskEndingBody": "Gói bàn cố định \"{{amenity}}\" kết thúc ngày {{date}}. Gia hạn trong mục đặt chỗ.",
+    "renewalUnavailableBody": "Yêu cầu gia hạn bàn cố định \"{{amenity}}\" không thể được duyệt — bàn không còn trống vào những ngày đó."
   },
   "status": {
     "pending": "chờ duyệt",

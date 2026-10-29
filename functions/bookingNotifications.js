@@ -79,7 +79,10 @@ function getCancellationNotice(before, after) {
     isHubClosure: reason.startsWith(HUB_CLOSURE_REASON_PREFIX),
     isPlan: isDeskPlan(after.planType),
     planType: after.planType || "standard",
-    isRenewalRejection: reason === "renewal-rejected",
+    // A renewal that could not be approved because no day was left counts
+    // as a rejection for the member: same message, no admin reason.
+    isRenewalRejection: ["renewal-rejected", "renewal-unavailable"]
+        .includes(reason),
     rejectionReason: typeof after.rejectionReason === "string" &&
       after.rejectionReason.trim() ? after.rejectionReason.trim() : null,
   };

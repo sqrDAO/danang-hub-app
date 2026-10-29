@@ -99,7 +99,8 @@
     "renewalRejectedBody": "Your fixed desk renewal for \"{{amenity}}\" was not approved.",
     "renewalRejectedReasonBody": "Your fixed desk renewal for \"{{amenity}}\" was not approved: {{reason}}",
     "fixedDeskEndingTitle": "Fixed desk ending soon",
-    "fixedDeskEndingBody": "Your fixed desk plan for \"{{amenity}}\" ends on {{date}}. Renew it from your bookings."
+    "fixedDeskEndingBody": "Your fixed desk plan for \"{{amenity}}\" ends on {{date}}. Renew it from your bookings.",
+    "renewalUnavailableBody": "Your fixed desk renewal for \"{{amenity}}\" could not be approved — the desk is no longer free on those days."
   },
   "status": {
     "pending": "pending",

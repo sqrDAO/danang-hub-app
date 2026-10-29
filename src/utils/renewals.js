@@ -6,7 +6,6 @@
  * Node's ESM test runner.
  */
 import { addHubDays, getHubDayOfWeek, toDateInputHub } from './timezone.js'
-import { summarizePlan } from './deskPlans.js'
 
 export const RENEW_WINDOW_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -25,28 +24,13 @@ export const renewalStateFor = (planGroupId, bookings) => {
   return days.some(b => b.status === 'pending') ? 'pending' : 'approved'
 }
 
-// Fixed Desk plans with no day still to start, whose last day ended within
-// the renew window or is under way: the plan list only shows future days, so
-// these would otherwise vanish just as renewing matters. Cancelled days do
-// not count.
-export const recentlyEndedPlans = (bookings, now = new Date()) => {
-  const groups = new Map()
-  bookings
-    .filter(b => b.planType === 'fixed-desk' && b.planGroupId && b.status !== 'cancelled')
-    .forEach(b => groups.set(b.planGroupId, [...(groups.get(b.planGroupId) || []), b]))
-  const nowMs = now.getTime()
-  return [...groups.entries()]
-    .filter(([, days]) => days.every(b => new Date(b.startTime).getTime() <= nowMs))
-    .map(([id, days]) => summarizePlan(id, days, now))
-    .filter(plan => new Date(plan.endDate).getTime() > nowMs - RENEW_WINDOW_DAYS * DAY_MS)
-}
-
 // Renew is offered from RENEW_WINDOW_DAYS before a Fixed Desk plan's last day
-// until RENEW_WINDOW_DAYS after it, once, and never for a renewal that is
-// itself still waiting for an admin.
+// until RENEW_WINDOW_DAYS after it, once, never for a renewal that is itself
+// still waiting for an admin, and never for a plan that was ended early.
+// `plan` is a summarizePlan result (src/utils/deskPlans.js).
 export const canRenewPlan = (plan, renewalState, now = new Date()) => {
   if (plan.planType !== 'fixed-desk' || renewalState) return false
-  if (plan.status === 'pending' || plan.status === 'cancelled') return false
+  if (plan.status === 'pending' || plan.status === 'cancelled' || plan.cutShort) return false
   const endMs = new Date(plan.endDate).getTime()
   const nowMs = now.getTime()
   return nowMs >= endMs - RENEW_WINDOW_DAYS * DAY_MS && nowMs <= endMs + RENEW_WINDOW_DAYS * DAY_MS

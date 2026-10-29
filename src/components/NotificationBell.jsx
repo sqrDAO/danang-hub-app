@@ -79,6 +79,9 @@ const getRenewalRejectedBody = (notification, t) => (
 )
 
 const getBookingCancelledBody = (notification, t) => {
+  if (notification.cancelledReason === 'renewal-unavailable') {
+    return t('notifications.renewalUnavailableBody', { amenity: notification.amenityName })
+  }
   if (notification.cancelledReason === 'renewal-rejected') return getRenewalRejectedBody(notification, t)
   const args = { amenity: notification.amenityName }
   const suffix = notification.isHubClosure ? 'CancelledClosureBody' : 'CancelledBody'

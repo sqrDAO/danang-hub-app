@@ -84,7 +84,9 @@ service cloud.firestore {
                        request.resource.data.get('planType', null) != 'partner-desk' &&
                        (!('renewalOf' in request.resource.data) ||
                         (request.resource.data.renewalOf is string &&
-                         request.resource.data.renewalOf.matches('^[A-Za-z0-9_-]{1,64}$'))) &&
+                         request.resource.data.renewalOf.matches('^[A-Za-z0-9_-]{1,64}$') &&
+                         request.resource.data.get('planType', null) == 'fixed-desk' &&
+                         'planGroupId' in request.resource.data)) &&
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));

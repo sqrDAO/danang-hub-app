@@ -31,8 +31,14 @@ function holdsSeat(booking) {
   return ACTIVE_STATUSES.includes(booking.status) && !isPendingRenewal(booking);
 }
 
-const toMs = (value) => (value && typeof value.toDate === "function" ?
-  value.toDate().getTime() : new Date(value).getTime());
+/**
+ * @param {*} value Firestore Timestamp or date-like value
+ * @return {number} Epoch ms
+ */
+function toMs(value) {
+  return value && typeof value.toDate === "function" ?
+    value.toDate().getTime() : new Date(value).getTime();
+}
 
 /**
  * Approved Fixed Desk plans whose last day starts within ENDING_SOON_DAYS
@@ -84,4 +90,5 @@ module.exports = {
   holdsSeat,
   isPendingRenewal,
   plansEndingSoon,
+  toMs,
 };

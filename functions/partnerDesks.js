@@ -7,7 +7,7 @@
 // calls planPartnerDeskSync and applies the result.
 
 const {getHubClosure, HUB_UTC_OFFSET_HOURS} = require("./hubClosures");
-const {holdsSeat} = require("./renewals");
+const {holdsSeat, toMs} = require("./renewals");
 
 const PARTNER_DESK_DAYS_AHEAD = 28;
 // Member detached, or the partner's desk cleared: they lose their desk and
@@ -78,8 +78,6 @@ function isSyncedPartnerDay(booking) {
     booking.planGroupId === partnerDeskPlanGroupId(booking.memberId);
 }
 
-const toMs = (value) => (value && typeof value.toDate === "function" ?
-  value.toDate().getTime() : new Date(value).getTime());
 
 /**
  * Desk each attached member is entitled to: uid -> {amenityId, partnerId}.

@@ -1348,17 +1348,21 @@ async function notifyBookingApproved(booking, bookingId) {
  * @return {Object} {en, vi} title/body pair
  */
 function getRenewalRejectedPushMessages(amenityName, notice) {
+  const unavailable = notice.reason === "renewal-unavailable" ?
+    {en: " The desk is no longer free on those days.",
+      vi: " Bàn không còn trống vào những ngày đó."} :
+    null;
   const why = notice.rejectionReason ? ` ${notice.rejectionReason}` : "";
   return {
     en: {
       title: "Renewal not approved",
       body: `Your fixed desk renewal for "${amenityName}" ` +
-        `was not approved.${why}`,
+        `was not approved.${unavailable ? unavailable.en : why}`,
     },
     vi: {
       title: "Gia hạn không được duyệt",
       body: `Yêu cầu gia hạn bàn cố định "${amenityName}" ` +
-        `không được duyệt.${why}`,
+        `không được duyệt.${unavailable ? unavailable.vi : why}`,
     },
   };
 }
@@ -1660,38 +1664,46 @@ async function syncPartnerDesks(state, startOfToday) {
 async function remindEndingFixedDesks(state, startOfToday) {
   const ending = plansEndingSoon(
       state.bookings, startOfToday.toMillis(), Date.now());
-  for (const plan of ending) {
-    const amenity = state.amenities.get(plan.amenityId);
-    const amenityName = (amenity && amenity.name) || "your desk";
-    const endDate = formatHubDay(plan.lastDayStart);
-    const created = await createNotificationIfAbsent(
-        plan.memberId, "fixed_desk_ending", plan.planGroupId,
-        {amenityName, endDate, link: "/member/bookings"},
-    );
-    if (created === false) continue;
-    try {
-      await notifyMemberPush(plan.memberId, {
-        messages: {
-          en: {
-            title: "Fixed desk ending soon",
-            body: `Your fixed desk plan for "${amenityName}" ends on ` +
-              `${endDate}. Renew it from your bookings.`,
-          },
-          vi: {
-            title: "Gói bàn cố định sắp kết thúc",
-            body: `Gói bàn cố định "${amenityName}" kết thúc ngày ` +
-              `${endDate}. Gia hạn trong mục đặt chỗ.`,
-          },
-        },
-        link: "/member/bookings",
-        type: "fixed_desk_ending",
-        subjectId: plan.planGroupId,
-      });
-    } catch (error) {
-      console.error("Error sending fixed desk ending push:", error);
-    }
-  }
+  await Promise.all(ending.map((plan) => remindEndingPlan(state, plan)));
   return ending.length;
+}
+
+/**
+ * One plan's ending reminder: in-app notice, then push if it was new.
+ * @param {Object} state Output of loadPartnerDeskState
+ * @param {Object} plan Entry from plansEndingSoon
+ * @return {Promise<void>}
+ */
+async function remindEndingPlan(state, plan) {
+  const amenity = state.amenities.get(plan.amenityId);
+  const amenityName = (amenity && amenity.name) || "your desk";
+  const endDate = formatHubDay(plan.lastDayStart);
+  const created = await createNotificationIfAbsent(
+      plan.memberId, "fixed_desk_ending", plan.planGroupId,
+      {amenityName, endDate, link: "/member/bookings"},
+  );
+  if (created === false) return;
+  try {
+    await notifyMemberPush(plan.memberId, {
+      messages: {
+        en: {
+          title: "Fixed desk ending soon",
+          body: `Your fixed desk plan for "${amenityName}" ends on ` +
+            `${endDate}. Renew it from your bookings.`,
+        },
+        vi: {
+          title: "Gói bàn cố định sắp kết thúc",
+          body: `Gói bàn cố định "${amenityName}" kết thúc ngày ` +
+            `${endDate}. Gia hạn trong mục đặt chỗ.`,
+        },
+      },
+      link: "/member/bookings",
+      type: "fixed_desk_ending",
+      subjectId: plan.planGroupId,
+    });
+  } catch (error) {
+    console.error("Error sending fixed desk ending push:", error);
+  }
 }
 
 /**

@@ -397,15 +397,18 @@ const isRenewalDayFree = async (day, checkConflictsFn) => {
 
 // Approve a renewal as one unit. Its pending days held no seat while they
 // waited, so each is re-checked and a day that can no longer be had is
-// cancelled instead (silently: the approval is the member's one message).
+// cancelled instead — silently, since the approval is the member's one
+// message. When no day is left there is no approval to send, so the days are
+// cancelled as 'renewal-unavailable', which does notify (once per plan).
 // A plan's days never overlap, so the checks run in parallel; a retry after a
 // partial failure only sees the days still pending.
 export const approveFixedDeskRenewal = async (planGroupId, checkConflictsFn) => {
   const days = (await getPlanBookings(planGroupId)).filter(b => b.status === 'pending')
   const free = await Promise.all(days.map(day => isRenewalDayFree(day, checkConflictsFn)))
+  const dropReason = free.some(Boolean) ? 'renewal-day-unavailable' : 'renewal-unavailable'
   await Promise.all(days.map((day, i) => updateBooking(day.id, free[i]
     ? { status: 'approved' }
-    : { status: 'cancelled', cancelledReason: 'renewal-day-unavailable' })))
+    : { status: 'cancelled', cancelledReason: dropReason })))
   const approved = free.filter(Boolean).length
   return { approved, dropped: days.length - approved }
 }

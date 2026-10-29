@@ -9,10 +9,10 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { PARTNER_DESK, summarizePlan, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan, isSyncedPartnerPlan } from '../../utils/deskPlans'
+import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
-import { canRenewPlan, recentlyEndedPlans, renewalStateFor } from '../../utils/renewals'
+import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
@@ -87,23 +87,6 @@ const deduplicateBookings = (bookings) => bookings.filter((booking, index, arr) 
     String(b.endTime) === String(booking.endTime)
   )
 )
-
-// A partner desk ends by cancellation (detach, skipped days), so its cancelled
-// days are left out; Fixed Desk plans keep showing as before.
-const isListedPlanDay = (b) => isDeskPlan(b.planType) &&
-  !(b.planType === PARTNER_DESK && b.status === 'cancelled') &&
-  new Date(b.startTime) > new Date()
-
-const buildFixedDeskPlans = (deduplicatedBookings) => {
-  const grouped = {}
-  deduplicatedBookings
-    .filter(isListedPlanDay)
-    .forEach(b => {
-      if (!grouped[b.planGroupId]) grouped[b.planGroupId] = []
-      grouped[b.planGroupId].push(b)
-    })
-  return Object.entries(grouped).map(([id, days]) => summarizePlan(id, days))
-}
 
 const getTodayString = () => {
   return toDateInputHub(new Date())
@@ -1246,10 +1229,9 @@ const MemberBookings = () => {
   const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
   const pastBookings = deduplicatedBookings.filter(b => new Date(b.startTime) <= new Date())
 
-  const fixedDeskPlans = useMemo(
-    () => [...buildFixedDeskPlans(deduplicatedBookings), ...recentlyEndedPlans(deduplicatedBookings)],
-    [deduplicatedBookings]
-  )
+  // Raw bookings, not the de-duplicated list: a rejected renewal and its
+  // re-request share amenity and times, and de-duplication could hide either.
+  const fixedDeskPlans = useMemo(() => buildDeskPlans(myBookings), [myBookings])
 
   return (
     <Layout hideChatbot={form.isModalOpen}>
@@ -1287,7 +1269,7 @@ const MemberBookings = () => {
           amenities={amenities}
           t={t}
           planPrefix={planPrefix}
-          bookings={deduplicatedBookings}
+          bookings={myBookings}
           onCancelPlan={handlers.handleCancelPlan}
           cancellingId={pendingTargetId(mutations.cancelPlanMutation)}
           onRenew={plan => mutations.renewMutation.mutate({ plan })}

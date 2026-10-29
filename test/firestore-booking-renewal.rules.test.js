@@ -46,9 +46,16 @@ if (!hasEmulator) {
       booking({ status: 'pending', planType: 'fixed-desk', planGroupId: 'plan-b', renewalOf: 'plan-a' })))
   })
 
+  test('renewalOf only on a Fixed Desk plan day', async () => {
+    await assertFails(setDoc(doc(memberDb(), 'bookings', 'renew-room'),
+      booking({ status: 'pending', amenityId: 'room-1', renewalOf: 'plan-a' })))
+    await assertFails(setDoc(doc(memberDb(), 'bookings', 'renew-nogroup'),
+      booking({ status: 'pending', planType: 'fixed-desk', renewalOf: 'plan-a' })))
+  })
+
   test('renewalOf must be a safe id', async () => {
     await assertFails(setDoc(doc(memberDb(), 'bookings', 'renew-bad'),
-      booking({ status: 'pending', planType: 'fixed-desk', renewalOf: 'bad/../id' })))
+      booking({ status: 'pending', planType: 'fixed-desk', planGroupId: 'plan-b', renewalOf: 'bad/../id' })))
   })
 
   test('owners cannot add, change or remove renewalOf', async () => {

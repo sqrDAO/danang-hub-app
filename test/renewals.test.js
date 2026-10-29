@@ -5,11 +5,10 @@ import {
   canRenewPlan,
   holdsSeat,
   isPendingRenewal,
-  recentlyEndedPlans,
   renewalStartDate,
   renewalStateFor
 } from '../src/utils/renewals.js'
-import { summarizePlan } from '../src/utils/deskPlans.js'
+import { buildDeskPlans, summarizePlan } from '../src/utils/deskPlans.js'
 
 const require = createRequire(import.meta.url)
 const server = require('../functions/renewals.js')
@@ -79,16 +78,39 @@ test('renewal state follows the renewal days', () => {
 
 test('keeps a plan listed for 7 days after it ends, and on its last day', () => {
   const week = ['2030-01-07', '2030-01-08', '2030-01-09', '2030-01-10', '2030-01-11'].map(d => day(d))
-  const lastDay = recentlyEndedPlans(week, new Date(at9('2030-01-11').getTime() + HOUR))
+  const lastDay = buildDeskPlans(week, new Date(at9('2030-01-11').getTime() + HOUR))
   assert.equal(lastDay.length, 1)
   assert.equal(lastDay[0].ended, false)
   // The day under way still counts, so the card does not read "0 days".
   assert.equal(lastDay[0].count, 1)
-  const after = recentlyEndedPlans(week, at9('2030-01-15'))
-  assert.equal(after[0].ended, true)
-  assert.equal(recentlyEndedPlans(week, at9('2030-01-19')).length, 0)
-  // Days still to come: listed by the regular plan list instead.
-  assert.equal(recentlyEndedPlans(week, at9('2030-01-09')).length, 0)
+  assert.equal(buildDeskPlans(week, at9('2030-01-15'))[0].ended, true)
+  assert.equal(buildDeskPlans(week, at9('2030-01-19')).length, 0)
+})
+
+test('lists each plan once, even when its remaining days were cancelled', () => {
+  const days = [
+    day('2030-01-07', { status: 'completed' }),
+    day('2030-01-08', { status: 'cancelled' }),
+    day('2030-01-09', { status: 'cancelled' })
+  ]
+  const plans = buildDeskPlans(days, at9('2030-01-08'))
+  assert.equal(plans.length, 1)
+  // Ended early by the member: no Renew.
+  assert.equal(plans[0].cutShort, true)
+  assert.equal(canRenewPlan(plans[0], null, at9('2030-01-08')), false)
+})
+
+test('a hub closure at the end does not count as ending a plan early', () => {
+  const days = [day('2030-01-10'), day('2030-01-11', { status: 'cancelled', cancelledReason: 'hub-closure-x' })]
+  const [plan] = buildDeskPlans(days, at9('2030-01-10'))
+  assert.equal(plan.cutShort, false)
+  assert.equal(canRenewPlan(plan, null, at9('2030-01-10')), true)
+})
+
+test('a partner desk is listed only while it has days left', () => {
+  const partner = (date, extra) => day(date, { planType: 'partner-desk', planGroupId: 'partner_m1', ...extra })
+  assert.equal(buildDeskPlans([partner('2030-01-07'), partner('2030-01-08')], at9('2030-01-07')).length, 1)
+  assert.equal(buildDeskPlans([partner('2030-01-08', { status: 'cancelled' })], at9('2030-01-07')).length, 0)
 })
 
 test('reminds 3 days before an approved plan ends, once renewed never', () => {
@@ -135,7 +157,8 @@ test('a plan summary ignores cancelled days', () => {
     day('2030-01-07', { status: 'cancelled' }),
     day('2030-01-08'),
     day('2030-01-09'),
-    day('2030-01-10', { status: 'cancelled' })
+    // A closure, not an early end: Renew stays available.
+    day('2030-01-10', { status: 'cancelled', cancelledReason: 'hub-closure-x' })
   ]
   const summary = summarizePlan('plan-a', days, at9('2030-01-06'))
   assert.equal(summary.status, 'approved')
@@ -147,4 +170,10 @@ test('a plan summary ignores cancelled days', () => {
 test('a plan summary is pending while any live day is, and cancelled when all are', () => {
   assert.equal(summarizePlan('p', [day('2030-01-07'), day('2030-01-08', { status: 'pending' })]).status, 'pending')
   assert.equal(summarizePlan('p', [day('2030-01-07', { status: 'cancelled' })]).status, 'cancelled')
+})
+
+test('a renewal approved with no day left tells the member, as a rejection', () => {
+  const notice = getCancellationNotice({ status: 'pending' }, { status: 'cancelled', cancelledReason: 'renewal-unavailable', planType: 'fixed-desk' })
+  assert.equal(notice.isRenewalRejection, true)
+  assert.equal(notice.rejectionReason, null)
 })
