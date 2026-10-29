@@ -99,6 +99,23 @@ test('reactivates days the sync cancelled when the member is re-attached', () =>
   assert.equal(create.length, 4)
 })
 
+test('never reactivates a doc at a partner day id that is not that synced day', () => {
+  const cancelled = { status: 'cancelled', cancelledReason: PARTNER_REMOVED_REASON }
+  const real = partnerDay('m1', 'desk-1', '20300108', cancelled)
+  const forged = [
+    { ...real, amenityId: 'room' },
+    { ...real, memberId: 'someone-else' },
+    { ...real, endTime: new Date(real.endTime.getTime() + 14 * 24 * HOUR) },
+    { ...real, planType: undefined, planGroupId: undefined }
+  ]
+  for (const doc of forged) {
+    const { create, reactivate } = plan({ bookings: [doc] })
+    assert.deepEqual(reactivate, [], JSON.stringify(doc))
+    // The id is taken, so that day is skipped rather than created over it.
+    assert.equal(create.some(b => b.id === real.id), false)
+  }
+})
+
 test('cancels future days when a member is detached', () => {
   const bookings = [
     partnerDay('m1', 'desk-1', '20300107'),
