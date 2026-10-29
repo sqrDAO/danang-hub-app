@@ -1612,11 +1612,11 @@ function partnerDayData(b, now) {
  * Writes go through a BulkWriter, each on its own: updates carry the read's
  * update time as a precondition, so a check-in or a member's own cancel made
  * after the read is never overwritten, and one stale write skips just itself.
+ * @param {Object} state Output of loadPartnerDeskState
  * @param {Timestamp} startOfToday Hub midnight today
  * @return {Promise<Object>} Counts of written and skipped days
  */
-async function syncPartnerDesks(startOfToday) {
-  const state = await loadPartnerDeskState(startOfToday);
+async function syncPartnerDesks(state, startOfToday) {
   const nowMs = Date.now();
   const days = partnerDeskDays(startOfToday.toMillis(), nowMs);
   const {create, reactivate, cancel} =
@@ -1653,16 +1653,16 @@ async function syncPartnerDesks(startOfToday) {
 /**
  * Remind members 3 days before an approved Fixed Desk plan ends, unless they
  * have renewed. Deduped per plan, so the hourly run reminds once.
+ * @param {Object} state Output of loadPartnerDeskState (shared snapshot)
  * @param {Timestamp} startOfToday Hub midnight today
  * @return {Promise<number>} Plans checked
  */
-async function remindEndingFixedDesks(startOfToday) {
-  const snapshot = await db.collection("bookings")
-      .where("startTime", ">=", startOfToday).get();
-  const bookings = snapshot.docs.map((d) => ({id: d.id, ...d.data()}));
-  const ending = plansEndingSoon(bookings, startOfToday.toMillis(), Date.now());
+async function remindEndingFixedDesks(state, startOfToday) {
+  const ending = plansEndingSoon(
+      state.bookings, startOfToday.toMillis(), Date.now());
   for (const plan of ending) {
-    const amenityName = await getAmenityName(plan.amenityId);
+    const amenity = state.amenities.get(plan.amenityId);
+    const amenityName = (amenity && amenity.name) || "your desk";
     const endDate = formatHubDay(plan.lastDayStart);
     const created = await createNotificationIfAbsent(
         plan.memberId, "fixed_desk_ending", plan.planGroupId,
@@ -1761,20 +1761,32 @@ exports.autoCheckoutExpiredBookings = onSchedule(
         console.error("Auto checkout commit failed:", error);
       }
 
+      // One read of future bookings, members, partners and amenities serves
+      // both desk-plan steps below.
+      let deskState = null;
       try {
-        const counts = await syncPartnerDesks(startOfToday);
-        console.log("Partner desk sync", counts);
+        deskState = await loadPartnerDeskState(startOfToday);
       } catch (error) {
-        failures.push("partner desk sync");
-        console.error("Partner desk sync failed:", error);
+        failures.push("desk plan state");
+        console.error("Loading desk plan state failed:", error);
       }
 
-      try {
-        const ending = await remindEndingFixedDesks(startOfToday);
-        console.log(`Fixed desk ending reminders checked ${ending} plan(s)`);
-      } catch (error) {
-        failures.push("fixed desk reminders");
-        console.error("Fixed desk reminders failed:", error);
+      if (deskState) {
+        try {
+          const counts = await syncPartnerDesks(deskState, startOfToday);
+          console.log("Partner desk sync", counts);
+        } catch (error) {
+          failures.push("partner desk sync");
+          console.error("Partner desk sync failed:", error);
+        }
+
+        try {
+          const ending = await remindEndingFixedDesks(deskState, startOfToday);
+          console.log(`Fixed desk ending reminders checked ${ending} plan(s)`);
+        } catch (error) {
+          failures.push("fixed desk reminders");
+          console.error("Fixed desk reminders failed:", error);
+        }
       }
 
       if (commitFailure) throw commitFailure;

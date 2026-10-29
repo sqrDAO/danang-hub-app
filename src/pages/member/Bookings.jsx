@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
@@ -9,7 +9,7 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { PARTNER_DESK, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan, isSyncedPartnerPlan } from '../../utils/deskPlans'
+import { PARTNER_DESK, summarizePlan, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
 import { canRenewPlan, recentlyEndedPlans, renewalStateFor } from '../../utils/renewals'
@@ -102,21 +102,7 @@ const buildFixedDeskPlans = (deduplicatedBookings) => {
       if (!grouped[b.planGroupId]) grouped[b.planGroupId] = []
       grouped[b.planGroupId].push(b)
     })
-  return Object.entries(grouped).map(([id, bks]) => {
-    const sorted = [...bks].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-    return {
-      planGroupId: id,
-      amenityId: sorted[0].amenityId,
-      planType: sorted[0].planType,
-      planPeriod: sorted[0].planPeriod,
-      renewalOf: sorted[0].renewalOf || null,
-      startDate: sorted[0].startTime,
-      endDate: sorted[sorted.length - 1].endTime,
-      // Days are approved one by one, so any pending day makes the plan pending.
-      status: sorted.some(b => b.status === 'pending') ? 'pending' : sorted[0].status,
-      count: sorted.length,
-    }
-  })
+  return Object.entries(grouped).map(([id, days]) => summarizePlan(id, days))
 }
 
 const getTodayString = () => {
@@ -263,6 +249,7 @@ const useFixedDeskForm = () => {
 }
 
 const useBookingMutations = (form, fd, uid, pushOptedIn) => {
+  const queryClient = useQueryClient()
   const { t } = useTranslation()
   const invalidate = useInvalidateQueries()
 
@@ -353,10 +340,13 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
 
   const renewMutation = useMutation({
     mutationFn: ({ plan }) => renewFixedDeskPlan({ plan, memberId: uid, checkConflictsFn: checkBookingConflicts }),
+    // Returning the refetch keeps the mutation pending until the renewal days
+    // are on the page, so Renew cannot be pressed a second time in between.
     onSuccess: (result) => {
-      invalidate('bookings', 'memberStats')
       if (result.totalCreated === 0) showToast(t('toast.renewalNone'), 'error')
       else showToast(t('toast.renewalRequested', { count: result.totalCreated }), 'success')
+      invalidate('memberStats')
+      return queryClient.invalidateQueries({ queryKey: ['bookings'] })
     },
     onError: () => showToast(t('toast.renewalFailed'), 'error')
   })

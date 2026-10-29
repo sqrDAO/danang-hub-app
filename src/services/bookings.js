@@ -381,26 +381,33 @@ const getPlanBookings = async (planGroupId) => {
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
-// Approve a renewal as one unit. Its pending days held no seat while they
-// waited, so each is re-checked, in order, and a day whose seat has gone is
-// cancelled instead. Fails closed: a check that errors stops the approval.
-export const approveFixedDeskRenewal = async (planGroupId, checkConflictsFn) => {
-  const days = (await getPlanBookings(planGroupId))
-    .filter(b => b.status === 'pending')
-    .sort((a, b) => toDate(a.startTime) - toDate(b.startTime))
-  let approved = 0
-  let dropped = 0
-  for (const day of days) {
+// Whether a renewal day can still be had. The callable rejects a day the desk
+// no longer takes (a Hub closure declared since, changed availableDays) with
+// invalid-argument: that day is lost like a taken seat, not an error. Any
+// other failure is rethrown, so approval fails closed.
+const isRenewalDayFree = async (day, checkConflictsFn) => {
+  try {
     const { hasConflicts } = await checkConflictsFn(day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id)
-    if (hasConflicts) {
-      await updateBooking(day.id, { status: 'cancelled', cancelledReason: 'renewal-seat-taken' })
-      dropped++
-    } else {
-      await updateBooking(day.id, { status: 'approved' })
-      approved++
-    }
+    return !hasConflicts
+  } catch (error) {
+    if (error?.code === 'functions/invalid-argument') return false
+    throw error
   }
-  return { approved, dropped }
+}
+
+// Approve a renewal as one unit. Its pending days held no seat while they
+// waited, so each is re-checked and a day that can no longer be had is
+// cancelled instead (silently: the approval is the member's one message).
+// A plan's days never overlap, so the checks run in parallel; a retry after a
+// partial failure only sees the days still pending.
+export const approveFixedDeskRenewal = async (planGroupId, checkConflictsFn) => {
+  const days = (await getPlanBookings(planGroupId)).filter(b => b.status === 'pending')
+  const free = await Promise.all(days.map(day => isRenewalDayFree(day, checkConflictsFn)))
+  await Promise.all(days.map((day, i) => updateBooking(day.id, free[i]
+    ? { status: 'approved' }
+    : { status: 'cancelled', cancelledReason: 'renewal-day-unavailable' })))
+  const approved = free.filter(Boolean).length
+  return { approved, dropped: days.length - approved }
 }
 
 // Reject a renewal: every pending day is cancelled; the member is told once,

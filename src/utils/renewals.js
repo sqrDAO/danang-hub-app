@@ -6,6 +6,7 @@
  * Node's ESM test runner.
  */
 import { addHubDays, getHubDayOfWeek, toDateInputHub } from './timezone.js'
+import { summarizePlan } from './deskPlans.js'
 
 export const RENEW_WINDOW_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -24,23 +25,6 @@ export const renewalStateFor = (planGroupId, bookings) => {
   return days.some(b => b.status === 'pending') ? 'pending' : 'approved'
 }
 
-const toPlan = (planGroupId, days, nowMs) => {
-  const sorted = [...days].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-  const last = sorted[sorted.length - 1]
-  return {
-    planGroupId,
-    amenityId: last.amenityId,
-    planType: last.planType,
-    planPeriod: last.planPeriod,
-    startDate: sorted[0].startTime,
-    endDate: last.endTime,
-    status: last.status,
-    renewalOf: last.renewalOf || null,
-    count: 0,
-    ended: new Date(last.endTime).getTime() <= nowMs,
-  }
-}
-
 // Fixed Desk plans with no day still to start, whose last day ended within
 // the renew window or is under way: the plan list only shows future days, so
 // these would otherwise vanish just as renewing matters. Cancelled days do
@@ -53,7 +37,7 @@ export const recentlyEndedPlans = (bookings, now = new Date()) => {
   const nowMs = now.getTime()
   return [...groups.entries()]
     .filter(([, days]) => days.every(b => new Date(b.startTime).getTime() <= nowMs))
-    .map(([id, days]) => toPlan(id, days, nowMs))
+    .map(([id, days]) => summarizePlan(id, days, now))
     .filter(plan => new Date(plan.endDate).getTime() > nowMs - RENEW_WINDOW_DAYS * DAY_MS)
 }
 

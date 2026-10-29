@@ -9,6 +9,7 @@ import {
   renewalStartDate,
   renewalStateFor
 } from '../src/utils/renewals.js'
+import { summarizePlan } from '../src/utils/deskPlans.js'
 
 const require = createRequire(import.meta.url)
 const server = require('../functions/renewals.js')
@@ -81,6 +82,8 @@ test('keeps a plan listed for 7 days after it ends, and on its last day', () => 
   const lastDay = recentlyEndedPlans(week, new Date(at9('2030-01-11').getTime() + HOUR))
   assert.equal(lastDay.length, 1)
   assert.equal(lastDay[0].ended, false)
+  // The day under way still counts, so the card does not read "0 days".
+  assert.equal(lastDay[0].count, 1)
   const after = recentlyEndedPlans(week, at9('2030-01-15'))
   assert.equal(after[0].ended, true)
   assert.equal(recentlyEndedPlans(week, at9('2030-01-19')).length, 0)
@@ -112,4 +115,36 @@ test('a rejected renewal tells the member why', () => {
   )
   assert.equal(notice.isRenewalRejection, true)
   assert.equal(notice.rejectionReason, 'Desk reserved')
+})
+
+test('a renewal naming someone else\'s plan does not silence their reminder', () => {
+  const today = at9('2030-01-08').getTime() - 9 * HOUR
+  const bookings = ['2030-01-08', '2030-01-11'].map(d => day(d))
+  const forged = day('2030-01-14', { memberId: 'm2', planGroupId: 'plan-x', renewalOf: 'plan-a', status: 'pending' })
+  assert.deepEqual(server.plansEndingSoon([...bookings, forged], today, today + HOUR).map(p => p.planGroupId), ['plan-a'])
+})
+
+test('days a renewal loses one by one send no notice', () => {
+  for (const reason of ['renewal-expired', 'renewal-day-unavailable']) {
+    assert.equal(getCancellationNotice({ status: 'pending' }, { status: 'cancelled', cancelledReason: reason, planType: 'fixed-desk' }), null, reason)
+  }
+})
+
+test('a plan summary ignores cancelled days', () => {
+  const days = [
+    day('2030-01-07', { status: 'cancelled' }),
+    day('2030-01-08'),
+    day('2030-01-09'),
+    day('2030-01-10', { status: 'cancelled' })
+  ]
+  const summary = summarizePlan('plan-a', days, at9('2030-01-06'))
+  assert.equal(summary.status, 'approved')
+  assert.equal(summary.count, 2)
+  assert.equal(new Date(summary.endDate).getTime(), at18('2030-01-09').getTime())
+  assert.equal(canRenewPlan(summary, null, at9('2030-01-08')), true)
+})
+
+test('a plan summary is pending while any live day is, and cancelled when all are', () => {
+  assert.equal(summarizePlan('p', [day('2030-01-07'), day('2030-01-08', { status: 'pending' })]).status, 'pending')
+  assert.equal(summarizePlan('p', [day('2030-01-07', { status: 'cancelled' })]).status, 'cancelled')
 })

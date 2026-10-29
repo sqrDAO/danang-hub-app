@@ -4,6 +4,7 @@ import Modal from '../../components/Modal'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { approveFixedDeskRenewal, rejectFixedDeskRenewal } from '../../services/bookings'
 import { checkBookingConflictsStrict } from '../../services/functions'
+import { summarizePlan } from '../../utils/deskPlans'
 import { isPendingRenewal } from '../../utils/renewals'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import { showToast } from '../../utils/toast'
@@ -16,18 +17,9 @@ const groupRenewals = (bookings) => {
   bookings.filter(isPendingRenewal).forEach(b => {
     groups.set(b.planGroupId, [...(groups.get(b.planGroupId) || []), b])
   })
-  return [...groups.entries()].map(([planGroupId, days]) => {
-    const sorted = [...days].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-    return {
-      planGroupId,
-      memberId: sorted[0].memberId,
-      amenityId: sorted[0].amenityId,
-      planPeriod: sorted[0].planPeriod,
-      startDate: sorted[0].startTime,
-      endDate: sorted[sorted.length - 1].endTime,
-      count: sorted.length,
-    }
-  }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+  return [...groups.entries()]
+    .map(([planGroupId, days]) => ({ ...summarizePlan(planGroupId, days), count: days.length }))
+    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
 }
 
 const RenewalRow = ({ renewal, memberName, deskName, t, onApprove, onReject, busy }) => (

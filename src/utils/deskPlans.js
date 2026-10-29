@@ -34,3 +34,34 @@ export const normalizePartnerName = (value) => String(value || '')
 export const deskPlanCopyPrefix = (planType) => (planType === PARTNER_DESK ? 'partnerDesk' : 'fixedDesk')
 
 export const deskPlanBadgeKey = (planType) => `${deskPlanCopyPrefix(planType)}.badge`
+
+// One summary of a plan's days, shared by the member plan list, the recently
+// ended list and the admin Renewals panel. Cancelled days do not count toward
+// its status, dates or day count; a plan with only cancelled days is
+// 'cancelled'. Days are approved one by one, so any pending day makes it
+// pending. `count` is the days not yet over.
+export const summarizePlan = (planGroupId, days, now = new Date()) => {
+  const byStart = [...days].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+  const live = byStart.filter(b => b.status !== 'cancelled')
+  const counted = live.length > 0 ? live : byStart
+  const first = counted[0]
+  const last = counted[counted.length - 1]
+  const nowMs = now.getTime()
+  const statusOf = () => {
+    if (live.length === 0) return 'cancelled'
+    return live.some(b => b.status === 'pending') ? 'pending' : first.status
+  }
+  return {
+    planGroupId,
+    memberId: first.memberId,
+    amenityId: first.amenityId,
+    planType: first.planType,
+    planPeriod: first.planPeriod,
+    renewalOf: byStart.find(b => b.renewalOf)?.renewalOf || null,
+    startDate: first.startTime,
+    endDate: last.endTime,
+    status: statusOf(),
+    count: live.filter(b => new Date(b.endTime).getTime() > nowMs).length,
+    ended: new Date(last.endTime).getTime() <= nowMs,
+  }
+}

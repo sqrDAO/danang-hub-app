@@ -11,6 +11,7 @@ Members renew a Fixed Desk plan instead of registering a new one, and every rene
 - `functions/partnerDesks.js` (edited) — pending renewals do not take a partner seat
 - `firestore.rules` (edited) — `renewalOf` format on create; owners cannot change `renewalOf` or `rejectionReason`
 - `src/utils/renewals.js` (new) — renew window, renewal start date, renewal state of a plan
+- `src/utils/deskPlans.js` (edited) — shared `summarizePlan`
 - `src/services/bookings.js` (edited) — `renewFixedDeskPlan`, `approveFixedDeskRenewal`, `rejectFixedDeskRenewal`
 - `src/services/localDevStore.js` (edited) — pending renewals do not occupy
 - `src/pages/member/Bookings.jsx` (edited) — Renew button and renewal state on the plan card; ended plans stay listed 7 days
@@ -31,9 +32,13 @@ Members renew a Fixed Desk plan instead of registering a new one, and every rene
 - [ ] Pending renewal days do not block other bookings (conflict check, calendar ranges, partner sync, local dev mode)
 - [ ] Admins see pending renewals grouped one per plan on `/admin/bookings`
 - [ ] Approving a renewal approves each day that still has a free seat
-- [ ] Approving a renewal cancels days whose seat was taken, with reason `renewal-seat-taken`
+- [ ] Approving a renewal cancels days that can no longer be had (seat taken, Hub closure, desk no longer open that day), with reason `renewal-day-unavailable`
+- [ ] A day the desk no longer takes does not block the rest of the approval
+- [ ] Renew cannot be submitted twice for the same plan
 - [ ] Rejecting cancels every pending day with reason `renewal-rejected`, and an optional `rejectionReason`
 - [ ] The member gets one notification per decision, showing the rejection reason if one was given
+- [ ] Days dropped on approval or lapsed unreviewed send no notification
+- [ ] A booking naming another member's plan in `renewalOf` does not stop that member's reminder
 - [ ] Renewal days skip the global "Approve all" and have no per-row Approve button
 - [ ] A renewal day still pending when it ends is cancelled with reason `renewal-expired`, not completed
 - [ ] Members get one in-app + push reminder 3 days before an approved plan's last day, unless they have already renewed
@@ -50,4 +55,5 @@ Members renew a Fixed Desk plan instead of registering a new one, and every rene
 
 ## Notes
 - Releasing the desk means a renewal can lose days to other bookings while it waits; approval re-checks each day with `checkBookingConflictsStrict`.
-- The reminder rides the hourly run (no new scheduled function) and dedupes on `fixed_desk_ending_<uid>_<planGroupId>`.
+- The reminder rides the hourly run (no new scheduled function), shares the Partner Desk sync's single read of future bookings, and dedupes on `fixed_desk_ending_<uid>_<planGroupId>`.
+- `summarizePlan` (`src/utils/deskPlans.js`) is the one summary of a plan's days for the member list, the recently-ended list and the Renewals panel.

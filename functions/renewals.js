@@ -45,9 +45,12 @@ const toMs = (value) => (value && typeof value.toDate === "function" ?
  *   lastDayStart: number}>}
  */
 function plansEndingSoon(bookings, startOfTodayMs, nowMs) {
+  // Keyed by member too: renewalOf is member-written, so a booking naming
+  // someone else's plan must not count as that plan being renewed.
+  const renewalKey = (memberId, planGroupId) => `${memberId}/${planGroupId}`;
   const renewed = new Set(bookings
       .filter((b) => b.renewalOf && b.status !== "cancelled")
-      .map((b) => b.renewalOf));
+      .map((b) => renewalKey(b.memberId, b.renewalOf)));
   const lastDays = new Map();
   bookings.forEach((b) => {
     if (b.planType !== "fixed-desk" || !b.planGroupId) return;
@@ -60,7 +63,8 @@ function plansEndingSoon(bookings, startOfTodayMs, nowMs) {
   const horizon = startOfTodayMs + (ENDING_SOON_DAYS + 1) * DAY_MS;
   const ending = [];
   lastDays.forEach((last, planGroupId) => {
-    if (last.status !== "approved" || renewed.has(planGroupId)) return;
+    if (last.status !== "approved") return;
+    if (renewed.has(renewalKey(last.memberId, planGroupId))) return;
     const start = toMs(last.startTime);
     if (start >= horizon || toMs(last.endTime) <= nowMs) return;
     ending.push({
