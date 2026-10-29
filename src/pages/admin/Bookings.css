@@ -25,7 +25,7 @@
 }
 
 .page-filters .form-field {
-  background: var(--form-field-bg);
+  background-color: var(--form-field-bg);
   border-radius: 999px;
   border: 1px solid var(--form-field-border);
   padding-inline: 1rem;
