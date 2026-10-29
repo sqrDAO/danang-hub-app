@@ -15,6 +15,7 @@ const createInitialStore = () => ({
   bookings: buildLocalDevBookings(),
   events: buildLocalDevEvents(),
   members: buildLocalDevMembers(),
+  partners: [],
   projects: buildLocalDevProjects()
 })
 
@@ -327,6 +328,19 @@ export const listLocalMembers = () => getStore().members.map((item) => ({ ...ite
 export const getLocalMember = (uid) => {
   const member = getStore().members.find((item) => item.id === uid || item.uid === uid)
   return member ? { ...member } : null
+}
+
+export const listLocalPartners = () =>
+  getStore().partners.map((item) => ({ ...item })).sort((a, b) => a.name.localeCompare(b.name))
+export const createLocalPartner = (data) => {
+  const now = new Date().toISOString()
+  const partner = { ...data, id: nextId('partner'), createdAt: now, updatedAt: now }
+  getStore().partners.push(partner)
+  return { ...partner }
+}
+export const deleteLocalPartner = (id) => {
+  const store = getStore()
+  store.partners = store.partners.filter((item) => item.id !== id)
 }
 
 export const countLocalCompletedBookings = () =>

@@ -19,6 +19,7 @@ Live app: **https://app.danangblockchainhub.com**
 ### Amenity Booking System
 - **Visual Calendar** — day and week view for booking selection
 - **Fixed Desk Plans** — members subscribe to recurring fixed-desk allocations; admins assign desks
+- **Partner Desk Plans** — members of a partner organization (e.g. 9AM Games, DiiD) register Partner Desk plans instead, auto-approved while the desk has capacity
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
 - **Recurring Bookings** — weekly recurring reservations
 - **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
@@ -39,7 +40,7 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Admin Dashboard
 - **Overview Stats** — members, active bookings, upcoming events, available amenities
-- **Member Management** — search by name or company, edit profiles and membership types
+- **Member Management** — search by name, company or partner; edit profiles, membership types and partner organization; add/remove partner organizations
 - **Amenity Management** — create/edit amenities, configure availability hours, days, slot duration, and photo gallery
 - **Booking Management** — filter by status, bulk-approve pending bookings, assign fixed desks
 - **Event Management** — approve/reject events with reason, manage attendees and waitlists
@@ -217,6 +218,10 @@ The app registers a custom service worker at `public/sw.js` to handle background
 
 In **Firestore → Data**, find the user's document in the `members` collection and set `membershipType` to `"admin"`.
 
+### 9. Partner Organizations (optional)
+
+Add partner organizations on `/admin/members`, then attach members from the member edit form. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`.
+
 ---
 
 ## Cloud Functions
@@ -231,7 +236,7 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date |
 | `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
-| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
+| `autoApproveDeskBooking` | Firestore trigger (onCreate) | Auto-approves available desk bookings (Partner Desk plans only for members with a valid `partnerId`; never Fixed Desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
@@ -275,6 +280,7 @@ src/
 │   ├── admin/
 │   │   ├── Dashboard.jsx         # Stats overview
 │   │   ├── Members.jsx           # Member list with search
+│   │   ├── PartnersPanel.jsx     # Partner organizations (add/remove)
 │   │   ├── Amenities.jsx         # Amenity CRUD + photo gallery
 │   │   ├── Bookings.jsx          # Booking management + bulk approval
 │   │   └── Events.jsx            # Event approval + rejection with reason
@@ -293,6 +299,7 @@ src/
 │   ├── bookings.js               # CRUD + conflict checking
 │   ├── events.js                 # CRUD + attendee/waitlist management
 │   ├── members.js
+│   ├── partners.js               # Partner organizations
 │   ├── pushNotifications.js      # Browser push token opt-in/out helpers
 │   ├── notifications.js
 │   ├── projects.js
@@ -328,9 +335,10 @@ functions/
 
 | Collection | Description |
 |------------|-------------|
-| `members` | Profiles, membership type (admin/member), wallet address |
+| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it) |
+| `partners` | Partner organizations (`name`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration) |
-| `bookings` | Booking records with status workflow and fixed-desk support |
+| `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`) |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |

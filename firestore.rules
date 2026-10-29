@@ -23,24 +23,35 @@ service cloud.firestore {
     // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
     // locale ('en'|'vi', mirrors the UI language so Cloud Functions can
     // localize push copy), createdAt, updatedAt.
-    // Only membershipType is restricted for owner updates.
+    // partnerId (id in /partners) is admin-set: it makes the member's desk
+    // plans Partner Desk plans, which autoApproveDeskBooking approves.
+    // membershipType and partnerId are restricted for owner updates.
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
       // Admins can read all members
       allow read: if isAdmin();
-      // Users can create their own profile
-      allow create: if isOwner(userId);
-      // Users can update their own profile (except membershipType)
-      allow update: if isOwner(userId) && 
-                       (!('membershipType' in request.resource.data) || 
-                        request.resource.data.membershipType == resource.data.membershipType);
+      // Users can create their own profile, but not attach it to a partner
+      allow create: if isOwner(userId) &&
+                       !('partnerId' in request.resource.data);
+      // Users can update their own profile (except membershipType and partnerId)
+      allow update: if isOwner(userId) &&
+                       (!('membershipType' in request.resource.data) ||
+                        request.resource.data.membershipType == resource.data.membershipType) &&
+                       request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null);
       // Only admins can update membershipType or any member
       allow update: if isAdmin();
       // Only admins can delete members
       allow delete: if isAdmin();
     }
     
+    // Partner organizations (e.g. 9AM Games, DiiD): name, createdAt, updatedAt.
+    // Members point at one via members.partnerId.
+    match /partners/{partnerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Amenities collection
     match /amenities/{amenityId} {
       // Everyone can read amenities (public access)

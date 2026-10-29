@@ -17,6 +17,7 @@ import { checkBookingConflictsStrict } from '../../services/functions'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
+import { deskPlanBadgeKey, isDeskPlan } from '../../utils/deskPlans'
 import HubClosureNotice from '../../components/HubClosureNotice'
 
 const PAGE_SIZE = 10
@@ -889,8 +890,8 @@ const AdminBookings = () => {
                   <td>{getMemberName(members, booking.memberId)}</td>
                   <td>
                     {getAmenityName(amenities, booking.amenityId)}
-                    {booking.planType === 'fixed-desk' && (
-                      <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
+                    {isDeskPlan(booking.planType) && (
+                      <span className="fixed-desk-badge-admin">{t(deskPlanBadgeKey(booking.planType))}</span>
                     )}
                     <ClosureBadge booking={booking} t={t} />
                   </td>
@@ -926,8 +927,8 @@ const AdminBookings = () => {
                 <div className="booking-card-mobile-header">
                   <div className="booking-card-mobile-title">
                     {getAmenityName(amenities, booking.amenityId)}
-                    {booking.planType === 'fixed-desk' && (
-                      <span className="fixed-desk-badge-admin">{t('fixedDesk.badge')}</span>
+                    {isDeskPlan(booking.planType) && (
+                      <span className="fixed-desk-badge-admin">{t(deskPlanBadgeKey(booking.planType))}</span>
                     )}
                     <ClosureBadge booking={booking} t={t} />
                   </div>

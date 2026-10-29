@@ -326,11 +326,13 @@ export const createRecurringBooking = async (baseBooking, recurrence, checkConfl
 
 // Create a fixed desk plan: books a desk for all working days (Mon–Fri, 9am–6pm
 // hub time) over a weekly (current week) or monthly (one month) period.
+// planType is 'fixed-desk' or, for partner org members, 'partner-desk'.
 export const createFixedDeskPlan = async ({
   memberId,
   amenityId,
   period,
   startDate,
+  planType = 'fixed-desk',
   createdByAdmin = false,
   checkConflictsFn = null,
 }) => {
@@ -342,7 +344,7 @@ export const createFixedDeskPlan = async ({
     amenityId,
     startTime: start.toISOString(),
     endTime: firstDayEnd.toISOString(),
-    planType: 'fixed-desk',
+    planType,
     planPeriod: period,
     planGroupId,
     ...(createdByAdmin && { status: 'approved' }),

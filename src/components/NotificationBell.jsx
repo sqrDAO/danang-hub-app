@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { getUnreadNotifications, markNotificationRead, markNotificationsRead } from '../services/notifications'
 import { playDesktopNotificationSound } from '../utils/desktopNotificationSound'
 import { formatHubDateTimeCompact } from '../utils/timezone'
+import { deskPlanCopyPrefix, isDeskPlan } from '../utils/deskPlans'
 import './NotificationBell.css'
 
 const BellIcon = () => (
@@ -41,15 +42,17 @@ const getEventStatusCopy = (notification, t) => {
   }
 }
 
+// Desk plans have their own copy ("fixedDesk…", "partnerDesk…" keys); any other
+// booking uses the generic "booking…" keys.
+const planCopyPrefix = ({ planType }) => (isDeskPlan(planType) ? deskPlanCopyPrefix(planType) : 'booking')
+
 const getBookingPendingReviewBody = (notification, t) => {
   const args = {
     member: getFallbackName(notification.memberName, t),
     amenity: notification.amenityName
   }
 
-  return notification.planType === 'fixed-desk'
-    ? t('notifications.fixedDeskPendingReviewBody', args)
-    : t('notifications.bookingPendingReviewBody', args)
+  return t(`notifications.${planCopyPrefix(notification)}PendingReviewBody`, args)
 }
 
 const getBookingPendingReviewCopy = (notification, t) => ({
@@ -58,9 +61,7 @@ const getBookingPendingReviewCopy = (notification, t) => ({
 })
 
 const getBookingApprovedBody = (notification, t) => (
-  notification.planType === 'fixed-desk'
-    ? t('notifications.fixedDeskApprovedBody', { amenity: notification.amenityName })
-    : t('notifications.bookingApprovedBody', { amenity: notification.amenityName })
+  t(`notifications.${planCopyPrefix(notification)}ApprovedBody`, { amenity: notification.amenityName })
 )
 
 const getBookingApprovedCopy = (notification, t) => ({
@@ -72,14 +73,8 @@ const getBookingApprovedCopy = (notification, t) => ({
 // `cancelledReason` is an internal marker and not member-facing copy.
 const getBookingCancelledBody = (notification, t) => {
   const args = { amenity: notification.amenityName }
-  if (notification.isHubClosure) {
-    return notification.planType === 'fixed-desk'
-      ? t('notifications.fixedDeskCancelledClosureBody', args)
-      : t('notifications.bookingCancelledClosureBody', args)
-  }
-  return notification.planType === 'fixed-desk'
-    ? t('notifications.fixedDeskCancelledBody', args)
-    : t('notifications.bookingCancelledBody', args)
+  const suffix = notification.isHubClosure ? 'CancelledClosureBody' : 'CancelledBody'
+  return t(`notifications.${planCopyPrefix(notification)}${suffix}`, args)
 }
 
 const getBookingCancelledCopy = (notification, t) => ({
