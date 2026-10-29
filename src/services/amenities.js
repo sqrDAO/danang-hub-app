@@ -12,6 +12,7 @@ import {
 import { db } from './firebase'
 import { EVENT_SPACE_AVAILABILITY } from '../utils/eventSpaceHours'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { AMENITY_RESERVED } from '../utils/deskPlans'
 import {
   createLocalAmenity,
   deleteLocalAmenity,
@@ -107,6 +108,15 @@ export const createAmenity = async (data) => {
   return docRef.id
 }
 
+// A partner's reserved desk (reservedForPartnerId) must stay a desk while
+// reserved: the Partners panel lists desks only, so a retyped or deleted one
+// would hide the reservation where nobody can release it.
+export { AMENITY_RESERVED }
+
+const assertNotReserved = (amenity) => {
+  if (amenity?.reservedForPartnerId != null) throw new Error(AMENITY_RESERVED)
+}
+
 export const updateAmenity = async (id, data) => {
   if (LOCAL_DEV_MODE) return updateLocalAmenity(id, data)
   const amenityRef = doc(db, AMENITIES_COLLECTION, id)
@@ -114,12 +124,12 @@ export const updateAmenity = async (id, data) => {
     ...data,
     updatedAt: new Date().toISOString()
   }
+  const retyped = 'type' in data && data.type !== 'desk'
+  const current = !('photos' in data) || retyped ? (await getDoc(amenityRef)).data() : null
+  if (retyped) assertNotReserved(current)
   // Preserve photos array if not provided in update
-  if (!('photos' in data)) {
-    const currentDoc = await getDoc(amenityRef)
-    if (currentDoc.exists()) {
-      updateData.photos = currentDoc.data().photos || []
-    }
+  if (!('photos' in data) && current) {
+    updateData.photos = current.photos || []
   }
   await updateDoc(amenityRef, updateData)
 }
@@ -127,5 +137,6 @@ export const updateAmenity = async (id, data) => {
 export const deleteAmenity = async (id) => {
   if (LOCAL_DEV_MODE) return deleteLocalAmenity(id)
   const amenityRef = doc(db, AMENITIES_COLLECTION, id)
+  assertNotReserved((await getDoc(amenityRef)).data())
   await deleteDoc(amenityRef)
 }

@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
+import { getAmenities, createAmenity, updateAmenity, deleteAmenity, AMENITY_RESERVED, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
+import { getPartners } from '../../services/partners'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
@@ -189,8 +190,27 @@ const AmenityCardPhoto = ({ amenity, t, onView }) => {
   )
 }
 
-const AmenityCardInfo = ({ amenity, t }) => (
+// Name of the partner a desk is reserved for (amenities.reservedForPartnerId),
+// set from the Partners panel on /admin/members.
+const useReservedPartnerName = () => {
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners'],
+    queryFn: getPartners,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
+  const names = useMemo(() => new Map(partners.map(p => [p.id, p.name])), [partners])
+  return (amenity) => {
+    if (amenity.reservedForPartnerId == null) return null
+    return names.get(amenity.reservedForPartnerId) || amenity.reservedForPartnerId
+  }
+}
+
+const AmenityCardInfo = ({ amenity, reservedFor, t }) => (
   <div className="amenity-info">
+    {reservedFor && (
+      <p className="amenity-reserved">{t('adminAmenities.reservedFor', { name: reservedFor })}</p>
+    )}
     <p className="amenity-type">{t('adminAmenities.type', { type: amenity.type || t('common.na') })}</p>
     <p className="amenity-capacity">{t('adminAmenities.capacity', { count: amenity.capacity ?? t('common.na') })}</p>
     <p className="amenity-hours">
@@ -246,6 +266,7 @@ const AmenityCardActions = ({
 
 const AmenityCard = ({
   amenity,
+  reservedFor,
   t,
   onViewPhotos,
   onToggleAvailability,
@@ -262,7 +283,7 @@ const AmenityCard = ({
         {amenity.isAvailable !== false ? t('status.available') : t('status.unavailable')}
       </span>
     </div>
-    <AmenityCardInfo amenity={amenity} t={t} />
+    <AmenityCardInfo amenity={amenity} reservedFor={reservedFor} t={t} />
     <AmenityCardActions
       amenity={amenity}
       t={t}
@@ -576,6 +597,7 @@ const AdminAmenities = () => {
     queryKey: ['amenities'],
     queryFn: getAmenities
   })
+  const reservedPartnerName = useReservedPartnerName()
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -622,8 +644,8 @@ const AdminAmenities = () => {
       resetForm()
       showToast(t('toast.amenityUpdated'), 'success')
     },
-    onError: () => {
-      showToast(t('toast.amenityUpdateFailed'), 'error')
+    onError: (error) => {
+      showToast(t(error?.message === AMENITY_RESERVED ? 'toast.amenityReserved' : 'toast.amenityUpdateFailed'), 'error')
     }
   })
 
@@ -632,6 +654,9 @@ const AdminAmenities = () => {
     onSuccess: () => {
       invalidate('amenities')
       showToast(t('toast.amenityDeleted'), 'success')
+    },
+    onError: (error) => {
+      showToast(t(error?.message === AMENITY_RESERVED ? 'toast.amenityReserved' : 'toast.amenityDeleteFailed'), 'error')
     }
   })
 
@@ -686,7 +711,8 @@ const AdminAmenities = () => {
   const handleDelete = async (id) => {
     if (isPendingFor(deleteMutation, id)) return
     if (window.confirm('Are you sure you want to delete this amenity?')) {
-      await deleteMutation.mutateAsync(id)
+      // onError shows the toast; the rejection is handled there.
+      await deleteMutation.mutateAsync(id).catch(() => {})
     }
   }
 
@@ -751,6 +777,7 @@ const AdminAmenities = () => {
             <AmenityCard
               key={amenity.id}
               amenity={amenity}
+              reservedFor={reservedPartnerName(amenity)}
               t={t}
               onViewPhotos={setLightboxAmenity}
               onToggleAvailability={handleToggleAvailability}

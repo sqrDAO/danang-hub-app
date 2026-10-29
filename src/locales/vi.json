@@ -446,6 +446,7 @@
     "addButton": "Thêm tiện ích",
     "photos": "{{count}} ảnh",
     "type": "Loại: {{type}}",
+    "reservedFor": "Dành riêng cho đối tác: {{name}}",
     "capacity": "Sức chứa: {{count}}",
     "hours": "Giờ: {{start}}:00 - {{end}}:00",
     "days": "Ngày: {{days}}",
@@ -737,6 +738,7 @@
       "hint": "Cùng bàn và thời hạn, bắt đầu từ ngày làm việc kế tiếp. Quản trị viên sẽ duyệt; trước đó bàn không được giữ cho bạn.",
       "pending": "Đã yêu cầu gia hạn — đang chờ quản trị viên.",
       "approved": "Đã gia hạn.",
+      "deskReserved": "Bàn này hiện được dành cho đối tác nên không thể gia hạn gói. Hãy liên hệ quản trị viên để chọn bàn khác.",
       "badge": "Gia hạn"
     }
   },
@@ -754,7 +756,9 @@
     "amenityCreateFailed": "Không thể tạo tiện ích. Vui lòng thử lại.",
     "amenityUpdated": "Cập nhật tiện ích thành công!",
     "amenityUpdateFailed": "Không thể cập nhật tiện ích. Vui lòng thử lại.",
+    "amenityReserved": "Bàn này đang được dành cho đối tác. Hãy bỏ chọn bàn trong mục Đối tác ở trang Thành viên trước.",
     "amenityDeleted": "Xóa tiện ích thành công!",
+    "amenityDeleteFailed": "Xóa tiện ích thất bại. Vui lòng thử lại.",
     "amenityAvailabilityUpdated": "Đã cập nhật khả dụng!",
     "photoUploadFailed": "Không thể tải lên {{file}}: {{message}}",
     "photoUploadError": "Lỗi khi tải ảnh lên",
@@ -825,6 +829,7 @@
     "partnerRemoveFailed": "Không thể xóa đối tác. Vui lòng thử lại.",
     "partnerDuplicate": "Đã có đối tác với tên này.",
     "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại.",
+    "partnerDeskTaken": "Bàn này đã được dành cho đối tác khác. Danh sách đã được làm mới.",
     "partnerDeskCancelled": "Đã hủy gói bàn đối tác.",
     "renewalRequested": "Đã yêu cầu gia hạn — {{count}} ngày đang chờ duyệt.",
     "renewalNone": "Không tạo được ngày gia hạn nào — bàn đã kín hoặc Hub đóng cửa.",

@@ -5,6 +5,7 @@ import {
   deskPlanBadgeKey,
   deskPlanCopyPrefix,
   deskPlanTypeFor,
+  isAmenityOpenTo,
   isDeskPlan,
   isSyncedPartnerPlan,
   normalizePartnerName as normalizePartnerNameClient
@@ -93,4 +94,14 @@ test('unrelated or empty companies match nothing', () => {
 test('the longest matching partner name wins', () => {
   const nested = [{ id: 'games', name: 'Games' }, ...partners]
   assert.equal(matchPartnerForCompany('9AM Games', nested)?.id, 'p-9am')
+})
+
+test('isAmenityOpenTo hides a partner desk from everyone but its partner', () => {
+  const reserved = { id: 'desk-9am', type: 'desk', reservedForPartnerId: 'p-9am' }
+  assert.equal(isAmenityOpenTo(reserved, 'p-9am'), true)
+  assert.equal(isAmenityOpenTo(reserved, 'p-diid'), false)
+  assert.equal(isAmenityOpenTo(reserved, null), false)
+  assert.equal(isAmenityOpenTo(reserved), false)
+  assert.equal(isAmenityOpenTo({ id: 'desk-open', type: 'desk' }), true)
+  assert.equal(isAmenityOpenTo({ id: 'desk-cleared', reservedForPartnerId: null }, 'p-9am'), true)
 })

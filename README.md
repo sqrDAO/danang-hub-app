@@ -224,6 +224,8 @@ In **Firestore → Data**, find the user's document in the `members` collection 
 
 Add partner organizations on `/admin/members`, pick each one's desk, then attach members from the member edit form. Their bookings appear on the next hourly run. To attach existing members in bulk by the `company` on their profile, run `node functions/scripts/assign-partners-by-company.cjs` (dry run) and, after reviewing the list, the same command with `--apply`.
 
+Picking a partner's desk reserves it for that partner: it is hidden from other members on `/member/bookings`, and the rules refuse their bookings on it (its schedule is still readable, like any amenity). A reserved desk cannot be retyped or deleted until it is released in the Partners panel. Desks picked before this existed are reserved by `node functions/scripts/backfill-partner-desk-reservations.cjs` (dry run; add `--apply` after reviewing it).
+
 ---
 
 ## Cloud Functions
@@ -340,7 +342,7 @@ functions/
 |------------|-------------|
 | `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it) |
 | `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
-| `amenities` | Resources with custom availability (hours, days, slot duration) |
+| `amenities` | Resources with custom availability (hours, days, slot duration); optional `reservedForPartnerId` marks a partner's desk, bookable only by that partner's members (set from the Partners panel, rules-enforced) |
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
