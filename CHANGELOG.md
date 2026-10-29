@@ -7,8 +7,8 @@ Notable changes to the Da Nang Blockchain Hub member portal. Versions follow
 ## v1.0.0 — 2026-10-29
 
 The first versioned release. It covers everything already in production,
-plus today's desk-plan work: Partner Desks, Fixed Desk renewals, and the
-monthly coworking limit, plus a simpler Partners panel.
+plus today's desk-plan work: Partner Desks, Fixed Desk renewals, the monthly
+coworking limit and a simpler Partners panel.
 
 ### Partner Desks
 
