@@ -7,60 +7,152 @@ import { isPendingFor } from '../../utils/mutationTarget'
 import { normalizePartnerName } from '../../utils/deskPlans'
 import { showToast } from '../../utils/toast'
 
-// Partner organizations (9AM Games, DiiD, …). Members attached to one are
-// booked on the org's desk automatically; a partner can only be removed once
-// nobody is attached.
-const PartnerRow = ({ partner, partnerNames, memberCount, desks, t, onRemove, onDeskChange, removing, savingDesk }) => (
+// Partner organizations (9AM Games, DiiD, …). Each has one desk, picked when
+// it is added; members attached to it are booked on that desk automatically.
+// Removing a partner detaches its members.
+
+// Desks a partner may pick: any desk not reserved for another partner that
+// still exists (a hold left by a deleted partner is free; see partners.js).
+const desksOpenTo = (desks, partners, partnerId = null) => desks.filter(desk => {
+  const holder = desk.reservedForPartnerId
+  return holder == null || holder === partnerId || !partners.some(p => p.id === holder)
+})
+
+const DeskSelect = ({ desks, value, onChange, t, disabled }) => (
+  <select
+    className="form-field partner-desk-select"
+    aria-label={t('adminPartners.desk')}
+    value={value}
+    onChange={e => onChange(e.target.value)}
+    disabled={disabled}
+    required
+  >
+    <option value="" disabled>{t('adminPartners.chooseDesk')}</option>
+    {desks.map(desk => <option key={desk.id} value={desk.id}>{desk.name}</option>)}
+  </select>
+)
+
+// A value with no matching option (a stale or missing desk) reads as unset.
+const offered = (desks, deskId) => (desks.some(d => d.id === deskId) ? deskId : '')
+
+const DeskChanger = ({ partner, desks, t, onSave, onCancel, saving }) => {
+  const [picked, setDeskId] = useState(partner.deskAmenityId || '')
+  const deskId = offered(desks, picked)
+  return (
+    <div className="partner-row-change">
+      <DeskSelect desks={desks} value={deskId} onChange={setDeskId} t={t} disabled={saving} />
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        onClick={() => onSave(partner, deskId)}
+        disabled={!deskId || deskId === partner.deskAmenityId || saving}
+      >
+        {saving ? t('common.saving') : t('adminPartners.saveDesk')}
+      </button>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onCancel} disabled={saving}>
+        {t('common.cancel')}
+      </button>
+    </div>
+  )
+}
+
+const PartnerRow = ({ partner, deskName, memberCount, t, actions, changer }) => (
   <li className="partner-row">
-    <span className="partner-row-name">{partner.name}</span>
-    <span className="partner-row-count">{t('adminPartners.memberCount', { count: memberCount })}</span>
-    <select
-      className="form-field partner-row-desk"
-      aria-label={t('adminPartners.desk')}
-      value={partner.deskAmenityId || ''}
-      onChange={e => onDeskChange(partner, e.target.value || null)}
-      disabled={savingDesk}
-    >
-      <option value="">{t('adminPartners.noDesk')}</option>
-      {/* A deleted or no-longer-desk amenity would otherwise show as "No desk"
-          while the partner still points at it and members get nothing. */}
-      {partner.deskAmenityId && !desks.some(d => d.id === partner.deskAmenityId) && (
-        <option value={partner.deskAmenityId}>{t('adminPartners.unknownDesk')}</option>
-      )}
-      {/* A desk is reserved for one partner at a time (reservedForPartnerId). */}
-      {desks.map(desk => {
-        const holder = desk.reservedForPartnerId !== partner.id && partnerNames[desk.reservedForPartnerId]
-        return (
-          <option key={desk.id} value={desk.id} disabled={!!holder}>
-            {holder ? `${desk.name} (${holder})` : desk.name}
-          </option>
-        )
-      })}
-    </select>
-    <button
-      type="button"
-      className="btn btn-danger btn-sm"
-      onClick={() => onRemove(partner)}
-      disabled={memberCount > 0 || removing}
-      title={memberCount > 0 ? t('adminPartners.removeBlocked') : undefined}
-    >
-      {t('adminPartners.remove')}
-    </button>
+    <div className="partner-row-info">
+      <span className="partner-row-name">{partner.name}</span>
+      <span className="partner-row-meta">
+        {deskName}
+        {' · '}
+        {t('adminPartners.memberCount', { count: memberCount })}
+      </span>
+    </div>
+    {changer || (
+      <div className="partner-row-actions">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => actions.onChangeDesk(partner)}>
+          {t('adminPartners.changeDesk')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-danger btn-sm"
+          onClick={() => actions.onRemove(partner, memberCount)}
+          disabled={actions.removing}
+        >
+          {t('adminPartners.remove')}
+        </button>
+      </div>
+    )}
   </li>
 )
 
-const PartnersPanel = ({ partners, members, t }) => {
+const AddPartnerForm = ({ desks, t, onAdd, pending }) => {
   const [name, setName] = useState('')
-  const invalidate = useInvalidateQueries()
+  const [picked, setDeskId] = useState('')
+  // A desk taken meanwhile drops out of the list, and with it the choice.
+  const deskId = offered(desks, picked)
+  const submit = (e) => {
+    e.preventDefault()
+    if (!name.trim() || !deskId || pending) return
+    onAdd({ name, deskAmenityId: deskId }, () => { setName(''); setDeskId('') })
+  }
+  return (
+    <form className="partners-add-form" onSubmit={submit}>
+      <input
+        type="text"
+        className="form-field"
+        placeholder={t('adminPartners.namePlaceholder')}
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <DeskSelect desks={desks} value={deskId} onChange={setDeskId} t={t} disabled={pending} />
+      <button type="submit" className="btn btn-primary" disabled={!name.trim() || !deskId || pending}>
+        {pending ? t('common.saving') : t('adminPartners.add')}
+      </button>
+    </form>
+  )
+}
 
-  const createMutation = useMutation({
-    mutationFn: createPartner,
-    onSuccess: () => {
-      invalidate('partners')
-      setName('')
-    },
-    onError: () => showToast(t('toast.partnerAddFailed'), 'error')
-  })
+const deskErrorToast = (error, t) => {
+  if (error?.message === PARTNER_DESK_TAKEN) return t('toast.partnerDeskTaken')
+  return null
+}
+
+const usePartnerMutations = (t, onDeskSaved) => {
+  const invalidate = useInvalidateQueries()
+  // A desk taken by another partner means the cached list was stale.
+  const onDeskError = (fallbackKey) => (error) => {
+    const taken = deskErrorToast(error, t)
+    if (taken) invalidate('partners', 'amenities')
+    showToast(taken || t(fallbackKey), 'error')
+  }
+  return {
+    create: useMutation({
+      mutationFn: ({ data }) => createPartner(data),
+      onSuccess: (_, { onDone }) => {
+        invalidate('partners', 'amenities')
+        onDone()
+      },
+      onError: onDeskError('toast.partnerAddFailed')
+    }),
+    desk: useMutation({
+      mutationFn: ({ id, deskAmenityId }) => setPartnerDesk(id, deskAmenityId),
+      onSuccess: (_, { id }) => {
+        invalidate('partners', 'amenities')
+        onDeskSaved(id)
+      },
+      onError: onDeskError('toast.partnerDeskFailed')
+    }),
+    remove: useMutation({
+      mutationFn: deletePartner,
+      onSuccess: () => invalidate('partners', 'amenities', 'members', 'bookings'),
+      onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
+    })
+  }
+}
+
+const PartnersPanel = ({ partners, members, t }) => {
+  const [changingId, setChangingId] = useState(null)
+  // Close only the changer whose save finished, not one opened since.
+  const mutations = usePartnerMutations(t, (id) => setChangingId(cur => (cur === id ? null : cur)))
 
   const { data: amenities = [] } = useQuery({
     queryKey: ['amenities'],
@@ -69,49 +161,33 @@ const PartnersPanel = ({ partners, members, t }) => {
     retry: 1
   })
   const desks = amenities.filter(a => a.type === 'desk')
+  const deskNames = Object.fromEntries(desks.map(d => [d.id, d.name]))
+  const memberCount = (partnerId) => members.filter(m => m.partnerId === partnerId).length
 
-  const deskMutation = useMutation({
-    mutationFn: ({ id, deskAmenityId }) => setPartnerDesk(id, deskAmenityId),
-    onSuccess: () => invalidate('partners', 'amenities'),
-    onError: (error) => {
-      // A desk taken by another partner means the cached list was stale.
-      const taken = error?.message === PARTNER_DESK_TAKEN
-      if (taken) invalidate('partners', 'amenities')
-      showToast(t(taken ? 'toast.partnerDeskTaken' : 'toast.partnerDeskFailed'), 'error')
-    }
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: deletePartner,
-    onSuccess: () => invalidate('partners', 'amenities'),
-    onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
-  })
-
-  const handleAdd = (e) => {
-    e.preventDefault()
-    if (!name.trim() || createMutation.isPending) return
+  const handleAdd = (data, onDone) => {
     // Duplicates would split members across two orgs ("9AM Games" / "9am games").
-    if (partners.some(p => normalizePartnerName(p.name) === normalizePartnerName(name))) {
+    if (partners.some(p => normalizePartnerName(p.name) === normalizePartnerName(data.name))) {
       showToast(t('toast.partnerDuplicate'), 'error')
       return
     }
-    createMutation.mutate(name)
+    mutations.create.mutate({ data, onDone })
   }
 
-  const handleRemove = (partner) => {
-    if (isPendingFor(deleteMutation, partner.id)) return
-    if (window.confirm(t('adminPartners.confirmRemove', { name: partner.name }))) {
-      deleteMutation.mutate(partner.id)
+  const handleSaveDesk = (partner, deskAmenityId) => {
+    const confirmText = t('adminPartners.confirmChangeDesk', {
+      name: partner.name, count: memberCount(partner.id), desk: deskNames[deskAmenityId]
+    })
+    if (window.confirm(confirmText)) mutations.desk.mutate({ id: partner.id, deskAmenityId })
+  }
+
+  const actions = {
+    onChangeDesk: (partner) => setChangingId(partner.id),
+    onRemove: (partner, count) => {
+      if (isPendingFor(mutations.remove, partner.id)) return
+      const key = count > 0 ? 'adminPartners.confirmRemoveMembers' : 'adminPartners.confirmRemove'
+      if (window.confirm(t(key, { name: partner.name, count }))) mutations.remove.mutate(partner.id)
     }
   }
-
-  const handleDeskChange = (partner, deskAmenityId) => {
-    if (isPendingFor(deskMutation, partner.id)) return
-    deskMutation.mutate({ id: partner.id, deskAmenityId })
-  }
-
-  const partnerNames = Object.fromEntries(partners.map(p => [p.id, p.name]))
-  const memberCount = (partnerId) => members.filter(m => m.partnerId === partnerId).length
 
   return (
     <section className="partners-panel glass">
@@ -127,30 +203,25 @@ const PartnersPanel = ({ partners, members, t }) => {
             <PartnerRow
               key={partner.id}
               partner={partner}
-              partnerNames={partnerNames}
+              deskName={deskNames[partner.deskAmenityId] || t(partner.deskAmenityId ? 'adminPartners.unknownDesk' : 'adminPartners.noDesk')}
               memberCount={memberCount(partner.id)}
-              desks={desks}
               t={t}
-              onRemove={handleRemove}
-              onDeskChange={handleDeskChange}
-              removing={isPendingFor(deleteMutation, partner.id)}
-              savingDesk={isPendingFor(deskMutation, partner.id)}
+              actions={{ ...actions, removing: isPendingFor(mutations.remove, partner.id) }}
+              changer={changingId === partner.id && (
+                <DeskChanger
+                  partner={partner}
+                  desks={desksOpenTo(desks, partners, partner.id)}
+                  t={t}
+                  onSave={handleSaveDesk}
+                  onCancel={() => setChangingId(null)}
+                  saving={isPendingFor(mutations.desk, partner.id)}
+                />
+              )}
             />
           ))}
         </ul>
       )}
-      <form className="partners-add-form" onSubmit={handleAdd}>
-        <input
-          type="text"
-          className="form-field"
-          placeholder={t('adminPartners.namePlaceholder')}
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <button type="submit" className="btn btn-primary" disabled={!name.trim() || createMutation.isPending}>
-          {createMutation.isPending ? t('common.saving') : t('adminPartners.add')}
-        </button>
-      </form>
+      <AddPartnerForm desks={desksOpenTo(desks, partners)} t={t} onAdd={handleAdd} pending={mutations.create.isPending} />
     </section>
   )
 }

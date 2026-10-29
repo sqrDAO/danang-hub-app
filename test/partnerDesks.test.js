@@ -77,7 +77,7 @@ test('books nothing for a partner without a desk, or with a non-desk amenity', (
 
 test('is idempotent: existing days are not created again', () => {
   const bookings = days.map(d => partnerDay('m1', 'desk-1', d.dayKey))
-  assert.deepEqual(plan({ bookings }), { create: [], reactivate: [], cancel: [] })
+  assert.deepEqual(plan({ bookings }), { create: [], reactivate: [], cancel: [], blocked: [] })
 })
 
 test('never recreates a day the member cancelled', () => {
@@ -95,8 +95,41 @@ test('never reactivates a day cancelled for a hub closure', () => {
 test('reactivates days the sync cancelled when the member is re-attached', () => {
   const bookings = [partnerDay('m1', 'desk-1', '20300108', { status: 'cancelled', cancelledReason: PARTNER_REMOVED_REASON })]
   const { create, reactivate } = plan({ bookings })
-  assert.deepEqual(reactivate, [bookings[0].id])
+  assert.deepEqual(reactivate.map(b => b.id), [bookings[0].id])
   assert.equal(create.length, 4)
+})
+
+test('never reactivates a doc at a partner day id that is not that synced day', () => {
+  const cancelled = { status: 'cancelled', cancelledReason: PARTNER_REMOVED_REASON }
+  const real = partnerDay('m1', 'desk-1', '20300108', cancelled)
+  const forged = [
+    { ...real, amenityId: 'room' },
+    // Another member's synced day parked at m1's id.
+    { ...real, memberId: 'someone-else', planGroupId: 'partner_someone-else' },
+    { ...real, planType: 'fixed-desk' },
+    { ...real, planGroupId: 'g1' }
+  ]
+  for (const doc of forged) {
+    const { create, reactivate, blocked } = plan({ bookings: [doc] })
+    assert.deepEqual(reactivate, [], JSON.stringify(doc))
+    assert.deepEqual(blocked, [real.id], JSON.stringify(doc))
+    // The id is taken, so that day is not created over it.
+    assert.equal(create.some(b => b.id === real.id), false)
+  }
+})
+
+test('a reactivated day is rewritten with the planned hours and partner', () => {
+  const stale = partnerDay('m1', 'desk-1', '20300108', {
+    status: 'cancelled',
+    cancelledReason: PARTNER_REMOVED_REASON,
+    endTime: new Date(days[1].end.getTime() + 14 * 24 * HOUR),
+    partnerId: 'p-old'
+  })
+  const [day] = plan({ bookings: [stale] }).reactivate
+  assert.equal(day.id, stale.id)
+  assert.equal(day.startTime.getTime(), days[1].start.getTime())
+  assert.equal(day.endTime.getTime(), days[1].end.getTime())
+  assert.equal(day.partnerId, 'p-9am')
 })
 
 test('cancels future days when a member is detached', () => {
@@ -181,7 +214,7 @@ test('a switched-off desk does not cancel days already booked', () => {
 
 test('reactivates days cancelled by a desk move when the desk moves back', () => {
   const bookings = [partnerDay('m1', 'desk-1', '20300108', { status: 'cancelled', cancelledReason: PARTNER_DESK_MOVED_REASON })]
-  assert.deepEqual(plan({ bookings }).reactivate, [bookings[0].id])
+  assert.deepEqual(plan({ bookings }).reactivate.map(b => b.id), [bookings[0].id])
 })
 
 test('reads desk capacity the same way as the conflict check', () => {

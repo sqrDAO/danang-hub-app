@@ -334,17 +334,21 @@
   },
   "adminPartners": {
     "title": "Partner organizations",
-    "description": "Members attached to a partner are booked on the partner's desk every working day, for as long as they stay attached.",
+    "description": "Each partner has one desk. Members attached to a partner are booked on its desk every working day, for as long as they stay attached.",
     "namePlaceholder": "Partner name, e.g. 9AM Games",
     "add": "Add partner",
     "remove": "Remove",
     "memberCount": "{{count}} member(s)",
-    "removeBlocked": "Detach its members before removing this partner.",
     "confirmRemove": "Remove the partner \"{{name}}\"?",
     "empty": "No partner organizations yet.",
     "desk": "Desk",
     "noDesk": "No desk",
-    "unknownDesk": "Missing desk — choose another"
+    "unknownDesk": "Missing desk — choose another",
+    "chooseDesk": "Choose its desk",
+    "changeDesk": "Change desk",
+    "saveDesk": "Save desk",
+    "confirmChangeDesk": "Move {{name}}'s {{count}} member(s) to {{desk}}? Their upcoming days move at the next hourly run.",
+    "confirmRemoveMembers": "Remove {{name}}? Its {{count}} member(s) will be detached and their upcoming partner desk days cancelled (they are notified). Their accounts stay."
   },
   "adminBookings": {
     "title": "Bookings",

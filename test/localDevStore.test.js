@@ -8,6 +8,10 @@ import {
   deleteLocalPartner,
   deleteLocalAmenity,
   updateLocalAmenity,
+  listLocalMembers,
+  getLocalBooking,
+  listLocalPartners,
+  updateLocalMember,
   getLocalAmenity,
   setLocalPartnerDesk,
   filterLocalBookings,
@@ -62,9 +66,8 @@ test('a partner desk is reserved for its partner and released on change or remov
   resetLocalDevStore()
   const deskA = createLocalAmenity({ name: 'Desk A', type: 'desk' })
   const deskB = createLocalAmenity({ name: 'Desk B', type: 'desk' })
-  const partner = createLocalPartner({ name: '9AM Games' })
+  const partner = createLocalPartner({ name: '9AM Games', deskAmenityId: deskA })
 
-  setLocalPartnerDesk(partner.id, deskA)
   assert.equal(getLocalAmenity(deskA).reservedForPartnerId, partner.id)
 
   setLocalPartnerDesk(partner.id, deskB)
@@ -82,9 +85,9 @@ test('a partner desk is reserved for its partner and released on change or remov
 test('a desk held by another partner is refused, an orphaned hold is taken over', () => {
   resetLocalDevStore()
   const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
-  const nineAm = createLocalPartner({ name: '9AM Games' })
-  const diid = createLocalPartner({ name: 'DiiD' })
-  setLocalPartnerDesk(nineAm.id, desk)
+  const spare = createLocalAmenity({ name: 'Spare', type: 'desk' })
+  createLocalPartner({ name: '9AM Games', deskAmenityId: desk })
+  const diid = createLocalPartner({ name: 'DiiD', deskAmenityId: spare })
   assert.throws(() => setLocalPartnerDesk(diid.id, desk), /partner-desk-taken/)
   assert.throws(() => setLocalPartnerDesk(diid.id, 'gone'), /partner-desk-missing/)
   updateLocalAmenity(desk, { reservedForPartnerId: 'deleted-partner' })
@@ -95,12 +98,45 @@ test('a desk held by another partner is refused, an orphaned hold is taken over'
 test('a reserved desk cannot be retyped or deleted until released', () => {
   resetLocalDevStore()
   const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
-  const partner = createLocalPartner({ name: '9AM Games' })
-  setLocalPartnerDesk(partner.id, desk)
+  const partner = createLocalPartner({ name: '9AM Games', deskAmenityId: desk })
   assert.throws(() => updateLocalAmenity(desk, { type: 'meeting-room' }), /amenity-reserved-for-partner/)
   assert.throws(() => deleteLocalAmenity(desk), /amenity-reserved-for-partner/)
   updateLocalAmenity(desk, { capacity: 10 })
   setLocalPartnerDesk(partner.id, null)
   deleteLocalAmenity(desk)
   assert.equal(getLocalAmenity(desk), null)
+})
+
+test('a partner is created with its desk reserved, or not at all', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const nineAm = createLocalPartner({ name: '9AM Games', deskAmenityId: desk })
+  assert.equal(nineAm.deskAmenityId, desk)
+  assert.equal(getLocalAmenity(desk).reservedForPartnerId, nineAm.id)
+  assert.throws(() => createLocalPartner({ name: 'DiiD', deskAmenityId: desk }), /partner-desk-taken/)
+  assert.throws(() => createLocalPartner({ name: 'No desk' }), /partner-desk-missing/)
+  assert.deepEqual(listLocalPartners().map(p => p.name), ['9AM Games'])
+})
+
+test('removing a partner detaches its members and releases its desk', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const partner = createLocalPartner({ name: 'DiiD', deskAmenityId: desk })
+  const [first, second] = listLocalMembers()
+  updateLocalMember(first.id, { partnerId: partner.id })
+  updateLocalMember(second.id, { partnerId: 'another-partner' })
+  const day = (start) => createLocalBooking({
+    memberId: first.id, amenityId: desk, status: 'approved', planType: 'partner-desk',
+    planGroupId: `partner_${first.id}`, startTime: start, endTime: new Date(start.getTime() + 9 * 3600e3)
+  })
+  const upcoming = day(new Date(Date.now() + 2 * 24 * 3600e3))
+  const underway = day(new Date(Date.now() - 3600e3))
+  deleteLocalPartner(partner.id)
+  assert.equal(getLocalBooking(upcoming).status, 'cancelled')
+  assert.equal(getLocalBooking(upcoming).cancelledReason, 'partner-removed')
+  assert.equal(getLocalBooking(underway).status, 'approved')
+  const byId = Object.fromEntries(listLocalMembers().map(m => [m.id, m]))
+  assert.equal(byId[first.id].partnerId, null)
+  assert.equal(byId[second.id].partnerId, 'another-partner')
+  assert.equal(getLocalAmenity(desk).reservedForPartnerId, null)
 })

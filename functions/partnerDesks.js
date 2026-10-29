@@ -131,8 +131,21 @@ function isDeskOpen(amenity, day) {
 }
 
 /**
- * Whether a partner day the sync cancelled may be brought back.
+ * Whether a doc at a day's id is that member's synced day on that desk.
+ * Anything else there (written some other way) is never touched.
  * @param {Object} booking Existing booking
+ * @param {string} uid Member uid
+ * @param {string} amenityId Desk
+ * @return {boolean}
+ */
+function isOwnSyncedDay(booking, uid, amenityId) {
+  return isSyncedPartnerDay(booking) && booking.memberId === uid &&
+    booking.amenityId === amenityId;
+}
+
+/**
+ * Whether a partner day the sync cancelled may be brought back.
+ * @param {Object} booking Existing booking, already isOwnSyncedDay
  * @return {boolean}
  */
 function isReactivatable(booking) {
@@ -174,7 +187,8 @@ function bookingsToCancel(syncedDays, entitled, nowMs) {
 }
 
 /**
- * What to do for one member on one desk day: "create", "reactivate" or null.
+ * What to do for one member on one desk day: "create", "reactivate",
+ * "blocked" (the day's id holds a doc that is not this synced day) or null.
  * @param {Object} ctx
  * @param {Object} ctx.existing This day's synced booking, if any
  * @param {Array<Object>} ctx.sameDay Active bookings overlapping the day
@@ -184,6 +198,9 @@ function bookingsToCancel(syncedDays, entitled, nowMs) {
  * @return {string|null}
  */
 function dayAction({existing, sameDay, desk, uid, amenities}) {
+  if (existing && !isOwnSyncedDay(existing, uid, desk.amenityId)) {
+    return "blocked";
+  }
   if (existing && !isReactivatable(existing)) return null;
   // Already on a desk that day (a Fixed Desk day, a single desk booking):
   // a second booking would make one person hold two seats.
@@ -206,8 +223,10 @@ function dayAction({existing, sameDay, desk, uid, amenities}) {
  *   any status, each with its doc id
  * @param {Array<Object>} input.days Output of partnerDeskDays
  * @param {number} input.nowMs Current time, epoch ms
- * @return {{create: Array<Object>, reactivate: Array<string>,
- *   cancel: Array<{id: string, reason: string}>}}
+ * @return {{create: Array<Object>, reactivate: Array<Object>,
+ *   cancel: Array<{id: string, reason: string}>, blocked: Array<string>}}
+ *   reactivate holds the planned day, rewritten over the cancelled one;
+ *   blocked lists day ids held by a doc the sync does not own.
  */
 function planPartnerDeskSync({
   members, partners, amenities, bookings, days, nowMs,
@@ -222,6 +241,7 @@ function planPartnerDeskSync({
 
   const create = [];
   const reactivate = [];
+  const blocked = [];
   entitled.forEach(({amenityId, partnerId}, uid) => {
     const amenity = amenities.get(amenityId);
     const capacity = deskCapacity(amenity);
@@ -232,17 +252,17 @@ function planPartnerDeskSync({
         existing, sameDay: overlapping(active, day),
         desk: {amenityId, capacity}, uid, amenities,
       });
-      if (!action) return;
+      if (action === "blocked") blocked.push(id);
+      if (!action || action === "blocked") return;
       const booking = {
         id, memberId: uid, amenityId, partnerId,
         startTime: day.start, endTime: day.end,
       };
       active.push(booking);
-      if (action === "reactivate") reactivate.push(id);
-      else create.push(booking);
+      (action === "reactivate" ? reactivate : create).push(booking);
     });
   });
-  return {create, reactivate, cancel};
+  return {create, reactivate, cancel, blocked};
 }
 
 module.exports = {
