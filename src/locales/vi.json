@@ -758,6 +758,7 @@
     "amenityUpdateFailed": "Không thể cập nhật tiện ích. Vui lòng thử lại.",
     "amenityReserved": "Bàn này đang được dành cho đối tác. Hãy bỏ chọn bàn trong mục Đối tác ở trang Thành viên trước.",
     "amenityDeleted": "Xóa tiện ích thành công!",
+    "amenityDeleteFailed": "Xóa tiện ích thất bại. Vui lòng thử lại.",
     "amenityAvailabilityUpdated": "Đã cập nhật khả dụng!",
     "photoUploadFailed": "Không thể tải lên {{file}}: {{message}}",
     "photoUploadError": "Lỗi khi tải ảnh lên",

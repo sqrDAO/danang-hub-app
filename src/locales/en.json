@@ -760,6 +760,7 @@
     "amenityUpdateFailed": "Failed to update amenity. Please try again.",
     "amenityReserved": "This desk is reserved for a partner. Release it in the Partners panel on Members first.",
     "amenityDeleted": "Amenity deleted successfully!",
+    "amenityDeleteFailed": "Failed to delete amenity. Please try again.",
     "amenityAvailabilityUpdated": "Availability updated!",
     "photoUploadFailed": "Failed to upload {{file}}: {{message}}",
     "photoUploadError": "Error uploading photos",

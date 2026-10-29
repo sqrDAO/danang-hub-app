@@ -12,6 +12,7 @@ import {
 import { db } from './firebase'
 import { EVENT_SPACE_AVAILABILITY } from '../utils/eventSpaceHours'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { AMENITY_RESERVED } from '../utils/deskPlans'
 import {
   createLocalAmenity,
   deleteLocalAmenity,
@@ -110,7 +111,7 @@ export const createAmenity = async (data) => {
 // A partner's reserved desk (reservedForPartnerId) must stay a desk while
 // reserved: the Partners panel lists desks only, so a retyped or deleted one
 // would hide the reservation where nobody can release it.
-export const AMENITY_RESERVED = 'amenity-reserved-for-partner'
+export { AMENITY_RESERVED }
 
 const assertNotReserved = (amenity) => {
   if (amenity?.reservedForPartnerId != null) throw new Error(AMENITY_RESERVED)

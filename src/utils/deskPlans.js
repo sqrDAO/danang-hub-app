@@ -101,5 +101,11 @@ export const buildDeskPlans = (bookings, now = new Date()) =>
 // A partner's desk (amenities.reservedForPartnerId) is bookable only by that
 // partner's members; firestore.rules enforces the same test on member creates.
 // partnerId is the viewer's members.partnerId (null for everyone else).
+// Errors the reservation guards throw (partners.js, amenities.js, and the
+// local dev store that mirrors them).
+export const PARTNER_DESK_TAKEN = 'partner-desk-taken'
+export const PARTNER_DESK_MISSING = 'partner-desk-missing'
+export const AMENITY_RESERVED = 'amenity-reserved-for-partner'
+
 export const isAmenityOpenTo = (amenity, partnerId = null) =>
   amenity?.reservedForPartnerId == null || amenity.reservedForPartnerId === partnerId

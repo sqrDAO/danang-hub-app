@@ -841,8 +841,9 @@ const plansSectionPrefix = (plans, viewerPrefix) => {
 // anyone else (firestore.rules), so say so instead of offering Renew.
 const planRenewal = (plan, bookings, handlers) => {
   const state = renewalStateFor(plan.planGroupId, bookings)
-  const blocked = !handlers.deskOpen && canRenewPlan(plan, state)
-  return { ...handlers, state: blocked ? 'deskReserved' : state, canRenew: !blocked && canRenewPlan(plan, state) }
+  const renewable = canRenewPlan(plan, state)
+  const blocked = renewable && !handlers.deskOpen
+  return { ...handlers, state: blocked ? 'deskReserved' : state, canRenew: renewable && !blocked }
 }
 
 const FixedDeskPlansSection = ({ plans, bookings, amenities, partnerId, t, planPrefix: viewerPrefix, onCancelPlan, cancellingId, onRenew, renewingId }) => {

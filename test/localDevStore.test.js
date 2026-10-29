@@ -6,6 +6,8 @@ import {
   createLocalBooking,
   createLocalPartner,
   deleteLocalPartner,
+  deleteLocalAmenity,
+  updateLocalAmenity,
   getLocalAmenity,
   setLocalPartnerDesk,
   filterLocalBookings,
@@ -75,4 +77,30 @@ test('a partner desk is reserved for its partner and released on change or remov
   setLocalPartnerDesk(partner.id, deskA)
   deleteLocalPartner(partner.id)
   assert.equal(getLocalAmenity(deskA).reservedForPartnerId, null)
+})
+
+test('a desk held by another partner is refused, an orphaned hold is taken over', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const nineAm = createLocalPartner({ name: '9AM Games' })
+  const diid = createLocalPartner({ name: 'DiiD' })
+  setLocalPartnerDesk(nineAm.id, desk)
+  assert.throws(() => setLocalPartnerDesk(diid.id, desk), /partner-desk-taken/)
+  assert.throws(() => setLocalPartnerDesk(diid.id, 'gone'), /partner-desk-missing/)
+  updateLocalAmenity(desk, { reservedForPartnerId: 'deleted-partner' })
+  setLocalPartnerDesk(diid.id, desk)
+  assert.equal(getLocalAmenity(desk).reservedForPartnerId, diid.id)
+})
+
+test('a reserved desk cannot be retyped or deleted until released', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const partner = createLocalPartner({ name: '9AM Games' })
+  setLocalPartnerDesk(partner.id, desk)
+  assert.throws(() => updateLocalAmenity(desk, { type: 'meeting-room' }), /amenity-reserved-for-partner/)
+  assert.throws(() => deleteLocalAmenity(desk), /amenity-reserved-for-partner/)
+  updateLocalAmenity(desk, { capacity: 10 })
+  setLocalPartnerDesk(partner.id, null)
+  deleteLocalAmenity(desk)
+  assert.equal(getLocalAmenity(desk), null)
 })

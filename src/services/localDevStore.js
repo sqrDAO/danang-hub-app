@@ -6,6 +6,7 @@ import {
   buildLocalDevProjects
 } from './localDevFixtures.js'
 import { holdsSeat } from '../utils/renewals.js'
+import { AMENITY_RESERVED, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved', 'checked-in']
 const STORE_KEY = '__DANANG_LOCAL_DEV_STORE__'
@@ -56,14 +57,21 @@ export const createLocalAmenity = (data) => {
   return id
 }
 
+// Same guard as amenities.js: a reserved desk stays a desk until released.
+const assertLocalNotReserved = (amenity) => {
+  if (amenity?.reservedForPartnerId != null) throw new Error(AMENITY_RESERVED)
+}
+
 export const updateLocalAmenity = (id, data) => {
   const amenity = getStore().amenities.find((item) => item.id === id)
   if (!amenity) return
+  if ('type' in data && data.type !== 'desk') assertLocalNotReserved(amenity)
   Object.assign(amenity, data, { updatedAt: new Date().toISOString() })
 }
 
 export const deleteLocalAmenity = (id) => {
   const store = getStore()
+  assertLocalNotReserved(store.amenities.find((item) => item.id === id))
   store.amenities = store.amenities.filter((item) => item.id !== id)
 }
 
@@ -350,9 +358,14 @@ export const setLocalPartnerDesk = (id, deskAmenityId) => {
   const store = getStore()
   const partner = store.partners.find((item) => item.id === id)
   if (!partner) return
+  const desk = deskAmenityId ? store.amenities.find((item) => item.id === deskAmenityId) : null
+  if (deskAmenityId && !desk) throw new Error(PARTNER_DESK_MISSING)
+  const holder = desk?.reservedForPartnerId
+  if (holder != null && holder !== id && store.partners.some((item) => item.id === holder)) {
+    throw new Error(PARTNER_DESK_TAKEN)
+  }
   Object.assign(partner, { deskAmenityId, updatedAt: new Date().toISOString() })
   releaseLocalPartnerDesks(id)
-  const desk = store.amenities.find((item) => item.id === deskAmenityId)
   if (desk) desk.reservedForPartnerId = id
 }
 export const deleteLocalPartner = (id) => {

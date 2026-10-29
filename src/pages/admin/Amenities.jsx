@@ -656,7 +656,7 @@ const AdminAmenities = () => {
       showToast(t('toast.amenityDeleted'), 'success')
     },
     onError: (error) => {
-      if (error?.message === AMENITY_RESERVED) showToast(t('toast.amenityReserved'), 'error')
+      showToast(t(error?.message === AMENITY_RESERVED ? 'toast.amenityReserved' : 'toast.amenityDeleteFailed'), 'error')
     }
   })
 
@@ -711,7 +711,8 @@ const AdminAmenities = () => {
   const handleDelete = async (id) => {
     if (isPendingFor(deleteMutation, id)) return
     if (window.confirm('Are you sure you want to delete this amenity?')) {
-      await deleteMutation.mutateAsync(id)
+      // onError shows the toast; the rejection is handled there.
+      await deleteMutation.mutateAsync(id).catch(() => {})
     }
   }
 

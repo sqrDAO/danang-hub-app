@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans'
 import { createLocalPartner, deleteLocalPartner, listLocalPartners, setLocalPartnerDesk } from './localDevStore'
 
 // Partner organizations (e.g. 9AM Games, DiiD). Admins attach members to one
@@ -39,8 +40,9 @@ export const createPartner = async (name) => {
 // partner never leaves a stale reservation behind, even after drift.
 // Runs in a transaction: a desk another partner holds is refused (the panel's
 // disabled option reads a cached list), and two quick changes for the same
-// partner retry on its doc instead of both reserving a desk.
-export const PARTNER_DESK_TAKEN = 'partner-desk-taken'
+// partner retry on its doc instead of both reserving a desk. A reservation
+// left by a partner that no longer exists is taken over, so it never sticks.
+export { PARTNER_DESK_TAKEN }
 
 const reservedDeskRefs = async (partnerId) => {
   const reserved = await getDocs(query(collection(db, AMENITIES_COLLECTION), where('reservedForPartnerId', '==', partnerId)))
@@ -56,8 +58,12 @@ const releaseDesks = async (tx, partnerId, refs, now) => {
 
 const reserveDesk = async (tx, partnerId, deskAmenityId, now) => {
   const desk = await tx.get(doc(db, AMENITIES_COLLECTION, deskAmenityId))
-  const holder = desk.data()?.reservedForPartnerId
-  if (!desk.exists() || (holder != null && holder !== partnerId)) throw new Error(PARTNER_DESK_TAKEN)
+  if (!desk.exists()) throw new Error(PARTNER_DESK_MISSING)
+  const holder = desk.data().reservedForPartnerId
+  if (holder != null && holder !== partnerId &&
+      (await tx.get(doc(db, PARTNERS_COLLECTION, holder))).exists()) {
+    throw new Error(PARTNER_DESK_TAKEN)
+  }
   return () => tx.update(desk.ref, { reservedForPartnerId: partnerId, updatedAt: now })
 }
 

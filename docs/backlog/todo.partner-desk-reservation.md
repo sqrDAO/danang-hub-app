@@ -39,6 +39,7 @@ Partner desks ("9AM Games Desks", "DiiD Desks") are listed and bookable by every
 - [ ] `setPartnerDesk` refuses a desk another partner holds (`partner-desk-taken` toast, cached lists refreshed)
 - [ ] Two quick desk changes for one partner leave it holding exactly one reserved desk (transaction on the partner doc)
 - [ ] A reserved desk cannot be retyped away from `desk` or deleted (`toast.amenityReserved`)
+- [ ] A reservation left by a partner that no longer exists is taken over when another partner picks the desk
 - [ ] NOT: no Cloud Function changes (sync, `autoApproveDeskBooking`, conflict callables unchanged)
 - [ ] NOT: admin "assign booking" flow and admin pages still list every amenity
 - [ ] NOT: existing bookings on a reserved desk are not cancelled
