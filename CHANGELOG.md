@@ -76,6 +76,10 @@ are capped so the shared seats stay fair for everyone.
   for example `v1.0.0 (38164ca)`. Every release gets a git tag and a GitHub
   release, built from this file.
 
+Built by the sqrDAO team for the builders who call the Hub home. If something
+breaks or you want a feature, tell us at the front desk or on Telegram; we
+ship fast.
+
 LFBUIDL.
 
 Castelian
