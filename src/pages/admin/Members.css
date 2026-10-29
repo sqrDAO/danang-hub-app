@@ -247,8 +247,7 @@
 }
 
 .partners-panel-description,
-.partners-empty,
-.partner-row-count {
+.partners-empty {
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
@@ -271,14 +270,34 @@
   border-radius: 12px;
 }
 
-.partner-row-name {
+.partner-row-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.partner-row-name {
   font-weight: 600;
 }
 
-.partner-row-desk {
-  width: auto;
-  min-width: 10rem;
+.partner-row-meta {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.partner-row-actions,
+.partner-row-change {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* Fixed width: an auto select is as wide as its longest option. */
+.partner-desk-select {
+  width: 14rem;
+  max-width: 100%;
 }
 
 .partners-add-form {
@@ -308,9 +327,17 @@
     flex-wrap: wrap;
   }
 
-  /* Desk picker drops to its own full-width line under name and count. */
-  .partner-row-desk {
-    order: 3;
+  /* Actions and the desk changer drop to their own full-width line. */
+  .partner-row-actions,
+  .partner-row-change {
     flex: 1 1 100%;
+  }
+
+  .partner-row-change .partner-desk-select {
+    flex: 1;
+  }
+
+  .partners-add-form .partner-desk-select {
+    width: 100%;
   }
 }

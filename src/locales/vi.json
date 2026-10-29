@@ -332,17 +332,21 @@
   },
   "adminPartners": {
     "title": "Tổ chức đối tác",
-    "description": "Thành viên thuộc một đối tác được tự động đặt bàn của đối tác vào mọi ngày làm việc, khi họ còn thuộc đối tác đó.",
+    "description": "Mỗi đối tác có một bàn. Thành viên thuộc đối tác được đặt sẵn bàn đó mọi ngày làm việc, khi còn thuộc đối tác.",
     "namePlaceholder": "Tên đối tác, ví dụ 9AM Games",
     "add": "Thêm đối tác",
     "remove": "Xóa",
     "memberCount": "{{count}} thành viên",
-    "removeBlocked": "Hãy gỡ các thành viên khỏi đối tác này trước khi xóa.",
     "confirmRemove": "Xóa đối tác \"{{name}}\"?",
     "empty": "Chưa có tổ chức đối tác nào.",
     "desk": "Bàn",
     "noDesk": "Chưa có bàn",
-    "unknownDesk": "Bàn không còn — hãy chọn bàn khác"
+    "unknownDesk": "Bàn không còn — hãy chọn bàn khác",
+    "chooseDesk": "Chọn bàn",
+    "changeDesk": "Đổi bàn",
+    "saveDesk": "Lưu bàn",
+    "confirmChangeDesk": "Chuyển {{count}} thành viên của {{name}} sang {{desk}}? Các ngày sắp tới sẽ được chuyển ở lần đồng bộ hằng giờ tiếp theo.",
+    "confirmRemoveMembers": "Xóa {{name}}? {{count}} thành viên sẽ bị gỡ khỏi đối tác và các ngày bàn đối tác sắp tới bị hủy (họ sẽ được thông báo). Tài khoản của họ vẫn giữ nguyên."
   },
   "adminBookings": {
     "title": "Đặt chỗ",
