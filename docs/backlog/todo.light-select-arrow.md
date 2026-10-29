@@ -2,15 +2,18 @@
 **Phase**: — · **Deps**: —
 
 ## Goal
-In the light theme every `select.form-field` drew its dropdown arrow in the top-left corner, over the text, instead of on the right. The light `.form-field` rules used the `background` shorthand, which outranks `select.form-field` and resets its arrow position.
+Fix two dropdown display bugs. In the light theme every `select.form-field` drew its dropdown arrow in the top-left corner, over the text, instead of on the right. The light `.form-field` rules used the `background` shorthand, which outranks `select.form-field` and resets its arrow position. On desktop, the Partners panel desk pickers sized to their longest option, so rows had different widths.
 
 ## Files
 - `src/styles/globals.css` (edited) — light `.form-field` and `.form-field:focus` set `background-color` instead of `background`
+- `src/pages/admin/Members.css` (edited) — the partner desk picker has a fixed width
 
 ## Acceptance
 - [ ] In the light theme, select arrows sit right-aligned and vertically centred
 - [ ] In the light theme, a focused select keeps its orange arrow on the right
 - [ ] Light-theme inputs and textareas keep the same background colours
+- [ ] On desktop, every partner row's desk picker has the same width
+- [ ] On phones, the desk picker still fills its own line
 - [ ] NOT: no change to the dark theme
 
 ## Verify
