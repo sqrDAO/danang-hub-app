@@ -23,16 +23,20 @@ service cloud.firestore {
     // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
     // locale ('en'|'vi', mirrors the UI language so Cloud Functions can
     // localize push copy), createdAt, updatedAt.
-    // partnerId (id in /partners) is admin-set: it makes the member's desk
-    // plans Partner Desk plans, which autoApproveDeskBooking approves.
-    // membershipType and partnerId are restricted for owner updates.
+    // partnerId (id in /partners) is admin-set: the hourly partner-desk sync
+    // (autoCheckoutExpiredBookings, functions/partnerDesks.js) keeps attached
+    // members booked on their partner's desk.
+    // Owners create with membershipType absent or 'member' and no partnerId;
+    // only admins change either field afterwards.
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
       // Admins can read all members
       allow read: if isAdmin();
-      // Users can create their own profile, but not attach it to a partner
+      // Users can create their own profile as a regular member, not attached
+      // to a partner
       allow create: if isOwner(userId) &&
+                       request.resource.data.get('membershipType', 'member') == 'member' &&
                        !('partnerId' in request.resource.data);
       // Users can update their own profile (except membershipType and partnerId)
       allow update: if isOwner(userId) &&
