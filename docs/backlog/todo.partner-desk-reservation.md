@@ -6,7 +6,7 @@ Partner desks ("9AM Games Desks", "DiiD Desks") are listed and bookable by every
 
 ## Files
 - `firestore.rules` (edited) — `amenityOpenToCaller`; member booking create denied on another partner's desk
-- `src/services/partners.js` (edited) — `setPartnerDesk` (replaces `updatePartner`) and `deletePartner` reserve/release the desk in one batch
+- `src/services/partners.js` (edited) — `setPartnerDesk` (replaces `updatePartner`) and `deletePartner` reserve/release the desk in one transaction
 - `src/services/localDevStore.js` (edited) — `setLocalPartnerDesk`; `deleteLocalPartner` releases the desk
 - `src/utils/deskPlans.js` (edited) — `isAmenityOpenTo(amenity, partnerId)`
 - `src/pages/admin/PartnersPanel.jsx` (edited) — uses `setPartnerDesk`; a desk held by another partner is disabled in the select
@@ -18,6 +18,7 @@ Partner desks ("9AM Games Desks", "DiiD Desks") are listed and bookable by every
 - `test/firestore-partner-desk.rules.test.js` (new) — reservation rules (emulator)
 - `test/deskPlans.test.js`, `test/localDevStore.test.js` (edited) — helper and local store coverage
 - `README.md` (edited) — `amenities.reservedForPartnerId`, backfill script
+- `src/services/amenities.js` (edited) — refuse retyping or deleting a reserved desk
 
 ## Acceptance
 - [ ] Picking a desk for a partner sets `reservedForPartnerId` to the partner's id on that amenity
@@ -34,6 +35,10 @@ Partner desks ("9AM Games Desks", "DiiD Desks") are listed and bookable by every
 - [ ] `/admin/amenities` shows which partner a desk is reserved for
 - [ ] The backfill dry run lists each desk it would reserve and writes nothing
 - [ ] The backfill `--apply` writes only `reservedForPartnerId` and `updatedAt`
+- [ ] A Fixed Desk plan on a desk reserved for another partner shows `fixedDesk.renewal.deskReserved` instead of Renew
+- [ ] `setPartnerDesk` refuses a desk another partner holds (`partner-desk-taken` toast, cached lists refreshed)
+- [ ] Two quick desk changes for one partner leave it holding exactly one reserved desk (transaction on the partner doc)
+- [ ] A reserved desk cannot be retyped away from `desk` or deleted (`toast.amenityReserved`)
 - [ ] NOT: no Cloud Function changes (sync, `autoApproveDeskBooking`, conflict callables unchanged)
 - [ ] NOT: admin "assign booking" flow and admin pages still list every amenity
 - [ ] NOT: existing bookings on a reserved desk are not cancelled

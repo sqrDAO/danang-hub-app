@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useTranslation } from 'react-i18next'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { getAmenities, createAmenity, updateAmenity, deleteAmenity, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
+import { getAmenities, createAmenity, updateAmenity, deleteAmenity, AMENITY_RESERVED, DEFAULT_AVAILABILITY, getDefaultAvailability, DEFAULT_CAPACITY_BY_TYPE } from '../../services/amenities'
 import { getPartners } from '../../services/partners'
 import { uploadAmenityPhoto, deleteAmenityPhoto } from '../../services/storage'
 import { showToast } from '../../utils/toast'
@@ -199,9 +199,10 @@ const useReservedPartnerName = () => {
     refetchOnWindowFocus: false,
     retry: 1
   })
+  const names = useMemo(() => new Map(partners.map(p => [p.id, p.name])), [partners])
   return (amenity) => {
     if (amenity.reservedForPartnerId == null) return null
-    return partners.find(p => p.id === amenity.reservedForPartnerId)?.name || amenity.reservedForPartnerId
+    return names.get(amenity.reservedForPartnerId) || amenity.reservedForPartnerId
   }
 }
 
@@ -643,8 +644,8 @@ const AdminAmenities = () => {
       resetForm()
       showToast(t('toast.amenityUpdated'), 'success')
     },
-    onError: () => {
-      showToast(t('toast.amenityUpdateFailed'), 'error')
+    onError: (error) => {
+      showToast(t(error?.message === AMENITY_RESERVED ? 'toast.amenityReserved' : 'toast.amenityUpdateFailed'), 'error')
     }
   })
 
@@ -653,6 +654,9 @@ const AdminAmenities = () => {
     onSuccess: () => {
       invalidate('amenities')
       showToast(t('toast.amenityDeleted'), 'success')
+    },
+    onError: (error) => {
+      if (error?.message === AMENITY_RESERVED) showToast(t('toast.amenityReserved'), 'error')
     }
   })
 

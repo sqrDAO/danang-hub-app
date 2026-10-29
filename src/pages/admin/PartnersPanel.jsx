@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
-import { createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
+import { PARTNER_DESK_TAKEN, createPartner, deletePartner, setPartnerDesk } from '../../services/partners'
 import { getAmenities } from '../../services/amenities'
 import { isPendingFor } from '../../utils/mutationTarget'
 import { normalizePartnerName } from '../../utils/deskPlans'
@@ -73,7 +73,12 @@ const PartnersPanel = ({ partners, members, t }) => {
   const deskMutation = useMutation({
     mutationFn: ({ id, deskAmenityId }) => setPartnerDesk(id, deskAmenityId),
     onSuccess: () => invalidate('partners', 'amenities'),
-    onError: () => showToast(t('toast.partnerDeskFailed'), 'error')
+    onError: (error) => {
+      // A desk taken by another partner means the cached list was stale.
+      const taken = error?.message === PARTNER_DESK_TAKEN
+      if (taken) invalidate('partners', 'amenities')
+      showToast(t(taken ? 'toast.partnerDeskTaken' : 'toast.partnerDeskFailed'), 'error')
+    }
   })
 
   const deleteMutation = useMutation({

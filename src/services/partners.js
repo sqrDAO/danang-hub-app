@@ -5,8 +5,8 @@ import {
   getDocs,
   orderBy,
   query,
-  where,
-  writeBatch
+  runTransaction,
+  where
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
@@ -37,30 +37,54 @@ export const createPartner = async (name) => {
 // other members cannot see or book it (firestore.rules). Every desk still
 // marked for the partner is released first, so a changed, cleared or deleted
 // partner never leaves a stale reservation behind, even after drift.
-const releasePartnerDesks = async (batch, partnerId, keepAmenityId, now) => {
+// Runs in a transaction: a desk another partner holds is refused (the panel's
+// disabled option reads a cached list), and two quick changes for the same
+// partner retry on its doc instead of both reserving a desk.
+export const PARTNER_DESK_TAKEN = 'partner-desk-taken'
+
+const reservedDeskRefs = async (partnerId) => {
   const reserved = await getDocs(query(collection(db, AMENITIES_COLLECTION), where('reservedForPartnerId', '==', partnerId)))
-  reserved.docs
-    .filter(d => d.id !== keepAmenityId)
-    .forEach(d => batch.update(d.ref, { reservedForPartnerId: null, updatedAt: now }))
+  return reserved.docs.map(d => d.ref)
+}
+
+const releaseDesks = async (tx, partnerId, refs, now) => {
+  const snaps = await Promise.all(refs.map(ref => tx.get(ref)))
+  snaps
+    .filter(snap => snap.exists() && snap.data().reservedForPartnerId === partnerId)
+    .forEach(snap => tx.update(snap.ref, { reservedForPartnerId: null, updatedAt: now }))
+}
+
+const reserveDesk = async (tx, partnerId, deskAmenityId, now) => {
+  const desk = await tx.get(doc(db, AMENITIES_COLLECTION, deskAmenityId))
+  const holder = desk.data()?.reservedForPartnerId
+  if (!desk.exists() || (holder != null && holder !== partnerId)) throw new Error(PARTNER_DESK_TAKEN)
+  return () => tx.update(desk.ref, { reservedForPartnerId: partnerId, updatedAt: now })
 }
 
 // deskAmenityId: a desk amenity id, or null for no automatic desk.
 export const setPartnerDesk = async (id, deskAmenityId) => {
   if (LOCAL_DEV_MODE) return setLocalPartnerDesk(id, deskAmenityId)
   const now = new Date().toISOString()
-  const batch = writeBatch(db)
-  await releasePartnerDesks(batch, id, deskAmenityId, now)
-  batch.update(doc(db, PARTNERS_COLLECTION, id), { deskAmenityId, updatedAt: now })
-  if (deskAmenityId) {
-    batch.update(doc(db, AMENITIES_COLLECTION, deskAmenityId), { reservedForPartnerId: id, updatedAt: now })
-  }
-  await batch.commit()
+  const found = await reservedDeskRefs(id)
+  await runTransaction(db, async (tx) => {
+    const partnerRef = doc(db, PARTNERS_COLLECTION, id)
+    const current = (await tx.get(partnerRef)).data()?.deskAmenityId
+    const release = [...found, ...(current ? [doc(db, AMENITIES_COLLECTION, current)] : [])]
+      .filter((ref, i, all) => ref.id !== deskAmenityId && all.findIndex(r => r.id === ref.id) === i)
+    // Firestore transactions read everything before the first write.
+    const reserve = deskAmenityId ? await reserveDesk(tx, id, deskAmenityId, now) : null
+    await releaseDesks(tx, id, release, now)
+    reserve?.()
+    tx.update(partnerRef, { deskAmenityId, updatedAt: now })
+  })
 }
 
 export const deletePartner = async (id) => {
   if (LOCAL_DEV_MODE) return deleteLocalPartner(id)
-  const batch = writeBatch(db)
-  await releasePartnerDesks(batch, id, null, new Date().toISOString())
-  batch.delete(doc(db, PARTNERS_COLLECTION, id))
-  await batch.commit()
+  const now = new Date().toISOString()
+  const found = await reservedDeskRefs(id)
+  await runTransaction(db, async (tx) => {
+    await releaseDesks(tx, id, found, now)
+    tx.delete(doc(db, PARTNERS_COLLECTION, id))
+  })
 }

@@ -837,12 +837,15 @@ const plansSectionPrefix = (plans, viewerPrefix) => {
   return prefixes.size === 1 ? [...prefixes][0] : viewerPrefix
 }
 
+// A desk reserved for a partner after the plan began cannot be renewed by
+// anyone else (firestore.rules), so say so instead of offering Renew.
 const planRenewal = (plan, bookings, handlers) => {
   const state = renewalStateFor(plan.planGroupId, bookings)
-  return { ...handlers, state, canRenew: canRenewPlan(plan, state) }
+  const blocked = !handlers.deskOpen && canRenewPlan(plan, state)
+  return { ...handlers, state: blocked ? 'deskReserved' : state, canRenew: !blocked && canRenewPlan(plan, state) }
 }
 
-const FixedDeskPlansSection = ({ plans, bookings, amenities, t, planPrefix: viewerPrefix, onCancelPlan, cancellingId, onRenew, renewingId }) => {
+const FixedDeskPlansSection = ({ plans, bookings, amenities, partnerId, t, planPrefix: viewerPrefix, onCancelPlan, cancellingId, onRenew, renewingId }) => {
   if (plans.length === 0) return null
   const planPrefix = plansSectionPrefix(plans, viewerPrefix)
   return (
@@ -852,17 +855,24 @@ const FixedDeskPlansSection = ({ plans, bookings, amenities, t, planPrefix: view
         <p className="section-description">{t(`${planPrefix}.description`)}</p>
       </div>
       <div className="fixed-desk-plans-list">
-        {plans.map(plan => (
-          <FixedDeskPlanCard
-            key={plan.planGroupId}
-            plan={plan}
-            amenity={amenities.find(a => a.id === plan.amenityId)}
-            t={t}
-            onCancelPlan={onCancelPlan}
-            cancelPending={cancellingId === plan.planGroupId}
-            renewal={planRenewal(plan, bookings, { onRenew, pending: renewingId === plan.planGroupId })}
-          />
-        ))}
+        {plans.map(plan => {
+          const amenity = amenities.find(a => a.id === plan.amenityId)
+          return (
+            <FixedDeskPlanCard
+              key={plan.planGroupId}
+              plan={plan}
+              amenity={amenity}
+              t={t}
+              onCancelPlan={onCancelPlan}
+              cancelPending={cancellingId === plan.planGroupId}
+              renewal={planRenewal(plan, bookings, {
+                onRenew,
+                pending: renewingId === plan.planGroupId,
+                deskOpen: isAmenityOpenTo(amenity, partnerId)
+              })}
+            />
+          )
+        })}
       </div>
     </div>
   )
@@ -1324,6 +1334,7 @@ const MemberBookings = () => {
         <FixedDeskPlansSection
           plans={fixedDeskPlans}
           amenities={amenities}
+          partnerId={partnerId}
           t={t}
           planPrefix={planPrefix}
           bookings={myBookings}
