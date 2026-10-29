@@ -341,11 +341,19 @@ export const getLocalMember = (uid) => {
 
 export const listLocalPartners = () =>
   getStore().partners.map((item) => ({ ...item })).sort((a, b) => a.name.localeCompare(b.name))
-export const createLocalPartner = (data) => {
+export const createLocalPartner = ({ deskAmenityId = null, ...data }) => {
   const now = new Date().toISOString()
-  const partner = { ...data, id: nextId('partner'), createdAt: now, updatedAt: now }
-  getStore().partners.push(partner)
-  return { ...partner }
+  const partner = { ...data, deskAmenityId: null, id: nextId('partner'), createdAt: now, updatedAt: now }
+  const store = getStore()
+  store.partners.push(partner)
+  try {
+    if (deskAmenityId) setLocalPartnerDesk(partner.id, deskAmenityId)
+  } catch (error) {
+    // Same as the Firestore transaction: no partner without its desk.
+    store.partners = store.partners.filter((item) => item.id !== partner.id)
+    throw error
+  }
+  return { ...partner, deskAmenityId }
 }
 // Mirrors setPartnerDesk / deletePartner in partners.js: a partner holds at
 // most one reserved desk (amenities.reservedForPartnerId).
@@ -372,6 +380,9 @@ export const deleteLocalPartner = (id) => {
   const store = getStore()
   store.partners = store.partners.filter((item) => item.id !== id)
   releaseLocalPartnerDesks(id)
+  store.members
+    .filter((item) => item.partnerId === id)
+    .forEach((item) => { item.partnerId = null })
 }
 
 export const countLocalCompletedBookings = () =>

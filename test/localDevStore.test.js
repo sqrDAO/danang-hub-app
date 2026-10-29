@@ -8,6 +8,9 @@ import {
   deleteLocalPartner,
   deleteLocalAmenity,
   updateLocalAmenity,
+  listLocalMembers,
+  listLocalPartners,
+  updateLocalMember,
   getLocalAmenity,
   setLocalPartnerDesk,
   filterLocalBookings,
@@ -103,4 +106,28 @@ test('a reserved desk cannot be retyped or deleted until released', () => {
   setLocalPartnerDesk(partner.id, null)
   deleteLocalAmenity(desk)
   assert.equal(getLocalAmenity(desk), null)
+})
+
+test('a partner is created with its desk reserved, or not at all', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const nineAm = createLocalPartner({ name: '9AM Games', deskAmenityId: desk })
+  assert.equal(nineAm.deskAmenityId, desk)
+  assert.equal(getLocalAmenity(desk).reservedForPartnerId, nineAm.id)
+  assert.throws(() => createLocalPartner({ name: 'DiiD', deskAmenityId: desk }), /partner-desk-taken/)
+  assert.deepEqual(listLocalPartners().map(p => p.name), ['9AM Games'])
+})
+
+test('removing a partner detaches its members and releases its desk', () => {
+  resetLocalDevStore()
+  const desk = createLocalAmenity({ name: 'Desk', type: 'desk' })
+  const partner = createLocalPartner({ name: 'DiiD', deskAmenityId: desk })
+  const [first, second] = listLocalMembers()
+  updateLocalMember(first.id, { partnerId: partner.id })
+  updateLocalMember(second.id, { partnerId: 'another-partner' })
+  deleteLocalPartner(partner.id)
+  const byId = Object.fromEntries(listLocalMembers().map(m => [m.id, m]))
+  assert.equal(byId[first.id].partnerId, null)
+  assert.equal(byId[second.id].partnerId, 'another-partner')
+  assert.equal(getLocalAmenity(desk).reservedForPartnerId, null)
 })

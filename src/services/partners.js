@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDocs,
@@ -18,6 +17,7 @@ import { createLocalPartner, deleteLocalPartner, listLocalPartners, setLocalPart
 // hourly scheduler keeps those members booked on it (functions/partnerDesks.js).
 const PARTNERS_COLLECTION = 'partners'
 const AMENITIES_COLLECTION = 'amenities'
+const MEMBERS_COLLECTION = 'members'
 
 export const getPartners = async () => {
   if (LOCAL_DEV_MODE) return listLocalPartners()
@@ -26,13 +26,6 @@ export const getPartners = async () => {
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
-export const createPartner = async (name) => {
-  const data = { name: name.trim() }
-  if (LOCAL_DEV_MODE) return createLocalPartner(data)
-  const now = new Date().toISOString()
-  const ref = await addDoc(collection(db, PARTNERS_COLLECTION), { ...data, createdAt: now, updatedAt: now })
-  return { id: ref.id, ...data, createdAt: now, updatedAt: now }
-}
 
 // The desk a partner picks is reserved for it (amenities.reservedForPartnerId):
 // other members cannot see or book it (firestore.rules). Every desk still
@@ -67,6 +60,21 @@ const reserveDesk = async (tx, partnerId, deskAmenityId, now) => {
   return () => tx.update(desk.ref, { reservedForPartnerId: partnerId, updatedAt: now })
 }
 
+// A partner is created with its desk, reserved in the same transaction, so
+// it never exists without one.
+export const createPartner = async ({ name, deskAmenityId }) => {
+  const data = { name: name.trim(), deskAmenityId }
+  if (LOCAL_DEV_MODE) return createLocalPartner(data)
+  const now = new Date().toISOString()
+  const ref = doc(collection(db, PARTNERS_COLLECTION))
+  await runTransaction(db, async (tx) => {
+    const reserve = await reserveDesk(tx, ref.id, deskAmenityId, now)
+    reserve()
+    tx.set(ref, { ...data, createdAt: now, updatedAt: now })
+  })
+  return { id: ref.id, ...data, createdAt: now, updatedAt: now }
+}
+
 // deskAmenityId: a desk amenity id, or null for no automatic desk.
 export const setPartnerDesk = async (id, deskAmenityId) => {
   if (LOCAL_DEV_MODE) return setLocalPartnerDesk(id, deskAmenityId)
@@ -85,12 +93,21 @@ export const setPartnerDesk = async (id, deskAmenityId) => {
   })
 }
 
+// Removing a partner detaches its members, releases its desk and deletes it,
+// all at once. The hourly sync then cancels the members' upcoming partner
+// days and notifies them (partner-removed).
 export const deletePartner = async (id) => {
   if (LOCAL_DEV_MODE) return deleteLocalPartner(id)
   const now = new Date().toISOString()
   const found = await reservedDeskRefs(id)
+  const attached = await getDocs(query(collection(db, MEMBERS_COLLECTION), where('partnerId', '==', id)))
   await runTransaction(db, async (tx) => {
+    // Reads first: only members still attached here are detached.
+    const members = await Promise.all(attached.docs.map(d => tx.get(d.ref)))
     await releaseDesks(tx, id, found, now)
+    members
+      .filter(snap => snap.exists() && snap.data().partnerId === id)
+      .forEach(snap => tx.update(snap.ref, { partnerId: null, updatedAt: now }))
     tx.delete(doc(db, PARTNERS_COLLECTION, id))
   })
 }
