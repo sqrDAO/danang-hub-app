@@ -5,6 +5,7 @@ import {
   buildLocalDevMembers,
   buildLocalDevProjects
 } from './localDevFixtures.js'
+import { holdsSeat } from '../utils/renewals.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved', 'checked-in']
 const STORE_KEY = '__DANANG_LOCAL_DEV_STORE__'
@@ -148,7 +149,7 @@ export const overlappingLocalBookings = (bookings, amenityId, startTime, endTime
   return bookings.filter((booking) => {
     if (booking.amenityId !== amenityId) return false
     if (excludeId && booking.id === excludeId) return false
-    if (!ACTIVE_BOOKING_STATUSES.includes(booking.status)) return false
+    if (!holdsSeat(booking)) return false
     return rangesOverlap(startMs, endMs, new Date(booking.startTime).getTime(), new Date(booking.endTime).getTime())
   })
 }

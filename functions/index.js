@@ -34,6 +34,12 @@ const {
   partnerDeskPlanGroupId,
   planPartnerDeskSync,
 } = require("./partnerDesks");
+const {
+  RENEWAL_EXPIRED_REASON,
+  holdsSeat,
+  isPendingRenewal,
+  plansEndingSoon,
+} = require("./renewals");
 const {getNewlyPromoted} = require("./waitlist");
 
 initializeApp();
@@ -223,6 +229,8 @@ async function computeBookingAvailability({
     }
 
     const booking = doc.data();
+    // A renewal waiting for an admin does not hold the desk.
+    if (!holdsSeat(booking)) return;
     const bookingStart = typeof booking.startTime.toDate === "function" ?
       booking.startTime.toDate() : new Date(booking.startTime);
     const bookingEnd = typeof booking.endTime.toDate === "function" ?
@@ -612,6 +620,7 @@ exports.getAmenityBookingRanges = onCall(
         const ranges = [];
         snapshot.forEach((doc) => {
           const booking = doc.data();
+          if (!holdsSeat(booking)) return;
           ranges.push({
             startTime: toIsoString(booking.startTime),
             endTime: toIsoString(booking.endTime),
@@ -1256,17 +1265,21 @@ async function notifyPendingBookingReview(booking, bookingId) {
     amenityName,
     memberName,
     planType: booking.planType || "standard",
+    isRenewal: isPendingRenewal(booking),
     link: "/admin/bookings",
   }, admins.docs);
   const isPlan = isDeskPlan(booking.planType);
   const plan = deskPlanLabel(booking.planType);
   const requesterName = memberName || "A member";
   const requesterNameVi = memberName || "Một thành viên";
+  const action = isPendingRenewal(booking) ?
+    {en: "asked to renew", vi: "đã yêu cầu gia hạn"} :
+    {en: "requested", vi: "đã yêu cầu"};
   const reviewBodyEn = isPlan ?
-    `${requesterName} requested a ${plan.en} plan for "${amenityName}".` :
+    `${requesterName} ${action.en} a ${plan.en} plan for "${amenityName}".` :
     `${requesterName} requested "${amenityName}".`;
   const reviewBodyVi = isPlan ?
-    `${requesterNameVi} đã yêu cầu gói ${plan.vi} cho "${amenityName}".` :
+    `${requesterNameVi} ${action.vi} gói ${plan.vi} cho "${amenityName}".` :
     `${requesterNameVi} đã yêu cầu "${amenityName}".`;
   try {
     await notifyAdminsPush(subjectId, {
@@ -1329,12 +1342,41 @@ async function notifyBookingApproved(booking, bookingId) {
 }
 
 /**
+ * Push copy for a rejected Fixed Desk renewal, with the admin's reason.
+ * @param {string} amenityName Resolved amenity name
+ * @param {Object} notice Result of getCancellationNotice
+ * @return {Object} {en, vi} title/body pair
+ */
+function getRenewalRejectedPushMessages(amenityName, notice) {
+  const unavailable = notice.reason === "renewal-unavailable" ?
+    {en: " The desk is no longer free on those days.",
+      vi: " Bàn không còn trống vào những ngày đó."} :
+    null;
+  const why = notice.rejectionReason ? ` ${notice.rejectionReason}` : "";
+  return {
+    en: {
+      title: "Renewal not approved",
+      body: `Your fixed desk renewal for "${amenityName}" ` +
+        `was not approved.${unavailable ? unavailable.en : why}`,
+    },
+    vi: {
+      title: "Gia hạn không được duyệt",
+      body: `Yêu cầu gia hạn bàn cố định "${amenityName}" ` +
+        `không được duyệt.${unavailable ? unavailable.vi : why}`,
+    },
+  };
+}
+
+/**
  * Push copy for a cancellation, in both locales.
  * @param {string} amenityName Resolved amenity name
  * @param {Object} notice Result of getCancellationNotice
  * @return {Object} {en, vi} title/body pair
  */
 function getCancellationPushMessages(amenityName, notice) {
+  if (notice.isRenewalRejection) {
+    return getRenewalRejectedPushMessages(amenityName, notice);
+  }
   const key = `${notice.isPlan ? "plan" : "booking"}` +
     `${notice.isHubClosure ? "Closure" : ""}`;
   const plan = deskPlanLabel(notice.planType);
@@ -1407,6 +1449,7 @@ async function notifyBookingCancelled(booking, bookingId, notice) {
         planType: booking.planType || "standard",
         cancelledReason: notice.reason,
         isHubClosure: notice.isHubClosure,
+        rejectionReason: notice.rejectionReason,
         link: "/member/bookings",
       },
   );
@@ -1446,6 +1489,24 @@ function getStartOfTodayHubTimezone() {
 }
 
 /**
+ * What the sweep writes to an expired booking. A renewal day nobody approved
+ * did not happen, so it is cancelled rather than marked completed.
+ * @param {Object} booking Booking data
+ * @return {Object} Update payload
+ */
+function sweepPayload(booking) {
+  const updatedAt = new Date().toISOString();
+  if (isPendingRenewal(booking)) {
+    return {
+      status: "cancelled", cancelledReason: RENEWAL_EXPIRED_REASON, updatedAt,
+    };
+  }
+  return {
+    status: "completed", checkOutTime: FieldValue.serverTimestamp(), updatedAt,
+  };
+}
+
+/**
  * Collect the docs one sweep query matches into the shared completion map.
  * Isolated per step: a step that throws must not cost us the other steps'
  * work, so failures are recorded and reported by the caller rather than
@@ -1462,11 +1523,7 @@ async function collectSweepStep(toComplete, failures, label, buildQuery) {
   try {
     const snapshot = await buildQuery().get();
     snapshot.forEach((doc) => {
-      toComplete.set(doc.ref.path, {
-        status: "completed",
-        checkOutTime: FieldValue.serverTimestamp(),
-        updatedAt: new Date().toISOString(),
-      });
+      toComplete.set(doc.ref.path, sweepPayload(doc.data()));
     });
     return snapshot.size;
   } catch (error) {
@@ -1559,11 +1616,11 @@ function partnerDayData(b, now) {
  * Writes go through a BulkWriter, each on its own: updates carry the read's
  * update time as a precondition, so a check-in or a member's own cancel made
  * after the read is never overwritten, and one stale write skips just itself.
+ * @param {Object} state Output of loadPartnerDeskState
  * @param {Timestamp} startOfToday Hub midnight today
  * @return {Promise<Object>} Counts of written and skipped days
  */
-async function syncPartnerDesks(startOfToday) {
-  const state = await loadPartnerDeskState(startOfToday);
+async function syncPartnerDesks(state, startOfToday) {
   const nowMs = Date.now();
   const days = partnerDeskDays(startOfToday.toMillis(), nowMs);
   const {create, reactivate, cancel} =
@@ -1595,6 +1652,68 @@ async function syncPartnerDesks(startOfToday) {
   await Promise.all(pending);
   if (unexpected.length > 0) throw unexpected[0];
   return counts;
+}
+
+/**
+ * Remind members 3 days before an approved Fixed Desk plan ends, unless they
+ * have renewed. Deduped per plan, so the hourly run reminds once.
+ * @param {Object} state Output of loadPartnerDeskState (shared snapshot)
+ * @param {Timestamp} startOfToday Hub midnight today
+ * @return {Promise<number>} Plans checked
+ */
+async function remindEndingFixedDesks(state, startOfToday) {
+  const ending = plansEndingSoon(
+      state.bookings, startOfToday.toMillis(), Date.now());
+  await Promise.all(ending.map((plan) => remindEndingPlan(state, plan)));
+  return ending.length;
+}
+
+/**
+ * One plan's ending reminder: in-app notice, then push if it was new.
+ * @param {Object} state Output of loadPartnerDeskState
+ * @param {Object} plan Entry from plansEndingSoon
+ * @return {Promise<void>}
+ */
+async function remindEndingPlan(state, plan) {
+  const amenity = state.amenities.get(plan.amenityId);
+  const amenityName = (amenity && amenity.name) || "your desk";
+  const endDate = formatHubDay(plan.lastDayStart);
+  const created = await createNotificationIfAbsent(
+      plan.memberId, "fixed_desk_ending", plan.planGroupId,
+      {amenityName, endDate, link: "/member/bookings"},
+  );
+  if (created === false) return;
+  try {
+    await notifyMemberPush(plan.memberId, {
+      messages: {
+        en: {
+          title: "Fixed desk ending soon",
+          body: `Your fixed desk plan for "${amenityName}" ends on ` +
+            `${endDate}. Renew it from your bookings.`,
+        },
+        vi: {
+          title: "Gói bàn cố định sắp kết thúc",
+          body: `Gói bàn cố định "${amenityName}" kết thúc ngày ` +
+            `${endDate}. Gia hạn trong mục đặt chỗ.`,
+        },
+      },
+      link: "/member/bookings",
+      type: "fixed_desk_ending",
+      subjectId: plan.planGroupId,
+    });
+  } catch (error) {
+    console.error("Error sending fixed desk ending push:", error);
+  }
+}
+
+/**
+ * @param {number} ms Epoch ms
+ * @return {string} DD/MM/YYYY on the hub calendar
+ */
+function formatHubDay(ms) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: HUB_TIMEZONE, day: "2-digit", month: "2-digit", year: "numeric",
+  }).format(new Date(ms));
 }
 
 // Auto check-out expired bookings + auto-complete past-day bookings, then
@@ -1654,12 +1773,32 @@ exports.autoCheckoutExpiredBookings = onSchedule(
         console.error("Auto checkout commit failed:", error);
       }
 
+      // One read of future bookings, members, partners and amenities serves
+      // both desk-plan steps below.
+      let deskState = null;
       try {
-        const counts = await syncPartnerDesks(startOfToday);
-        console.log("Partner desk sync", counts);
+        deskState = await loadPartnerDeskState(startOfToday);
       } catch (error) {
-        failures.push("partner desk sync");
-        console.error("Partner desk sync failed:", error);
+        failures.push("desk plan state");
+        console.error("Loading desk plan state failed:", error);
+      }
+
+      if (deskState) {
+        try {
+          const counts = await syncPartnerDesks(deskState, startOfToday);
+          console.log("Partner desk sync", counts);
+        } catch (error) {
+          failures.push("partner desk sync");
+          console.error("Partner desk sync failed:", error);
+        }
+
+        try {
+          const ending = await remindEndingFixedDesks(deskState, startOfToday);
+          console.log(`Fixed desk ending reminders checked ${ending} plan(s)`);
+        } catch (error) {
+          failures.push("fixed desk reminders");
+          console.error("Fixed desk reminders failed:", error);
+        }
       }
 
       if (commitFailure) throw commitFailure;

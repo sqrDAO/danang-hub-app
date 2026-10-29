@@ -18,6 +18,8 @@ import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
 import { deskPlanBadgeKey, isDeskPlan } from '../../utils/deskPlans'
+import { isPendingRenewal } from '../../utils/renewals'
+import RenewalsPanel from './RenewalsPanel'
 import HubClosureNotice from '../../components/HubClosureNotice'
 
 const PAGE_SIZE = 10
@@ -101,13 +103,17 @@ const BookingRowActions = ({
     <>
       {booking.status === 'pending' && (
         <>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => onStatusChange(booking, 'approved')}
-            disabled={statusPending}
-          >
-            {t('common.approve')}
-          </button>
+          {/* Renewal days are approved as a plan, from the Renewals panel,
+              which re-checks each day's seat. */}
+          {!isPendingRenewal(booking) && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onStatusChange(booking, 'approved')}
+              disabled={statusPending}
+            >
+              {t('common.approve')}
+            </button>
+          )}
           <button
             className="btn btn-danger btn-sm"
             onClick={() => onStatusChange(booking, 'cancelled')}
@@ -632,6 +638,10 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
   )
 }
 
+// "Approve all" skips renewal days: they are approved per plan, with a seat
+// re-check, from the Renewals panel.
+const isApprovableInBulk = (b) => b.status === 'pending' && !isPendingRenewal(b)
+
 const AdminBookings = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
@@ -766,7 +776,7 @@ const AdminBookings = () => {
   }
 
   const handleApproveAll = async () => {
-    const pendingBookings = filteredBookings.filter(b => b.status === 'pending')
+    const pendingBookings = filteredBookings.filter(isApprovableInBulk)
     if (pendingBookings.length === 0) return
     if (!window.confirm(t('adminBookings.confirmApproveAll', { count: pendingBookings.length }))) return
 
@@ -816,13 +826,13 @@ const AdminBookings = () => {
               >
                 {t('adminBookings.assignBooking')}
               </button>
-              {filteredBookings.some(b => b.status === 'pending') && (
+              {filteredBookings.some(isApprovableInBulk) && (
                 <button
                   className="btn btn-primary"
                   onClick={handleApproveAll}
                   disabled={isApprovingAll}
                 >
-                  {isApprovingAll ? t('adminBookings.approvingAll') : t('adminBookings.approveAll', { count: filteredBookings.filter(b => b.status === 'pending').length })}
+                  {isApprovingAll ? t('adminBookings.approvingAll') : t('adminBookings.approveAll', { count: filteredBookings.filter(isApprovableInBulk).length })}
                 </button>
               )}
             </div>
@@ -871,6 +881,8 @@ const AdminBookings = () => {
             </label>
           </div>
         </div>
+
+        <RenewalsPanel bookings={bookings} members={members} amenities={amenities} t={t} />
 
         <div className="bookings-table-container glass">
           <table className="bookings-table">

@@ -94,7 +94,13 @@
     "partnerDeskPendingReviewBody": "{{member}} requested a partner desk plan for \"{{amenity}}\".",
     "partnerDeskApprovedBody": "Your partner desk plan for \"{{amenity}}\" has been approved.",
     "partnerDeskCancelledBody": "Some days of your partner desk plan for \"{{amenity}}\" have been cancelled.",
-    "partnerDeskCancelledClosureBody": "Some days of your partner desk plan for \"{{amenity}}\" have been cancelled — the Hub is closed."
+    "partnerDeskCancelledClosureBody": "Some days of your partner desk plan for \"{{amenity}}\" have been cancelled — the Hub is closed.",
+    "fixedDeskRenewalPendingReviewBody": "{{member}} asked to renew a fixed desk plan for \"{{amenity}}\".",
+    "renewalRejectedBody": "Your fixed desk renewal for \"{{amenity}}\" was not approved.",
+    "renewalRejectedReasonBody": "Your fixed desk renewal for \"{{amenity}}\" was not approved: {{reason}}",
+    "fixedDeskEndingTitle": "Fixed desk ending soon",
+    "fixedDeskEndingBody": "Your fixed desk plan for \"{{amenity}}\" ends on {{date}}. Renew it from your bookings.",
+    "renewalUnavailableBody": "Your fixed desk renewal for \"{{amenity}}\" could not be approved — the desk is no longer free on those days."
   },
   "status": {
     "pending": "pending",
@@ -384,6 +390,19 @@
     "assignCreateFailed": "Unable to create the booking. Check the booking list before trying again.",
     "assignAndApprove": "Assign & Approve",
     "noBookings": "No bookings match your filters."
+  },
+  "adminRenewals": {
+    "title": "Renewals to review ({{count}})",
+    "description": "Renewal days don't hold the desk while they wait. Approving re-checks each day; days whose seat was taken are dropped.",
+    "approve": "Approve renewal",
+    "rejectTitle": "Reject renewal",
+    "reasonLabel": "Reason (optional, shown to the member)",
+    "reasonPlaceholder": "e.g. The desk is reserved for an event that month.",
+    "confirmReject": "Reject renewal",
+    "approved": "Renewal approved: {{approved}} day(s), {{dropped}} dropped (seat taken).",
+    "approveFailed": "Could not finish approving the renewal. Days already approved stay approved; try again.",
+    "rejected": "Renewal rejected.",
+    "rejectFailed": "Failed to reject the renewal. Please try again."
   },
   "amenityTypes": {
     "desk": "Desk",
@@ -707,7 +726,16 @@
     "summaryHours": "Hours:",
     "summaryNote": "Bookings will be created for all Mon–Fri working days. Days where the desk is already fully booked will be skipped.",
     "confirm": "Confirm Registration",
-    "adminAssignNote": "Admin-assigned fixed desk plans are auto-approved."
+    "adminAssignNote": "Admin-assigned fixed desk plans are auto-approved.",
+    "ended": "Ended",
+    "renewal": {
+      "renew": "Renew",
+      "renewing": "Requesting…",
+      "hint": "Same desk and period, starting the next working day. An admin approves it; until then the desk is not held for you.",
+      "pending": "Renewal requested — waiting for an admin.",
+      "approved": "Renewed.",
+      "badge": "Renewal"
+    }
   },
   "partnerDesk": {
     "title": "Partner Desk Plans",
@@ -794,6 +822,9 @@
     "partnerRemoveFailed": "Failed to remove partner. Please try again.",
     "partnerDuplicate": "A partner with that name already exists.",
     "partnerDeskFailed": "Failed to update the partner's desk. Please try again.",
-    "partnerDeskCancelled": "Partner desk plan cancelled."
+    "partnerDeskCancelled": "Partner desk plan cancelled.",
+    "renewalRequested": "Renewal requested — {{count}} day(s) sent for approval.",
+    "renewalNone": "No renewal days could be created — the desk is full or the Hub is closed.",
+    "renewalFailed": "Failed to request the renewal. Please try again."
   }
 }

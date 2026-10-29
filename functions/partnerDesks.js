@@ -7,6 +7,7 @@
 // calls planPartnerDeskSync and applies the result.
 
 const {getHubClosure, HUB_UTC_OFFSET_HOURS} = require("./hubClosures");
+const {holdsSeat, toMs} = require("./renewals");
 
 const PARTNER_DESK_DAYS_AHEAD = 28;
 // Member detached, or the partner's desk cleared: they lose their desk and
@@ -14,7 +15,6 @@ const PARTNER_DESK_DAYS_AHEAD = 28;
 const PARTNER_REMOVED_REASON = "partner-removed";
 const PARTNER_DESK_MOVED_REASON = "partner-desk-moved";
 const SYNC_CANCEL_REASONS = [PARTNER_REMOVED_REASON, PARTNER_DESK_MOVED_REASON];
-const ACTIVE_STATUSES = ["pending", "approved", "checked-in"];
 const CANCELLABLE_STATUSES = ["pending", "approved"];
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -78,8 +78,6 @@ function isSyncedPartnerDay(booking) {
     booking.planGroupId === partnerDeskPlanGroupId(booking.memberId);
 }
 
-const toMs = (value) => (value && typeof value.toDate === "function" ?
-  value.toDate().getTime() : new Date(value).getTime());
 
 /**
  * Desk each attached member is entitled to: uid -> {amenityId, partnerId}.
@@ -219,8 +217,8 @@ function planPartnerDeskSync({
   const cancel = bookingsToCancel(syncedDays, entitled, nowMs);
   const cancelled = new Set(cancel.map((c) => c.id));
   const byId = new Map(bookings.map((b) => [b.id, b]));
-  const active = bookings.filter((b) =>
-    ACTIVE_STATUSES.includes(b.status) && !cancelled.has(b.id));
+  // A renewal waiting for an admin does not hold its seat (renewals.js).
+  const active = bookings.filter((b) => holdsSeat(b) && !cancelled.has(b.id));
 
   const create = [];
   const reactivate = [];

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
@@ -9,10 +9,11 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
-import { PARTNER_DESK, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isDeskPlan, isSyncedPartnerPlan } from '../../utils/deskPlans'
+import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
-import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
+import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
+import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, waitForBookingsSettled } from '../../services/bookings'
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import { showToast } from '../../utils/toast'
@@ -86,36 +87,6 @@ const deduplicateBookings = (bookings) => bookings.filter((booking, index, arr) 
     String(b.endTime) === String(booking.endTime)
   )
 )
-
-// A partner desk ends by cancellation (detach, skipped days), so its cancelled
-// days are left out; Fixed Desk plans keep showing as before.
-const isListedPlanDay = (b) => isDeskPlan(b.planType) &&
-  !(b.planType === PARTNER_DESK && b.status === 'cancelled') &&
-  new Date(b.startTime) > new Date()
-
-const buildFixedDeskPlans = (deduplicatedBookings) => {
-  const grouped = {}
-  deduplicatedBookings
-    .filter(isListedPlanDay)
-    .forEach(b => {
-      if (!grouped[b.planGroupId]) grouped[b.planGroupId] = []
-      grouped[b.planGroupId].push(b)
-    })
-  return Object.entries(grouped).map(([id, bks]) => {
-    const sorted = [...bks].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-    return {
-      planGroupId: id,
-      amenityId: sorted[0].amenityId,
-      planType: sorted[0].planType,
-      planPeriod: sorted[0].planPeriod,
-      startDate: sorted[0].startTime,
-      endDate: sorted[sorted.length - 1].endTime,
-      // Days are approved one by one, so any pending day makes the plan pending.
-      status: sorted.some(b => b.status === 'pending') ? 'pending' : sorted[0].status,
-      count: sorted.length,
-    }
-  })
-}
 
 const getTodayString = () => {
   return toDateInputHub(new Date())
@@ -261,6 +232,7 @@ const useFixedDeskForm = () => {
 }
 
 const useBookingMutations = (form, fd, uid, pushOptedIn) => {
+  const queryClient = useQueryClient()
   const { t } = useTranslation()
   const invalidate = useInvalidateQueries()
 
@@ -349,6 +321,19 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
     }
   })
 
+  const renewMutation = useMutation({
+    mutationFn: ({ plan }) => renewFixedDeskPlan({ plan, memberId: uid, checkConflictsFn: checkBookingConflicts }),
+    // Returning the refetch keeps the mutation pending until the renewal days
+    // are on the page, so Renew cannot be pressed a second time in between.
+    onSuccess: (result) => {
+      if (result.totalCreated === 0) showToast(t('toast.renewalNone'), 'error')
+      else showToast(t('toast.renewalRequested', { count: result.totalCreated }), 'success')
+      invalidate('memberStats')
+      return queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    },
+    onError: () => showToast(t('toast.renewalFailed'), 'error')
+  })
+
   return {
     createMutation,
     recurringMutation,
@@ -356,6 +341,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
     deleteMutation,
     fixedDeskMutation,
     cancelPlanMutation,
+    renewMutation,
   }
 }
 
@@ -736,7 +722,30 @@ const PlanPeriod = ({ plan, t }) => {
 
 // The synced Partner Desk runs while the member is attached, so it has no
 // Cancel Plan button; single days are skipped from the bookings list.
-const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) => (
+// Renew button, or where the plan's renewal stands. Renewal days wait for an
+// admin and do not hold the desk meanwhile, which the hint says.
+const PlanRenewal = ({ plan, renewal, t }) => {
+  if (renewal.state) {
+    return <p className="form-hint">{t(`fixedDesk.renewal.${renewal.state}`)}</p>
+  }
+  if (!renewal.canRenew) return null
+  return (
+    <div className="fixed-desk-plan-renew">
+      <button className="btn btn-primary btn-sm" onClick={() => renewal.onRenew(plan)} disabled={renewal.pending}>
+        {renewal.pending ? t('fixedDesk.renewal.renewing') : t('fixedDesk.renewal.renew')}
+      </button>
+      <p className="form-hint">{t('fixedDesk.renewal.hint')}</p>
+    </div>
+  )
+}
+
+const PlanCount = ({ plan, t }) => (
+  plan.ended
+    ? t('fixedDesk.ended')
+    : t('fixedDesk.workingDays', { count: plan.count })
+)
+
+const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending, renewal }) => (
   <div className="fixed-desk-plan-card">
     <div className="fixed-desk-plan-band" />
     <div className="fixed-desk-plan-body">
@@ -744,6 +753,7 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
         <span className="fixed-desk-plan-name">{amenity?.name || plan.amenityId}</span>
         <div className="fixed-desk-plan-badges">
           <span className="fixed-desk-badge">{t(deskPlanBadgeKey(plan.planType))}</span>
+          {plan.renewalOf && <span className="fixed-desk-badge">{t('fixedDesk.renewal.badge')}</span>}
           <span className={`status-badge ${plan.status}`}>{plan.status}</span>
         </div>
       </div>
@@ -755,10 +765,11 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
           {formatDateDDMMYYYY(plan.startDate)} – {formatDateDDMMYYYY(plan.endDate)}
         </span>
         <span className="fixed-desk-plan-count">
-          {t('fixedDesk.workingDays', { count: plan.count })}
+          <PlanCount plan={plan} t={t} />
         </span>
       </div>
-      {!isSyncedPartnerPlan(plan) && (
+      <PlanRenewal plan={plan} renewal={renewal} t={t} />
+      {!isSyncedPartnerPlan(plan) && plan.count > 0 && (
         <button
           className="btn btn-danger btn-sm"
           onClick={() => onCancelPlan(plan)}
@@ -778,7 +789,12 @@ const plansSectionPrefix = (plans, viewerPrefix) => {
   return prefixes.size === 1 ? [...prefixes][0] : viewerPrefix
 }
 
-const FixedDeskPlansSection = ({ plans, amenities, t, planPrefix: viewerPrefix, onCancelPlan, cancellingId }) => {
+const planRenewal = (plan, bookings, handlers) => {
+  const state = renewalStateFor(plan.planGroupId, bookings)
+  return { ...handlers, state, canRenew: canRenewPlan(plan, state) }
+}
+
+const FixedDeskPlansSection = ({ plans, bookings, amenities, t, planPrefix: viewerPrefix, onCancelPlan, cancellingId, onRenew, renewingId }) => {
   if (plans.length === 0) return null
   const planPrefix = plansSectionPrefix(plans, viewerPrefix)
   return (
@@ -796,6 +812,7 @@ const FixedDeskPlansSection = ({ plans, amenities, t, planPrefix: viewerPrefix, 
             t={t}
             onCancelPlan={onCancelPlan}
             cancelPending={cancellingId === plan.planGroupId}
+            renewal={planRenewal(plan, bookings, { onRenew, pending: renewingId === plan.planGroupId })}
           />
         ))}
       </div>
@@ -1212,7 +1229,9 @@ const MemberBookings = () => {
   const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
   const pastBookings = deduplicatedBookings.filter(b => new Date(b.startTime) <= new Date())
 
-  const fixedDeskPlans = useMemo(() => buildFixedDeskPlans(deduplicatedBookings), [deduplicatedBookings])
+  // Raw bookings, not the de-duplicated list: a rejected renewal and its
+  // re-request share amenity and times, and de-duplication could hide either.
+  const fixedDeskPlans = useMemo(() => buildDeskPlans(myBookings), [myBookings])
 
   return (
     <Layout hideChatbot={form.isModalOpen}>
@@ -1250,8 +1269,11 @@ const MemberBookings = () => {
           amenities={amenities}
           t={t}
           planPrefix={planPrefix}
+          bookings={myBookings}
           onCancelPlan={handlers.handleCancelPlan}
           cancellingId={pendingTargetId(mutations.cancelPlanMutation)}
+          onRenew={plan => mutations.renewMutation.mutate({ plan })}
+          renewingId={mutations.renewMutation.isPending ? mutations.renewMutation.variables?.plan.planGroupId : null}
         />
 
         <BookingsListSection
