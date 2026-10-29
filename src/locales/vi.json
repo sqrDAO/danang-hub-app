@@ -831,6 +831,7 @@
     "bookingAssignFailed": "Không thể tạo đặt chỗ. Vui lòng thử lại.",
     "partnerAddFailed": "Không thể thêm đối tác. Vui lòng thử lại.",
     "partnerRemoveFailed": "Không thể xóa đối tác. Vui lòng thử lại.",
+    "partnerRemovedDaysPending": "Đã xóa đối tác. Một số ngày bàn sắp tới của thành viên sẽ được hủy ở lần đồng bộ hằng giờ tiếp theo.",
     "partnerDuplicate": "Đã có đối tác với tên này.",
     "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại.",
     "partnerDeskTaken": "Bàn này đã được dành cho đối tác khác. Danh sách đã được làm mới.",

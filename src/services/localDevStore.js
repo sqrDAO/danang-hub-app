@@ -6,7 +6,7 @@ import {
   buildLocalDevProjects
 } from './localDevFixtures.js'
 import { holdsSeat } from '../utils/renewals.js'
-import { AMENITY_RESERVED, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
+import { AMENITY_RESERVED, PARTNER_DESK, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved', 'checked-in']
 const STORE_KEY = '__DANANG_LOCAL_DEV_STORE__'
@@ -341,20 +341,15 @@ export const getLocalMember = (uid) => {
 
 export const listLocalPartners = () =>
   getStore().partners.map((item) => ({ ...item })).sort((a, b) => a.name.localeCompare(b.name))
-export const createLocalPartner = ({ deskAmenityId = null, ...data }) => {
+export const createLocalPartner = ({ deskAmenityId, ...data }) => {
+  // Same as createPartner: no partner without its desk, checked before adding.
+  if (!deskAmenityId) throw new Error(PARTNER_DESK_MISSING)
   const now = new Date().toISOString()
-  const partner = { ...data, deskAmenityId: null, id: nextId('partner'), createdAt: now, updatedAt: now }
-  const store = getStore()
-  store.partners.push(partner)
-  try {
-    setLocalPartnerDesk(partner.id, deskAmenityId)
-    if (!deskAmenityId) throw new Error(PARTNER_DESK_MISSING)
-  } catch (error) {
-    // Same as the Firestore transaction: no partner without its desk.
-    store.partners = store.partners.filter((item) => item.id !== partner.id)
-    throw error
-  }
-  return { ...partner, deskAmenityId }
+  const partner = { ...data, deskAmenityId, id: nextId('partner'), createdAt: now, updatedAt: now }
+  const desk = checkLocalPartnerDesk(partner.id, deskAmenityId)
+  getStore().partners.push(partner)
+  desk.reservedForPartnerId = partner.id
+  return { ...partner }
 }
 // Mirrors setPartnerDesk / deletePartner in partners.js: a partner holds at
 // most one reserved desk (amenities.reservedForPartnerId).
@@ -363,16 +358,23 @@ const releaseLocalPartnerDesks = (partnerId) => {
     .filter((item) => item.reservedForPartnerId === partnerId)
     .forEach((item) => { item.reservedForPartnerId = null })
 }
+// The desk partner `id` may take (null for none), or throws as reserveDesk does.
+const checkLocalPartnerDesk = (id, deskAmenityId) => {
+  if (!deskAmenityId) return null
+  const store = getStore()
+  const desk = store.amenities.find((item) => item.id === deskAmenityId)
+  if (!desk || desk.type !== 'desk') throw new Error(PARTNER_DESK_MISSING)
+  const holder = desk.reservedForPartnerId
+  if (holder != null && holder !== id && store.partners.some((item) => item.id === holder)) {
+    throw new Error(PARTNER_DESK_TAKEN)
+  }
+  return desk
+}
 export const setLocalPartnerDesk = (id, deskAmenityId) => {
   const store = getStore()
   const partner = store.partners.find((item) => item.id === id)
   if (!partner) return
-  const desk = deskAmenityId ? store.amenities.find((item) => item.id === deskAmenityId) : null
-  if (deskAmenityId && !desk) throw new Error(PARTNER_DESK_MISSING)
-  const holder = desk?.reservedForPartnerId
-  if (holder != null && holder !== id && store.partners.some((item) => item.id === holder)) {
-    throw new Error(PARTNER_DESK_TAKEN)
-  }
+  const desk = checkLocalPartnerDesk(id, deskAmenityId)
   Object.assign(partner, { deskAmenityId, updatedAt: new Date().toISOString() })
   releaseLocalPartnerDesks(id)
   if (desk) desk.reservedForPartnerId = id
@@ -387,7 +389,8 @@ export const deleteLocalPartner = (id) => {
   // Mirrors deletePartner: their partner days not yet started are cancelled.
   const groups = new Set(detached.map((item) => `partner_${item.id}`))
   store.bookings
-    .filter((b) => groups.has(b.planGroupId) && ['pending', 'approved'].includes(b.status) &&
+    .filter((b) => b.planType === PARTNER_DESK && groups.has(b.planGroupId) &&
+      b.planGroupId === `partner_${b.memberId}` && ['pending', 'approved'].includes(b.status) &&
       new Date(b.startTime).getTime() > Date.now())
     .forEach((b) => Object.assign(b, { status: 'cancelled', cancelledReason: 'partner-removed', updatedAt: now }))
 }
