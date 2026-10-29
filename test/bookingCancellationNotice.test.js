@@ -52,3 +52,7 @@ test('tolerates missing documents', () => {
   assert.equal(getCancellationNotice(null, cancelledBy('admin')), null)
   assert.equal(getCancellationNotice(approved, null), null)
 })
+
+test('stays silent when the partner desk sync moved the member to a new desk', () => {
+  assert.equal(getCancellationNotice(approved, cancelledBy('partner-desk-moved', { planType: 'partner-desk' })), null)
+})

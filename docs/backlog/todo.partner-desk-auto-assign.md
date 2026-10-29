@@ -5,6 +5,9 @@
 A partner member should have a Partner Desk for as long as they belong to the partner org, without registering plans. Admins pick one desk per org, the hourly scheduler keeps attached members booked on every working day four weeks ahead, and detaching a member ends their desk.
 
 ## Files
+- `firestore.rules` (edited) — members cannot create `partner-desk` bookings
+- `test/firestore-booking-cancel.rules.test.js` (edited) — that rule
+- `functions/bookingNotifications.js` (edited) — no notice for `partner-desk-moved`
 - `functions/partnerDesks.js` (new) — pure planner: working days ahead, desired bookings, what to create/reactivate/cancel, desk capacity
 - `functions/index.js` (edited) — `autoCheckoutExpiredBookings` runs the partner desk sync as its own step; partner-desk bookings are never auto-approved by `autoApproveDeskBooking` (server writes them approved)
 - `src/services/partners.js` (edited) — `updatePartner`
@@ -28,7 +31,10 @@ A partner member should have a Partner Desk for as long as they belong to the pa
 - [ ] Bookings use doc id `pd_<uid>_<amenityId>_<YYYYMMDD>` and `planGroupId` `partner_<uid>`, so re-runs create nothing twice
 - [ ] Detaching a member cancels their not-yet-started pending/approved synced days with `cancelledReason: 'partner-removed'`
 - [ ] Partner-desk bookings the sync did not create (manual #115 plans) are never cancelled or reactivated by it
-- [ ] Changing a partner's desk cancels the old desk's future days and books the new desk
+- [ ] Changing a partner's desk cancels the old desk's future days (`partner-desk-moved`, no notification) and books the new desk
+- [ ] A sync write never overwrites a booking changed after the sync read it (update-time precondition)
+- [ ] Members cannot create `partner-desk` bookings (rules)
+- [ ] A partner whose desk is missing, not a desk, or switched off leaves its members on the Fixed Desk flow, and the admin dropdown flags the missing desk
 - [ ] Re-attaching a member reactivates days the sync cancelled
 - [ ] A day the member cancelled themselves (no `cancelledReason`) is never recreated or reactivated
 - [ ] A day cancelled for a hub closure is never reactivated

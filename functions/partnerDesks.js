@@ -9,7 +9,11 @@
 const {getHubClosure, HUB_UTC_OFFSET_HOURS} = require("./hubClosures");
 
 const PARTNER_DESK_DAYS_AHEAD = 28;
+// Member detached, or the partner's desk cleared: they lose their desk and
+// are told. A desk change instead moves them, silently (bookingNotifications).
 const PARTNER_REMOVED_REASON = "partner-removed";
+const PARTNER_DESK_MOVED_REASON = "partner-desk-moved";
+const SYNC_CANCEL_REASONS = [PARTNER_REMOVED_REASON, PARTNER_DESK_MOVED_REASON];
 const ACTIVE_STATUSES = ["pending", "approved", "checked-in"];
 const CANCELLABLE_STATUSES = ["pending", "approved"];
 
@@ -135,7 +139,19 @@ function isDeskOpen(amenity, day) {
  */
 function isReactivatable(booking) {
   return booking.status === "cancelled" &&
-    booking.cancelledReason === PARTNER_REMOVED_REASON;
+    SYNC_CANCEL_REASONS.includes(booking.cancelledReason);
+}
+
+/**
+ * Seats on a desk, read exactly as computeBookingAvailability reads them
+ * (index.js uses this too), so the sync and the conflict check agree.
+ * @param {Object} amenity Amenity data
+ * @return {number}
+ */
+function deskCapacity(amenity) {
+  const raw = amenity && typeof amenity.capacity === "number" ?
+    amenity.capacity : 1;
+  return raw > 0 ? raw : 1;
 }
 
 /**
@@ -144,7 +160,7 @@ function isReactivatable(booking) {
  * @param {Array<Object>} syncedDays Bookings the sync owns
  * @param {Map} entitled uid -> desk, from entitledDesks
  * @param {number} nowMs Current time, epoch ms
- * @return {Array<string>} Booking ids to cancel
+ * @return {Array<{id: string, reason: string}>} Bookings to cancel
  */
 function bookingsToCancel(syncedDays, entitled, nowMs) {
   return syncedDays.filter((b) => {
@@ -152,7 +168,11 @@ function bookingsToCancel(syncedDays, entitled, nowMs) {
     if (toMs(b.startTime) <= nowMs) return false;
     const desk = entitled.get(b.memberId);
     return !desk || desk.amenityId !== b.amenityId;
-  }).map((b) => b.id);
+  }).map((b) => ({
+    id: b.id,
+    reason: entitled.has(b.memberId) ?
+      PARTNER_DESK_MOVED_REASON : PARTNER_REMOVED_REASON,
+  }));
 }
 
 /**
@@ -189,7 +209,7 @@ function dayAction({existing, sameDay, desk, uid, amenities}) {
  * @param {Array<Object>} input.days Output of partnerDeskDays
  * @param {number} input.nowMs Current time, epoch ms
  * @return {{create: Array<Object>, reactivate: Array<string>,
- *   cancel: Array<string>}}
+ *   cancel: Array<{id: string, reason: string}>}}
  */
 function planPartnerDeskSync({
   members, partners, amenities, bookings, days, nowMs,
@@ -197,7 +217,7 @@ function planPartnerDeskSync({
   const entitled = entitledDesks(members, partners, amenities);
   const syncedDays = bookings.filter(isSyncedPartnerDay);
   const cancel = bookingsToCancel(syncedDays, entitled, nowMs);
-  const cancelled = new Set(cancel);
+  const cancelled = new Set(cancel.map((c) => c.id));
   const byId = new Map(bookings.map((b) => [b.id, b]));
   const active = bookings.filter((b) =>
     ACTIVE_STATUSES.includes(b.status) && !cancelled.has(b.id));
@@ -206,8 +226,7 @@ function planPartnerDeskSync({
   const reactivate = [];
   entitled.forEach(({amenityId, partnerId}, uid) => {
     const amenity = amenities.get(amenityId);
-    const rawCapacity = Number(amenity.capacity);
-    const capacity = rawCapacity > 0 ? rawCapacity : 1;
+    const capacity = deskCapacity(amenity);
     days.filter((day) => isDeskOpen(amenity, day)).forEach((day) => {
       const id = partnerDeskBookingId(uid, amenityId, day.dayKey);
       const existing = byId.get(id);
@@ -230,7 +249,9 @@ function planPartnerDeskSync({
 
 module.exports = {
   PARTNER_DESK_DAYS_AHEAD,
+  PARTNER_DESK_MOVED_REASON,
   PARTNER_REMOVED_REASON,
+  deskCapacity,
   partnerDeskBookingId,
   partnerDeskDays,
   partnerDeskPlanGroupId,

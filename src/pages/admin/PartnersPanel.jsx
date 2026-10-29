@@ -22,6 +22,11 @@ const PartnerRow = ({ partner, memberCount, desks, t, onRemove, onDeskChange, re
       disabled={savingDesk}
     >
       <option value="">{t('adminPartners.noDesk')}</option>
+      {/* A deleted or no-longer-desk amenity would otherwise show as "No desk"
+          while the partner still points at it and members get nothing. */}
+      {partner.deskAmenityId && !desks.some(d => d.id === partner.deskAmenityId) && (
+        <option value={partner.deskAmenityId}>{t('adminPartners.unknownDesk')}</option>
+      )}
       {desks.map(desk => (
         <option key={desk.id} value={desk.id}>{desk.name}</option>
       ))}
@@ -51,7 +56,12 @@ const PartnersPanel = ({ partners, members, t }) => {
     onError: () => showToast(t('toast.partnerAddFailed'), 'error')
   })
 
-  const { data: amenities = [] } = useQuery({ queryKey: ['amenities'], queryFn: getAmenities })
+  const { data: amenities = [] } = useQuery({
+    queryKey: ['amenities'],
+    queryFn: getAmenities,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
   const desks = amenities.filter(a => a.type === 'desk')
 
   const deskMutation = useMutation({

@@ -71,6 +71,14 @@ if (!hasEmulator) {
     ))
   })
 
+  test('members cannot create a partner-desk booking; the sync writes those', async () => {
+    const memberDb = testEnv.authenticatedContext('member-a').firestore()
+    await assertFails(setDoc(doc(memberDb, 'bookings', 'pd_member-a_desk-1_20300101'),
+      { ...booking({ status: 'pending' }), planType: 'partner-desk', planGroupId: 'partner_member-a' }))
+    await assertSucceeds(setDoc(doc(memberDb, 'bookings', 'own-fixed'),
+      { ...booking({ status: 'pending' }), planType: 'fixed-desk' }))
+  })
+
   test('admins may write cancelledReason', async () => {
     await seed('bookings', 'admin-cancel', booking())
     const adminDb = testEnv.authenticatedContext('admin-a').firestore()

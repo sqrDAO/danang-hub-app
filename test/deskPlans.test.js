@@ -19,14 +19,22 @@ const partners = [
   { id: 'p-diid', name: 'DiiD' }
 ]
 
+const amenities = [{ id: 'desk-1', type: 'desk' }]
+
 test('partner members get partner desk plans, everyone else fixed desk', () => {
-  assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }, partners), 'partner-desk')
-  assert.equal(deskPlanTypeFor({ partnerId: null }, partners), 'fixed-desk')
-  assert.equal(deskPlanTypeFor(null, partners), 'fixed-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }, partners, amenities), 'partner-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: null }, partners, amenities), 'fixed-desk')
+  assert.equal(deskPlanTypeFor(null, partners, amenities), 'fixed-desk')
+})
+
+test('a partner desk the server would not book falls back to fixed desk', () => {
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }, partners, []), 'fixed-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }, partners, [{ id: 'desk-1', type: 'meeting-room' }]), 'fixed-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }, partners, [{ id: 'desk-1', type: 'desk', isAvailable: false }]), 'fixed-desk')
 })
 
 test('a partner without a desk keeps its members on the Fixed Desk flow', () => {
-  assert.equal(deskPlanTypeFor({ partnerId: 'p-diid' }, partners), 'fixed-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-diid' }, partners, amenities), 'fixed-desk')
 })
 
 test('only the synced plan counts as the automatic partner desk', () => {
@@ -36,7 +44,7 @@ test('only the synced plan counts as the automatic partner desk', () => {
 })
 
 test('a partnerId pointing at a removed partner falls back to fixed desk', () => {
-  assert.equal(deskPlanTypeFor({ partnerId: 'p-gone' }, partners), 'fixed-desk')
+  assert.equal(deskPlanTypeFor({ partnerId: 'p-gone' }, partners, amenities), 'fixed-desk')
   assert.equal(deskPlanTypeFor({ partnerId: 'p-9am' }), 'fixed-desk')
 })
 

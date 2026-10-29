@@ -28,7 +28,7 @@ const {
   isDeskPlan,
 } = require("./bookingNotifications");
 const {
-  PARTNER_REMOVED_REASON,
+  deskCapacity,
   partnerDeskDays,
   isSyncedPartnerDay,
   partnerDeskPlanGroupId,
@@ -206,11 +206,7 @@ async function computeBookingAvailability({
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
-  let amenityCapacityRaw = 1;
-  if (amenity && typeof amenity.capacity === "number") {
-    amenityCapacityRaw = amenity.capacity;
-  }
-  const amenityCapacity = amenityCapacityRaw > 0 ? amenityCapacityRaw : 1;
+  const amenityCapacity = deskCapacity(amenity);
 
   const bookingsQuery = db.collection("bookings")
       .where("amenityId", "==", amenityId)
@@ -1373,6 +1369,23 @@ function getCancellationPushMessages(amenityName, notice) {
 }
 
 /**
+ * A synced partner desk keeps one planGroupId for the whole membership, so a
+ * second detach months later would reuse the first one's push dedupe marker
+ * and go unsent. Its cancellations are keyed per hub day of the cancellation
+ * instead; every other booking keeps its plan or booking subject.
+ * @param {Object} booking Booking document data
+ * @param {string} bookingId Booking document id
+ * @return {string} Notification subject id
+ */
+function getCancellationSubjectId(booking, bookingId) {
+  const subjectId = getBookingSubjectId(booking, bookingId);
+  if (!isSyncedPartnerDay(booking)) return subjectId;
+  const day = new Intl.DateTimeFormat("en-CA", {timeZone: HUB_TIMEZONE})
+      .format(new Date()).replace(/-/g, "");
+  return `${subjectId}_${day}`;
+}
+
+/**
  * Tells a member that someone else cancelled their booking. Fixed-desk plans
  * collapse to one message via the shared planGroupId subject, so cancelling
  * three days of a plan notifies once.
@@ -1383,7 +1396,7 @@ function getCancellationPushMessages(amenityName, notice) {
  */
 async function notifyBookingCancelled(booking, bookingId, notice) {
   const amenityName = await getAmenityName(booking.amenityId);
-  const subjectId = getBookingSubjectId(booking, bookingId);
+  const subjectId = getCancellationSubjectId(booking, bookingId);
   await upsertNotification(
       booking.memberId,
       "booking_cancelled",
@@ -1502,53 +1515,39 @@ async function loadPartnerDeskState(startOfToday) {
     })),
     partners: partners.docs.map((d) => ({id: d.id, ...d.data()})),
     amenities: new Map(amenities.docs.map((d) => [d.id, d.data()])),
-    bookings: bookings.docs.map((d) => ({id: d.id, ...d.data()})),
+    bookings: bookings.docs.map((d) => ({
+      id: d.id, updateTime: d.updateTime, ...d.data(),
+    })),
   };
 }
 
-/**
- * Apply writes in batches of 500.
- * @param {Array<Function>} writes Each adds one write to the given batch
- * @return {Promise<void>}
- */
-async function commitInBatches(writes) {
-  for (let i = 0; i < writes.length; i += 500) {
-    const batch = db.batch();
-    writes.slice(i, i + 500).forEach((write) => write(batch));
-    await batch.commit();
-  }
-}
+// Firestore error codes a sync write may hit when the snapshot it planned
+// from is out of date. They are expected, not failures.
+const STALE_WRITE_CODES = [
+  5, // NOT_FOUND: the booking was deleted
+  6, // ALREADY_EXISTS: a retried or overlapping run created the day
+  9, // FAILED_PRECONDITION: the booking changed since it was read
+];
 
 /**
- * Create synced partner days one by one: a batch.create aborts the whole
- * batch on one existing id (a retried or overlapping run), and an id that
- * already exists means that day is already handled.
- * @param {Array<Object>} days Planned bookings from planPartnerDeskSync
- * @param {string} now ISO timestamp for createdAt/updatedAt
- * @return {Promise<number>} How many were actually created
+ * Data for a new synced partner day.
+ * @param {Object} b Planned booking from planPartnerDeskSync
+ * @param {string} now ISO timestamp
+ * @return {Object} Booking document data
  */
-async function createPartnerDays(days, now) {
-  let created = 0;
-  for (const b of days) {
-    try {
-      await db.collection("bookings").doc(b.id).create({
-        memberId: b.memberId,
-        amenityId: b.amenityId,
-        partnerId: b.partnerId,
-        startTime: Timestamp.fromDate(b.startTime),
-        endTime: Timestamp.fromDate(b.endTime),
-        status: "approved",
-        planType: "partner-desk",
-        planGroupId: partnerDeskPlanGroupId(b.memberId),
-        createdAt: now,
-        updatedAt: now,
-      });
-      created++;
-    } catch (error) {
-      if (error.code !== 6) throw error; // 6 = ALREADY_EXISTS
-    }
-  }
-  return created;
+function partnerDayData(b, now) {
+  return {
+    memberId: b.memberId,
+    amenityId: b.amenityId,
+    partnerId: b.partnerId,
+    startTime: Timestamp.fromDate(b.startTime),
+    endTime: Timestamp.fromDate(b.endTime),
+    status: "approved",
+    planType: "partner-desk",
+    planGroupId: partnerDeskPlanGroupId(b.memberId),
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /**
@@ -1556,8 +1555,12 @@ async function createPartnerDays(days, now) {
  * Days are written approved and send no approval notice (an hourly rolling
  * window would otherwise keep pushing one); a detach still notifies through
  * the cancellation path.
+ *
+ * Writes go through a BulkWriter, each on its own: updates carry the read's
+ * update time as a precondition, so a check-in or a member's own cancel made
+ * after the read is never overwritten, and one stale write skips just itself.
  * @param {Timestamp} startOfToday Hub midnight today
- * @return {Promise<Object>} Counts of created, reactivated, cancelled days
+ * @return {Promise<Object>} Counts of written and skipped days
  */
 async function syncPartnerDesks(startOfToday) {
   const state = await loadPartnerDeskState(startOfToday);
@@ -1566,21 +1569,32 @@ async function syncPartnerDesks(startOfToday) {
   const {create, reactivate, cancel} =
     planPartnerDeskSync({...state, days, nowMs});
   const now = new Date().toISOString();
+  const readTimes = new Map(state.bookings.map((b) => [b.id, b.updateTime]));
   const ref = (id) => db.collection("bookings").doc(id);
-  await commitInBatches([
-    ...cancel.map((id) => (batch) => batch.update(ref(id), {
-      status: "cancelled", cancelledReason: PARTNER_REMOVED_REASON,
-      updatedAt: now,
-    })),
-    ...reactivate.map((id) => (batch) => batch.update(ref(id), {
+  const counts = {created: 0, reactivated: 0, cancelled: 0, skipped: 0};
+  const unexpected = [];
+  const track = (key) => (promise) => promise.then(
+      () => counts[key]++,
+      (error) => STALE_WRITE_CODES.includes(error.code) ?
+        counts.skipped++ : unexpected.push(error));
+
+  const writer = db.bulkWriter();
+  writer.onWriteError((error) =>
+    !STALE_WRITE_CODES.includes(error.code) && error.failedAttempts < 3);
+  const pending = [
+    ...cancel.map(({id, reason}) => track("cancelled")(writer.update(ref(id), {
+      status: "cancelled", cancelledReason: reason, updatedAt: now,
+    }, {lastUpdateTime: readTimes.get(id)}))),
+    ...reactivate.map((id) => track("reactivated")(writer.update(ref(id), {
       status: "approved", cancelledReason: FieldValue.delete(), updatedAt: now,
-    })),
-  ]);
-  return {
-    created: await createPartnerDays(create, now),
-    reactivated: reactivate.length,
-    cancelled: cancel.length,
-  };
+    }, {lastUpdateTime: readTimes.get(id)}))),
+    ...create.map((b) => track("created")(
+        writer.create(ref(b.id), partnerDayData(b, now)))),
+  ];
+  await writer.close();
+  await Promise.all(pending);
+  if (unexpected.length > 0) throw unexpected[0];
+  return counts;
 }
 
 // Auto check-out expired bookings + auto-complete past-day bookings, then

@@ -342,10 +342,10 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
   })
 
   const cancelPlanMutation = useMutation({
-    mutationFn: cancelFixedDeskPlan,
-    onSuccess: () => {
+    mutationFn: ({ id }) => cancelFixedDeskPlan(id),
+    onSuccess: (_, { planType }) => {
       invalidate('bookings', 'memberStats')
-      showToast(t('toast.fixedDeskCancelled'), 'success')
+      showToast(t(`toast.${deskPlanCopyPrefix(planType)}Cancelled`), 'success')
     }
   })
 
@@ -518,10 +518,12 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t }) =
     })
   }
 
-  const handleCancelPlan = async (planGroupId) => {
+  // Only Fixed Desk plans and partner plans registered by hand (#115) reach
+  // here; the synced Partner Desk has no Cancel Plan button.
+  const handleCancelPlan = async ({ planGroupId, planType }) => {
     if (isPendingFor(mutations.cancelPlanMutation, planGroupId)) return
-    if (window.confirm(t('fixedDesk.confirmCancel'))) {
-      await mutations.cancelPlanMutation.mutateAsync(planGroupId)
+    if (window.confirm(t(`${deskPlanCopyPrefix(planType)}.confirmCancel`))) {
+      await mutations.cancelPlanMutation.mutateAsync({ id: planGroupId, planType })
     }
   }
 
@@ -759,7 +761,7 @@ const FixedDeskPlanCard = ({ plan, amenity, t, onCancelPlan, cancelPending }) =>
       {!isSyncedPartnerPlan(plan) && (
         <button
           className="btn btn-danger btn-sm"
-          onClick={() => onCancelPlan(plan.planGroupId)}
+          onClick={() => onCancelPlan(plan)}
           disabled={cancelPending}
         >
           {t('fixedDesk.cancelPlan')}
@@ -1153,14 +1155,21 @@ const FixedDeskModalContent = ({ fd, deskAmenities, handlers, t, isPending }) =>
 
 // The AuthContext profile loads once at sign-in, so read partnerId fresh: an
 // admin may attach or detach the member, or remove the partner, mid-session.
-const useDeskPlanType = (uid, userProfile) => {
+const useDeskPlanType = (uid, userProfile, amenities) => {
   const { data: member } = useQuery({
     queryKey: ['members', uid],
     queryFn: () => getMember(uid),
-    enabled: !!uid
+    enabled: !!uid,
+    refetchOnWindowFocus: false,
+    retry: 1
   })
-  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: getPartners })
-  return deskPlanTypeFor(member ?? userProfile, partners)
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners'],
+    queryFn: getPartners,
+    refetchOnWindowFocus: false,
+    retry: 1
+  })
+  return deskPlanTypeFor(member ?? userProfile, partners, amenities)
 }
 
 const MemberBookings = () => {
@@ -1173,8 +1182,6 @@ const MemberBookings = () => {
   const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
-  const deskPlanType = useDeskPlanType(currentUser?.uid, userProfile)
-  const planPrefix = deskPlanCopyPrefix(deskPlanType)
 
   const { data: myBookings = [] } = useQuery({
     // Scoped key: /member/dashboard reads a narrower window for the same uid.
@@ -1190,6 +1197,8 @@ const MemberBookings = () => {
     retry: 1
   })
   const amenities = remoteAmenities
+  const deskPlanType = useDeskPlanType(currentUser?.uid, userProfile, amenities)
+  const planPrefix = deskPlanCopyPrefix(deskPlanType)
 
   const form = useBookingForm(amenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()

@@ -59,6 +59,9 @@ function getCancellationNotice(before, after) {
   const raw = after.cancelledReason;
   const reason = typeof raw === "string" ? raw.trim() : "";
   if (!reason) return null;
+  // The Partner Desk sync moved the member to their partner's new desk in
+  // the same run: nothing was lost, so nothing to tell them.
+  if (reason === "partner-desk-moved") return null;
 
   return {
     reason,

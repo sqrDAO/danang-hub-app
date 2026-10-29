@@ -334,7 +334,8 @@
     "confirmRemove": "Xóa đối tác \"{{name}}\"?",
     "empty": "Chưa có tổ chức đối tác nào.",
     "desk": "Bàn",
-    "noDesk": "Chưa có bàn"
+    "noDesk": "Chưa có bàn",
+    "unknownDesk": "Bàn không còn — hãy chọn bàn khác"
   },
   "adminBookings": {
     "title": "Đặt chỗ",
@@ -711,7 +712,8 @@
     "description": "Bàn của tổ chức đối tác, được đặt sẵn cho bạn mọi ngày làm việc (Thứ 2–Thứ 6, 9h–18h) khi bạn còn thuộc tổ chức đó.",
     "badge": "Bàn đối tác",
     "ongoing": "Đang hiệu lực — tự động gia hạn",
-    "cancelDay": "Bỏ ngày này"
+    "cancelDay": "Bỏ ngày này",
+    "confirmCancel": "Hủy gói bàn đối tác này? Tất cả lượt đặt chỗ đang chờ/đã duyệt trong gói sẽ bị hủy."
   },
   "toast": {
     "amenityCreatedWithUploadErrors": "Đã tạo tiện ích nhưng một số ảnh tải lên thất bại: {{message}}",
@@ -789,6 +791,7 @@
     "partnerAddFailed": "Không thể thêm đối tác. Vui lòng thử lại.",
     "partnerRemoveFailed": "Không thể xóa đối tác. Vui lòng thử lại.",
     "partnerDuplicate": "Đã có đối tác với tên này.",
-    "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại."
+    "partnerDeskFailed": "Không thể cập nhật bàn của đối tác. Vui lòng thử lại.",
+    "partnerDeskCancelled": "Đã hủy gói bàn đối tác."
   }
 }

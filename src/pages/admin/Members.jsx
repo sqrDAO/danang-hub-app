@@ -282,7 +282,9 @@ const AdminMembers = () => {
 
   const { data: partners = [] } = useQuery({
     queryKey: ['partners'],
-    queryFn: getPartners
+    queryFn: getPartners,
+    refetchOnWindowFocus: false,
+    retry: 1
   })
 
   const { data: profileStats, isLoading: statsLoading } = useQuery({

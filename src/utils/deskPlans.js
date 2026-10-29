@@ -8,12 +8,13 @@ export const DESK_PLAN_TYPES = [FIXED_DESK, PARTNER_DESK]
 
 export const isDeskPlan = (planType) => DESK_PLAN_TYPES.includes(planType)
 
-// Partner only while the partner org exists and has a desk — the same test
-// the server sync uses. A partner without a desk books nothing, so its
-// members keep the Fixed Desk flow.
-export const deskPlanTypeFor = (profile, partners = []) => {
+// Partner only while the partner org exists and its desk is a bookable desk —
+// the test the server sync applies before booking anything. Otherwise the
+// member gets nothing automatic, so they keep the Fixed Desk flow.
+export const deskPlanTypeFor = (profile, partners = [], amenities = []) => {
   const partner = profile?.partnerId && partners.find(p => p.id === profile.partnerId)
-  return partner?.deskAmenityId ? PARTNER_DESK : FIXED_DESK
+  const desk = partner?.deskAmenityId && amenities.find(a => a.id === partner.deskAmenityId)
+  return desk?.type === 'desk' && desk.isAvailable !== false ? PARTNER_DESK : FIXED_DESK
 }
 
 // A plan the hourly sync owns (planGroupId `partner_<uid>`), as opposed to a

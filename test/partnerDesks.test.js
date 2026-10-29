@@ -4,7 +4,9 @@ import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
 const {
+  PARTNER_DESK_MOVED_REASON,
   PARTNER_REMOVED_REASON,
+  deskCapacity,
   partnerDeskBookingId,
   partnerDeskDays,
   planPartnerDeskSync
@@ -105,7 +107,10 @@ test('cancels future days when a member is detached', () => {
     partnerDay('m1', 'desk-1', '20300110', { status: 'cancelled' })
   ]
   const { create, cancel } = plan({ members: [], bookings })
-  assert.deepEqual(cancel, [bookings[0].id, bookings[1].id])
+  assert.deepEqual(cancel, [
+    { id: bookings[0].id, reason: PARTNER_REMOVED_REASON },
+    { id: bookings[1].id, reason: PARTNER_REMOVED_REASON }
+  ])
   assert.equal(create.length, 0)
 })
 
@@ -113,6 +118,8 @@ test('moves a member to the new desk when the partner desk changes', () => {
   const bookings = days.map(d => partnerDay('m1', 'desk-1', d.dayKey))
   const { create, cancel } = plan({ partners: [{ id: 'p-9am', deskAmenityId: 'desk-2' }], bookings })
   assert.equal(cancel.length, 5)
+  // Moved, not removed: the notice path stays silent for this reason.
+  assert.ok(cancel.every(c => c.reason === PARTNER_DESK_MOVED_REASON))
   assert.equal(create.length, 5)
   assert.ok(create.every(b => b.amenityId === 'desk-2'))
 })
@@ -139,7 +146,7 @@ test('ignores cancelled bookings and non-overlapping slots when counting seats',
 test('leaves a day already under way when a member is detached', () => {
   const bookings = [partnerDay('m1', 'desk-1', '20300107'), partnerDay('m1', 'desk-1', '20300108')]
   const { cancel } = plan({ members: [], bookings, nowMs: MONDAY + 10 * HOUR })
-  assert.deepEqual(cancel, [bookings[1].id])
+  assert.deepEqual(cancel.map(c => c.id), [bookings[1].id])
 })
 
 test('never touches partner-desk plans it did not create', () => {
@@ -170,4 +177,16 @@ test('a switched-off desk does not cancel days already booked', () => {
   const off = new Map(amenities).set('desk-1', { ...desk, isAvailable: false })
   const bookings = [partnerDay('m1', 'desk-1', '20300108')]
   assert.deepEqual(plan({ amenities: off, bookings }).cancel, [])
+})
+
+test('reactivates days cancelled by a desk move when the desk moves back', () => {
+  const bookings = [partnerDay('m1', 'desk-1', '20300108', { status: 'cancelled', cancelledReason: PARTNER_DESK_MOVED_REASON })]
+  assert.deepEqual(plan({ bookings }).reactivate, [bookings[0].id])
+})
+
+test('reads desk capacity the same way as the conflict check', () => {
+  assert.equal(deskCapacity({ capacity: 3 }), 3)
+  assert.equal(deskCapacity({ capacity: '3' }), 1)
+  assert.equal(deskCapacity({ capacity: 0 }), 1)
+  assert.equal(deskCapacity(null), 1)
 })
