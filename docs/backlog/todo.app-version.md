@@ -17,10 +17,13 @@ Give the app a real version so a deployed build can be identified. Show it in th
 
 ## Acceptance
 - [ ] The footer shows `v1.0.0 (<7-char commit>)` on every page
-- [ ] Hovering the version shows the build time
+- [ ] Hovering the version shows the build time in hub time, in the reader's language
 - [ ] CI builds take the commit from `GITHUB_SHA`
 - [ ] Local builds take the commit from git, or `dev` without git
-- [ ] After deploy, `tag_release` pushes `v<version>` on the merge commit when that tag is new
+- [ ] After deploy, `tag_release` tags `v<version>` on the main commit that bumped the version when that release is new
+- [ ] A deploy that fails after a bump still gets its version tagged on the bump merge by the next successful deploy
+- [ ] Two merges in quick succession run `tag_release` one at a time
+- [ ] A tag without a release (an earlier failed run) is still published as a release
 - [ ] A merge that does not bump the version adds no tag and does not fail
 - [ ] A new tag is published as a GitHub release with the version's `CHANGELOG.md` section as notes
 - [ ] NOT: no version bump automation; bumps are a deliberate edit in a PR

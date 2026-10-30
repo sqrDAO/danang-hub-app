@@ -3,11 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
 import { APP_BUILT_AT, appVersionLabel } from '../utils/appVersion'
+import { formatEventDateTime } from '../utils/timezone'
 
 const MARKETING_BASE = 'https://www.danangblockchainhub.com'
 
+// Version tooltip: the build time in hub time and the reader's language.
+const builtAtTitle = (t, language) => {
+  if (!APP_BUILT_AT) return undefined
+  const locale = language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  return t('footer.builtAt', { date: formatEventDateTime(APP_BUILT_AT, { locale }) })
+}
+
 const Footer = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { theme } = useTheme()
   const { currentUser } = useAuth()
   const currentYear = new Date().getFullYear()
@@ -83,7 +91,7 @@ const Footer = () => {
           <p className="footer-copyright">
             {t('footer.copyright', { year: currentYear })}
           </p>
-          <p className="footer-version" title={APP_BUILT_AT ? t('footer.builtAt', { date: APP_BUILT_AT }) : undefined}>
+          <p className="footer-version" title={builtAtTitle(t, i18n.language)}>
             {t('footer.version', { version: appVersionLabel() })}
           </p>
         </div>
