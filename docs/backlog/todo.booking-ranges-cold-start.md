@@ -18,7 +18,8 @@ libraries it does not use.
 ## Acceptance
 - [ ] The top of `functions/index.js` no longer requires `ethers`, `tweetnacl`, `bs58` or `nodemailer`.
 - [ ] Opening /member/bookings sends one `getAmenityBookingRanges` request before any amenity is picked.
-- [ ] That request's `invalid-argument` rejection shows no toast and no console error.
+- [ ] That request's `invalid-argument` rejection shows no toast.
+- [ ] That rejection raises no uncaught promise error.
 - [ ] In local dev mode (`LOCAL_DEV_MODE`) no warm-up request is sent.
 - [ ] NOT: no change to `getAmenityBookingRanges`'s validation, query or response.
 - [ ] NOT: no `minInstances` and no region change.
@@ -28,7 +29,8 @@ libraries it does not use.
 - `npm run lint && npm run build && npm test` → all green
 - `cd functions && npm run lint` → exit 0
 - `npm run dev` against real Firebase, sign in, open /member/bookings, DevTools Network
-  → one `getAmenityBookingRanges` request answered 400 `invalid-argument`, console clean
+  → `getAmenityBookingRanges` answered 400 `invalid-argument` (twice in dev: the
+  `React.StrictMode` in `src/main.jsx` runs mount effects twice; once in production)
 - same page, pick a desk → the calendar loads its busy slots as before
 - after deploy, with the function idle 30+ minutes: open /member/bookings, wait ~5s,
   pick a desk → busy slots appear in about 1s instead of about 5s
@@ -37,7 +39,12 @@ libraries it does not use.
 
 ## Notes
 Picking an amenity opens the modal straight onto the calendar step, so prefetching
-on that click (the issue's other idea) has no gap to hide.
+on that click (the issue's other idea) has no gap to hide. A deep link
+(`?amenityId=`) also opens the calendar as soon as amenities load, so the warm-up
+cannot hide the cold start on that path; it is no slower than before.
+
+The warm-up runs on every mount on purpose: an instance idles out after ~15 minutes,
+so a later visit needs its own warm-up.
 
 Measured locally: the four libraries take ~110ms of the ~450ms `index.js` load.
 Every Gen-2 function loads all of `index.js` at boot, so each one saves that share;
