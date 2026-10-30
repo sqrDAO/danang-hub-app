@@ -12,6 +12,7 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 - `npm run build` — production build
 - `npm run lint` — eslint (see Clean-code caps below for the warning ratchet)
 - `npm run preview` — preview production build
+- `npm version minor|patch --no-git-tag-version` — bump the app version in a release PR; the deploy tags `v<version>` (README → Versions & Releases)
 - `firebase deploy --only functions|firestore:rules|storage` — partial deploys
 - `firebase emulators:start` — local emulators (client opts in via `VITE_USE_EMULATORS=true`)
 - `firebase functions:log` — live function logs

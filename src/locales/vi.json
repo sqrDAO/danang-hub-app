@@ -149,7 +149,9 @@
     "activities": "Hoạt động",
     "location": "Địa điểm",
     "calendar": "Lịch",
-    "copyright": "© {{year}} sqrDAO. Bảo lưu mọi quyền."
+    "copyright": "© {{year}} sqrDAO. Bảo lưu mọi quyền.",
+    "version": "Phiên bản {{version}}",
+    "builtAt": "Bản dựng lúc {{date}}"
   },
   "auth": {
     "welcomeBack": "Chào mừng trở lại",
