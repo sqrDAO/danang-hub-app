@@ -70,6 +70,15 @@ export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => 
   return parseBookingRanges(result.data)
 }
 
+// Boots getAmenityBookingRanges before the member picks an amenity, so the
+// calendar's real call lands on a running instance instead of a cold start.
+// No amenityId, so the function rejects with invalid-argument; that rejection
+// is the expected outcome and is ignored.
+export const warmAmenityBookingRanges = () => {
+  if (LOCAL_DEV_MODE) return
+  httpsCallable(functions, 'getAmenityBookingRanges')({}).catch(() => {})
+}
+
 export const editOwnEvent = async ({ eventId, expectedRevision, data }) => {
   if (LOCAL_DEV_MODE) return editLocalOwnEvent({ eventId, expectedRevision, data })
   const editEvent = httpsCallable(functions, 'editOwnEvent')
