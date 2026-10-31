@@ -275,4 +275,5 @@ module.exports = {
   partnerDeskPlanGroupId,
   isSyncedPartnerDay,
   planPartnerDeskSync,
+  bookingsToCancel,
 };

@@ -92,3 +92,12 @@ export const reviewEvent = async ({ eventId, expectedRevision, action, reason = 
   const result = await review({ eventId, expectedRevision, action, reason })
   return result.data
 }
+
+// Admin-only: detaches the partner's members, releases its desk, deletes it
+// and cancels the members' upcoming partner days. Local dev goes through
+// deletePartner (services/partners.js) instead.
+export const removePartner = async (partnerId) => {
+  const remove = httpsCallable(functions, 'removePartner')
+  const result = await remove({ partnerId })
+  return result.data
+}

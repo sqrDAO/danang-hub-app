@@ -8,8 +8,9 @@ import {
   where
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { removePartner } from './functions'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
-import { PARTNER_DESK, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans'
+import { PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans'
 import { createLocalPartner, deleteLocalPartner, listLocalMembers, listLocalPartners, setLocalPartnerDesk } from './localDevStore'
 
 // Partner organizations (e.g. 9AM Games, DiiD). Admins attach members to one
@@ -18,7 +19,6 @@ import { createLocalPartner, deleteLocalPartner, listLocalMembers, listLocalPart
 const PARTNERS_COLLECTION = 'partners'
 const AMENITIES_COLLECTION = 'amenities'
 const MEMBERS_COLLECTION = 'members'
-const BOOKINGS_COLLECTION = 'bookings'
 
 export const getPartners = async () => {
   if (LOCAL_DEV_MODE) return listLocalPartners()
@@ -97,12 +97,6 @@ export const setPartnerDesk = async (id, deskAmenityId) => {
   })
 }
 
-// Same reason the hourly sync uses when a member is detached, so the member
-// gets the same notice (functions/partnerDesks.js PARTNER_REMOVED_REASON).
-const PARTNER_REMOVED_REASON = 'partner-removed'
-// Days cancelled per transaction, well under Firestore's 500-write cap.
-const CANCEL_CHUNK = 200
-
 const attachedMembers = (id) =>
   getDocs(query(collection(db, MEMBERS_COLLECTION), where('partnerId', '==', id)))
 
@@ -111,78 +105,11 @@ export const countAttachedMembers = async (id) => {
   return (await attachedMembers(id)).size
 }
 
-const CANCELLABLE = ['pending', 'approved']
-// A day the hourly sync owns and could still hand back: the same test as
-// isSyncedPartnerDay in functions/partnerDesks.js, plus not yet started
-// (moving it server-side is #128).
-const isUpcomingSyncedDay = (b, nowMs) =>
-  b.planType === PARTNER_DESK && b.planGroupId === `partner_${b.memberId}` &&
-  CANCELLABLE.includes(b.status) && b.startTime?.toMillis?.() > nowMs
-
-const upcomingPartnerDays = async (memberIds, nowMs) => {
-  const snaps = await Promise.all(memberIds.map(uid =>
-    getDocs(query(collection(db, BOOKINGS_COLLECTION), where('planGroupId', '==', `partner_${uid}`)))))
-  return snaps.flatMap(snap => snap.docs).filter(d => isUpcomingSyncedDay(d.data(), nowMs))
-}
-
-// Each chunk re-reads its days and applies the same test again, so a day
-// checked in, cancelled, deleted or started since the first read is left
-// alone. Chunks touch different days, so they run side by side.
-const cancelDays = (refs, now) => {
-  const chunks = []
-  for (let i = 0; i < refs.length; i += CANCEL_CHUNK) chunks.push(refs.slice(i, i + CANCEL_CHUNK))
-  return Promise.all(chunks.map(chunk => runTransaction(db, async (tx) => {
-    const snaps = await Promise.all(chunk.map(ref => tx.get(ref)))
-    snaps
-      .filter(snap => snap.exists() && isUpcomingSyncedDay(snap.data(), Date.now()))
-      .forEach(snap => tx.update(snap.ref, { status: 'cancelled', cancelledReason: PARTNER_REMOVED_REASON, updatedAt: now }))
-  })))
-}
-
-// Detaches a member only if still attached to this partner, so one moved to
-// another partner meanwhile keeps it (and its days).
-const detachIfStill = (ref, partnerId, now) => runTransaction(db, async (tx) => {
-  const snap = await tx.get(ref)
-  if (!snap.exists() || snap.data().partnerId !== partnerId) return false
-  tx.update(ref, { partnerId: null, updatedAt: now })
-  return true
-})
-
-// Removing a partner detaches its members, releases its desk and deletes it
-// in one transaction, then cancels the members' upcoming partner days (they
-// are notified) rather than leaving them to hold seats on the freed desk
-// until the next hourly run. Detaching first matters: while still attached,
-// the sync would bring cancelled days straight back.
-// Resolves { daysPending: true } when the partner is gone but cancelling its
-// days failed: the hourly sync cancels them for the detached members.
+// Removal runs server-side (removePartner in functions/index.js), which uses
+// the hourly sync's own rules for which days to cancel. Resolves
+// { daysPending: true } when the partner is gone but cancelling its days
+// failed: the hourly sync cancels them for the detached members.
 export const deletePartner = async (id) => {
   if (LOCAL_DEV_MODE) return deleteLocalPartner(id)
-  const now = new Date().toISOString()
-  const [found, attached] = await Promise.all([reservedDeskRefs(id), attachedMembers(id)])
-  const detached = new Set()
-  await runTransaction(db, async (tx) => {
-    // Reads first: only members still attached here are detached.
-    const members = await Promise.all(attached.docs.map(d => tx.get(d.ref)))
-    await releaseDesks(tx, id, found, now)
-    members
-      .filter(snap => snap.exists() && snap.data().partnerId === id)
-      .forEach(snap => {
-        detached.add(snap.id)
-        tx.update(snap.ref, { partnerId: null, updatedAt: now })
-      })
-    tx.delete(doc(db, PARTNERS_COLLECTION, id))
-  })
-  try {
-    // Anyone attached after the first read still points at the deleted
-    // partner; detach them too.
-    const late = await attachedMembers(id)
-    const lateDetached = await Promise.all(late.docs.map(d => detachIfStill(d.ref, id, now)))
-    late.docs.filter((_, i) => lateDetached[i]).forEach(d => detached.add(d.id))
-    const days = await upcomingPartnerDays([...detached], Date.now())
-    await cancelDays(days.map(d => d.ref), now)
-    return { daysPending: false }
-  } catch (error) {
-    console.error('Partner removed; cancelling its days failed', error)
-    return { daysPending: true }
-  }
+  return removePartner(id)
 }
