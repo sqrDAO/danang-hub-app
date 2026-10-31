@@ -11,10 +11,8 @@ const {
 const {getAuth} = require("firebase-admin/auth");
 const {getMessaging} = require("firebase-admin/messaging");
 const crypto = require("crypto");
-const {ethers} = require("ethers");
-const nacl = require("tweetnacl");
-const bs58 = require("bs58");
-const nodemailer = require("nodemailer");
+// ethers, tweetnacl, bs58 and nodemailer are required where they are used:
+// every function loads this whole file at cold start, and most never need them.
 const {
   getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
@@ -66,6 +64,7 @@ setGlobalOptions({region: REGION});
  * @return {object} Nodemailer transporter instance
  */
 function getTransporter() {
+  const nodemailer = require("nodemailer");
   return nodemailer.createTransport({
     host: process.env.EMAIL_SMTP_HOST,
     port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
@@ -2835,6 +2834,7 @@ exports.verifyWalletSignature = onCall(
       let uid;
 
       if (chain === "ethereum") {
+        const {ethers} = require("ethers");
         let recoveredAddress;
         try {
           recoveredAddress = ethers.verifyMessage(message, signature);
@@ -2852,6 +2852,8 @@ exports.verifyWalletSignature = onCall(
         }
         uid = `eth_${address.toLowerCase()}`;
       } else if (chain === "solana") {
+        const nacl = require("tweetnacl");
+        const bs58 = require("bs58");
         try {
           const msgBytes = Buffer.from(message, "utf8");
           const sigBytes = Buffer.from(signature, "hex");
