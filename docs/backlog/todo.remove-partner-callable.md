@@ -9,6 +9,8 @@ Move partner removal from the browser to a `removePartner` callable that reuses 
 - `functions/partnerDesks.js` (edited) — export `bookingsToCancel`
 - `src/services/functions.js` (edited) — `removePartner` wrapper
 - `src/services/partners.js` (edited) — `deletePartner` calls the callable; client cancel helpers removed
+- `test/partnerDesks.test.js` (edited) — `bookingsToCancel` with no entitled desks
+- `README.md` (edited) — `removePartner` row in the Cloud Functions table
 
 ## Acceptance
 - [ ] A non-admin caller gets `permission-denied` and nothing changes
@@ -25,7 +27,12 @@ Move partner removal from the browser to a `removePartner` callable that reuses 
 - `npm run lint && npm run build && npm test` → green
 - `cd functions && npm run lint` → green
 - `firebase emulators:start`, remove a partner with one attached member and a synced future day → member's `partnerId` is null, day is `cancelled` with `partner-removed`
+- emulator, as a non-admin, call `removePartner` → `permission-denied`; partner, members and days unchanged
 - regression: `test/partnerDesks.test.js`
 
 ## Notes
-First-of-kind function: the CI service account can't deploy it, so the owner runs `firebase deploy --only functions:removePartner` before the client change ships. Closes https://github.com/sqrDAO/danang-hub-app/issues/128.
+Deploy order is load-bearing. The merge workflow ships Hosting first, then `deploy --only functions`, and the CI service account cannot create a first-of-kind function (it can't set its IAM). So:
+1. `firebase deploy --only functions:removePartner` — **locally, as owner, from this branch**
+2. merge the PR (CI ships the client, then updates the now-existing function)
+
+Merging before step 1 breaks Remove in prod and fails the CI deploy job. Closes https://github.com/sqrDAO/danang-hub-app/issues/128.

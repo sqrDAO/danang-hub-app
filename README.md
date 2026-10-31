@@ -236,6 +236,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
+| `removePartner` | Callable | Admin-only partner removal: detaches its members, releases its desk and deletes it, then cancels the members' upcoming Partner Desk days (`partner-removed`) |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members); cancels unapproved renewal days instead of completing them, and sends Fixed Desk ending reminders 3 days ahead |

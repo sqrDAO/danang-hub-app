@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url)
 const {
   PARTNER_DESK_MOVED_REASON,
   PARTNER_REMOVED_REASON,
+  bookingsToCancel,
   deskCapacity,
   partnerDeskBookingId,
   partnerDeskDays,
@@ -180,6 +181,22 @@ test('leaves a day already under way when a member is detached', () => {
   const bookings = [partnerDay('m1', 'desk-1', '20300107'), partnerDay('m1', 'desk-1', '20300108')]
   const { cancel } = plan({ members: [], bookings, nowMs: MONDAY + 10 * HOUR })
   assert.deepEqual(cancel.map(c => c.id), [bookings[1].id])
+})
+
+// removePartner's call: no entitled desks, so every day not yet started and
+// still cancellable is partner-removed, even one on another desk.
+test('with no entitled desks, cancels every upcoming day as partner-removed', () => {
+  const bookings = [
+    partnerDay('m1', 'desk-1', '20300107'),
+    partnerDay('m1', 'desk-1', '20300108', { status: 'pending' }),
+    partnerDay('m2', 'desk-2', '20300108'),
+    partnerDay('m1', 'desk-1', '20300109', { status: 'checked-in' }),
+    partnerDay('m1', 'desk-1', '20300110', { status: 'cancelled' })
+  ]
+  assert.deepEqual(bookingsToCancel(bookings, new Map(), MONDAY + 10 * HOUR), [
+    { id: bookings[1].id, reason: PARTNER_REMOVED_REASON },
+    { id: bookings[2].id, reason: PARTNER_REMOVED_REASON }
+  ])
 })
 
 test('never touches partner-desk plans it did not create', () => {

@@ -33,6 +33,7 @@ const {
   isSyncedPartnerDay,
   partnerDeskPlanGroupId,
   planPartnerDeskSync,
+  bookingsToCancel,
 } = require("./partnerDesks");
 const {
   RENEWAL_EXPIRED_REASON,
@@ -1721,6 +1722,85 @@ async function syncPartnerDesks(state, startOfToday) {
   if (unexpected.length > 0) throw unexpected[0];
   return counts;
 }
+
+/**
+ * Detach a partner's members, release its desk and delete it, in one
+ * transaction. Its queries run inside the transaction, so a member attached
+ * meanwhile is either detached here or attached after the partner is gone.
+ * @param {string} partnerId Partner to remove
+ * @return {Promise<Array<string>>} Uids of the detached members
+ */
+async function detachAndDeletePartner(partnerId) {
+  const now = new Date().toISOString();
+  return db.runTransaction(async (tx) => {
+    const [members, desks] = await Promise.all([
+      tx.get(db.collection("members").where("partnerId", "==", partnerId)),
+      tx.get(db.collection("amenities")
+          .where("reservedForPartnerId", "==", partnerId)),
+    ]);
+    members.docs.forEach((d) =>
+      tx.update(d.ref, {partnerId: null, updatedAt: now}));
+    desks.docs.forEach((d) =>
+      tx.update(d.ref, {reservedForPartnerId: null, updatedAt: now}));
+    tx.delete(db.collection("partners").doc(partnerId));
+    return members.docs.map((d) => d.id);
+  });
+}
+
+/**
+ * Cancel detached members' synced days not yet started, as the hourly sync
+ * would: with no entitled desks, bookingsToCancel gives every day the
+ * partner-removed reason. Writes carry the same precondition as
+ * syncPartnerDesks, so a day changed since it was read is skipped.
+ * @param {Array<string>} uids Detached members
+ * @return {Promise<void>}
+ */
+async function cancelDetachedPartnerDays(uids) {
+  const snaps = await Promise.all(uids.map((uid) => db.collection("bookings")
+      .where("planGroupId", "==", partnerDeskPlanGroupId(uid)).get()));
+  const days = snaps.flatMap((snap) => snap.docs)
+      .map((d) => ({id: d.id, updateTime: d.updateTime, ...d.data()}))
+      .filter(isSyncedPartnerDay);
+  const readTimes = new Map(days.map((b) => [b.id, b.updateTime]));
+  const now = new Date().toISOString();
+  const unexpected = [];
+  const writer = db.bulkWriter();
+  writer.onWriteError((error) =>
+    !STALE_WRITE_CODES.includes(error.code) && error.failedAttempts < 3);
+  const pending = bookingsToCancel(days, new Map(), Date.now())
+      .map(({id, reason}) => writer.update(db.collection("bookings").doc(id), {
+        status: "cancelled", cancelledReason: reason, updatedAt: now,
+      }, {lastUpdateTime: readTimes.get(id)}).catch((error) => {
+        if (!STALE_WRITE_CODES.includes(error.code)) unexpected.push(error);
+      }));
+  await writer.close();
+  await Promise.all(pending);
+  if (unexpected.length > 0) throw unexpected[0];
+}
+
+// Admin-only partner removal (PartnersPanel). Members are detached before
+// their days are cancelled: while still attached, the hourly sync would bring
+// cancelled days straight back. If cancelling fails the partner is still
+// gone, so this resolves {daysPending: true} and the next hourly run cancels
+// the days for the detached members.
+exports.removePartner = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const {partnerId} = request.data || {};
+  if (typeof partnerId !== "string" || !partnerId) {
+    throw new HttpsError("invalid-argument", "A partner id is required.");
+  }
+  await requireAdmin(request.auth.uid);
+  const detached = await detachAndDeletePartner(partnerId);
+  try {
+    await cancelDetachedPartnerDays(detached);
+    return {daysPending: false};
+  } catch (error) {
+    console.error("Partner removed; cancelling its days failed", error);
+    return {daysPending: true};
+  }
+});
 
 /**
  * Remind members 3 days before an approved Fixed Desk plan ends, unless they
