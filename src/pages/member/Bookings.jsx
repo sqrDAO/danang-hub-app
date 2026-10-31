@@ -16,7 +16,7 @@ import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, planRecurringRanges, waitForBookingsSettled } from '../../services/bookings'
 import { MONTHLY_DESK_HOURS, hoursUsedThisMonth, monthOverLimit } from '../../utils/monthlyHours'
 import { getAmenities } from '../../services/amenities'
-import { checkBookingConflicts } from '../../services/functions'
+import { checkBookingConflicts, warmAmenityBookingRanges } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
@@ -1260,6 +1260,8 @@ const MemberBookings = () => {
   const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
+
+  useEffect(() => { warmAmenityBookingRanges() }, [])
 
   const { data: myBookings = [] } = useQuery({
     // Scoped key: /member/dashboard reads a narrower window for the same uid.
