@@ -9,30 +9,10 @@ import {
   reviewLocalEvent
 } from './localDevStore'
 
-// Check for booking conflicts before creating a booking
+// Fails closed: this callable is the only overlap check (firestore.rules has
+// none), so an error means the slot could not be verified and booking it would
+// be unsafe. A day the amenity does not take is rejected with invalid-argument.
 export const checkBookingConflicts = async (amenityId, startTime, endTime, excludeBookingId = null) => {
-  if (LOCAL_DEV_MODE) {
-    return checkLocalBookingConflicts(amenityId, startTime, endTime, excludeBookingId)
-  }
-  try {
-    const checkConflicts = httpsCallable(functions, 'checkBookingConflicts')
-    const result = await checkConflicts({
-      amenityId,
-      startTime: new Date(startTime).toISOString(),
-      endTime: new Date(endTime).toISOString(),
-      excludeBookingId
-    })
-    return result.data
-  } catch (error) {
-    console.error('Error checking booking conflicts:', error)
-    // If function doesn't exist or fails, return no conflicts (graceful degradation)
-    return { hasConflicts: false, conflicts: [] }
-  }
-}
-
-// Admin assignment must fail closed: a callable error means the availability
-// check could not be completed, so creating the booking would be unsafe.
-export const checkBookingConflictsStrict = async (amenityId, startTime, endTime, excludeBookingId = null) => {
   if (LOCAL_DEV_MODE) {
     return checkLocalBookingConflicts(amenityId, startTime, endTime, excludeBookingId)
   }
@@ -54,8 +34,7 @@ export const checkBookingConflictsStrict = async (amenityId, startTime, endTime,
 // scopes their reads to their own documents — so occupancy comes from the
 // callable, which returns start/end/status and no member identity.
 //
-// Deliberately unlike checkBookingConflicts above: this one throws. Swallowing
-// the error would leave the calendar with an empty range list, which paints
+// Throws like checkBookingConflicts above. Swallowing the error would leave the calendar with an empty range list, which paints
 // every slot free and invites the double booking that neither the advisory
 // conflict check nor firestore.rules would catch.
 export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => {
@@ -77,6 +56,12 @@ export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => 
 export const warmAmenityBookingRanges = () => {
   if (LOCAL_DEV_MODE) return
   httpsCallable(functions, 'getAmenityBookingRanges')({}).catch(() => {})
+}
+
+// Same for checkBookingConflicts, which the member's Continue waits on.
+export const warmBookingConflictCheck = () => {
+  if (LOCAL_DEV_MODE) return
+  httpsCallable(functions, 'checkBookingConflicts')({}).catch(() => {})
 }
 
 export const editOwnEvent = async ({ eventId, expectedRevision, data }) => {

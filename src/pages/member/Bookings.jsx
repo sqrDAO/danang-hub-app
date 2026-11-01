@@ -16,7 +16,7 @@ import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, planRecurringRanges, waitForBookingsSettled } from '../../services/bookings'
 import { MONTHLY_DESK_HOURS, hoursUsedThisMonth, monthOverLimit } from '../../utils/monthlyHours'
 import { getAmenities } from '../../services/amenities'
-import { checkBookingConflicts, warmAmenityBookingRanges } from '../../services/functions'
+import { checkBookingConflicts, warmAmenityBookingRanges, warmBookingConflictCheck } from '../../services/functions'
 import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
@@ -371,6 +371,11 @@ const blockedByMonthlyHours = (form, limit, t) => {
   return true
 }
 
+// invalid-argument is the server refusing this slot (hours, available days),
+// so retrying cannot help; anything else means the check itself failed.
+const conflictCheckErrorKey = (error) =>
+  error?.code === 'functions/invalid-argument' ? 'toast.slotNoLongerAvailable' : 'memberBookings.conflictCheckFailed'
+
 // Checks before a booking is confirmed; each failure has already told the
 // member why.
 const canConfirmBooking = (form, limit, t) => {
@@ -418,9 +423,8 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
 
   const handleContinueToConfirm = async () => {
     if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
-    // Fails closed here rather than relying on the callable: the
-    // checkBookingConflicts wrapper degrades to "no conflicts" on any error,
-    // so a server-side closure rejection would never reach this branch.
+    // Checked here first so a closure gets its own message and no round trip;
+    // the callable would only reject it as a generic invalid-argument.
     if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
       form.setConflictError(t('memberBookings.hubClosedError'))
       return
@@ -440,7 +444,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
-      form.setConflictError(t('memberBookings.conflictCheckFailed'))
+      form.setConflictError(t(conflictCheckErrorKey(error)))
     } finally {
       form.setIsCheckingConflict(false)
     }
@@ -472,7 +476,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
-      showToast(t('memberBookings.conflictCheckFailed'), 'error')
+      showToast(t(conflictCheckErrorKey(error)), 'error')
       finishSubmitting()
       return
     }
@@ -1261,7 +1265,10 @@ const MemberBookings = () => {
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
-  useEffect(() => { warmAmenityBookingRanges() }, [])
+  useEffect(() => {
+    warmAmenityBookingRanges()
+    warmBookingConflictCheck()
+  }, [])
 
   const { data: myBookings = [] } = useQuery({
     // Scoped key: /member/dashboard reads a narrower window for the same uid.

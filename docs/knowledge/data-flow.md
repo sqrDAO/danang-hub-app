@@ -72,8 +72,8 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
 ### Create — member `src/pages/member/Bookings.jsx`
 
 1. `checkBookingConflicts(amenityId, start, end)` (`src/services/functions.js`) calls the
-   callable of the same name. **Graceful degradation: if the function errors, the wrapper
-   returns `{hasConflicts: false}`** — conflict checking is advisory, not enforced by rules.
+   callable of the same name. **It fails closed: if the function errors, the wrapper
+   throws and the page refuses to book** — the check is advisory, not enforced by rules.
 2. `createBooking()` (`src/services/bookings.js`) writes the doc with `status: 'pending'`
    and `Timestamp`-converted times.
 3. `sendBookingConfirmation` fires `onCreate` — currently **logs only** (email TODO),

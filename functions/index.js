@@ -284,7 +284,21 @@ exports.checkBookingConflicts = onCall(
         );
       }
 
-      const {amenityId, startTime, endTime, excludeBookingId} = request.data;
+      const {amenityId, startTime, endTime, excludeBookingId} =
+        request.data || {};
+
+      // Rejected before any read, which also makes the client's warm-up call
+      // (no amenity) cheap and keeps it out of the error log below.
+      if (typeof amenityId !== "string" || !amenityId) {
+        throw new HttpsError("invalid-argument", "amenityId is required");
+      }
+      if (isNaN(new Date(startTime).getTime()) ||
+          isNaN(new Date(endTime).getTime())) {
+        throw new HttpsError(
+            "invalid-argument",
+            "startTime and endTime must be valid dates",
+        );
+      }
 
       // Closures shut the whole Hub, so they are checked before any
       // per-amenity availability and regardless of amenity type. Kept outside
@@ -332,6 +346,9 @@ exports.checkBookingConflicts = onCall(
 
         return {hasConflicts, conflicts};
       } catch (error) {
+        // The day/hours rejections above are answers, not failures: clients
+        // skip a day on invalid-argument, so it must not become "internal".
+        if (error instanceof HttpsError) throw error;
         console.error("Error checking booking conflicts:", error);
         throw new HttpsError(
             "internal",

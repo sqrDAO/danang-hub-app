@@ -255,7 +255,9 @@ export const checkOut = async (id) => {
 // non-working weekday does.
 const isOpenDate = (date) => !isHubClosed(date)
 
-// Check for conflicts before creating if function provided
+// Whether one occurrence must be skipped. A day the amenity does not take (a
+// closure, hours, availableDays) is rejected with invalid-argument and skipped
+// like a taken one; any other failure throws, so the series fails closed.
 const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, bookingEnd) => {
   if (!checkConflictsFn) return false
   try {
@@ -266,17 +268,14 @@ const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, b
     )
     return conflictCheck.hasConflicts
   } catch (error) {
-    console.error(`Error checking conflicts for recurring booking:`, error)
-    return false
+    if (error?.code === 'functions/invalid-argument') return true
+    throw error
   }
 }
 
 // Create a single occurrence of a recurring booking.
-// Returns the created booking (with id) or null when skipped/failed.
-const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn }) => {
-  const hasConflict = await hasRecurringConflict(checkConflictsFn, baseBooking.amenityId, bookingStart, bookingEnd)
-  if (hasConflict) return null
-
+// Returns the created booking (with id) or null when the write failed.
+const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, bookingEnd }) => {
   const bookingData = {
     ...baseBooking,
     startTime: bookingStart.toISOString(),
@@ -317,11 +316,20 @@ export const planRecurringRanges = (baseBooking, recurrence, options = {}) => {
 
 export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
   const ranges = planRecurringRanges(baseBooking, recurrence, options)
+  // Every day is checked before any is written, so a failed check leaves no
+  // half series behind for a retry to trip over (its own days look taken).
+  const freeRanges = []
+  for (const range of ranges) {
+    if (!(await hasRecurringConflict(checkConflictsFn, baseBooking.amenityId, range.start, range.end))) {
+      freeRanges.push(range)
+    }
+  }
+
   const bookings = []
   const createdIds = []
 
-  for (const { start: bookingStart, end: bookingEnd } of ranges) {
-    const created = await tryCreateOccurrence({ baseBooking, frequency: recurrence.frequency, bookingStart, bookingEnd, checkConflictsFn })
+  for (const { start: bookingStart, end: bookingEnd } of freeRanges) {
+    const created = await tryCreateOccurrence({ baseBooking, frequency: recurrence.frequency, bookingStart, bookingEnd })
     if (created) {
       createdIds.push(created.id)
       bookings.push(created)
