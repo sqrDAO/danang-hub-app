@@ -148,7 +148,12 @@ const usePartnerMutations = (t, onDeskSaved) => {
         // The partner is gone either way; the sync finishes what was left.
         if (result?.daysPending) showToast(t('toast.partnerRemovedDaysPending'), 'info')
       },
-      onError: () => showToast(t('toast.partnerRemoveFailed'), 'error')
+      onError: (error) => {
+        if (error?.code !== 'functions/not-found') return showToast(t('toast.partnerRemoveFailed'), 'error')
+        // Removed elsewhere (another tab or admin): the cached list was stale.
+        invalidate('partners', 'amenities')
+        showToast(t('toast.partnerAlreadyRemoved'), 'info')
+      }
     })
   }
 }

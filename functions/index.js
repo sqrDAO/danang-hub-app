@@ -1728,20 +1728,26 @@ async function syncPartnerDesks(state, startOfToday) {
  * meanwhile is either detached here or attached after the partner is gone.
  * @param {string} partnerId Partner to remove
  * @return {Promise<Array<string>>} Uids of the detached members
+ * @throws {HttpsError} not-found when the partner does not exist
  */
 async function detachAndDeletePartner(partnerId) {
   const now = new Date().toISOString();
   return db.runTransaction(async (tx) => {
-    const [members, desks] = await Promise.all([
+    const [partner, members, desks] = await Promise.all([
+      tx.get(db.collection("partners").doc(partnerId)),
       tx.get(db.collection("members").where("partnerId", "==", partnerId)),
       tx.get(db.collection("amenities")
           .where("reservedForPartnerId", "==", partnerId)),
     ]);
+    // A stale list (removed in another tab) must not report success.
+    if (!partner.exists) {
+      throw new HttpsError("not-found", "Partner not found.");
+    }
     members.docs.forEach((d) =>
       tx.update(d.ref, {partnerId: null, updatedAt: now}));
     desks.docs.forEach((d) =>
       tx.update(d.ref, {reservedForPartnerId: null, updatedAt: now}));
-    tx.delete(db.collection("partners").doc(partnerId));
+    tx.delete(partner.ref);
     return members.docs.map((d) => d.id);
   });
 }
