@@ -151,7 +151,7 @@ const usePartnerMutations = (t, onDeskSaved) => {
       onError: (error) => {
         if (error?.code !== 'functions/not-found') return showToast(t('toast.partnerRemoveFailed'), 'error')
         // Removed elsewhere (another tab or admin): the cached list was stale.
-        invalidate('partners', 'amenities')
+        invalidate('partners', 'amenities', 'members', 'bookings')
         showToast(t('toast.partnerAlreadyRemoved'), 'info')
       }
     })

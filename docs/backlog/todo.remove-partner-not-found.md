@@ -15,7 +15,7 @@
 - [ ] A missing partner leaves members, amenities and bookings unchanged
 - [ ] Removing an existing partner behaves as before
 - [ ] On `functions/not-found` the panel shows `toast.partnerAlreadyRemoved` as an info toast
-- [ ] On `functions/not-found` the panel refetches `partners` and `amenities`
+- [ ] On `functions/not-found` the panel refetches `partners`, `amenities`, `members` and `bookings`
 - [ ] Other errors still show `toast.partnerRemoveFailed`
 - [ ] NOT: no existence check when attaching a member to a partner (lower-priority note in #134)
 - [ ] NOT: no change to `deleteLocalPartner` or `src/services/partners.js`
