@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import Modal from '../../components/Modal'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { approveFixedDeskRenewal, rejectFixedDeskRenewal } from '../../services/bookings'
-import { checkBookingConflictsStrict } from '../../services/functions'
+import { checkBookingConflicts } from '../../services/functions'
 import { summarizePlan } from '../../utils/deskPlans'
 import { isPendingRenewal } from '../../utils/renewals'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
@@ -76,7 +76,7 @@ const RejectRenewalForm = ({ t, onSubmit, onCancel, isSubmitting }) => {
 const useRenewalMutations = (t, onRejected) => {
   const invalidate = useInvalidateQueries()
   const approveMutation = useMutation({
-    mutationFn: ({ id }) => approveFixedDeskRenewal(id, checkBookingConflictsStrict),
+    mutationFn: ({ id }) => approveFixedDeskRenewal(id, checkBookingConflicts),
     onSuccess: ({ approved, dropped }) => {
       invalidate('bookings', 'memberStats')
       showToast(t('adminRenewals.approved', { approved, dropped }), dropped > 0 ? 'info' : 'success')

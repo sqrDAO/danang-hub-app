@@ -18,6 +18,7 @@ import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { isSameHubDay } from '../utils/timezone'
 import { getFixedDeskPlanWindow, planRecurrenceStarts } from '../utils/recurrence'
 import { renewalStartDate } from '../utils/renewals'
+import { isSlotTaken } from '../utils/conflictCheck'
 import {
   cancelLocalFixedDeskPlan,
   countLocalCompletedBookings,
@@ -255,28 +256,17 @@ export const checkOut = async (id) => {
 // non-working weekday does.
 const isOpenDate = (date) => !isHubClosed(date)
 
-// Check for conflicts before creating if function provided
+// Whether one occurrence must be skipped: taken, or a day the amenity does not
+// take (a closure, hours, availableDays). Any other failure throws, so the
+// series fails closed (see isSlotTaken).
 const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, bookingEnd) => {
   if (!checkConflictsFn) return false
-  try {
-    const conflictCheck = await checkConflictsFn(
-      amenityId,
-      bookingStart.toISOString(),
-      bookingEnd.toISOString()
-    )
-    return conflictCheck.hasConflicts
-  } catch (error) {
-    console.error(`Error checking conflicts for recurring booking:`, error)
-    return false
-  }
+  return isSlotTaken(checkConflictsFn, amenityId, bookingStart.toISOString(), bookingEnd.toISOString())
 }
 
 // Create a single occurrence of a recurring booking.
-// Returns the created booking (with id) or null when skipped/failed.
-const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, bookingEnd, checkConflictsFn }) => {
-  const hasConflict = await hasRecurringConflict(checkConflictsFn, baseBooking.amenityId, bookingStart, bookingEnd)
-  if (hasConflict) return null
-
+// Returns the created booking (with id) or null when the write failed.
+const tryCreateOccurrence = async ({ baseBooking, frequency, bookingStart, bookingEnd }) => {
   const bookingData = {
     ...baseBooking,
     startTime: bookingStart.toISOString(),
@@ -317,11 +307,20 @@ export const planRecurringRanges = (baseBooking, recurrence, options = {}) => {
 
 export const createRecurringBooking = async (baseBooking, recurrence, checkConflictsFn, options = {}) => {
   const ranges = planRecurringRanges(baseBooking, recurrence, options)
+  // Every day is checked before any is written, so a failed check leaves no
+  // half series behind for a retry to trip over (its own days look taken).
+  const freeRanges = []
+  for (const range of ranges) {
+    if (!(await hasRecurringConflict(checkConflictsFn, baseBooking.amenityId, range.start, range.end))) {
+      freeRanges.push(range)
+    }
+  }
+
   const bookings = []
   const createdIds = []
 
-  for (const { start: bookingStart, end: bookingEnd } of ranges) {
-    const created = await tryCreateOccurrence({ baseBooking, frequency: recurrence.frequency, bookingStart, bookingEnd, checkConflictsFn })
+  for (const { start: bookingStart, end: bookingEnd } of freeRanges) {
+    const created = await tryCreateOccurrence({ baseBooking, frequency: recurrence.frequency, bookingStart, bookingEnd })
     if (created) {
       createdIds.push(created.id)
       bookings.push(created)
@@ -388,18 +387,11 @@ const getPlanBookings = async (planGroupId) => {
 }
 
 // Whether a renewal day can still be had. The callable rejects a day the desk
-// no longer takes (a Hub closure declared since, changed availableDays) with
-// invalid-argument: that day is lost like a taken seat, not an error. Any
+// no longer takes (a Hub closure declared since, changed availableDays) as
+// slot-unavailable: that day is lost like a taken seat, not an error. Any
 // other failure is rethrown, so approval fails closed.
-const isRenewalDayFree = async (day, checkConflictsFn) => {
-  try {
-    const { hasConflicts } = await checkConflictsFn(day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id)
-    return !hasConflicts
-  } catch (error) {
-    if (error?.code === 'functions/invalid-argument') return false
-    throw error
-  }
-}
+const isRenewalDayFree = async (day, checkConflictsFn) =>
+  !(await isSlotTaken(checkConflictsFn, day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id))
 
 // Approve a renewal as one unit. Its pending days held no seat while they
 // waited, so each is re-checked and a day that can no longer be had is

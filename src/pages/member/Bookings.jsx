@@ -16,8 +16,9 @@ import { canRenewPlan, renewalStateFor } from '../../utils/renewals'
 import { getBookings, createBooking, updateBooking, deleteBooking, createRecurringBooking, createFixedDeskPlan, cancelFixedDeskPlan, renewFixedDeskPlan, planRecurringRanges, waitForBookingsSettled } from '../../services/bookings'
 import { MONTHLY_DESK_HOURS, hoursUsedThisMonth, monthOverLimit } from '../../utils/monthlyHours'
 import { getAmenities } from '../../services/amenities'
-import { checkBookingConflicts, warmAmenityBookingRanges } from '../../services/functions'
+import { checkBookingConflicts, warmAmenityBookingRanges, warmBookingConflictCheck } from '../../services/functions'
 import { showToast } from '../../utils/toast'
+import { conflictCheckErrorKey, seriesErrorKey } from '../../utils/conflictCheck'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { resolveBookingDeepLink } from '../../utils/bookingDeepLink'
@@ -279,7 +280,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
     onError: (error) => {
-      showToast(t('toast.recurringBookingsFailed'), 'error')
+      showToast(t(seriesErrorKey(error, 'toast.recurringBookingsFailed')), 'error')
       console.error('Recurring booking error:', error)
     }
   })
@@ -309,8 +310,8 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       fd.resetFdForm()
       promptPushOptInAfterSuccess(uid, pushOptedIn)
     },
-    onError: () => {
-      showToast(t('toast.fixedDeskFailed'), 'error')
+    onError: (error) => {
+      showToast(t(seriesErrorKey(error, 'toast.fixedDeskFailed')), 'error')
     }
   })
 
@@ -332,7 +333,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       invalidate('memberStats')
       return queryClient.invalidateQueries({ queryKey: ['bookings'] })
     },
-    onError: () => showToast(t('toast.renewalFailed'), 'error')
+    onError: (error) => showToast(t(seriesErrorKey(error, 'toast.renewalFailed')), 'error')
   })
 
   return {
@@ -418,9 +419,8 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
 
   const handleContinueToConfirm = async () => {
     if (!form.selectedStartTime || !form.selectedEndTime || !form.selectedAmenity) return
-    // Fails closed here rather than relying on the callable: the
-    // checkBookingConflicts wrapper degrades to "no conflicts" on any error,
-    // so a server-side closure rejection would never reach this branch.
+    // Checked here first so a closure gets its own message and no round trip;
+    // the callable would only reject it as a generic invalid-argument.
     if (rangeOverlapsClosure(form.selectedStartTime, form.selectedEndTime)) {
       form.setConflictError(t('memberBookings.hubClosedError'))
       return
@@ -440,7 +440,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
-      form.setConflictError(t('memberBookings.conflictCheckFailed'))
+      form.setConflictError(t(conflictCheckErrorKey(error)))
     } finally {
       form.setIsCheckingConflict(false)
     }
@@ -472,7 +472,7 @@ const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, lim
       }
     } catch (error) {
       console.warn('Could not check conflicts:', error)
-      showToast(t('memberBookings.conflictCheckFailed'), 'error')
+      showToast(t(conflictCheckErrorKey(error)), 'error')
       finishSubmitting()
       return
     }
@@ -1261,7 +1261,10 @@ const MemberBookings = () => {
   const memberBookingsWindow = getMemberBookingsWindow()
   const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
-  useEffect(() => { warmAmenityBookingRanges() }, [])
+  useEffect(() => {
+    warmAmenityBookingRanges()
+    warmBookingConflictCheck()
+  }, [])
 
   const { data: myBookings = [] } = useQuery({
     // Scoped key: /member/dashboard reads a narrower window for the same uid.

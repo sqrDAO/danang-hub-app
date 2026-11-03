@@ -605,9 +605,9 @@ const BookingCalendar = ({
   if (isLoading) return <CalendarSkeleton />
 
   // Never fall back to an empty booking list: `allBookings = []` would paint
-  // every cell as free, and neither `checkBookingConflicts` (advisory, returns
-  // no-conflict on error) nor `firestore.rules` (no overlap check) would catch
-  // the resulting double booking. Block selection instead.
+  // every cell as free, and `firestore.rules` (no overlap check) would not
+  // catch the resulting double booking; only the `checkBookingConflicts` call
+  // at Continue would. Block selection instead.
   if (isError) return <CalendarError message={error?.message} onRetry={refetch} t={t} />
 
   const calendarGridStyle = getCalendarGridStyle(displayDates.length, timeLayout.rows)

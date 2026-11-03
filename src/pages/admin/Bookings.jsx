@@ -13,7 +13,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { getBookings, updateBooking, deleteBooking, checkIn, checkOut, createBooking, createFixedDeskPlan } from '../../services/bookings'
 import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
-import { checkBookingConflictsStrict } from '../../services/functions'
+import { checkBookingConflicts } from '../../services/functions'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
@@ -287,7 +287,7 @@ const createAssignError = (code, message) => {
 
 const checkAssignAvailability = async (form) => {
   try {
-    return await checkBookingConflictsStrict(
+    return await checkBookingConflicts(
       form.amenityId,
       form.selectedStartTime,
       form.selectedEndTime
