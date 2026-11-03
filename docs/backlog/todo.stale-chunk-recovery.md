@@ -17,7 +17,6 @@ fallback instead of a white screen for anything still uncaught.
 - `src/components/AppErrorBoundary.jsx` (new) — class error boundary; fallback asks
   the member to reload the page and has a Reload button.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — fallback strings.
-- `src/styles/globals.css` (edited, only if needed) — fallback card via existing CSS vars.
 
 ## Acceptance
 - [ ] A `vite:preloadError` reloads the page.
@@ -45,8 +44,14 @@ fallback instead of a white screen for anything still uncaught.
   push opt-in banner and toasts still render
 
 ## Notes
+Every deploy changes every page chunk's hash, not only edited pages: the entry chunk
+carries `__APP_COMMIT__` and `__APP_BUILT_AT__`, and page chunks import from it. So
+any lazy page can fail in an old tab after any deploy.
+
 The 10 s window, not a one-shot flag, so a second deploy later in the same session
 still recovers, while a chunk that is broken in the new build too cannot loop.
+If `sessionStorage` is blocked the listener cannot record a reload, so it does not
+reload at all and the error falls through to the Reload fallback.
 
 Auto-reload is silent on purpose: the failure only happens when navigating to a new
 page, so there is no half-filled form to lose.

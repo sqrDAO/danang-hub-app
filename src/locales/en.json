@@ -43,7 +43,9 @@
     "continue": "Continue",
     "on": "On",
     "off": "Off",
-    "telegramChatbot": "Chat with our Telegram bot"
+    "telegramChatbot": "Chat with our Telegram bot",
+    "errorReload": "Something went wrong. Please reload the page.",
+    "reload": "Reload"
   },
   "notifications": {
     "title": "Notifications",

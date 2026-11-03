@@ -43,7 +43,9 @@
     "continue": "Tiếp tục",
     "on": "Bật",
     "off": "Tắt",
-    "telegramChatbot": "Trò chuyện với bot Telegram của chúng tôi"
+    "telegramChatbot": "Trò chuyện với bot Telegram của chúng tôi",
+    "errorReload": "Đã có lỗi xảy ra. Vui lòng tải lại trang.",
+    "reload": "Tải lại"
   },
   "notifications": {
     "title": "Thông báo",
