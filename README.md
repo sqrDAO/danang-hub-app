@@ -347,7 +347,7 @@ functions/
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
-| `push_tokens` | Private browser push tokens keyed by member uid; invalid tokens are pruned after unrecoverable FCM failures |
+| `push_tokens` | Private browser push tokens, one `push_tokens/{uid}/devices/{deviceId}` doc per phone (on/off is per phone); the legacy single-token `push_tokens/{uid}` doc is still read while `preferences.pushNotifications` is on, and only deleted by the app; invalid tokens are pruned after unrecoverable FCM failures |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |

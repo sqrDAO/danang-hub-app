@@ -1,4 +1,4 @@
-import { isDeviceOptedIn, shouldSuppressPushOptInPrompt } from './pushDeviceOptIn'
+import { isDeviceOptedIn } from './pushDeviceOptIn'
 
 const DISMISS_COUNT_KEY = (uid) => `pushOptInDismissCount:${uid}`
 const MAX_MANUAL_DISMISSES = 3
@@ -72,14 +72,10 @@ export const resetPushOptInPrompt = () => {
  * After a success toast, maybe show the push opt-in drop-in.
  * Call from mutation onSuccess only.
  */
-export const promptPushOptInAfterSuccess = (uid, optedIn = false) => {
+export const promptPushOptInAfterSuccess = (uid) => {
   if (!uid || isStopped(uid)) return
-  // Preference-on is not enough: a PWA reinstall leaves the account opted in
-  // while wiping this device's marker, and that device still needs the banner.
-  if (shouldSuppressPushOptInPrompt({
-    preferenceEnabled: optedIn,
-    deviceOptedIn: isDeviceOptedIn(uid)
-  })) return
+  // On/off is per phone: suppress only when this phone is already receiving.
+  if (isDeviceOptedIn(uid)) return
   cancelScheduledPushOptIn()
   pendingTimer = setTimeout(async () => {
     pendingTimer = null
@@ -90,7 +86,7 @@ export const promptPushOptInAfterSuccess = (uid, optedIn = false) => {
       // firebase/messaging into the eager entry chunk. If the chunk fails to
       // load we simply skip the prompt.
       const { canShowPushOptInPrompt } = await import('../services/pushNotifications')
-      if (!(await canShowPushOptInPrompt({ optedIn, uid }))) return
+      if (!(await canShowPushOptInPrompt({ uid }))) return
     } catch {
       return
     }

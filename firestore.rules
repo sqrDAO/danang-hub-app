@@ -223,6 +223,17 @@ service cloud.firestore {
     match /push_tokens/{userId} {
       allow read: if false;
       allow create, update, delete: if isOwner(userId);
+
+      // One doc per phone, keyed by a random id the phone keeps, so each phone
+      // overwrites only its own token.
+      match /devices/{deviceId} {
+        allow read: if false;
+        allow create, update: if isOwner(userId) &&
+                                 request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt']) &&
+                                 request.resource.data.token is string &&
+                                 request.resource.data.token.size() > 0;
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }
