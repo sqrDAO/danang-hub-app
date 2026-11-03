@@ -18,6 +18,7 @@ import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { isSameHubDay } from '../utils/timezone'
 import { getFixedDeskPlanWindow, planRecurrenceStarts } from '../utils/recurrence'
 import { renewalStartDate } from '../utils/renewals'
+import { isSlotTaken } from '../utils/conflictCheck'
 import {
   cancelLocalFixedDeskPlan,
   countLocalCompletedBookings,
@@ -255,22 +256,12 @@ export const checkOut = async (id) => {
 // non-working weekday does.
 const isOpenDate = (date) => !isHubClosed(date)
 
-// Whether one occurrence must be skipped. A day the amenity does not take (a
-// closure, hours, availableDays) is rejected with invalid-argument and skipped
-// like a taken one; any other failure throws, so the series fails closed.
+// Whether one occurrence must be skipped: taken, or a day the amenity does not
+// take (a closure, hours, availableDays). Any other failure throws, so the
+// series fails closed (see isSlotTaken).
 const hasRecurringConflict = async (checkConflictsFn, amenityId, bookingStart, bookingEnd) => {
   if (!checkConflictsFn) return false
-  try {
-    const conflictCheck = await checkConflictsFn(
-      amenityId,
-      bookingStart.toISOString(),
-      bookingEnd.toISOString()
-    )
-    return conflictCheck.hasConflicts
-  } catch (error) {
-    if (error?.code === 'functions/invalid-argument') return true
-    throw error
-  }
+  return isSlotTaken(checkConflictsFn, amenityId, bookingStart.toISOString(), bookingEnd.toISOString())
 }
 
 // Create a single occurrence of a recurring booking.
@@ -396,18 +387,11 @@ const getPlanBookings = async (planGroupId) => {
 }
 
 // Whether a renewal day can still be had. The callable rejects a day the desk
-// no longer takes (a Hub closure declared since, changed availableDays) with
-// invalid-argument: that day is lost like a taken seat, not an error. Any
+// no longer takes (a Hub closure declared since, changed availableDays) as
+// slot-unavailable: that day is lost like a taken seat, not an error. Any
 // other failure is rethrown, so approval fails closed.
-const isRenewalDayFree = async (day, checkConflictsFn) => {
-  try {
-    const { hasConflicts } = await checkConflictsFn(day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id)
-    return !hasConflicts
-  } catch (error) {
-    if (error?.code === 'functions/invalid-argument') return false
-    throw error
-  }
-}
+const isRenewalDayFree = async (day, checkConflictsFn) =>
+  !(await isSlotTaken(checkConflictsFn, day.amenityId, toDate(day.startTime), toDate(day.endTime), day.id))
 
 // Approve a renewal as one unit. Its pending days held no seat while they
 // waited, so each is re-checked and a day that can no longer be had is

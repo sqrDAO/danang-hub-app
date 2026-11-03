@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
 import { parseBookingRanges } from '../utils/bookingRanges'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { markConflictCheckError, retryTransientOnce } from '../utils/conflictCheck'
 import {
   checkLocalBookingConflicts,
   editLocalOwnEvent,
@@ -11,22 +12,30 @@ import {
 
 // Fails closed: this callable is the only overlap check (firestore.rules has
 // none), so an error means the slot could not be verified and booking it would
-// be unsafe. A day the amenity does not take is rejected with invalid-argument.
+// be unsafe. A transient failure (network, cold start) is retried once. A day
+// the amenity does not take is rejected with invalid-argument and
+// details.reason 'slot-unavailable' (see isSlotUnavailableError). Every error
+// thrown is tagged conflictCheckFailed so callers can name the cause.
 export const checkBookingConflicts = async (amenityId, startTime, endTime, excludeBookingId = null) => {
   if (LOCAL_DEV_MODE) {
     return checkLocalBookingConflicts(amenityId, startTime, endTime, excludeBookingId)
   }
   const checkConflicts = httpsCallable(functions, 'checkBookingConflicts')
-  const result = await checkConflicts({
+  const payload = {
     amenityId,
     startTime: new Date(startTime).toISOString(),
     endTime: new Date(endTime).toISOString(),
     excludeBookingId
-  })
-  if (typeof result?.data?.hasConflicts !== 'boolean') {
-    throw new Error('Invalid booking conflict response')
   }
-  return result.data
+  try {
+    const result = await retryTransientOnce(() => checkConflicts(payload))
+    if (typeof result?.data?.hasConflicts !== 'boolean') {
+      throw new Error('Invalid booking conflict response')
+    }
+    return result.data
+  } catch (error) {
+    throw markConflictCheckError(error)
+  }
 }
 
 // Busy ranges for one amenity, used by BookingCalendar to grey out taken
@@ -34,9 +43,9 @@ export const checkBookingConflicts = async (amenityId, startTime, endTime, exclu
 // scopes their reads to their own documents — so occupancy comes from the
 // callable, which returns start/end/status and no member identity.
 //
-// Throws like checkBookingConflicts above. Swallowing the error would leave the calendar with an empty range list, which paints
-// every slot free and invites the double booking that neither the advisory
-// conflict check nor firestore.rules would catch.
+// Throws like checkBookingConflicts above. Swallowing the error would leave
+// the calendar with an empty range list, which paints every slot free and
+// invites the double booking that firestore.rules would not catch.
 export const getAmenityBookingRanges = async (amenityId, startTime, endTime) => {
   if (LOCAL_DEV_MODE) return listLocalAmenityRanges(amenityId, startTime, endTime)
   const loadRanges = httpsCallable(functions, 'getAmenityBookingRanges')
