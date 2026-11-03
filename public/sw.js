@@ -1,6 +1,6 @@
 import { clientsClaim } from 'workbox-core'
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
-import { registerRoute } from 'workbox-routing'
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching'
+import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
@@ -12,6 +12,13 @@ self.skipWaiting()
 clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+
+// Page loads get the precached app shell, like Hosting's `**` rewrite, so deep links
+// and reloads work offline. Firebase-reserved /__/ paths (Auth popup handler) and
+// direct file URLs still go to the network.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
+  denylist: [/^\/__\//, /\/[^/?]+\.[^/]+$/]
+}))
 
 const createCachePlugins = (maxEntries, maxAgeSeconds) => [
   new CacheableResponsePlugin({ statuses: [0, 200] }),
