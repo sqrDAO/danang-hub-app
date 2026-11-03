@@ -8,6 +8,7 @@ import App from './App.jsx'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import i18n from './i18n'
 import { shouldReloadForStaleChunk } from './utils/chunkReload'
+import { APP_COMMIT, APP_BUILT_AT } from './utils/appVersion'
 import './styles/globals.css'
 
 const queryClient = new QueryClient({
@@ -27,15 +28,22 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // A tab still on the previous build asks for lazy chunks the new deploy removed.
-// Reload into the new build; if the guard or blocked storage stops us, the
-// error is left to reach AppErrorBoundary instead.
-const STALE_CHUNK_RELOAD_KEY = 'hub-stale-chunk-reload-at'
+// Reload into the new build, once per build; if the guard or blocked storage
+// stops us, the error is left to the importer's own .catch (HeroCanvas3D) or
+// AppErrorBoundary instead.
+const STALE_CHUNK_RELOAD_KEY = 'hub-stale-chunk-reload-build'
+const CURRENT_BUILD = `${APP_COMMIT}@${APP_BUILT_AT}`
 
 window.addEventListener('vite:preloadError', (event) => {
   try {
-    const stored = sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)
-    if (!shouldReloadForStaleChunk(stored === null ? null : Number(stored), Date.now())) return
-    sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, String(Date.now()))
+    const reload = shouldReloadForStaleChunk({
+      error: event.payload,
+      online: navigator.onLine,
+      reloadedBuild: sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY),
+      currentBuild: CURRENT_BUILD,
+    })
+    if (!reload) return
+    sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, CURRENT_BUILD)
   } catch {
     return
   }

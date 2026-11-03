@@ -13,6 +13,10 @@ class AppErrorBoundary extends Component {
     return { hasError: true }
   }
 
+  componentDidCatch(error, info) {
+    console.error('[AppErrorBoundary]', error, info?.componentStack)
+  }
+
   render() {
     if (!this.state.hasError) return this.props.children
 
