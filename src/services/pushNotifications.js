@@ -104,7 +104,16 @@ const savePushToken = async (uid, deviceId, token) => {
 
 const deleteBrowserPushToken = async () => {
   if (!(await isPushSupported())) return false
-  const messaging = getMessaging(app)
+  if (Notification.permission !== 'granted') return false
+  const serviceWorkerRegistration = await getServiceWorkerRegistration()
+  // No push subscription means no live token to revoke.
+  if (!(await serviceWorkerRegistration.pushManager.getSubscription())) return false
+  // deleteToken only targets our sw.js after getToken has bound it in this page
+  // session; otherwise it registers the SDK's default /firebase-messaging-sw.js,
+  // which this app doesn't ship, and throws. With permission granted and a live
+  // subscription, getToken returns the existing token without prompting.
+  const messaging = await getMessagingInstance(true)
+  await getToken(messaging, { vapidKey: firebaseVapidKey, serviceWorkerRegistration })
   return deleteToken(messaging)
 }
 
