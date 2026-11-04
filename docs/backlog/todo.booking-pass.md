@@ -11,7 +11,6 @@ A walk-in guest must show the building's security guard, who only glances at the
 - `src/components/BookingPass.jsx`, `BookingPass.css` (new) — the pass inside the existing `Modal`, slide-up panel on phones.
 - `src/pages/member/Bookings.jsx`, `Bookings.css` (edited) — Today section, shared card, pass state; drop the old card and its CSS.
 - `src/pages/member/Dashboard.jsx`, `Dashboard.css` (edited) — shared card with the pass; hub-time "today"; drop the old item CSS.
-- `src/styles/globals.css` (edited) — `.status-badge.approved` uses the success tokens.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — `bookingPass.*`, `memberBookings.today`.
 
 ## Acceptance
@@ -23,8 +22,8 @@ A walk-in guest must show the building's security guard, who only glances at the
 - [ ] Card actions (Cancel, Delete, Cancel day) sit right of the tear line.
 - [ ] The time line reads `HH:mm – HH:mm (9h)` or `(1h30)` in hub time, 24-hour in both languages.
 - [ ] Status pill text comes from `t('status.<status>')` on cards without a pass.
-- [ ] Approved pills are green.
-- [ ] `.status-badge.approved` is green app-wide.
+- [ ] Only the "Entry pass" pill is green; other approved pills keep their amber color.
+- [ ] NOT: no change to `src/styles/globals.css` (admin badges look as before).
 - [ ] Cancel, Delete and partner-desk "Cancel day" keep their current behavior.
 - [ ] My Bookings shows a "Today" section above Available Amenities, hidden when empty.
 - [ ] Today holds bookings on the current hub day for the whole day, except cancelled and rejected ones.

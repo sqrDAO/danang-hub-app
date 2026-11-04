@@ -20,12 +20,12 @@ const Icon = ({ d }) => (
 )
 
 // On a pass-eligible card the pill itself opens the pass: the pass only exists
-// for a confirmed booking, so "Entry pass" stands in for the status. Always the
-// green approved look, checked-in too, so the pass pill reads the same.
+// for a confirmed booking, so "Entry pass" stands in for the status. Green for
+// approved and checked-in alike, so the pass pill always reads the same.
 const StatusPill = ({ booking, status, t, onShowPass, isToday }) => {
   if (onShowPass && isToday && isPassStatus(status)) {
     return (
-      <button type="button" className="status-badge approved btn-pass" onClick={() => onShowPass(booking)}>
+      <button type="button" className="status-badge btn-pass" onClick={() => onShowPass(booking)}>
         <Icon d={STATUS_ICON.approved} />
         {t('bookingPass.show')}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

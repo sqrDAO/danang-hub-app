@@ -132,11 +132,15 @@
   white-space: nowrap;
 }
 
-/* The approved status pill as a button: look comes from .status-badge.approved;
-   this only resets <button>, adds hover/focus, and ::after widens the tap area
-   to ~46px. No capitalize: "Thẻ vào cửa" would become "Thẻ Vào Cửa". */
+/* The status pill as a button: shape from .status-badge, green of its own so
+   "can enter" stands apart from approved (amber) and completed (green, in
+   Past). ::after widens the tap area to ~46px. No capitalize: "Thẻ vào cửa"
+   would become "Thẻ Vào Cửa". */
 .btn-pass {
   position: relative;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
   font-family: inherit;
   line-height: inherit;
   text-transform: none;
@@ -157,6 +161,11 @@
 .btn-pass:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+}
+
+/* Light success text (#16a34a) is ~3.3:1 on white, too faint for a label */
+[data-theme="light"] .btn-pass {
+  color: var(--color-success-dark);
 }
 
 /* Amber text on white is ~2:1: take dark text in light theme, the way
