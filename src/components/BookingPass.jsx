@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import Modal from './Modal'
 import Avatar from './Avatar'
-import { formatDateDDMMYYYY, formatHubDate } from '../utils/timezone'
+import { formatDateDDMMYYYY } from '../utils/timezone'
+import { formatHubTimeRange } from '../utils/bookingPass'
 import './BookingPass.css'
 
 // The card is read by a Vietnamese guard, so its text is always Vietnamese;
@@ -14,7 +15,6 @@ const Label = ({ k, vi, t, gloss }) => (
   </span>
 )
 
-const hubTime = (date) => formatHubDate(date, 'vi-VN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 const PassCard = ({ booking, profile, t, vi, gloss }) => (
   <section className="booking-pass" lang="vi" aria-label={vi('bookingPass.title')}>
@@ -47,7 +47,7 @@ const PassCard = ({ booking, profile, t, vi, gloss }) => (
       </div>
       <div className="booking-pass-row">
         <Label k="bookingPass.time" vi={vi} t={t} gloss={gloss} />
-        <span className="booking-pass-value is-time">{hubTime(booking.startTime)} – {hubTime(booking.endTime)}</span>
+        <span className="booking-pass-value is-time">{formatHubTimeRange(booking)}</span>
       </div>
     </div>
 

@@ -11,7 +11,7 @@ import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import BookingCard from '../../components/BookingCard'
 import BookingPass from '../../components/BookingPass'
-import { splitBookings } from '../../utils/bookingPass'
+import { deduplicateBookings, splitBookings } from '../../utils/bookingPass'
 import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isAmenityOpenTo, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
@@ -84,14 +84,6 @@ const formatDateTimeForDisplay = (value, locale, t) => {
   })
   return `${datePart} ${timePart}`
 }
-
-const deduplicateBookings = (bookings) => bookings.filter((booking, index, arr) =>
-  index === arr.findIndex(b =>
-    b.amenityId === booking.amenityId &&
-    String(b.startTime) === String(booking.startTime) &&
-    String(b.endTime) === String(booking.endTime)
-  )
-)
 
 const getTodayString = () => {
   return toDateInputHub(new Date())
@@ -717,7 +709,9 @@ const BookingsListSection = ({
             amenity={amenities.find(a => a.id === booking.amenityId)}
             onShowPass={onShowPass}
           >
-            {showActions && (
+            {/* Today also holds bookings already under way or over: those keep
+                no actions, as when they sat in Past. */}
+            {showActions && new Date(booking.startTime) > new Date() && (
               <BookingActions
                 booking={booking}
                 t={t}

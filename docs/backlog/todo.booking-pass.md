@@ -27,7 +27,10 @@ A walk-in guest must show the building's security guard, who only glances at the
 - [ ] `.status-badge.approved` is green app-wide.
 - [ ] Cancel, Delete and partner-desk "Cancel day" keep their current behavior.
 - [ ] My Bookings shows a "Today" section above Available Amenities, hidden when empty.
-- [ ] Today holds non-cancelled bookings on the current hub day for the whole day.
+- [ ] Today holds bookings on the current hub day for the whole day, except cancelled and rejected ones.
+- [ ] Cancel, Delete and Cancel day show only on bookings that have not started.
+- [ ] A cancelled or rejected booking never hides an active booking with the same amenity and times.
+- [ ] A booking without a valid `startTime` or `endTime` renders in Past without a date or time, and the page does not crash.
 - [ ] Every booking appears in exactly one of Today, Upcoming, Past.
 - [ ] Dashboard "today" uses hub midnight, not browser midnight.
 - [ ] On a pass-eligible card the green status pill is the "Entry pass" button, with a check and a chevron.

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { formatHubDate, isSameHubDay } from '../utils/timezone'
-import { canShowPass, formatDurationShort } from '../utils/bookingPass'
+import { formatDurationShort, formatHubTimeRange, hasBookingTimes, isPassStatus } from '../utils/bookingPass'
 import './BookingCard.css'
 
 const STATUS_ICON = {
@@ -22,8 +22,8 @@ const Icon = ({ d }) => (
 // On a pass-eligible card the pill itself opens the pass: the pass only exists
 // for a confirmed booking, so "Entry pass" stands in for the status. Always the
 // green approved look, checked-in too, so the pass pill reads the same.
-const StatusPill = ({ booking, status, t, onShowPass }) => {
-  if (onShowPass && canShowPass(booking)) {
+const StatusPill = ({ booking, status, t, onShowPass, isToday }) => {
+  if (onShowPass && isToday && isPassStatus(status)) {
     return (
       <button type="button" className="status-badge approved btn-pass" onClick={() => onShowPass(booking)}>
         <Icon d={STATUS_ICON.approved} />
@@ -53,35 +53,36 @@ const DateTile = ({ date, locale, label, highlight = false }) => (
   </div>
 )
 
-const timeRange = (booking, locale) => {
-  // 24h HH:mm in both languages, matching the pass (h23: never "24:00").
-  const time = (d) => formatHubDate(d, locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-  return `${time(booking.startTime)} – ${time(booking.endTime)}`
-}
-
 const BookingCard = ({ booking, amenity, onShowPass, children }) => {
   const { t, i18n } = useTranslation()
   const locale = appLocale(i18n)
-  const isToday = isSameHubDay(booking.startTime, new Date())
+  // Without valid times the hub-day and format calls would throw: keep the
+  // date column (it holds the tear line) but leave it and the time line empty.
+  const timed = hasBookingTimes(booking)
+  const isToday = timed && isSameHubDay(booking.startTime, new Date())
   const status = booking.status || 'pending'
 
   return (
     <article className="booking-tile">
-      <DateTile
-        date={booking.startTime}
-        locale={locale}
-        label={isToday ? t('memberBookings.today') : undefined}
-        highlight={isToday}
-      />
+      {timed ? (
+        <DateTile
+          date={booking.startTime}
+          locale={locale}
+          label={isToday ? t('memberBookings.today') : undefined}
+          highlight={isToday}
+        />
+      ) : <div className="date-tile" aria-hidden="true" />}
       <div className="booking-tile-body">
         <div className="booking-tile-info">
           <h3 className="booking-tile-title">{amenity?.name || booking.amenityId}</h3>
-          <p className="booking-tile-time">
-            <Icon d="M12 7v5l3 2" />
-            <span>{timeRange(booking, locale)}</span>
-            <span className="booking-tile-duration">({formatDurationShort(booking.startTime, booking.endTime)})</span>
-          </p>
-          <StatusPill booking={booking} status={status} t={t} onShowPass={onShowPass} />
+          {timed && (
+            <p className="booking-tile-time">
+              <Icon d="M12 7v5l3 2" />
+              <span>{formatHubTimeRange(booking)}</span>
+              <span className="booking-tile-duration">({formatDurationShort(booking.startTime, booking.endTime)})</span>
+            </p>
+          )}
+          <StatusPill booking={booking} status={status} t={t} onShowPass={onShowPass} isToday={isToday} />
         </div>
         {children}
       </div>
