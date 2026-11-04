@@ -61,7 +61,9 @@ registerRoute(
     plugins: [
       new ExpirationPlugin({
         maxEntries: 50,
-        maxAgeSeconds: 60 * 60 * 24 * 7
+        maxAgeSeconds: 60 * 60 * 24 * 7,
+        // Storage images are opaque (~7 MB quota padding each); drop them, not the precache.
+        purgeOnQuotaError: true
       })
     ]
   })
