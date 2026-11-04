@@ -8,7 +8,9 @@ import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { getHubStartOfToday } from '../../utils/timezone'
+import BookingCard from '../../components/BookingCard'
+import BookingPass from '../../components/BookingPass'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import './Profile.css'
@@ -24,12 +26,6 @@ const getMemberDashboardWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-const getTodayStart = () => {
-  const now = new Date()
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  return start
-}
 
 const isRegistered = (event, uid) =>
   event.attendees?.includes(uid) ?? false
@@ -104,10 +100,10 @@ const BookingsPagination = ({ page, totalPages, startIndex, endIndex, total, set
 }
 
 const MemberDashboard = () => {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { currentUser } = useAuth()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
   const [bookingsPage, setBookingsPage] = useState(1)
+  const [passBooking, setPassBooking] = useState(null)
   const BOOKINGS_PAGE_SIZE = 10
 
   const memberDashboardWindow = getMemberDashboardWindow()
@@ -130,17 +126,12 @@ const MemberDashboard = () => {
     queryFn: getAmenities
   })
 
-  const todayStart = getTodayStart()
+  // Hub midnight, not the browser's: a guest's phone may sit in another zone.
+  const todayStart = getHubStartOfToday()
 
   const upcomingBookingsAll = myBookings
     .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))
-    .filter(b => {
-      if (!b.startTime) return false
-      const start = b.startTime instanceof Date ? b.startTime : new Date(b.startTime)
-      const dayStart = new Date(start)
-      dayStart.setHours(0, 0, 0, 0)
-      return dayStart >= todayStart
-    })
+    .filter(b => b.startTime && new Date(b.startTime) >= todayStart)
 
   const sortedUpcomingBookings = [...upcomingBookingsAll].sort((a, b) => {
     const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
@@ -169,7 +160,8 @@ const MemberDashboard = () => {
     .slice(0, 5)
 
   return (
-    <Layout>
+    <Layout hideChatbot={!!passBooking}>
+      <BookingPass booking={passBooking} onClose={() => setPassBooking(null)} />
       <div className="container member-dashboard">
         <h1 className="page-title">{t('memberDashboard.title')}</h1>
 
@@ -183,41 +175,15 @@ const MemberDashboard = () => {
             </div>
             {paginatedUpcomingBookings.length > 0 ? (
               <ul className="booking-list">
-                {paginatedUpcomingBookings.map(booking => {
-                  const amenity = amenities.find(a => a.id === booking.amenityId)
-                  return (
-                    <li key={booking.id} className="booking-item">
-                      <div className="booking-info">
-                        <span className="booking-amenity">{amenity?.name || booking.amenityId}</span>
-                        <span className="booking-duration">
-                          {booking.endTime && booking.startTime
-                            ? (() => {
-                                const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
-                                // Show fractional hours (e.g., 1.5h) if not a whole number
-                                return hours % 1 === 0 ? `${hours}h` : `${hours.toFixed(1)}h`
-                              })()
-                            : ''}
-                        </span>
-                      </div>
-                      <div className="booking-right">
-                        <span className={`status-badge ${booking.status}`}>
-                          {t(`status.${booking.status || 'pending'}`)}
-                        </span>
-                        <div className="booking-time-info">
-                          <span className="booking-time">
-                            {booking.startTime ? formatDateDDMMYYYY(booking.startTime) : 'N/A'}
-                          </span>
-                          <span className="booking-time-small">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString(locale, {
-                              hour: 'numeric',
-                              minute: '2-digit'
-                            }) : ''}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  )
-                })}
+                {paginatedUpcomingBookings.map(booking => (
+                  <li key={booking.id}>
+                    <BookingCard
+                      booking={booking}
+                      amenity={amenities.find(a => a.id === booking.amenityId)}
+                      onShowPass={setPassBooking}
+                    />
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="empty-state">{t('memberDashboard.noUpcomingBookings')}</p>

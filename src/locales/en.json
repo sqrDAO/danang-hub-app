@@ -495,8 +495,18 @@
       "availableDays": "Available Days"
     }
   },
+  "bookingPass": {
+    "title": "Entry pass",
+    "show": "Show entry pass",
+    "confirmed": "Booking confirmed",
+    "guest": "Guest",
+    "company": "Company",
+    "time": "Time",
+    "hint": "Show this screen to the security guard at the entrance."
+  },
   "memberBookings": {
     "title": "My Bookings",
+    "today": "Today",
     "tabBookings": "Bookings",
     "tabFixedDesk": "Fixed Desk",
     "availableAmenities": "Available Amenities",

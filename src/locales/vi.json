@@ -495,8 +495,18 @@
       "availableDays": "Ngày hoạt động"
     }
   },
+  "bookingPass": {
+    "title": "Thẻ vào cửa",
+    "show": "Hiện thẻ vào cửa",
+    "confirmed": "Đã đặt chỗ",
+    "guest": "Khách",
+    "company": "Công ty",
+    "time": "Giờ",
+    "hint": "Đưa màn hình này cho bảo vệ ở cửa vào."
+  },
   "memberBookings": {
     "title": "Đặt chỗ của tôi",
+    "today": "Hôm nay",
     "tabBookings": "Đặt chỗ",
     "tabFixedDesk": "Bàn cố định",
     "availableAmenities": "Tiện ích khả dụng",

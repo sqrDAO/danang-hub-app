@@ -9,6 +9,9 @@ import BookingCalendar from '../../components/BookingCalendar'
 import HubClosureNotice from '../../components/HubClosureNotice'
 import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
+import BookingCard from '../../components/BookingCard'
+import BookingPass from '../../components/BookingPass'
+import { splitBookings } from '../../utils/bookingPass'
 import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isAmenityOpenTo, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
@@ -652,76 +655,41 @@ const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onS
   </div>
 )
 
-const BookingCard = ({
-  booking,
-  amenity,
-  t,
-  locale,
-  showActions,
-  onCancel,
-  onDelete,
-  cancelPending,
-  deletePending,
-}) => (
-  <div className="booking-card">
-    <div className="booking-header">
-      <h4 className="booking-amenity">{amenity?.name || booking.amenityId}</h4>
-    </div>
-    <div className="booking-content">
-      <div className="booking-status-section">
-        <span className={`status-badge ${booking.status}`}>
-          {booking.status}
-        </span>
-        {booking.startTime && booking.endTime ? (() => {
-          const hours = (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60)
-          const durationText = hours % 1 === 0
-            ? `${hours} hour${hours !== 1 ? 's' : ''}`
-            : `${hours.toFixed(1)} hours`
-          return <p className="booking-duration">{durationText}</p>
-        })() : null}
-      </div>
-      <div className="booking-time-section">
-        <p className="booking-time">
-          {t('memberBookings.start')} {formatDateTimeForDisplay(booking.startTime, locale, t)}
-        </p>
-        <p className="booking-time">
-          {t('memberBookings.end')} {formatDateTimeForDisplay(booking.endTime, locale, t)}
-        </p>
-      </div>
-    </div>
-    {showActions && (
-      <div className="booking-actions">
-        {booking.status === 'approved' && booking.planType === PARTNER_DESK && (
+const BookingActions = ({ booking, t, onCancel, onDelete, cancelPending, deletePending }) => {
+  const partnerDay = booking.status === 'approved' && booking.planType === PARTNER_DESK
+  if (!partnerDay && booking.status !== 'pending') return null
+  return (
+    <div className="booking-actions">
+      {partnerDay && (
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={() => onCancel(booking.id)}
+          disabled={cancelPending}
+        >
+          {t('partnerDesk.cancelDay')}
+        </button>
+      )}
+      {booking.status === 'pending' && (
+        <>
           <button
             className="btn btn-danger btn-sm"
             onClick={() => onCancel(booking.id)}
             disabled={cancelPending}
           >
-            {t('partnerDesk.cancelDay')}
+            {t('common.cancel')}
           </button>
-        )}
-        {booking.status === 'pending' && (
-          <>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => onCancel(booking.id)}
-              disabled={cancelPending}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => onDelete(booking.id)}
-              disabled={deletePending}
-            >
-              {t('common.delete')}
-            </button>
-          </>
-        )}
-      </div>
-    )}
-  </div>
-)
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => onDelete(booking.id)}
+            disabled={deletePending}
+          >
+            {t('common.delete')}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
 
 const BookingsListSection = ({
   title,
@@ -729,12 +697,12 @@ const BookingsListSection = ({
   bookings,
   amenities,
   t,
-  locale,
   showActions,
   onCancel,
   onDelete,
   cancellingId,
   deletingId,
+  onShowPass,
 }) => (
   <div className="bookings-section glass">
     <div className="section-header">
@@ -747,14 +715,19 @@ const BookingsListSection = ({
             key={booking.id}
             booking={booking}
             amenity={amenities.find(a => a.id === booking.amenityId)}
-            t={t}
-            locale={locale}
-            showActions={showActions}
-            onCancel={onCancel}
-            onDelete={onDelete}
-            cancelPending={cancellingId === booking.id}
-            deletePending={deletingId === booking.id}
-          />
+            onShowPass={onShowPass}
+          >
+            {showActions && (
+              <BookingActions
+                booking={booking}
+                t={t}
+                onCancel={onCancel}
+                onDelete={onDelete}
+                cancelPending={cancellingId === booking.id}
+                deletePending={deletingId === booking.id}
+              />
+            )}
+          </BookingCard>
         ))}
       </div>
     ) : (
@@ -762,6 +735,10 @@ const BookingsListSection = ({
     )}
   </div>
 )
+
+// Hidden when empty, unlike the other lists, which show an empty state.
+const TodaySection = (props) =>
+  props.bookings.length > 0 ? <BookingsListSection {...props} /> : null
 
 const PlanPeriod = ({ plan, t }) => {
   if (isSyncedPartnerPlan(plan)) return t('partnerDesk.ongoing')
@@ -1297,21 +1274,35 @@ const MemberBookings = () => {
 
   const deskAmenities = bookableAmenities.filter(a => a.type === 'desk')
 
-  const deduplicatedBookings = deduplicateBookings(myBookings)
-  const upcomingBookings = deduplicatedBookings.filter(b => new Date(b.startTime) > new Date())
-  const pastBookings = deduplicatedBookings.filter(b => new Date(b.startTime) <= new Date())
+  const { today: todayBookings, upcoming: upcomingBookings, past: pastBookings } = splitBookings(deduplicateBookings(myBookings))
+  const [passBooking, setPassBooking] = useState(null)
 
   // Raw bookings, not the de-duplicated list: a rejected renewal and its
   // re-request share amenity and times, and de-duplication could hide either.
   const fixedDeskPlans = useMemo(() => buildDeskPlans(myBookings), [myBookings])
 
   return (
-    <Layout hideChatbot={form.isModalOpen}>
+    <Layout hideChatbot={form.isModalOpen || !!passBooking}>
       <div className="container">
         <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
           <HubClosureNotice />
         </div>
+
+        <TodaySection
+          title={t('memberBookings.today')}
+          bookings={todayBookings}
+          amenities={amenities}
+          t={t}
+          showActions
+          onCancel={handlers.handleCancel}
+          onDelete={handlers.handleDelete}
+          cancellingId={pendingTargetId(mutations.updateMutation)}
+          deletingId={pendingTargetId(mutations.deleteMutation)}
+          onShowPass={setPassBooking}
+        />
+
+        <BookingPass booking={passBooking} onClose={() => setPassBooking(null)} />
 
         <AmenitiesSection
           t={t}
@@ -1329,7 +1320,6 @@ const MemberBookings = () => {
           bookings={upcomingBookings}
           amenities={amenities}
           t={t}
-          locale={locale}
           showActions
           onCancel={handlers.handleCancel}
           onDelete={handlers.handleDelete}
@@ -1356,7 +1346,6 @@ const MemberBookings = () => {
           bookings={pastBookings}
           amenities={amenities}
           t={t}
-          locale={locale}
         />
 
         <Modal
