@@ -346,6 +346,9 @@ export const disablePushNotifications = async (uid) => {
 
 export const disablePushNotificationsOnLogout = async (uid) => {
   if (!isMobilePushEligible()) return false
+  // A device that never opted in holds no token here; cleaning up would delete
+  // another phone's token and turn the account preference off.
+  if (!isDeviceOptedIn(uid)) return false
   await disablePushNotifications(uid)
   return true
 }
