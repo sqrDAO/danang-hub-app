@@ -31,8 +31,8 @@ Each member keeps one push token per phone, so every phone that turned notificat
 - [ ] Logout cleanup runs on every push-eligible phone, whatever its opt-in marker says
 - [ ] Logging out deletes this phone's FCM browser token
 - [ ] Logging out keeps phone A's opt-in, so logging back in re-registers it without a permission prompt
-- [ ] Turning a phone off or logging out also deletes the legacy `push_tokens/{uid}` doc
-- [ ] A refused cleanup step (device doc, legacy doc, browser token) does not skip the others
+- [ ] Turning a phone off or logging out leaves the legacy `push_tokens/{uid}` doc in place
+- [ ] A refused cleanup step (device doc, browser token) does not skip the other
 - [ ] A member whose token sits only in the legacy doc keeps receiving push after the deploy
 - [ ] A dead token deletes every entry whose stored token equals it
 - [ ] A dead token leaves entries holding a different token
@@ -69,7 +69,8 @@ Each member keeps one push token per phone, so every phone that turned notificat
 - Device id: random, in localStorage `pushDeviceId` (per phone, not per uid), kept across logouts, so a token refresh overwrites the same doc. If it can't be stored, enable throws `PUSH_DISABLED_MESSAGE`.
 - Legacy read: the server reads `push_tokens/{uid}` only while `preferences.pushNotifications === true`, as today. A follow-up issue removes it once phones have re-registered.
 - The app no longer changes `preferences.pushNotifications`. It is read only by the legacy read and `shouldAdoptLegacyOptIn`.
-- Deploy order is Hosting → rules → Functions. For a few minutes the old rules refuse device-doc writes and deletes. Run cleanup steps independently (`Promise.allSettled`), so the legacy delete and `deleteToken` still land. A refused register retries on next launch.
+- Deploy order is Hosting → rules → Functions. For a few minutes the old rules refuse device-doc writes and deletes. Run cleanup steps independently (`Promise.allSettled`), so `deleteToken` still lands.
+- The app never deletes the legacy doc: mid-transition it may hold another phone's token (one not yet relaunched on this build), and deleting it would cut that phone off. A legacy token killed by `deleteToken` is pruned by the server's stale-token cleanup on the next send. A refused register retries on next launch.
 - Dedupe keeps, per token, every doc that held it, so stale cleanup can delete each one (own transaction, delete only if the stored token still matches).
 - Markers stay per member (one push per fixed-desk plan). Decide mark/release once after all 500-token batches; a thrown batch counts as failed for its tokens.
 - Overrides earlier specs on purpose: `done.push-stale-token-keeps-preference.md` (refresh needed the preference) and `done.mobile-only-browser-push.md` (desktop opt-out control). Consequence: a phone whose marker says opted in, but whose account preference was turned off elsewhere, resumes push on its next launch.

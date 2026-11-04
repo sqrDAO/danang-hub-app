@@ -91,9 +91,6 @@ const getServiceWorkerRegistration = async () => {
   return navigator.serviceWorker.ready
 }
 
-// Pre-per-phone single token per member. The app only deletes it now; the
-// server still reads it until phones have re-registered under devices/.
-const getLegacyPushTokenRef = (uid) => doc(db, PUSH_TOKENS_COLLECTION, uid)
 const getDevicePushTokenRef = (uid, deviceId) =>
   doc(db, PUSH_TOKENS_COLLECTION, uid, 'devices', deviceId)
 
@@ -112,16 +109,17 @@ const deleteBrowserPushToken = async () => {
 }
 
 /**
- * Removes this phone's push: its device doc, the legacy doc (it may hold this
- * phone's token, and the app no longer writes it), and the browser token.
+ * Removes this phone's push: its device doc and the browser token.
+ * The legacy `push_tokens/{uid}` doc is left alone: during the transition it
+ * may hold another phone's token. If it holds this phone's, deleteToken kills
+ * that token at FCM and the server prunes the doc on its next send.
  * Steps run independently: during a deploy the old rules refuse the device
- * delete, and that must not skip the other two.
+ * delete, and that must not skip deleteToken.
  */
 const clearThisPhonePush = async (uid) => {
   const deviceId = getPushDeviceId()
   const results = await Promise.allSettled([
     deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
-    deleteDoc(getLegacyPushTokenRef(uid)),
     deleteBrowserPushToken().catch(() => false)
   ])
   const failed = results.find((result) => result.status === 'rejected')
