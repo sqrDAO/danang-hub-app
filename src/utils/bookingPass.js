@@ -14,19 +14,25 @@ export const isPassStatus = (status) => ['approved', 'checked-in'].includes(stat
 export const canShowPass = (booking, now = new Date()) =>
   isPassStatus(booking.status) && hasBookingTimes(booking) && isSameHubDay(booking.startTime, now)
 
-const sameSlot = (a, b) =>
-  a.amenityId === b.amenityId &&
-  String(a.startTime) === String(b.startTime) &&
-  String(a.endTime) === String(b.endTime)
+// The open pass is looked up by id on every render, so a refetch that cancels
+// or completes the booking (or hub midnight passing) closes it.
+export const findPassBooking = (bookings, id, now = new Date()) =>
+  (id ? bookings.find((booking) => booking.id === id && canShowPass(booking, now)) ?? null : null)
 
-// One booking per amenity + slot. An active booking wins over a cancelled or
-// rejected one in the same slot (a member can cancel and re-book the same
-// slot); otherwise the first one wins.
+const isInactive = (booking) => INACTIVE_STATUSES.includes(booking.status)
+
+// One booking per amenity + slot, in one pass. An active booking wins over a
+// cancelled or rejected one in the same slot (a member can cancel and re-book
+// the same slot); otherwise the first one wins. The slot keeps the position of
+// its first booking.
 export const deduplicateBookings = (bookings) => {
-  const rank = (booking) => (INACTIVE_STATUSES.includes(booking.status) ? 1 : 0)
-  return bookings.filter((booking, index) => !bookings.some((other, otherIndex) =>
-    otherIndex !== index && sameSlot(other, booking) &&
-    (rank(other) < rank(booking) || (rank(other) === rank(booking) && otherIndex < index))))
+  const bySlot = new Map()
+  for (const booking of bookings) {
+    const slot = `${booking.amenityId}|${String(booking.startTime)}|${String(booking.endTime)}`
+    const kept = bySlot.get(slot)
+    if (!kept || (isInactive(kept) && !isInactive(booking))) bySlot.set(slot, booking)
+  }
+  return [...bySlot.values()]
 }
 
 // Today keeps every active booking of the hub day for the whole day; the rest
@@ -35,7 +41,7 @@ export const splitBookings = (bookings, now = new Date()) => {
   const groups = { today: [], upcoming: [], past: [] }
   for (const booking of bookings) {
     const timed = hasBookingTimes(booking)
-    const active = !INACTIVE_STATUSES.includes(booking.status)
+    const active = !isInactive(booking)
     if (timed && active && isSameHubDay(booking.startTime, now)) groups.today.push(booking)
     else if (timed && new Date(booking.startTime) > now) groups.upcoming.push(booking)
     else groups.past.push(booking)

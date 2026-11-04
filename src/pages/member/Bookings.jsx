@@ -11,7 +11,8 @@ import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import BookingCard from '../../components/BookingCard'
 import BookingPass from '../../components/BookingPass'
-import { deduplicateBookings, splitBookings } from '../../utils/bookingPass'
+import { deduplicateBookings, findPassBooking, splitBookings } from '../../utils/bookingPass'
+import useHubNow from '../../hooks/useHubNow'
 import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isAmenityOpenTo, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
@@ -695,6 +696,7 @@ const BookingsListSection = ({
   cancellingId,
   deletingId,
   onShowPass,
+  now,
 }) => (
   <div className="bookings-section glass">
     <div className="section-header">
@@ -708,10 +710,11 @@ const BookingsListSection = ({
             booking={booking}
             amenity={amenities.find(a => a.id === booking.amenityId)}
             onShowPass={onShowPass}
+            now={now}
           >
             {/* Today also holds bookings already under way or over: those keep
-                no actions, as when they sat in Past. */}
-            {showActions && new Date(booking.startTime) > new Date() && (
+                no actions, as when they sat in Past. Same `now` as the split. */}
+            {showActions && new Date(booking.startTime) > now && (
               <BookingActions
                 booking={booking}
                 t={t}
@@ -1268,8 +1271,11 @@ const MemberBookings = () => {
 
   const deskAmenities = bookableAmenities.filter(a => a.type === 'desk')
 
-  const { today: todayBookings, upcoming: upcomingBookings, past: pastBookings } = splitBookings(deduplicateBookings(myBookings))
-  const [passBooking, setPassBooking] = useState(null)
+  const now = useHubNow()
+  const uniqueBookings = useMemo(() => deduplicateBookings(myBookings), [myBookings])
+  const { today: todayBookings, upcoming: upcomingBookings, past: pastBookings } = splitBookings(uniqueBookings, now)
+  const [passBookingId, setPassBookingId] = useState(null)
+  const passBooking = findPassBooking(uniqueBookings, passBookingId, now)
 
   // Raw bookings, not the de-duplicated list: a rejected renewal and its
   // re-request share amenity and times, and de-duplication could hide either.
@@ -1284,7 +1290,7 @@ const MemberBookings = () => {
         </div>
 
         <TodaySection
-          title={t('memberBookings.today')}
+          title={t('calendar.today')}
           bookings={todayBookings}
           amenities={amenities}
           t={t}
@@ -1293,10 +1299,11 @@ const MemberBookings = () => {
           onDelete={handlers.handleDelete}
           cancellingId={pendingTargetId(mutations.updateMutation)}
           deletingId={pendingTargetId(mutations.deleteMutation)}
-          onShowPass={setPassBooking}
+          onShowPass={(booking) => setPassBookingId(booking.id)}
+          now={now}
         />
 
-        <BookingPass booking={passBooking} onClose={() => setPassBooking(null)} />
+        <BookingPass booking={passBooking} onClose={() => setPassBookingId(null)} />
 
         <AmenitiesSection
           t={t}
@@ -1319,6 +1326,7 @@ const MemberBookings = () => {
           onDelete={handlers.handleDelete}
           cancellingId={pendingTargetId(mutations.updateMutation)}
           deletingId={pendingTargetId(mutations.deleteMutation)}
+          now={now}
         />
 
         <FixedDeskPlansSection
@@ -1340,6 +1348,7 @@ const MemberBookings = () => {
           bookings={pastBookings}
           amenities={amenities}
           t={t}
+          now={now}
         />
 
         <Modal

@@ -7,6 +7,7 @@ import {
   canShowPass,
   splitBookings,
   deduplicateBookings,
+  findPassBooking,
   formatHubTimeRange,
   formatDurationShort,
 } from '../src/utils/bookingPass.js'
@@ -75,6 +76,27 @@ test('dedup keeps the active booking when a cancelled one shares its slot', () =
   const twin = { ...slot, id: 'c', status: 'approved' }
   const other = { ...slot, id: 'd', amenityId: 'room', status: 'cancelled' }
   assert.deepEqual(deduplicateBookings([cancelled, approved, twin, other]), [approved, other])
+})
+
+test('dedup keeps the first of two inactive or two active copies', () => {
+  const slot = { amenityId: 'desk', startTime: '2026-11-04T02:00:00.000Z', endTime: '2026-11-04T11:00:00.000Z' }
+  const cancelled = { ...slot, id: 'a', status: 'cancelled' }
+  const rejected = { ...slot, id: 'b', status: 'rejected' }
+  assert.deepEqual(deduplicateBookings([cancelled, rejected]), [cancelled])
+  const pending = { ...slot, id: 'c', status: 'pending' }
+  const approved = { ...slot, id: 'd', status: 'approved' }
+  assert.deepEqual(deduplicateBookings([pending, approved]), [pending])
+})
+
+test('the open pass follows the booking and closes when it no longer qualifies', () => {
+  const booking = { ...at('2026-11-04T09:00:00+07:00'), id: 'x' }
+  assert.equal(findPassBooking([booking], 'x', now), booking)
+  assert.equal(findPassBooking([booking], null, now), null)
+  // an admin cancels it, or the scheduler completes it, and the list refetches
+  assert.equal(findPassBooking([{ ...booking, status: 'cancelled' }], 'x', now), null)
+  assert.equal(findPassBooking([{ ...booking, status: 'completed' }], 'x', now), null)
+  // hub midnight passes while it is open
+  assert.equal(findPassBooking([booking], 'x', new Date('2026-11-05T00:01:00+07:00')), null)
 })
 
 test('time range is 24h HH:mm in hub time', () => {

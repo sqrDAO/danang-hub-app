@@ -506,7 +506,6 @@
   },
   "memberBookings": {
     "title": "My Bookings",
-    "today": "Today",
     "tabBookings": "Bookings",
     "tabFixedDesk": "Fixed Desk",
     "availableAmenities": "Available Amenities",

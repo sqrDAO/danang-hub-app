@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { formatHubDate, isSameHubDay } from '../utils/timezone'
-import { formatDurationShort, formatHubTimeRange, hasBookingTimes, isPassStatus } from '../utils/bookingPass'
+import { canShowPass, formatDurationShort, formatHubTimeRange, hasBookingTimes } from '../utils/bookingPass'
 import './BookingCard.css'
 
 const STATUS_ICON = {
@@ -22,8 +22,8 @@ const Icon = ({ d }) => (
 // On a pass-eligible card the pill itself opens the pass: the pass only exists
 // for a confirmed booking, so "Entry pass" stands in for the status. Green for
 // approved and checked-in alike, so the pass pill always reads the same.
-const StatusPill = ({ booking, status, t, onShowPass, isToday }) => {
-  if (onShowPass && isToday && isPassStatus(status)) {
+const StatusPill = ({ booking, status, t, onShowPass, now }) => {
+  if (onShowPass && canShowPass(booking, now)) {
     return (
       <button type="button" className="status-badge btn-pass" onClick={() => onShowPass(booking)}>
         <Icon d={STATUS_ICON.approved} />
@@ -53,13 +53,15 @@ const DateTile = ({ date, locale, label, highlight = false }) => (
   </div>
 )
 
-const BookingCard = ({ booking, amenity, onShowPass, children }) => {
+// `now` comes from the page (useHubNow) so the card, the sections and the
+// action buttons all read the same instant.
+const BookingCard = ({ booking, amenity, onShowPass, now, children }) => {
   const { t, i18n } = useTranslation()
   const locale = appLocale(i18n)
   // Without valid times the hub-day and format calls would throw: keep the
   // date column (it holds the tear line) but leave it and the time line empty.
   const timed = hasBookingTimes(booking)
-  const isToday = timed && isSameHubDay(booking.startTime, new Date())
+  const isToday = timed && isSameHubDay(booking.startTime, now)
   const status = booking.status || 'pending'
 
   return (
@@ -68,7 +70,7 @@ const BookingCard = ({ booking, amenity, onShowPass, children }) => {
         <DateTile
           date={booking.startTime}
           locale={locale}
-          label={isToday ? t('memberBookings.today') : undefined}
+          label={isToday ? t('calendar.today') : undefined}
           highlight={isToday}
         />
       ) : <div className="date-tile" aria-hidden="true" />}
@@ -82,7 +84,7 @@ const BookingCard = ({ booking, amenity, onShowPass, children }) => {
               <span className="booking-tile-duration">({formatDurationShort(booking.startTime, booking.endTime)})</span>
             </p>
           )}
-          <StatusPill booking={booking} status={status} t={t} onShowPass={onShowPass} isToday={isToday} />
+          <StatusPill booking={booking} status={status} t={t} onShowPass={onShowPass} now={now} />
         </div>
         {children}
       </div>

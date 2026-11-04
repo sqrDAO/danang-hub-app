@@ -8,7 +8,9 @@ import UnifiedCalendar from '../../components/UnifiedCalendar'
 import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { getHubStartOfToday } from '../../utils/timezone'
+import { getHubStartOfDay } from '../../utils/timezone'
+import { findPassBooking } from '../../utils/bookingPass'
+import useHubNow from '../../hooks/useHubNow'
 import BookingCard from '../../components/BookingCard'
 import BookingPass from '../../components/BookingPass'
 import EventCard from '../../components/event/EventCard'
@@ -102,7 +104,8 @@ const MemberDashboard = () => {
   const { t } = useTranslation()
   const { currentUser } = useAuth()
   const [bookingsPage, setBookingsPage] = useState(1)
-  const [passBooking, setPassBooking] = useState(null)
+  const [passBookingId, setPassBookingId] = useState(null)
+  const now = useHubNow()
   const BOOKINGS_PAGE_SIZE = 10
 
   const memberDashboardWindow = getMemberDashboardWindow()
@@ -126,7 +129,8 @@ const MemberDashboard = () => {
   })
 
   // Hub midnight, not the browser's: a guest's phone may sit in another zone.
-  const todayStart = getHubStartOfToday()
+  const todayStart = getHubStartOfDay(now)
+  const passBooking = findPassBooking(myBookings, passBookingId, now)
 
   const upcomingBookingsAll = myBookings
     .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))
@@ -160,7 +164,7 @@ const MemberDashboard = () => {
 
   return (
     <Layout hideChatbot={!!passBooking}>
-      <BookingPass booking={passBooking} onClose={() => setPassBooking(null)} />
+      <BookingPass booking={passBooking} onClose={() => setPassBookingId(null)} />
       <div className="container member-dashboard">
         <h1 className="page-title">{t('memberDashboard.title')}</h1>
 
@@ -179,7 +183,8 @@ const MemberDashboard = () => {
                     <BookingCard
                       booking={booking}
                       amenity={amenities.find(a => a.id === booking.amenityId)}
-                      onShowPass={setPassBooking}
+                      onShowPass={(b) => setPassBookingId(b.id)}
+                      now={now}
                     />
                   </li>
                 ))}

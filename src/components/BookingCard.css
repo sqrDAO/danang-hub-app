@@ -134,8 +134,8 @@
 
 /* The status pill as a button: shape from .status-badge, green of its own so
    "can enter" stands apart from approved (amber) and completed (green, in
-   Past). ::after widens the tap area to ~46px. No capitalize: "Thẻ vào cửa"
-   would become "Thẻ Vào Cửa". */
+   Past). ::after widens the tap area to ~46px. No capitalize: "Thẻ vào" would
+   become "Thẻ Vào". */
 .btn-pass {
   position: relative;
   background: var(--color-success-bg);
