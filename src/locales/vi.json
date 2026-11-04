@@ -497,7 +497,7 @@
   },
   "bookingPass": {
     "title": "Thẻ vào cửa",
-    "show": "Hiện thẻ vào cửa",
+    "show": "Thẻ vào",
     "confirmed": "Đã đặt chỗ",
     "guest": "Khách",
     "company": "Công ty",
@@ -519,8 +519,6 @@
     "noUpcomingBookings": "Chưa có đặt chỗ sắp tới",
     "pastBookings": "Đặt chỗ đã qua",
     "noPastBookings": "Chưa có đặt chỗ đã qua",
-    "start": "Bắt đầu:",
-    "end": "Kết thúc:",
     "confirmCancel": "Bạn có chắc chắn muốn hủy đặt chỗ này?",
     "confirmDelete": "Bạn có chắc chắn muốn xóa đặt chỗ này?",
     "conflictError": "Khung giờ này trùng với một đặt chỗ hiện có.",

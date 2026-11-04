@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import Modal from './Modal'
 import Avatar from './Avatar'
-import { DateTile } from './BookingCard'
 import { formatDateDDMMYYYY, formatHubDate } from '../utils/timezone'
 import './BookingPass.css'
 
@@ -15,12 +14,11 @@ const Label = ({ k, vi, t, gloss }) => (
   </span>
 )
 
-const hubTime = (date) => formatHubDate(date, 'vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+const hubTime = (date) => formatHubDate(date, 'vi-VN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 const PassCard = ({ booking, profile, t, vi, gloss }) => (
   <section className="booking-pass" lang="vi" aria-label={vi('bookingPass.title')}>
     <div className="booking-pass-head">
-      <DateTile date={booking.startTime} locale="vi-VN" highlight large />
       <div className="booking-pass-head-text">
         <p className="booking-pass-kicker">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

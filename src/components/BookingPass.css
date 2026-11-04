@@ -71,20 +71,6 @@
   border-bottom: 1px solid var(--card-border);
 }
 
-/* The pass's own tile stays amber on its dark ground in either theme */
-.booking-pass .date-tile.is-today {
-  color: var(--accent-primary);
-}
-
-.date-tile.is-lg {
-  width: 76px;
-  padding: 8px 0 10px;
-}
-
-.date-tile.is-lg .date-tile-label { font-size: 0.8rem; }
-.date-tile.is-lg .date-tile-day { font-size: 1.8rem; }
-.date-tile.is-lg .date-tile-month { font-size: 0.85rem; }
-
 .booking-pass-head-text {
   display: flex;
   flex-direction: column;

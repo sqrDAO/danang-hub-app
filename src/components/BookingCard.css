@@ -1,8 +1,16 @@
 /* Shared booking card (member Dashboard + My Bookings). Names are distinct from
    the old .booking-item / .booking-amenity, which admin pages still style. */
+/* Cinema-ticket stub: date | body, split by a dashed tear line with a notch
+   at each end. --cut = padding 14 + date 60 + half the 14px gap. The notches
+   are real holes (mask, top and bottom halves each cut one), so whatever sits
+   behind the card shows through in either theme. The mask also clips
+   box-shadow, so light theme loses the card shadow; the border stays. */
 .booking-tile {
+  --cut: 81px;
+  --notch: 7px;
+  position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 14px;
   padding: 14px;
   background: var(--card-bg);
@@ -10,6 +18,23 @@
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow, none);
   text-align: left;
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at var(--cut) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--cut) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at var(--cut) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--cut) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+}
+
+.booking-tile::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--notch) + 4px);
+  bottom: calc(var(--notch) + 4px);
+  /* -1px: left counts from inside the 1px border, the mask from outside it */
+  left: calc(var(--cut) - 1px);
+  transform: translateX(-50%);
+  border-left: 1.5px dashed var(--btn-secondary-border);
 }
 
 .booking-tile svg {
@@ -18,9 +43,11 @@
   flex-shrink: 0;
 }
 
-.booking-tile-top {
+.booking-tile-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 14px;
 }
 
@@ -69,24 +96,19 @@
   gap: 5px;
 }
 
-/* Date tile: neutral for other days; today takes the .btn-secondary look
-   (translucent fill, 30% amber border, amber text). Numerals in Wolgen. */
+/* Date column: bare text, no frame, so the card holds one container. Fixed
+   width keeps titles aligned across cards; today is amber. Numerals in Wolgen. */
 .date-tile {
   flex-shrink: 0;
   width: 60px;
-  padding: 6px 0 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   line-height: 1.1;
-  border-radius: var(--border-radius);
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--card-border);
   color: var(--text-primary);
 }
 
 .date-tile.is-today {
-  border-color: var(--btn-secondary-border);
   color: var(--accent-primary);
 }
 
@@ -110,28 +132,26 @@
   white-space: nowrap;
 }
 
-/* sqrDES secondary button: translucent fill, 30% amber border, 8px radius */
+/* The approved status pill as a button: look comes from .status-badge.approved;
+   this only resets <button>, adds hover/focus, and ::after widens the tap area
+   to ~46px. No capitalize: "Thẻ vào cửa" would become "Thẻ Vào Cửa". */
 .btn-pass {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 48px;
-  border-radius: 8px;
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--btn-secondary-border);
-  color: var(--accent-primary);
+  position: relative;
   font-family: inherit;
-  font-size: 1rem;
-  font-weight: 700;
+  line-height: inherit;
+  text-transform: none;
   cursor: pointer;
   transition: var(--transition);
 }
 
+.btn-pass::after {
+  content: '';
+  position: absolute;
+  inset: -10px -4px;
+}
+
 .btn-pass:hover {
-  border-color: var(--accent-primary);
-  background: var(--btn-secondary-hover-bg);
+  border-color: var(--color-success);
 }
 
 .btn-pass:focus-visible {
@@ -139,14 +159,8 @@
   outline-offset: 2px;
 }
 
-.btn-pass svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Amber text on cream is ~2:1: keep the amber border, take dark text, the way
-   .btn-secondary already does in light theme. */
-[data-theme="light"] .date-tile.is-today,
-[data-theme="light"] .btn-pass {
+/* Amber text on white is ~2:1: take dark text in light theme, the way
+   .btn-secondary already does; the "Today" label still marks the day. */
+[data-theme="light"] .date-tile.is-today {
   color: var(--text-primary);
 }

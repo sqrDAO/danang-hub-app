@@ -18,16 +18,22 @@ A walk-in guest must show the building's security guard, who only glances at the
 - [ ] `canShowPass` is true only for `approved` / `checked-in` bookings whose start is on the current hub day.
 - [ ] Dashboard "My Upcoming Bookings" and every My Bookings list render the shared card.
 - [ ] The date tile reads Today / day / short month for the current hub day, weekday / day / month otherwise.
-- [ ] The time line reads `start – end (9h)` or `(1h30)` in hub time.
-- [ ] Status pill text comes from `t('status.<status>')`; approved and checked-in pills are green.
+- [ ] The date tile has no border or background; only its text marks it.
+- [ ] A dashed tear line with a notch at the top and bottom edge splits the date from the rest of the card.
+- [ ] Card actions (Cancel, Delete, Cancel day) sit right of the tear line.
+- [ ] The time line reads `HH:mm – HH:mm (9h)` or `(1h30)` in hub time, 24-hour in both languages.
+- [ ] Status pill text comes from `t('status.<status>')` on cards without a pass.
+- [ ] Approved pills are green.
 - [ ] `.status-badge.approved` is green app-wide.
 - [ ] Cancel, Delete and partner-desk "Cancel day" keep their current behavior.
 - [ ] My Bookings shows a "Today" section above Available Amenities, hidden when empty.
 - [ ] Today holds non-cancelled bookings on the current hub day for the whole day.
 - [ ] Every booking appears in exactly one of Today, Upcoming, Past.
 - [ ] Dashboard "today" uses hub midnight, not browser midnight.
-- [ ] "Show entry pass" opens the pass in place on both pages; the Telegram float hides while it is open.
-- [ ] The pass shows a date tile with the weekday, "ĐÃ ĐẶT CHỖ" + `dd/mm/yyyy`, avatar + name, company (2-line clamp) + job title, `HH:mm – HH:mm`, the Hub logo.
+- [ ] On a pass-eligible card the green status pill is the "Entry pass" button, with a check and a chevron.
+- [ ] A card with the pass pill is the same height as one without.
+- [ ] "Entry pass" opens the pass in place on both pages; the Telegram float hides while it is open.
+- [ ] The pass shows "ĐÃ ĐẶT CHỖ" + `dd/mm/yyyy` (no date tile), avatar + name, company (2-line clamp) + job title, `HH:mm – HH:mm`, the Hub logo.
 - [ ] Pass card text is Vietnamese in both app languages; English app adds small glosses.
 - [ ] The pass card stays dark in light theme.
 - [ ] On phones the pass slides up from the bottom; no animation under `prefers-reduced-motion`.
@@ -37,9 +43,9 @@ A walk-in guest must show the building's security guard, who only glances at the
 
 ## Verify
 - `npm run lint && npm run build && npm test` → all green, `bookingPass` tests included
-- `npm run dev`, approved desk booking today → Dashboard and My Bookings › Today show the button; tap → pass slides up, matches canvas board 3; switch to VI → board 4
-- a pending booking today and an approved one tomorrow → neither has the button
-- light theme → tile and button text readable, pass card stays dark
+- `npm run dev`, approved desk booking today → Dashboard and My Bookings › Today show the green "Entry pass" pill; tap → pass slides up; switch to VI → pass text unchanged, English glosses gone
+- a pending booking today and an approved one tomorrow → neither has the pass pill
+- light theme → date text and pass pill readable, pass card stays dark
 - 390px viewport → no horizontal scroll
 - regression: cancel/delete a pending booking, partner-desk cancel day, the booking modal, fixed-desk plans section, admin dashboard booking list
 

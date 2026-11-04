@@ -19,20 +19,34 @@ const Icon = ({ d }) => (
   </svg>
 )
 
-// ID-card icon for the pass button
-const PassIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <circle cx="9" cy="10" r="2" />
-    <path d="M15 9h3M15 13h3M5.5 16.5c.6-1.6 1.9-2.3 3.5-2.3s2.9.7 3.5 2.3" />
-  </svg>
-)
+// On a pass-eligible card the pill itself opens the pass: the pass only exists
+// for a confirmed booking, so "Entry pass" stands in for the status. Always the
+// green approved look, checked-in too, so the pass pill reads the same.
+const StatusPill = ({ booking, status, t, onShowPass }) => {
+  if (onShowPass && canShowPass(booking)) {
+    return (
+      <button type="button" className="status-badge approved btn-pass" onClick={() => onShowPass(booking)}>
+        <Icon d={STATUS_ICON.approved} />
+        {t('bookingPass.show')}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
+    )
+  }
+  return (
+    <span className={`status-badge ${status}`}>
+      {STATUS_ICON[status] && <Icon d={STATUS_ICON[status]} />}
+      {t(`status.${status}`)}
+    </span>
+  )
+}
 
 const appLocale = (i18n) => (i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US')
 
 // Label defaults to the short weekday; callers pass "Today" when it is true.
-export const DateTile = ({ date, locale, label, highlight = false, large = false }) => (
-  <div className={`date-tile${highlight ? ' is-today' : ''}${large ? ' is-lg' : ''}`}>
+const DateTile = ({ date, locale, label, highlight = false }) => (
+  <div className={`date-tile${highlight ? ' is-today' : ''}`}>
     <span className="date-tile-label">{label ?? formatHubDate(date, locale, { weekday: 'short' })}</span>
     <span className="date-tile-day">{formatHubDate(date, locale, { day: '2-digit' })}</span>
     <span className="date-tile-month">{formatHubDate(date, locale, { month: 'short' })}</span>
@@ -40,7 +54,8 @@ export const DateTile = ({ date, locale, label, highlight = false, large = false
 )
 
 const timeRange = (booking, locale) => {
-  const time = (d) => formatHubDate(d, locale, { hour: 'numeric', minute: '2-digit' })
+  // 24h HH:mm in both languages, matching the pass (h23: never "24:00").
+  const time = (d) => formatHubDate(d, locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
   return `${time(booking.startTime)} – ${time(booking.endTime)}`
 }
 
@@ -52,13 +67,13 @@ const BookingCard = ({ booking, amenity, onShowPass, children }) => {
 
   return (
     <article className="booking-tile">
-      <div className="booking-tile-top">
-        <DateTile
-          date={booking.startTime}
-          locale={locale}
-          label={isToday ? t('memberBookings.today') : undefined}
-          highlight={isToday}
-        />
+      <DateTile
+        date={booking.startTime}
+        locale={locale}
+        label={isToday ? t('memberBookings.today') : undefined}
+        highlight={isToday}
+      />
+      <div className="booking-tile-body">
         <div className="booking-tile-info">
           <h3 className="booking-tile-title">{amenity?.name || booking.amenityId}</h3>
           <p className="booking-tile-time">
@@ -66,19 +81,10 @@ const BookingCard = ({ booking, amenity, onShowPass, children }) => {
             <span>{timeRange(booking, locale)}</span>
             <span className="booking-tile-duration">({formatDurationShort(booking.startTime, booking.endTime)})</span>
           </p>
-          <span className={`status-badge ${status}`}>
-            {STATUS_ICON[status] && <Icon d={STATUS_ICON[status]} />}
-            {t(`status.${status}`)}
-          </span>
+          <StatusPill booking={booking} status={status} t={t} onShowPass={onShowPass} />
         </div>
+        {children}
       </div>
-      {onShowPass && canShowPass(booking) && (
-        <button type="button" className="btn-pass" onClick={() => onShowPass(booking)}>
-          <PassIcon />
-          {t('bookingPass.show')}
-        </button>
-      )}
-      {children}
     </article>
   )
 }

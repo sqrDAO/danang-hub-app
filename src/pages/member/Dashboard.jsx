@@ -26,7 +26,6 @@ const getMemberDashboardWindow = () => {
   return { startDate: start, endDate: end }
 }
 
-
 const isRegistered = (event, uid) =>
   event.attendees?.includes(uid) ?? false
 

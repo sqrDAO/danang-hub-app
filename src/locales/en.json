@@ -497,7 +497,7 @@
   },
   "bookingPass": {
     "title": "Entry pass",
-    "show": "Show entry pass",
+    "show": "Entry pass",
     "confirmed": "Booking confirmed",
     "guest": "Guest",
     "company": "Company",
@@ -519,8 +519,6 @@
     "noUpcomingBookings": "No upcoming bookings",
     "pastBookings": "Past Bookings",
     "noPastBookings": "No past bookings",
-    "start": "Start:",
-    "end": "End:",
     "confirmCancel": "Are you sure you want to cancel this booking?",
     "confirmDelete": "Are you sure you want to delete this booking?",
     "conflictError": "This time slot conflicts with an existing booking.",
