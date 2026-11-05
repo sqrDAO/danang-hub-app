@@ -168,7 +168,6 @@
   margin-top: auto;
 }
 
-
 .bookings-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -181,22 +180,6 @@
     grid-template-columns: 1fr;
   }
 
-  .booking-card {
-    padding: var(--spacing-sm);
-  }
-
-  .booking-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-  }
-
-  .booking-time-section {
-    align-items: flex-start;
-    text-align: left;
-    width: 100%;
-  }
-
   .booking-actions {
     flex-direction: column;
     width: 100%;
@@ -205,102 +188,6 @@
   .booking-actions .btn {
     width: 100%;
   }
-}
-
-.booking-card {
-  padding: var(--spacing-md);
-  background: var(--card-bg);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow, none);
-}
-
-.booking-header {
-  margin-bottom: var(--spacing-md);
-}
-
-.booking-amenity {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.booking-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
-}
-
-.booking-status-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-}
-
-.booking-time-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.status-badge.pending {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-}
-
-.status-badge.approved {
-  background: var(--color-info-bg);
-  color: var(--color-info);
-  border: 1px solid var(--color-info-border);
-}
-
-.status-badge.checked-in {
-  background: rgba(255, 230, 187, 0.3);
-  color: var(--accent-secondary);
-  border: 1px solid rgba(255, 230, 187, 0.5);
-}
-
-[data-theme="light"] .status-badge.checked-in {
-  background: rgba(255, 164, 6, 0.12);
-  border-color: rgba(255, 164, 6, 0.35);
-}
-
-.status-badge.completed {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
-}
-
-.status-badge.cancelled {
-  background: var(--color-error-bg);
-  color: var(--color-error-light);
-  border: 1px solid var(--color-error-border);
-}
-
-.booking-time {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-  white-space: nowrap;
-}
-
-.booking-duration {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin: 0;
 }
 
 .booking-actions {
