@@ -496,7 +496,7 @@
     }
   },
   "bookingPass": {
-    "title": "Entry pass",
+    "title": "Booking confirmation",
     "show": "Entry pass",
     "confirmed": "Booking confirmed",
     "guest": "Guest",
