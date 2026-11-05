@@ -62,7 +62,7 @@ registerRoute(
       new ExpirationPlugin({
         maxEntries: 50,
         maxAgeSeconds: 60 * 60 * 24 * 7,
-        // Storage images are opaque (~7 MB quota padding each); drop them, not the precache.
+        // Storage images are opaque (4–7 MB of quota each); safe to drop when quota runs out.
         purgeOnQuotaError: true
       })
     ]
