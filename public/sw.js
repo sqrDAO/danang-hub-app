@@ -1,5 +1,5 @@
 import { clientsClaim } from 'workbox-core'
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching'
+import { precacheAndRoute, cleanupOutdatedCaches, matchPrecache } from 'workbox-precaching'
 import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
@@ -13,12 +13,25 @@ clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
-// Page loads get the precached app shell, like Hosting's `**` rewrite, so deep links
-// and reloads work offline. Firebase-reserved /__/ paths (Auth popup handler) and
-// direct file URLs still go to the network.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
-  denylist: [/^\/__\//, /\/[^/?]+\.[^/]+$/]
-}))
+// Page loads go to the network first, so online users always get the current build.
+// If the network fails or takes over 5 s, answer with the precached app shell, like
+// Hosting's `**` rewrite, so deep links and reloads work offline. The shell is looked
+// up per request: a missing one falls through to the network instead of breaking the
+// SW (and push) at startup. Firebase-reserved /__/ paths (Auth popup) never get it.
+const PAGE_NETWORK_TIMEOUT_MS = 5000
+
+const networkOrShell = async ({ request }) => {
+  const fromNetwork = fetch(request)
+  fromNetwork.catch(() => {})
+  const timeout = new Promise((_, reject) => setTimeout(reject, PAGE_NETWORK_TIMEOUT_MS))
+  try {
+    return await Promise.race([fromNetwork, timeout])
+  } catch {
+    return (await matchPrecache('index.html')) || fromNetwork
+  }
+}
+
+registerRoute(new NavigationRoute(networkOrShell, { denylist: [/^\/__\//] }))
 
 const createCachePlugins = (maxEntries, maxAgeSeconds) => [
   new CacheableResponsePlugin({ statuses: [0, 200] }),
