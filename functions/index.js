@@ -46,6 +46,7 @@ const {
   monthWindow,
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
+const {escapeHtml} = require("./emailHtml");
 
 initializeApp();
 
@@ -74,6 +75,18 @@ function getTransporter() {
       pass: process.env.EMAIL_PASS,
     },
   });
+}
+
+/**
+ * Returns the user's Firebase Auth email only when Firebase has verified it.
+ * The members/{uid}.email profile field is member-editable, so it is never
+ * used as a mail recipient.
+ * @param {string} uid Firebase Auth uid
+ * @return {Promise<string|null>} verified email, or null
+ */
+async function getVerifiedEmail(uid) {
+  const user = await getAuth().getUser(uid);
+  return user.emailVerified && user.email ? user.email : null;
 }
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -2590,8 +2603,11 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         }
         const prefs = (member && member.preferences) || {};
         const sendEmail = prefs.emailNotifications !== false;
+        const recipient = member && sendEmail && process.env.EMAIL_USER ?
+          await getVerifiedEmail(after.organizerId) :
+          null;
 
-        if (member && member.email && sendEmail && process.env.EMAIL_USER) {
+        if (recipient) {
           const displayName = member.displayName || member.email;
           const fromName =
             process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
@@ -2603,7 +2619,8 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             `Your event "${eventTitle}" was not approved`;
 
           const eventTitleHtml =
-            `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
+            `<strong style="color:#38bdf8;">` +
+            `"${escapeHtml(eventTitle)}"</strong>`;
           const statusHtml = isApproved ?
             `${eventTitleHtml} has been ` +
             `<strong style="color:#22c55e;">approved</strong>` +
@@ -2634,7 +2651,7 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             `background:#fff1f2;border-left:4px solid #ef4444;` +
             `border-radius:6px;">` +
             `<p style="margin:0;font-size:14px;color:#991b1b;">` +
-            `<strong>Reason:</strong> ${reasonText}</p></div>`;
+            `<strong>Reason:</strong> ${escapeHtml(reasonText)}</p></div>`;
 
           /* eslint-disable max-len */
           const bodyHtml = `
@@ -2656,7 +2673,7 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         <tr>
           <td style="padding:32px;">
             <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;">
-              Hi ${displayName},
+              Hi ${escapeHtml(displayName)},
             </p>
             <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;line-height:1.6;">
               ${statusHtml}
@@ -2688,15 +2705,23 @@ exports.notifyEventStatusChange = onDocumentUpdated(
 </html>`;
           /* eslint-enable max-len */
 
-          await getTransporter().sendMail({
-            from: `"${fromName}" <${process.env.EMAIL_USER}>`,
-            to: member.email,
-            subject,
-            html: bodyHtml,
-          });
+          try {
+            await getTransporter().sendMail({
+              from: {name: fromName, address: process.env.EMAIL_USER},
+              to: recipient,
+              subject,
+              html: bodyHtml,
+            });
+          } catch (mailError) {
+            console.error("[event-status-email] send failed:", {
+              eventId,
+              status: after.status,
+            }, mailError);
+            return null;
+          }
 
           console.log("Event status email sent:", {
-            to: member.email,
+            to: recipient,
             eventId,
             status: after.status,
           });
