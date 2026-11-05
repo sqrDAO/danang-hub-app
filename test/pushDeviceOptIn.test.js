@@ -6,7 +6,11 @@ import {
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
   getPushDeviceId,
+  isDevicePushOn,
+  readPushDeviceId,
+  setDeviceOptedIn,
   shouldAttemptLaunchPushRefresh,
+  shouldRecordLaunchOptOut,
   shouldRefreshPushToken
 } from '../src/utils/pushDeviceOptIn.js'
 
@@ -14,10 +18,11 @@ const refresh = (overrides) => shouldRefreshPushToken({
   eligible: true,
   permission: 'granted',
   deviceOptedIn: true,
+  preferenceEnabled: true,
   ...overrides
 })
 
-test('refreshes when the device is eligible, permitted, and opted in', () => {
+test('refreshes when the device is eligible, permitted, opted in, and the preference is on', () => {
   assert.equal(refresh({}), true)
 })
 
@@ -38,10 +43,24 @@ test('never refreshes on a device that cannot register push', () => {
   assert.equal(refresh({ eligible: false }), false)
 })
 
-test('refreshes regardless of the account preference', () => {
-  // On/off is per phone: the marker decides, so a preference left off by
-  // another phone or the old logout must not silence this one.
-  assert.equal(refresh({ preferenceEnabled: false }), true)
+test('never refreshes while the account preference is off', () => {
+  // The app never writes it false, so false is an opt-out from before
+  // per-phone tokens; refreshing would resume push the member turned off.
+  assert.equal(refresh({ preferenceEnabled: false }), false)
+})
+
+test('records a launch opt-out for an opted-in phone when the preference is off', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_IN, preferenceEnabled: false }), true)
+})
+
+test('records no launch opt-out while the preference is on', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_IN, preferenceEnabled: true }), false)
+})
+
+test('records no launch opt-out for a phone that never opted in', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPT_IN_UNKNOWN, preferenceEnabled: false }), false)
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_OUT, preferenceEnabled: false }), false)
+  assert.equal(shouldRecordLaunchOptOut(), false)
 })
 
 test('defaults to not refreshing when inputs are missing', () => {
@@ -165,4 +184,55 @@ test('getPushDeviceId returns null when storage is blocked', () => {
     setItem: () => { throw new Error('blocked') }
   }
   assert.equal(withStorage(blocked, getPushDeviceId), null)
+})
+
+test('readPushDeviceId never creates an id', () => {
+  const store = memoryStorage()
+  assert.equal(withStorage(store, readPushDeviceId), null)
+  assert.equal(store.getItem('pushDeviceId'), null)
+})
+
+test('readPushDeviceId returns the stored id', () => {
+  const store = memoryStorage({ pushDeviceId: 'phone-1' })
+  assert.equal(withStorage(store, readPushDeviceId), 'phone-1')
+})
+
+const pushOn = (store, overrides) => withStorage(store, () => isDevicePushOn('member-a', {
+  preferenceEnabled: true,
+  permission: 'granted',
+  ...overrides
+}))
+
+test('isDevicePushOn is true for an opted-in phone', () => {
+  const store = memoryStorage({ 'pushDeviceOptIn:member-a': 'true' })
+  assert.equal(pushOn(store, { preferenceEnabled: false }), true)
+})
+
+test('isDevicePushOn is true for a phone the launch refresh would adopt', () => {
+  assert.equal(pushOn(memoryStorage()), true)
+})
+
+test('isDevicePushOn is false for an opted-out phone', () => {
+  const store = memoryStorage({ 'pushDeviceOptIn:member-a': 'false' })
+  assert.equal(pushOn(store), false)
+})
+
+test('isDevicePushOn is false for an unmarked phone without permission', () => {
+  assert.equal(pushOn(memoryStorage(), { permission: 'default' }), false)
+})
+
+test('setDeviceOptedIn tells same-tab listeners the marker changed', () => {
+  const store = memoryStorage()
+  const events = []
+  globalThis.window = {
+    localStorage: store,
+    dispatchEvent: (event) => events.push(event.type)
+  }
+  try {
+    setDeviceOptedIn('member-a')
+  } finally {
+    delete globalThis.window
+  }
+  assert.equal(store.getItem('pushDeviceOptIn:member-a'), 'true')
+  assert.deepEqual(events, ['push-device-opt-in-change'])
 })

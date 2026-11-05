@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../hooks/useAuth'
 import {
   closePushOptInBanner,
   subscribePushOptIn
@@ -16,6 +17,7 @@ const BellGlyph = () => (
 
 const PushOptInBanner = () => {
   const { t } = useTranslation()
+  const { refreshUserProfile } = useAuth()
   const [state, setState] = useState(null)
   const [enabling, setEnabling] = useState(false)
   const [progressKey, setProgressKey] = useState(0)
@@ -39,6 +41,11 @@ const PushOptInBanner = () => {
       // visitor, logged in or not.
       const { enablePushNotifications } = await import('../services/pushNotifications')
       await enablePushNotifications(state.uid)
+      // Enabling wrote preferences.pushNotifications=true; keep the cached
+      // profile in step so a later Profile save writes it back unchanged.
+      if (typeof refreshUserProfile === 'function') {
+        await refreshUserProfile()
+      }
       showToast(t('notifications.pushOptInEnabled'), 'success')
       closePushOptInBanner()
     } catch (error) {

@@ -21,19 +21,35 @@ export const DEVICE_OPT_IN_UNKNOWN = 'unknown'
 
 /**
  * Pure launch-refresh decision, split out so the matrix is testable without a
- * browser. All three inputs must hold: the device can register at all, the
- * user granted permission, and this device is the one that opted in. On/off is
- * per phone, so the account preference no longer gates the refresh.
- * @param {{eligible: boolean, permission: string, deviceOptedIn: boolean}} input
+ * browser. All four inputs must hold: the device can register at all, the
+ * user granted permission, this device is the one that opted in, and the
+ * account preference is on. The app never writes the preference false, so
+ * false is an opt-out from before per-phone tokens and must stay off.
+ * @param {{eligible: boolean, permission: string, deviceOptedIn: boolean, preferenceEnabled: boolean}} input
  * @returns {boolean}
  */
 export const shouldRefreshPushToken = ({
   eligible = false,
   permission = 'default',
-  deviceOptedIn = false
+  deviceOptedIn = false,
+  preferenceEnabled = false
 } = {}) => Boolean(eligible) &&
   permission === 'granted' &&
-  Boolean(deviceOptedIn)
+  Boolean(deviceOptedIn) &&
+  Boolean(preferenceEnabled)
+
+/**
+ * Whether launch should record an opt-out for this phone: it is marked opted
+ * in, but the account preference says off. That pairing only comes from
+ * before per-phone tokens (an explicit off, or the old logout), and recording
+ * it keeps this phone off after the member turns another phone back on.
+ * @param {{state: string, preferenceEnabled: boolean}} input
+ * @returns {boolean}
+ */
+export const shouldRecordLaunchOptOut = ({
+  state = DEVICE_OPT_IN_UNKNOWN,
+  preferenceEnabled = false
+} = {}) => state === DEVICE_OPTED_IN && !preferenceEnabled
 
 /**
  * Whether AuthContext may record this uid and call refreshPushToken.
@@ -94,26 +110,60 @@ export const getDeviceOptInState = (uid) => {
 
 export const isDeviceOptedIn = (uid) => getDeviceOptInState(uid) === DEVICE_OPTED_IN
 
-export const setDeviceOptedIn = (uid) => {
-  if (!uid || typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(DEVICE_OPT_IN_KEY(uid), 'true')
-  } catch {
-    // Ignore write failures; push still works for this session.
-  }
+/**
+ * Whether this phone receives push, as Profile's switch shows it: opted in, or
+ * about to be adopted by the launch refresh (which may land after the page
+ * opened), so switching it off still runs the cleanup.
+ * @param {string} uid Signed-in member id
+ * @param {{preferenceEnabled: boolean, permission: string}} input
+ * @returns {boolean}
+ */
+export const isDevicePushOn = (uid, { preferenceEnabled = false, permission = 'default' } = {}) => {
+  const state = getDeviceOptInState(uid)
+  return state === DEVICE_OPTED_IN ||
+    shouldAdoptLegacyOptIn({ state, preferenceEnabled, permission })
 }
 
-export const setDeviceOptedOut = (uid) => {
+// Same-tab marker writes fire this event, so a mounted Profile can follow a
+// launch refresh that adopts or opts out this phone after the page opened.
+const DEVICE_OPT_IN_EVENT = 'push-device-opt-in-change'
+
+const writeDeviceOptIn = (uid, value) => {
   if (!uid || typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(DEVICE_OPT_IN_KEY(uid), 'false')
+    window.localStorage.setItem(DEVICE_OPT_IN_KEY(uid), value)
   } catch {
     // Ignore write failures; getDeviceOptInState already reports a storage
     // error as an opt-out, so the refresh stays off either way.
   }
+  window.dispatchEvent?.(new Event(DEVICE_OPT_IN_EVENT))
+}
+
+export const setDeviceOptedIn = (uid) => writeDeviceOptIn(uid, 'true')
+
+export const setDeviceOptedOut = (uid) => writeDeviceOptIn(uid, 'false')
+
+/** @returns {() => void} Unsubscribe */
+export const subscribeDeviceOptIn = (onChange) => {
+  window.addEventListener(DEVICE_OPT_IN_EVENT, onChange)
+  return () => window.removeEventListener(DEVICE_OPT_IN_EVENT, onChange)
 }
 
 const DEVICE_ID_KEY = 'pushDeviceId'
+
+/**
+ * This phone's id if it already has one; never creates one. Logout uses it so
+ * a phone that never registered doesn't gain an id or send a pointless delete.
+ * @returns {string|null}
+ */
+export const readPushDeviceId = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(DEVICE_ID_KEY)
+  } catch {
+    return null
+  }
+}
 
 /**
  * This phone's stable id, keying `push_tokens/{uid}/devices/{id}` so a token

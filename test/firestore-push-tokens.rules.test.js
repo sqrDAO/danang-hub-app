@@ -87,4 +87,18 @@ if (!hasEmulator) {
   test('device docs with a non-string token are refused', async () => {
     await assertFails(setDoc(doc(memberDb(), 'push_tokens/member-a/devices/phone-7'), device({ token: 42 })))
   })
+
+  test('device docs with a token over 4096 characters are refused', async () => {
+    const path = 'push_tokens/member-a/devices/phone-8'
+    await assertSucceeds(setDoc(doc(memberDb(), path), device({ token: 'a'.repeat(4096) })))
+    await assertFails(setDoc(doc(memberDb(), path), device({ token: 'a'.repeat(4097) })))
+  })
+
+  test('device docs with a platform other than web are refused', async () => {
+    await assertFails(setDoc(doc(memberDb(), 'push_tokens/member-a/devices/phone-9'), device({ platform: 'ios' })))
+  })
+
+  test('device docs with a non-string updatedAt are refused', async () => {
+    await assertFails(setDoc(doc(memberDb(), 'push_tokens/member-a/devices/phone-10'), device({ updatedAt: 1 })))
+  })
 }

@@ -784,18 +784,21 @@ function hasPushEnabled(member) {
 
 /**
  * Reads every phone token a member has stored, one doc per phone, plus the
- * legacy single-token doc. The legacy doc is honored only while the account
- * preference is on, exactly as before per-phone tokens; device docs are not
- * gated by it, because on/off is per phone.
+ * legacy single-token doc until a phone deletes it. Only for members with the
+ * account preference on: the app sets it when any phone turns on and never
+ * writes it false (off is per phone, by deleting that phone's doc), so false
+ * is an opt-out from before per-phone tokens, and it skips the reads.
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
  * @return {Promise<Array<{token: string, refs: Array}>>} Distinct tokens
  */
 async function getPushTokens(memberId, member) {
+  if (!hasPushEnabled(member)) return [];
+
   const legacyRef = db.collection("push_tokens").doc(memberId);
   const [deviceDocs, legacyDoc] = await Promise.all([
     legacyRef.collection("devices").get(),
-    hasPushEnabled(member) ? legacyRef.get() : null,
+    legacyRef.get(),
   ]);
 
   const entries = deviceDocs.docs.map((deviceDoc) => ({
@@ -1141,13 +1144,25 @@ async function sendPushToRecipients(recipients, data) {
     return await sendPushBatches(recipients, data, outcomes);
   } finally {
     // A member's tokens can span batches, so marking per batch would release a
-    // member whose other phone already got it. Unsent batches stay pending.
+    // member whose other phone already got it. Outcomes follow recipient
+    // order, so anything past them was never sent and counts as failed.
+    recipients.slice(outcomes.length).forEach(({memberId}) => {
+      outcomes.push({memberId, success: false});
+    });
     const {type, subjectId} = recipients[0];
     const {marked, released} = decideMemberMarkers(outcomes);
-    await Promise.all([
+    // Settled, not Promise.all: a throw here would replace the send error.
+    const settled = await Promise.allSettled([
       ...marked.map((id) => markPushRecipient(id, type, subjectId)),
       ...released.map((id) => releasePushRecipient(id, type, subjectId)),
     ]);
+    settled
+        .filter((result) => result.status === "rejected")
+        .forEach((result) => console.error("Push marker write failed", {
+          type,
+          subjectId,
+          error: result.reason && result.reason.message,
+        }));
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -14,7 +14,7 @@ import {
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
-import { isDeviceOptedIn } from '../../utils/pushDeviceOptIn'
+import { isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -82,16 +82,17 @@ const syncPushPreference = async (uid, desiredPushNotifications, currentPushNoti
 }
 
 // On/off is per phone, so the switch reflects this phone's marker, not the
-// account preference.
-const useDevicePushOptIn = (uid) => {
-  const [devicePushOn, setDevicePushOn] = useState(() => isDeviceOptedIn(uid))
+// account preference. Subscribed, not read once: the launch refresh can adopt
+// or opt out this phone after Profile mounts.
+const readDevicePushOn = (uid, preferences) => isDevicePushOn(uid, {
+  preferenceEnabled: getPushPreferenceValue(preferences),
+  permission: currentNotificationPermission()
+})
 
-  useEffect(() => {
-    setDevicePushOn(isDeviceOptedIn(uid))
-  }, [uid])
-
-  return [devicePushOn, setDevicePushOn]
-}
+const useDevicePushOn = (uid, preferences) => useSyncExternalStore(
+  subscribeDeviceOptIn,
+  () => readDevicePushOn(uid, preferences)
+)
 
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
@@ -563,7 +564,7 @@ const MemberProfile = () => {
   const [mobilePushEligible, setMobilePushEligible] = useState(isMobilePushEligible)
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
-  const [devicePushOn, setDevicePushOn] = useDevicePushOptIn(currentUser?.uid)
+  const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
 
   const copyAddress = async (addr) => {
     try {
@@ -638,12 +639,17 @@ const MemberProfile = () => {
     e.preventDefault()
     const formData = new FormData(e.target)
     const pushInput = e.target.elements.namedItem('pushNotifications')
+    // Read now, not from render: a launch refresh may have changed the marker
+    // while the form was open.
+    const currentPushOn = readDevicePushOn(currentUser.uid, userProfile?.preferences)
     const desiredPushNotifications = !pushInput || pushInput.disabled
-      ? devicePushOn
+      ? currentPushOn
       : pushInput.checked
-    // The switch is per phone; the account field is written back unchanged so a
-    // save cannot close the server's legacy-token read or change adoption.
-    const data = buildProfileUpdateData(formData, getPushPreferenceValue(userProfile?.preferences))
+    // The switch is per phone, so the account field is never written false. It
+    // turns true when this save turns the phone on (enable just wrote it), so
+    // the whole-map write below can't put the stale value back.
+    const storedPushPreference = getPushPreferenceValue(userProfile?.preferences)
+    const data = buildProfileUpdateData(formData, storedPushPreference || desiredPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
@@ -655,10 +661,9 @@ const MemberProfile = () => {
       await syncPushPreference(
         currentUser.uid,
         desiredPushNotifications,
-        devicePushOn,
+        currentPushOn,
         setPushPermission
       )
-      setDevicePushOn(desiredPushNotifications)
       await updateMember(currentUser.uid, data)
 
       if (typeof refreshUserProfile === 'function') {
