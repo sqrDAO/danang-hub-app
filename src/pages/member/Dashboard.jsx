@@ -9,8 +9,8 @@ import { getBookings } from '../../services/bookings'
 import { getUpcomingEvents } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { getHubStartOfDay } from '../../utils/timezone'
-import { findPassBooking } from '../../utils/bookingPass'
 import useHubNow from '../../hooks/useHubNow'
+import usePassBooking from '../../hooks/usePassBooking'
 import BookingCard from '../../components/BookingCard'
 import BookingPass from '../../components/BookingPass'
 import EventCard from '../../components/event/EventCard'
@@ -104,7 +104,6 @@ const MemberDashboard = () => {
   const { t } = useTranslation()
   const { currentUser } = useAuth()
   const [bookingsPage, setBookingsPage] = useState(1)
-  const [passBookingId, setPassBookingId] = useState(null)
   const now = useHubNow()
   const BOOKINGS_PAGE_SIZE = 10
 
@@ -130,7 +129,7 @@ const MemberDashboard = () => {
 
   // Hub midnight, not the browser's: a guest's phone may sit in another zone.
   const todayStart = getHubStartOfDay(now)
-  const passBooking = findPassBooking(myBookings, passBookingId, now)
+  const [passBooking, setPassBookingId] = usePassBooking(myBookings, now)
 
   const upcomingBookingsAll = myBookings
     .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))

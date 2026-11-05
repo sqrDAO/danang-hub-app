@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './Avatar.css'
 
 const Avatar = ({ src, name, size = 'md', className = '' }) => {
   // The src that failed to load (e.g. an expired Google or Telegram photo URL):
   // render the initials instead. Keyed by src so a new photo gets a fresh try.
-  const [failedSrc, setFailedSrc] = useState(null)
+  const [failed, setFailed] = useState(null) // { src, offline }
+
+  // Only a load that failed offline gets another try when the network returns;
+  // an expired URL would just fail again (and flash a broken image).
+  useEffect(() => {
+    if (!failed?.offline) return undefined
+    const retry = () => setFailed(null)
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+  }, [failed])
 
   const getInitials = (name) => {
     if (!name) return '?'
@@ -24,7 +33,7 @@ const Avatar = ({ src, name, size = 'md', className = '' }) => {
     return Math.abs(hash) % 360
   }
 
-  const hasImage = src && src.trim() !== '' && src !== failedSrc
+  const hasImage = src && src.trim() !== '' && src !== failed?.src
   const initials = getInitials(name)
   const hue = getColorFromName(name)
 
@@ -34,7 +43,7 @@ const Avatar = ({ src, name, size = 'md', className = '' }) => {
         src={src}
         alt={name || 'User'}
         className={`avatar avatar-${size} ${className}`}
-        onError={() => setFailedSrc(src)}
+        onError={() => setFailed({ src, offline: !navigator.onLine })}
       />
     )
   }

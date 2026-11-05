@@ -11,8 +11,9 @@ import { CardSkeleton } from '../../components/LoadingSkeleton'
 import AmenityPhotoLightbox from '../../components/AmenityPhotoLightbox'
 import BookingCard from '../../components/BookingCard'
 import BookingPass from '../../components/BookingPass'
-import { deduplicateBookings, findPassBooking, splitBookings } from '../../utils/bookingPass'
+import { deduplicateBookings, splitBookings } from '../../utils/bookingPass'
 import useHubNow from '../../hooks/useHubNow'
+import usePassBooking from '../../hooks/usePassBooking'
 import { PARTNER_DESK, buildDeskPlans, deskPlanBadgeKey, deskPlanCopyPrefix, deskPlanTypeFor, isAmenityOpenTo, isSyncedPartnerPlan } from '../../utils/deskPlans'
 import { getMember } from '../../services/members'
 import { getPartners } from '../../services/partners'
@@ -1274,8 +1275,7 @@ const MemberBookings = () => {
   const now = useHubNow()
   const uniqueBookings = useMemo(() => deduplicateBookings(myBookings), [myBookings])
   const { today: todayBookings, upcoming: upcomingBookings, past: pastBookings } = splitBookings(uniqueBookings, now)
-  const [passBookingId, setPassBookingId] = useState(null)
-  const passBooking = findPassBooking(uniqueBookings, passBookingId, now)
+  const [passBooking, setPassBookingId] = usePassBooking(uniqueBookings, now)
 
   // Raw bookings, not the de-duplicated list: a rejected renewal and its
   // re-request share amenity and times, and de-duplication could hide either.
