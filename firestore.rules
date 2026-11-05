@@ -140,10 +140,18 @@ service cloud.firestore {
       // fields (planType, planGroupId, planPeriod, renewalOf) decide seats,
       // limits and renewals; cancelledReason, rejectionReason and the limit
       // fields are admin or server marks that drive the member's notices.
+      // An approved booking counts toward the monthly desk-hours limit and
+      // can't be cancelled by its owner (#150); approved desk-plan days can,
+      // since they sit outside the limit. planType, not planGroupId: owners
+      // can't change planType, but may set any planGroupId at create.
+      // status must stay present, since the limit counts bookings by status.
       allow update: if isAuthenticated() && isOwner(resource.data.memberId) &&
-                       (!('status' in request.resource.data) ||
-                        request.resource.data.status == resource.data.status ||
-                        request.resource.data.status == 'cancelled') &&
+                       'status' in request.resource.data &&
+                       (request.resource.data.status == resource.data.status ||
+                        (request.resource.data.status == 'cancelled' &&
+                         (resource.data.status == 'pending' ||
+                          (resource.data.status == 'approved' &&
+                           resource.data.get('planType', null) in ['fixed-desk', 'partner-desk'])))) &&
                        request.resource.data.diff(resource.data)
                            .affectedKeys().hasOnly(['status', 'updatedAt']);
       // Admins can update any booking; planGroupId format still enforced when set
