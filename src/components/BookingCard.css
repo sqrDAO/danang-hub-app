@@ -134,8 +134,9 @@
 
 /* The status pill as a button: shape from .status-badge, green of its own so
    "can enter" stands apart from approved (amber) and completed (green, in
-   Past). ::after widens the tap area to ~46px. No capitalize: "Thẻ vào" would
-   become "Thẻ Vào". */
+   Past). ::after widens the tap area to ~46px, mostly downward: 6px up stops
+   at the time line (column gap), 14px down at the actions or card edge
+   (body gap / padding). No capitalize: "Thẻ vào" would become "Thẻ Vào". */
 .btn-pass {
   position: relative;
   background: var(--color-success-bg);
@@ -146,16 +147,21 @@
   text-transform: none;
   cursor: pointer;
   transition: var(--transition);
+  /* The flash and a sticky touch hover both lingered behind the opening pass */
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-pass::after {
   content: '';
   position: absolute;
-  inset: -10px -4px;
+  inset: -6px -4px -14px;
 }
 
-.btn-pass:hover {
-  border-color: var(--color-success);
+/* pointer: fine too: some touch browsers report hover: hover */
+@media (hover: hover) and (pointer: fine) {
+  .btn-pass:hover {
+    border-color: var(--color-success);
+  }
 }
 
 .btn-pass:focus-visible {

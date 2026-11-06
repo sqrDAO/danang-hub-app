@@ -55,7 +55,7 @@ const DateTile = ({ date, locale, label, highlight = false }) => (
 
 // `now` comes from the page (useHubNow) so the card, the sections and the
 // action buttons all read the same instant.
-const BookingCard = ({ booking, amenity, onShowPass, now, children }) => {
+const BookingCard = ({ booking, amenity, onShowPass, now = new Date(), children }) => {
   const { t, i18n } = useTranslation()
   const locale = appLocale(i18n)
   // Without valid times the hub-day and format calls would throw: keep the
