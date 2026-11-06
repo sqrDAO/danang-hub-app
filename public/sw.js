@@ -11,7 +11,6 @@ import { firebaseConfig } from '../src/services/firebaseConfig.js'
 self.skipWaiting()
 clientsClaim()
 cleanupOutdatedCaches()
-precacheAndRoute(self.__WB_MANIFEST)
 
 // Page loads go to the network first, so online users always get the current build.
 // If the network fails or takes over 5 s, answer with the precached app shell, like
@@ -32,6 +31,10 @@ const networkOrShell = async ({ request }) => {
 }
 
 registerRoute(new NavigationRoute(networkOrShell, { denylist: [/^\/__\//] }))
+
+// After the page route: Workbox uses the first match, and the precache maps `/` to
+// index.html, so registered first it would answer the app's start URL cache first.
+precacheAndRoute(self.__WB_MANIFEST)
 
 const createCachePlugins = (maxEntries, maxAgeSeconds) => [
   new CacheableResponsePlugin({ statuses: [0, 200] }),

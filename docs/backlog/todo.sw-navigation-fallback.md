@@ -9,12 +9,13 @@ and fall back to the precached `index.html` when the network fails or takes over
 
 ## Files
 - `public/sw.js` (edited) — register a network-first `NavigationRoute` that falls back to
-  the precached `index.html`, right after `precacheAndRoute`, with a denylist for `/__/`.
+  the precached `index.html`, registered before `precacheAndRoute`, with a denylist for `/__/`.
 
 ## Acceptance
 - [ ] Offline, reloading `/member/bookings` in the installed app shows the app, not the browser's offline page.
 - [ ] Offline, a push notification click to `/member/events` opens the app on that page.
 - [ ] Online, a page load gets `index.html` from the network, not from the cache.
+- [ ] Online, a page load of `/` (the PWA `start_url`) gets `index.html` from the network, not from the cache.
 - [ ] A page load whose network response takes over 5 seconds gets the precached shell.
 - [ ] `/__/auth/handler` never gets the precached shell (Firebase Auth popup).
 - [ ] Online, opening `/sw.js` in a tab shows the raw file, not the app.
@@ -30,6 +31,7 @@ and fall back to the precached `index.html` when the network fails or takes over
   open `/member/bookings` and reload → the app renders (login or bookings page)
 - same preview, online: reload `/member/bookings` → DevTools shows the document from the
   network (not "(ServiceWorker)" from cache storage)
+- same preview, online: reload `/` → the document comes from the network, same as above
 - same preview, online: open `/sw.js` → the raw file
 - PR preview channel: open `/__/auth/handler` in a tab → Firebase's handler page, not the app;
   sign in with Google → succeeds
@@ -39,6 +41,8 @@ and fall back to the precached `index.html` when the network fails or takes over
 ## Notes
 Precache routing maps `/` to `/index.html` (`directoryIndex`) but `/member/bookings` to
 `/member/bookings.html`, which does not exist, so only `/` works offline today.
+Workbox uses the first registered route that matches, so the `NavigationRoute` must be
+registered before `precacheAndRoute`, or the precache answers `/` cache first.
 
 Network first, not cache first: a cached shell lists the previous build's chunks, which
 the new SW deletes on activate (`skipWaiting`), so cache first forced a reload on the
