@@ -1,5 +1,6 @@
-/* Entry pass. Text uses the app font (Be Vietnam Pro in Vietnamese): Wolgen
-   has no Vietnamese glyphs, so it is kept to numerals. */
+/* Booking confirmation. The title and hint use the app font; the card is
+   always Vietnamese, so it uses Be Vietnam Pro. Wolgen has no Vietnamese
+   glyphs, so it is kept to numerals. */
 .modal-content.pass-modal {
   max-width: 480px;
 }
@@ -45,6 +46,8 @@
   --form-divider: rgba(255, 255, 255, 0.1);
   --text-primary: #FFFFFF;
   --text-secondary: #DCDCDC;
+  /* lang="vi" in any app language; Arial (Windows) cramps stacked marks */
+  font-family: var(--font-main-vi);
   font-size: 16px;
   color: var(--text-primary);
   background: var(--card-bg);
