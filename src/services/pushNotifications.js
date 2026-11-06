@@ -4,6 +4,7 @@ import app, { db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
 import { updateMemberPreferences } from './members'
 import { isMobilePushEligible } from '../utils/mobilePushEligibility'
+import { needsHomeScreenInstall } from '../utils/iosInstallHint'
 import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
@@ -52,16 +53,20 @@ export const isPushSupported = async () => {
   return isSupported()
 }
 
-/** Whether the soft post-success prompt may be shown. */
-export const canShowPushOptInPrompt = async ({ uid } = {}) => {
+/**
+ * Which soft post-success prompt to show: 'enable' (tap turns push on),
+ * 'install' (iPhone tab — push needs a Home Screen install first), or null.
+ */
+export const getPushOptInPromptMode = async ({ uid } = {}) => {
   // On/off is per phone: another phone being opted in says nothing about this one.
-  if (isDeviceOptedIn(uid)) return false
-  if (!(await isPushSupported())) return false
-  if (!firebaseVapidKey) return false
+  if (isDeviceOptedIn(uid)) return null
+  if (!firebaseVapidKey) return null
+  if (needsHomeScreenInstall()) return 'install'
+  if (!(await isPushSupported())) return null
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-    return false
+    return null
   }
-  return true
+  return 'enable'
 }
 
 const getMessagingInstance = async (requireVapid = true) => {

@@ -15,22 +15,39 @@ const BellGlyph = () => (
   </svg>
 )
 
+const INSTALL_STEP_KEYS = [
+  'notifications.pushInstallStepShare',
+  'notifications.pushInstallStepAdd',
+  'notifications.pushInstallStepOpen',
+  'notifications.pushInstallStepEnable'
+]
+
+const InstallSteps = ({ t }) => (
+  <ol className="push-opt-in-steps">
+    {INSTALL_STEP_KEYS.map((key) => <li key={key}>{t(key)}</li>)}
+  </ol>
+)
+
 const PushOptInBanner = () => {
   const { t } = useTranslation()
   const { refreshUserProfile } = useAuth()
   const [state, setState] = useState(null)
   const [enabling, setEnabling] = useState(false)
   const [progressKey, setProgressKey] = useState(0)
+  const [stepsOpen, setStepsOpen] = useState(false)
 
   useEffect(() => subscribePushOptIn((next) => {
     setState(next)
     if (next) {
       setEnabling(false)
+      setStepsOpen(false)
       setProgressKey((key) => key + 1)
     }
   }), [])
 
   if (!state) return null
+
+  const isInstall = state.mode === 'install'
 
   const handleEnable = async () => {
     if (enabling) return
@@ -54,6 +71,10 @@ const PushOptInBanner = () => {
     }
   }
 
+  // Install mode: the tap only reveals the steps. Swapping the progress bar
+  // for the steps list also removes its onAnimationEnd, so it stays open.
+  const handleTap = isInstall ? () => setStepsOpen(true) : handleEnable
+
   const handleDismiss = (event) => {
     event.stopPropagation()
     if (enabling) return
@@ -74,13 +95,14 @@ const PushOptInBanner = () => {
       <button
         type="button"
         className="push-opt-in-body"
-        onClick={handleEnable}
+        onClick={handleTap}
         disabled={enabling}
+        aria-expanded={isInstall ? stepsOpen : undefined}
       >
         <BellGlyph />
         <span className="push-opt-in-copy">
           <strong>{t('notifications.pushOptInTitle')}</strong>
-          <span>{t('notifications.pushOptInBody')}</span>
+          <span>{t(isInstall ? 'notifications.pushInstallBody' : 'notifications.pushOptInBody')}</span>
         </span>
       </button>
       <button
@@ -92,13 +114,15 @@ const PushOptInBanner = () => {
       >
         ×
       </button>
-      <div className="push-opt-in-progress" aria-hidden>
-        <div
-          key={progressKey}
-          className="push-opt-in-progress-bar"
-          onAnimationEnd={handleTimeout}
-        />
-      </div>
+      {stepsOpen ? <InstallSteps t={t} /> : (
+        <div className="push-opt-in-progress" aria-hidden>
+          <div
+            key={progressKey}
+            className="push-opt-in-progress-bar"
+            onAnimationEnd={handleTimeout}
+          />
+        </div>
+      )}
     </div>
   )
 }
