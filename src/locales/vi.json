@@ -496,7 +496,7 @@
     }
   },
   "bookingPass": {
-    "title": "Thẻ vào cửa",
+    "title": "Xác nhận đặt chỗ",
     "show": "Thẻ vào",
     "confirmed": "Đã đặt chỗ",
     "guest": "Khách",

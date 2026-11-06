@@ -57,6 +57,10 @@ const PassCard = ({ booking, profile, t, vi, gloss }) => (
   </section>
 )
 
+// Product decision: the hub can't issue entry tickets to the building, only
+// confirm a booking, so the panel is titled "Booking confirmation" /
+// "Xác nhận đặt chỗ". The button that opens it keeps the short "Entry pass" /
+// "Thẻ vào" label (bookingPass.show) for convenience.
 const BookingPass = ({ booking, onClose }) => {
   const { t, i18n } = useTranslation()
   const { userProfile } = useAuth()
