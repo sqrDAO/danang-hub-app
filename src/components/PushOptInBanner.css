@@ -147,3 +147,17 @@
     width: calc(100vw - 1rem);
   }
 }
+
+.push-opt-in-steps {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  padding: 0 1rem 0.875rem 3rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.push-opt-in-steps li + li {
+  margin-top: 0.3rem;
+}

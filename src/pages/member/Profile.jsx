@@ -15,6 +15,7 @@ import {
   isPushSupported
 } from '../../services/pushNotifications'
 import { isDeviceOptedIn, shouldOfferDevicePushEnable } from '../../utils/pushDeviceOptIn'
+import { needsHomeScreenInstall } from '../../utils/iosInstallHint'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -46,6 +47,7 @@ const isInvalidOptionalField = (value, pattern) =>
 const getPushPreferenceValue = (preferences) => preferences?.pushNotifications === true
 
 const getPushPreferenceHelp = (supported, permission, t) => {
+  if (!supported && needsHomeScreenInstall()) return t('profile.pushNotificationsInstall')
   if (!supported) return t('profile.pushNotificationsUnsupported')
   if (permission === 'denied') return t('profile.pushNotificationsDenied')
   if (permission === 'granted') return t('profile.pushNotificationsGranted')
