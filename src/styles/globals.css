@@ -80,7 +80,6 @@
   /* Typography */
   --font-heading: 'Wolgen', 'Arial Black', Impact, sans-serif;
   --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-main-vi: 'Be Vietnam Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
@@ -180,11 +179,6 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-}
-
-html[lang="vi"] body {
-  font-family: var(--font-main-vi);
-  font-size: 80%;
 }
 
 a {
