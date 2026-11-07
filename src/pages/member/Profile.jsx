@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -14,7 +14,7 @@ import {
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
-import { isDeviceOptedIn, shouldOfferDevicePushEnable } from '../../utils/pushDeviceOptIn'
+import { isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -81,71 +81,18 @@ const syncPushPreference = async (uid, desiredPushNotifications, currentPushNoti
   setPushPermission(currentNotificationPermission())
 }
 
-const useEnablePushOnThisDevice = ({
-  uid,
-  refreshUserProfile,
-  setPushPermission,
-  preferenceEnabled,
-  mobileEligible,
-  supported
-}) => {
-  const { t } = useTranslation()
-  const [deviceHasOptedIn, setDeviceHasOptedIn] = useState(() => isDeviceOptedIn(uid))
-  const [enabling, setEnabling] = useState(false)
+// On/off is per phone, so the switch reflects this phone's marker, not the
+// account preference. Subscribed, not read once: the launch refresh can adopt
+// or opt out this phone after Profile mounts.
+const readDevicePushOn = (uid, preferences) => isDevicePushOn(uid, {
+  preferenceEnabled: getPushPreferenceValue(preferences),
+  permission: currentNotificationPermission()
+})
 
-  useEffect(() => {
-    setDeviceHasOptedIn(isDeviceOptedIn(uid))
-  }, [uid])
-
-  const enableOnThisDevice = async () => {
-    if (!uid || enabling) return
-    setEnabling(true)
-    try {
-      await enablePushNotifications(uid)
-      setDeviceHasOptedIn(true)
-      setPushPermission(currentNotificationPermission())
-      if (typeof refreshUserProfile === 'function') {
-        await refreshUserProfile()
-      }
-      showToast(t('notifications.pushOptInEnabled'), 'success')
-    } catch (error) {
-      showToast(error.message || t('notifications.pushOptInFailed'), 'error')
-    } finally {
-      setEnabling(false)
-    }
-  }
-
-  return {
-    devicePushEnable: {
-      show: shouldOfferDevicePushEnable({
-        preferenceEnabled,
-        deviceOptedIn: deviceHasOptedIn,
-        mobileEligible,
-        supported
-      }),
-      busy: enabling,
-      onEnable: enableOnThisDevice
-    }
-  }
-}
-
-const DevicePushEnableControl = ({ show, busy, onEnable }) => {
-  const { t } = useTranslation()
-  if (!show) return null
-  return (
-    <div className="profile-push-device-enable">
-      <p>{t('profile.pushNotificationsDeviceUnregistered')}</p>
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={onEnable}
-        disabled={busy}
-      >
-        {t('profile.pushNotificationsEnableThisDevice')}
-      </button>
-    </div>
-  )
-}
+const useDevicePushOn = (uid, preferences) => useSyncExternalStore(
+  subscribeDeviceOptIn,
+  () => readDevicePushOn(uid, preferences)
+)
 
 const validateProfileForm = (data, requireFields = false, t) => {
   if (requireFields) {
@@ -237,11 +184,10 @@ const WalletAddressEditField = ({ address, copiedAddress, onCopy }) => {
 }
 
 const PushNotificationPreferenceField = ({
-  preferences,
+  devicePushOn,
   mobilePushEligible,
   pushSupported,
-  pushPreferenceHelp,
-  devicePushEnable
+  pushPreferenceHelp
 }) => {
   const { t } = useTranslation()
   if (mobilePushEligible) {
@@ -251,28 +197,18 @@ const PushNotificationPreferenceField = ({
           <input
             type="checkbox"
             name="pushNotifications"
-            defaultChecked={preferences.pushNotifications === true}
+            defaultChecked={devicePushOn}
             disabled={!pushSupported}
           />
           <span>{t('profile.pushNotifications')}</span>
         </label>
         <p className="form-field-note">{pushPreferenceHelp}</p>
-        <DevicePushEnableControl {...devicePushEnable} />
       </div>
     )
   }
-  if (preferences.pushNotifications !== true) return null
   return (
-    <div className="form-group form-group-checkbox">
-      <label className="form-label form-label-checkbox">
-        <input
-          type="checkbox"
-          name="pushNotifications"
-          defaultChecked
-        />
-        <span>{t('profile.pushNotificationsRegisteredPhone')}</span>
-      </label>
-      <p className="form-field-note">{t('profile.pushNotificationsRegisteredPhoneHelp')}</p>
+    <div className="form-group">
+      <p className="form-field-note">{t('profile.pushNotificationsManagedPerPhone')}</p>
     </div>
   )
 }
@@ -290,7 +226,7 @@ const ProfileEditForm = ({
   mobilePushEligible,
   pushSupported,
   pushPreferenceHelp,
-  devicePushEnable,
+  devicePushOn,
 }) => {
   const { t } = useTranslation()
   return (
@@ -421,11 +357,10 @@ const ProfileEditForm = ({
           </label>
         </div>
         <PushNotificationPreferenceField
-          preferences={preferences}
+          devicePushOn={devicePushOn}
           mobilePushEligible={mobilePushEligible}
           pushSupported={pushSupported}
           pushPreferenceHelp={pushPreferenceHelp}
-          devicePushEnable={devicePushEnable}
         />
       </section>
 
@@ -502,7 +437,7 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushEnable }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
@@ -518,10 +453,9 @@ const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePush
       {mobilePushEligible && (
         <div className="profile-detail-item">
           <span className="detail-label">{t('profile.pushNotifications')}</span>
-          <span className="detail-value">{getPushPreferenceValue(preferences) ? t('common.on') : t('common.off')}</span>
+          <span className="detail-value">{devicePushOn ? t('common.on') : t('common.off')}</span>
         </div>
       )}
-      <DevicePushEnableControl {...devicePushEnable} />
     </section>
   )
 }
@@ -561,7 +495,7 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushEnable }) => {
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn }) => {
   const { t } = useTranslation()
   return (
     <>
@@ -601,7 +535,7 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
       <ProfilePreferencesSection
         preferences={preferences}
         mobilePushEligible={mobilePushEligible}
-        devicePushEnable={devicePushEnable}
+        devicePushOn={devicePushOn}
       />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
@@ -630,14 +564,7 @@ const MemberProfile = () => {
   const [mobilePushEligible, setMobilePushEligible] = useState(isMobilePushEligible)
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
-  const { devicePushEnable } = useEnablePushOnThisDevice({
-    uid: currentUser?.uid,
-    refreshUserProfile,
-    setPushPermission,
-    preferenceEnabled: getPushPreferenceValue(userProfile?.preferences),
-    mobileEligible: mobilePushEligible,
-    supported: pushSupported
-  })
+  const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
 
   const copyAddress = async (addr) => {
     try {
@@ -711,12 +638,18 @@ const MemberProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const currentPushNotifications = getPushPreferenceValue(userProfile?.preferences)
     const pushInput = e.target.elements.namedItem('pushNotifications')
+    // Read now, not from render: a launch refresh may have changed the marker
+    // while the form was open.
+    const currentPushOn = readDevicePushOn(currentUser.uid, userProfile?.preferences)
     const desiredPushNotifications = !pushInput || pushInput.disabled
-      ? currentPushNotifications
+      ? currentPushOn
       : pushInput.checked
-    const data = buildProfileUpdateData(formData, desiredPushNotifications)
+    // The switch is per phone, so the account field is never written false. It
+    // turns true when this save turns the phone on (enable just wrote it), so
+    // the whole-map write below can't put the stale value back.
+    const storedPushPreference = getPushPreferenceValue(userProfile?.preferences)
+    const data = buildProfileUpdateData(formData, storedPushPreference || desiredPushNotifications)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
@@ -728,7 +661,7 @@ const MemberProfile = () => {
       await syncPushPreference(
         currentUser.uid,
         desiredPushNotifications,
-        currentPushNotifications,
+        currentPushOn,
         setPushPermission
       )
       await updateMember(currentUser.uid, data)
@@ -809,7 +742,7 @@ const MemberProfile = () => {
               mobilePushEligible={mobilePushEligible}
               pushSupported={pushSupported}
               pushPreferenceHelp={pushPreferenceHelp}
-              devicePushEnable={devicePushEnable}
+              devicePushOn={devicePushOn}
             />
           ) : (
             <ProfileDetails
@@ -821,7 +754,7 @@ const MemberProfile = () => {
               onCopyAddress={copyAddress}
               onEdit={() => setIsEditing(true)}
               mobilePushEligible={mobilePushEligible}
-              devicePushEnable={devicePushEnable}
+              devicePushOn={devicePushOn}
             />
           )}
         </div>

@@ -17,7 +17,7 @@ import {
 // to bundle, and a failed dynamic import here would throw out of logout()
 // before signOut ever ran.
 import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
-import { shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
+import { isDeviceOptedIn, shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
 
 export const AuthProvider = ({ children }) => {
@@ -145,7 +145,9 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       resetPushOptInPrompt()
-      if (currentUser?.uid && userProfile?.preferences?.pushNotifications) {
+      // Not gated on this phone's marker: a phone not yet adopted can still
+      // hold a live token, and logout must not leave it receiving.
+      if (currentUser?.uid) {
         try {
           const { disablePushNotificationsOnLogout } = await import('../services/pushNotifications')
           await disablePushNotificationsOnLogout(currentUser.uid)
@@ -244,9 +246,9 @@ export const AuthProvider = ({ children }) => {
   // its default "site updated in the background" shell for unfocused tabs.
   useEffect(() => {
     const pushModule = () => import('../services/pushNotifications')
-    const pushEnabled = Boolean(
-      currentUser && userProfile?.preferences?.pushNotifications
-    )
+    // Per phone: another phone's opt-in says nothing about this one. An
+    // adopted phone starts its listener from refreshPushToken instead.
+    const pushEnabled = Boolean(currentUser && isDeviceOptedIn(currentUser.uid))
     if (!pushEnabled) {
       pushModule()
         .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
@@ -271,7 +273,7 @@ export const AuthProvider = ({ children }) => {
         .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
         .catch(() => {})
     }
-  }, [currentUser, userProfile?.preferences?.pushNotifications])
+  }, [currentUser])
 
   const value = {
     currentUser,

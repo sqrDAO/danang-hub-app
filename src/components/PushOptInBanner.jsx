@@ -41,7 +41,8 @@ const PushOptInBanner = () => {
       // visitor, logged in or not.
       const { enablePushNotifications } = await import('../services/pushNotifications')
       await enablePushNotifications(state.uid)
-      // Keep AuthContext in sync so later successes pass pushOptedIn=true
+      // Enabling wrote preferences.pushNotifications=true; keep the cached
+      // profile in step so a later Profile save writes it back unchanged.
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
       }
