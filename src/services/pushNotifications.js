@@ -133,6 +133,10 @@ const deleteBrowserPushToken = async () => {
   return deleteToken(messaging)
 }
 
+// The in-flight revoke. A quick off→on or logout→login can get the same token
+// back, so issuePushToken waits for this first or the revoke would kill it.
+let pendingBrowserTokenRevoke = null
+
 /**
  * Removes this phone's push: its device doc and the legacy doc. Once no doc
  * holds this phone's token the server can't send to it, so the browser token
@@ -153,7 +157,7 @@ const clearThisPhonePush = async (uid) => {
     deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
     mayHoldLegacyToken ? deleteLegacyPushToken(uid) : null
   ])
-  deleteBrowserPushToken().catch((error) => {
+  pendingBrowserTokenRevoke = deleteBrowserPushToken().catch((error) => {
     console.warn('Unable to revoke the browser push token:', error)
   })
   const failed = results.find((result) => result.status === 'rejected')
@@ -309,6 +313,7 @@ export const stopForegroundPushListener = () => {
 
 /** Mints a fresh FCM token against the active service worker registration. */
 const issuePushToken = async () => {
+  await pendingBrowserTokenRevoke
   const messaging = await getMessagingInstance(true)
   const serviceWorkerRegistration = await getServiceWorkerRegistration()
   const token = await getToken(messaging, {
@@ -393,11 +398,23 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   return true
 }
 
-/** Profile switch off: this phone only, recorded so launch refresh stays off. */
+/**
+ * Profile switch off: this phone only, recorded so launch refresh stays off.
+ * If a delete fails the phone may still get push, so it is marked back on:
+ * the switch shows On next to the error, and saving again retries the cleanup.
+ */
 export const disablePushNotifications = async (uid) => {
   stopForegroundPushListener()
   setDeviceOptedOut(uid)
-  await clearThisPhonePush(uid)
+  try {
+    await clearThisPhonePush(uid)
+  } catch (error) {
+    setDeviceOptedIn(uid)
+    ensureForegroundPushListener().catch((listenerError) => {
+      console.warn('Unable to restart the foreground push listener:', listenerError)
+    })
+    throw error
+  }
 }
 
 /**

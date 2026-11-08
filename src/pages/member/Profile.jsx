@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
-import { updateMember, getMemberStats } from '../../services/members'
+import { updateMember, updateMemberPreferences, getMemberStats } from '../../services/members'
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -52,7 +52,7 @@ const getPushPreferenceHelp = (supported, permission, t) => {
   return t('profile.pushNotificationsHelp')
 }
 
-const buildProfileUpdateData = (formData, pushNotifications) => ({
+const buildProfileUpdateData = (formData) => ({
   displayName: formData.get('displayName')?.trim() || '',
   email: formData.get('email')?.trim() || '',
   phone: formData.get('phone')?.trim() || '',
@@ -61,11 +61,13 @@ const buildProfileUpdateData = (formData, pushNotifications) => ({
   jobTitle: formData.get('jobTitle')?.trim() || '',
   linkedIn: formData.get('linkedIn')?.trim() || '',
   website: formData.get('website')?.trim() || '',
-  preferences: {
-    emailNotifications: formData.get('emailNotifications') === 'on',
-    eventReminders: formData.get('eventReminders') === 'on',
-    pushNotifications,
-  },
+})
+
+// pushNotifications is left out on purpose: the switch is per phone, and only
+// enablePushNotifications writes it (true). A stale save must not write it.
+const buildPreferenceUpdate = (formData) => ({
+  emailNotifications: formData.get('emailNotifications') === 'on',
+  eventReminders: formData.get('eventReminders') === 'on',
 })
 
 const currentNotificationPermission = () =>
@@ -190,6 +192,9 @@ const PushNotificationPreferenceField = ({
   pushPreferenceHelp
 }) => {
   const { t } = useTranslation()
+  // null until the member touches the box: until then it follows this phone,
+  // which a launch refresh can change while the form is open.
+  const [pushChoice, setPushChoice] = useState(null)
   if (mobilePushEligible) {
     return (
       <div className="form-group form-group-checkbox">
@@ -197,7 +202,9 @@ const PushNotificationPreferenceField = ({
           <input
             type="checkbox"
             name="pushNotifications"
-            defaultChecked={devicePushOn}
+            checked={pushChoice ?? devicePushOn}
+            onChange={(e) => setPushChoice(e.target.checked)}
+            data-touched={pushChoice !== null}
             disabled={!pushSupported}
           />
           <span>{t('profile.pushNotifications')}</span>
@@ -642,14 +649,10 @@ const MemberProfile = () => {
     // Read now, not from render: a launch refresh may have changed the marker
     // while the form was open.
     const currentPushOn = readDevicePushOn(currentUser.uid, userProfile?.preferences)
-    const desiredPushNotifications = !pushInput || pushInput.disabled
-      ? currentPushOn
-      : pushInput.checked
-    // The switch is per phone, so the account field is never written false. It
-    // turns true when this save turns the phone on (enable just wrote it), so
-    // the whole-map write below can't put the stale value back.
-    const storedPushPreference = getPushPreferenceValue(userProfile?.preferences)
-    const data = buildProfileUpdateData(formData, storedPushPreference || desiredPushNotifications)
+    // Only a switch the member touched changes this phone.
+    const pushTouched = pushInput?.dataset.touched === 'true' && !pushInput.disabled
+    const desiredPushNotifications = pushTouched ? pushInput.checked : currentPushOn
+    const data = buildProfileUpdateData(formData)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
       showToast(validationError, 'error')
@@ -664,7 +667,7 @@ const MemberProfile = () => {
         currentPushOn,
         setPushPermission
       )
-      await updateMember(currentUser.uid, data)
+      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData), data)
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
