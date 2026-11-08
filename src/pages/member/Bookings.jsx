@@ -388,12 +388,8 @@ const useMonthlyLimit = (userProfile, bookings, amenities) => {
   return { limit, deskHoursUsed: limit ? hoursUsedThisMonth(bookings, amenities) : null }
 }
 
-const useBookingHandlers = ({ currentUser, navigate, form, fd, mutations, t, limit }) => {
+const useBookingHandlers = ({ currentUser, form, fd, mutations, t, limit }) => {
   const handleBookAmenity = (amenity) => {
-    if (amenity.type === 'event-space') {
-      navigate(`/member/events?action=create&amenityId=${amenity.id}`)
-      return
-    }
     form.openForAmenity(amenity)
   }
 
@@ -1268,7 +1264,7 @@ const MemberBookings = () => {
   const fd = useFixedDeskForm()
   const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
   const { limit, deskHoursUsed } = useMonthlyLimit(userProfile, myBookings, amenities)
-  const handlers = useBookingHandlers({ currentUser, navigate, form, fd, mutations, t, limit })
+  const handlers = useBookingHandlers({ currentUser, form, fd, mutations, t, limit })
 
   const deskAmenities = bookableAmenities.filter(a => a.type === 'desk')
 
@@ -1309,7 +1305,7 @@ const MemberBookings = () => {
           t={t}
           deskHoursUsed={deskHoursUsed}
           amenitiesLoading={amenitiesLoading}
-          availableAmenities={bookableAmenities}
+          availableAmenities={bookableAmenities.filter(a => a.type !== 'event-space')}
           onBook={handlers.handleBookAmenity}
           onShowPhotos={setLightboxAmenity}
           onRegisterFixedDesk={deskPlanType === PARTNER_DESK ? null : fd.openForAmenity}
