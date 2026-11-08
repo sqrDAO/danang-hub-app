@@ -81,12 +81,19 @@ function getTransporter() {
  * Returns the user's Firebase Auth email only when Firebase has verified it.
  * The members/{uid}.email profile field is member-editable, so it is never
  * used as a mail recipient.
+ * A failed lookup (e.g. a deleted organizer) is logged and returns null.
  * @param {string} uid Firebase Auth uid
  * @return {Promise<string|null>} verified email, or null
  */
 async function getVerifiedEmail(uid) {
-  const user = await getAuth().getUser(uid);
-  return user.emailVerified && user.email ? user.email : null;
+  try {
+    const user = await getAuth().getUser(uid);
+    return user.emailVerified && user.email ? user.email : null;
+  } catch (error) {
+    console.error(
+        "[event-status-email] recipient lookup failed:", {uid}, error);
+    return null;
+  }
 }
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -2608,7 +2615,7 @@ exports.notifyEventStatusChange = onDocumentUpdated(
           null;
 
         if (recipient) {
-          const displayName = member.displayName || member.email;
+          const displayName = member.displayName || recipient;
           const fromName =
             process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
           const appUrl =

@@ -26,6 +26,8 @@ profile email is member-editable), and tidy the From header and send-failure log
 - [ ] The From header is passed as `{name, address}`, not a hand-quoted string.
 - [ ] A `sendMail` failure logs at error level with the tag `[event-status-email]`.
 - [ ] That failure log includes the full error object (stack and cause).
+- [ ] An organizer with no profile display name is greeted by their verified email, never "Hi ,".
+- [ ] A failed Auth lookup of the organizer (e.g. deleted user) logs with the tag `[event-status-email]` and sends no email.
 - [ ] NOT: no email to `members/{uid}.email` (member-editable, so it can point at anyone).
 - [ ] NOT: no change to the in-app notification or push, which still reach every organizer.
 - [ ] NOT: no escaping of the email subject (plain text, not HTML).
@@ -43,6 +45,8 @@ profile email is member-editable), and tidy the From header and send-failure log
   (a bare URL may still be auto-linked by the mail client; escaping cannot stop that)
 - manual (after deploy): change a Google organizer's profile email to another address, approve
   their event → email arrives at the Google address, not the profile one
+- manual (after deploy): approve the event of a Google organizer whose profile has no display name
+  → the greeting is "Hi" followed by their Google email
 - manual (after deploy): approve a wallet organizer's event → no email; bell and push still arrive
 - regression: approve and reject a normally titled event → both emails arrive and render as before
 
