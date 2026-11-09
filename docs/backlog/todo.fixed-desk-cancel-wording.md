@@ -1,0 +1,22 @@
+# Fixed desk plans cancel whole, rule stays as is
+**Phase**: — · **Deps**: —
+
+## Goal
+CLAUDE.md says fixed-desk days are never cancelled individually, while `firestore.rules` lets an owner cancel an approved `fixed-desk` day (#172). Decision: members cancel whole plans only, through the app, and there is no server-side enforcement, so the wording is corrected and the rule is kept.
+
+## Files
+- `CLAUDE.md` (edited) — Fixed desk plans bullet: whole-plan cancel only; why the owner rule must keep allowing approved `fixed-desk` days
+
+## Acceptance
+- [ ] CLAUDE.md says members cancel a fixed desk plan only as a whole, via `cancelFixedDeskPlan`.
+- [ ] CLAUDE.md says the app offers no single-day cancel for fixed desk plans.
+- [ ] CLAUDE.md says `cancelFixedDeskPlan` writes each day under the owner rule, so the rule must keep allowing approved `fixed-desk` days.
+- [ ] NOT: no change to `firestore.rules`.
+- [ ] NOT: no change to `cancelFixedDeskPlan` or the Bookings UI.
+
+## Verify
+- `git diff origin/main --stat` → only `CLAUDE.md` and this spec
+- `npm run lint && npm run build` → green (no code change; sanity only)
+
+## Notes
+Server enforcement (moving Cancel Plan into a callable, then tightening the rule to `partner-desk` only) was considered and declined: the app doesn't expose a single-day cancel, members don't attempt one, and fixed-desk days sit outside the 40h limit (`DESK_PLAN_TYPES`), so a direct write gains nothing.
