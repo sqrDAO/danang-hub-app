@@ -14,7 +14,7 @@ import {
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
-import { isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
+import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -73,12 +73,16 @@ const buildPreferenceUpdate = (formData) => ({
 const currentNotificationPermission = () =>
   typeof Notification !== 'undefined' ? Notification.permission : 'default'
 
+// On compares against a registered phone, not the switch: a phone the launch
+// refresh hasn't adopted (or failed to) shows On but has no device doc, so
+// saving On registers it.
 const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications, setPushPermission) => {
-  if (desiredPushNotifications === currentPushNotifications) return
-  if (desiredPushNotifications) {
+  if (desiredPushNotifications && !isDeviceOptedIn(uid)) {
     await enablePushNotifications(uid)
-  } else {
+  } else if (!desiredPushNotifications && currentPushNotifications) {
     await disablePushNotifications(uid)
+  } else {
+    return
   }
   setPushPermission(currentNotificationPermission())
 }

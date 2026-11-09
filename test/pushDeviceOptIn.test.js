@@ -6,6 +6,7 @@ import {
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
   getPushDeviceId,
+  isAnotherAccountOptedIn,
   isDevicePushOn,
   readPushDeviceId,
   setDeviceOptedIn,
@@ -235,4 +236,25 @@ test('setDeviceOptedIn tells same-tab listeners the marker changed', () => {
   }
   assert.equal(store.getItem('pushDeviceOptIn:member-a'), 'true')
   assert.deepEqual(events, ['push-device-opt-in-change'])
+})
+
+const fakeStorage = (entries) => {
+  const keys = Object.keys(entries)
+  return { length: keys.length, key: (i) => keys[i], getItem: (k) => entries[k] ?? null }
+}
+
+test('another account opted in on this phone is detected', () => {
+  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'false', 'pushDeviceOptIn:b': 'true' })
+  assert.equal(isAnotherAccountOptedIn('a', storage), true)
+})
+
+test('the account being cleaned up does not count as another account', () => {
+  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'true', 'pushDeviceOptIn:b': 'false' })
+  assert.equal(isAnotherAccountOptedIn('a', storage), false)
+})
+
+test('unrelated keys and an unreadable storage count as no other account', () => {
+  assert.equal(isAnotherAccountOptedIn('a', fakeStorage({ pushDeviceId: 'true' })), false)
+  const broken = { get length () { throw new Error('blocked') } }
+  assert.equal(isAnotherAccountOptedIn('a', broken), false)
 })

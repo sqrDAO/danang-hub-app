@@ -111,6 +111,26 @@ export const getDeviceOptInState = (uid) => {
 export const isDeviceOptedIn = (uid) => getDeviceOptInState(uid) === DEVICE_OPTED_IN
 
 /**
+ * Whether an account other than `uid` turned push on in this browser. The FCM
+ * token belongs to the browser, not the account, so they share it.
+ * @param {string} uid Account being cleaned up
+ * @param {Storage} [storage] Defaults to localStorage
+ * @returns {boolean}
+ */
+export const isAnotherAccountOptedIn = (uid, storage = globalThis.localStorage) => {
+  try {
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i)
+      if (key?.startsWith(DEVICE_OPT_IN_KEY('')) && key !== DEVICE_OPT_IN_KEY(uid) &&
+        storage.getItem(key) === 'true') return true
+    }
+  } catch {
+    // Storage blocked: no account can be opted in here.
+  }
+  return false
+}
+
+/**
  * Whether this phone receives push, as Profile's switch shows it: opted in, or
  * about to be adopted by the launch refresh (which may land after the page
  * opened), so switching it off still runs the cleanup.

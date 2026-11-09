@@ -9,6 +9,7 @@ import {
   DEVICE_OPTED_OUT,
   getDeviceOptInState,
   getPushDeviceId,
+  isAnotherAccountOptedIn,
   readPushDeviceId,
   setDeviceOptedIn,
   setDeviceOptedOut,
@@ -157,9 +158,13 @@ const clearThisPhonePush = async (uid) => {
     deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
     mayHoldLegacyToken ? deleteLegacyPushToken(uid) : null
   ])
-  pendingBrowserTokenRevoke = deleteBrowserPushToken().catch((error) => {
-    console.warn('Unable to revoke the browser push token:', error)
-  })
+  // Another account opted in on this phone uses the same token; revoking it
+  // would silence them too, and their device doc keeps it in use anyway.
+  if (!isAnotherAccountOptedIn(uid)) {
+    pendingBrowserTokenRevoke = deleteBrowserPushToken().catch((error) => {
+      console.warn('Unable to revoke the browser push token:', error)
+    })
+  }
   const failed = results.find((result) => result.status === 'rejected')
   if (failed) throw failed.reason
 }
