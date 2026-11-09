@@ -5,10 +5,14 @@ import {
   DEVICE_OPTED_OUT,
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
+  getPushDeviceId,
+  isAnotherAccountOptedIn,
+  isDevicePushOn,
+  readPushDeviceId,
+  setDeviceOptedIn,
   shouldAttemptLaunchPushRefresh,
-  shouldOfferDevicePushEnable,
-  shouldRefreshPushToken,
-  shouldSuppressPushOptInPrompt
+  shouldRecordLaunchOptOut,
+  shouldRefreshPushToken
 } from '../src/utils/pushDeviceOptIn.js'
 
 const refresh = (overrides) => shouldRefreshPushToken({
@@ -19,7 +23,7 @@ const refresh = (overrides) => shouldRefreshPushToken({
   ...overrides
 })
 
-test('refreshes when the device is eligible, permitted, and opted in', () => {
+test('refreshes when the device is eligible, permitted, opted in, and the preference is on', () => {
   assert.equal(refresh({}), true)
 })
 
@@ -41,9 +45,23 @@ test('never refreshes on a device that cannot register push', () => {
 })
 
 test('never refreshes while the account preference is off', () => {
-  // Preference-off is account intent (desktop opt-out included). A phone that
-  // still holds an opted-in marker must not re-issue a token or heal the field.
+  // The app never writes it false, so false is an opt-out from before
+  // per-phone tokens; refreshing would resume push the member turned off.
   assert.equal(refresh({ preferenceEnabled: false }), false)
+})
+
+test('records a launch opt-out for an opted-in phone when the preference is off', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_IN, preferenceEnabled: false }), true)
+})
+
+test('records no launch opt-out while the preference is on', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_IN, preferenceEnabled: true }), false)
+})
+
+test('records no launch opt-out for a phone that never opted in', () => {
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPT_IN_UNKNOWN, preferenceEnabled: false }), false)
+  assert.equal(shouldRecordLaunchOptOut({ state: DEVICE_OPTED_OUT, preferenceEnabled: false }), false)
+  assert.equal(shouldRecordLaunchOptOut(), false)
 })
 
 test('defaults to not refreshing when inputs are missing', () => {
@@ -130,61 +148,113 @@ test('defaults to not attempting launch refresh when inputs are missing', () => 
   assert.equal(shouldAttemptLaunchPushRefresh({}), false)
 })
 
-const suppressPrompt = (overrides) => shouldSuppressPushOptInPrompt({
+const withStorage = (store, run) => {
+  globalThis.window = {
+    crypto: { randomUUID: () => 'generated-id' },
+    localStorage: store
+  }
+  try {
+    return run()
+  } finally {
+    delete globalThis.window
+  }
+}
+
+const memoryStorage = (initial = {}) => {
+  const data = { ...initial }
+  return {
+    getItem: (key) => (key in data ? data[key] : null),
+    setItem: (key, value) => { data[key] = value }
+  }
+}
+
+test('getPushDeviceId creates an id once and keeps it', () => {
+  const store = memoryStorage()
+  assert.equal(withStorage(store, getPushDeviceId), 'generated-id')
+  assert.equal(store.getItem('pushDeviceId'), 'generated-id')
+})
+
+test('getPushDeviceId returns the stored id', () => {
+  const store = memoryStorage({ pushDeviceId: 'phone-1' })
+  assert.equal(withStorage(store, getPushDeviceId), 'phone-1')
+})
+
+test('getPushDeviceId returns null when storage is blocked', () => {
+  const blocked = {
+    getItem: () => { throw new Error('blocked') },
+    setItem: () => { throw new Error('blocked') }
+  }
+  assert.equal(withStorage(blocked, getPushDeviceId), null)
+})
+
+test('readPushDeviceId never creates an id', () => {
+  const store = memoryStorage()
+  assert.equal(withStorage(store, readPushDeviceId), null)
+  assert.equal(store.getItem('pushDeviceId'), null)
+})
+
+test('readPushDeviceId returns the stored id', () => {
+  const store = memoryStorage({ pushDeviceId: 'phone-1' })
+  assert.equal(withStorage(store, readPushDeviceId), 'phone-1')
+})
+
+const pushOn = (store, overrides) => withStorage(store, () => isDevicePushOn('member-a', {
   preferenceEnabled: true,
-  deviceOptedIn: true,
+  permission: 'granted',
   ...overrides
+}))
+
+test('isDevicePushOn is true for an opted-in phone', () => {
+  const store = memoryStorage({ 'pushDeviceOptIn:member-a': 'true' })
+  assert.equal(pushOn(store, { preferenceEnabled: false }), true)
 })
 
-test('suppresses the opt-in banner when this device is already receiving', () => {
-  assert.equal(suppressPrompt({}), true)
+test('isDevicePushOn is true for a phone the launch refresh would adopt', () => {
+  assert.equal(pushOn(memoryStorage()), true)
 })
 
-test('does not suppress the banner when preference is on but this device has no marker', () => {
-  // PWA reinstall: preference stayed true, marker gone. The banner is the
-  // existing permission-prompt surface; Save must not steal that job.
-  assert.equal(suppressPrompt({ deviceOptedIn: false }), false)
+test('isDevicePushOn is false for an opted-out phone', () => {
+  const store = memoryStorage({ 'pushDeviceOptIn:member-a': 'false' })
+  assert.equal(pushOn(store), false)
 })
 
-test('does not suppress the banner while the account preference is off', () => {
-  assert.equal(suppressPrompt({ preferenceEnabled: false }), false)
-  assert.equal(suppressPrompt({ preferenceEnabled: false, deviceOptedIn: false }), false)
+test('isDevicePushOn is false for an unmarked phone without permission', () => {
+  assert.equal(pushOn(memoryStorage(), { permission: 'default' }), false)
 })
 
-test('defaults to not suppressing the banner when inputs are missing', () => {
-  assert.equal(shouldSuppressPushOptInPrompt(), false)
-  assert.equal(shouldSuppressPushOptInPrompt({}), false)
+test('setDeviceOptedIn tells same-tab listeners the marker changed', () => {
+  const store = memoryStorage()
+  const events = []
+  globalThis.window = {
+    localStorage: store,
+    dispatchEvent: (event) => events.push(event.type)
+  }
+  try {
+    setDeviceOptedIn('member-a')
+  } finally {
+    delete globalThis.window
+  }
+  assert.equal(store.getItem('pushDeviceOptIn:member-a'), 'true')
+  assert.deepEqual(events, ['push-device-opt-in-change'])
 })
 
-const offerEnable = (overrides) => shouldOfferDevicePushEnable({
-  preferenceEnabled: true,
-  deviceOptedIn: false,
-  mobileEligible: true,
-  supported: true,
-  ...overrides
+const fakeStorage = (entries) => {
+  const keys = Object.keys(entries)
+  return { length: keys.length, key: (i) => keys[i], getItem: (k) => entries[k] ?? null }
+}
+
+test('another account opted in on this phone is detected', () => {
+  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'false', 'pushDeviceOptIn:b': 'true' })
+  assert.equal(isAnotherAccountOptedIn('a', storage), true)
 })
 
-test('offers Enable-on-this-phone when the box is ticked but this device has no marker', () => {
-  assert.equal(offerEnable({}), true)
+test('the account being cleaned up does not count as another account', () => {
+  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'true', 'pushDeviceOptIn:b': 'false' })
+  assert.equal(isAnotherAccountOptedIn('a', storage), false)
 })
 
-test('does not offer Enable-on-this-phone when this device is already opted in', () => {
-  assert.equal(offerEnable({ deviceOptedIn: true }), false)
-})
-
-test('does not offer Enable-on-this-phone on a non-mobile device', () => {
-  assert.equal(offerEnable({ mobileEligible: false }), false)
-})
-
-test('does not offer Enable-on-this-phone when push is unsupported', () => {
-  assert.equal(offerEnable({ supported: false }), false)
-})
-
-test('does not offer Enable-on-this-phone when the preference is off', () => {
-  assert.equal(offerEnable({ preferenceEnabled: false }), false)
-})
-
-test('defaults to not offering Enable-on-this-phone when inputs are missing', () => {
-  assert.equal(shouldOfferDevicePushEnable(), false)
-  assert.equal(shouldOfferDevicePushEnable({}), false)
+test('unrelated keys and an unreadable storage count as no other account', () => {
+  assert.equal(isAnotherAccountOptedIn('a', fakeStorage({ pushDeviceId: 'true' })), false)
+  const broken = { get length () { throw new Error('blocked') } }
+  assert.equal(isAnotherAccountOptedIn('a', broken), false)
 })

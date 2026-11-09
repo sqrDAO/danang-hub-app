@@ -47,6 +47,7 @@ const {
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
 const {escapeHtml} = require("./emailHtml");
+const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
 
 initializeApp();
 
@@ -802,18 +803,32 @@ function hasPushEnabled(member) {
 }
 
 /**
+ * Reads every phone token a member has stored, one doc per phone, plus the
+ * legacy single-token doc until a phone deletes it. Only for members with the
+ * account preference on: the app sets it when any phone turns on and never
+ * writes it false (off is per phone, by deleting that phone's doc), so false
+ * is an opt-out from before per-phone tokens, and it skips the reads.
  * @param {string} memberId Member document id
  * @param {Object} member Member Firestore document data
- * @return {Promise<string>} Stored browser push token, if available
+ * @return {Promise<Array<{token: string, refs: Array}>>} Distinct tokens
  */
-async function getPushToken(memberId, member) {
-  if (!hasPushEnabled(member)) return "";
+async function getPushTokens(memberId, member) {
+  if (!hasPushEnabled(member)) return [];
 
-  const tokenDoc = await db.collection("push_tokens").doc(memberId).get();
-  if (!tokenDoc.exists) return "";
+  const legacyRef = db.collection("push_tokens").doc(memberId);
+  const [deviceDocs, legacyDoc] = await Promise.all([
+    legacyRef.collection("devices").get(),
+    legacyRef.get(),
+  ]);
 
-  const tokenData = tokenDoc.data();
-  return tokenData && tokenData.token ? tokenData.token : "";
+  const entries = deviceDocs.docs.map((deviceDoc) => ({
+    token: deviceDoc.get("token"),
+    ref: deviceDoc.ref,
+  }));
+  if (legacyDoc && legacyDoc.exists) {
+    entries.push({token: legacyDoc.get("token"), ref: legacyRef});
+  }
+  return groupTokenEntries(entries);
 }
 
 const PUSH_MARKER_TTL_DAYS = 90;
@@ -935,13 +950,12 @@ function isUnrecoverablePushTokenError(error) {
 
 /**
  * @param {string} recipientId Member document id
+ * @param {FirebaseFirestore.DocumentReference} tokenRef Doc holding the token
  * @param {string} failedToken Token rejected by FCM
  * @return {Promise<void>}
  */
-async function deleteStalePushToken(recipientId, failedToken) {
-  const tokenRef = db.collection("push_tokens").doc(recipientId);
-
-  // Transactional because the launch-time refresh writes push_tokens/{uid}
+async function deleteStalePushToken(recipientId, tokenRef, failedToken) {
+  // Transactional because the launch-time refresh writes the phone's token doc
   // concurrently. Between a plain get() and delete(), a relaunching device can
   // land a replacement token that this cleanup would then destroy.
   // Preference is account intent, not device health — a dead token must not
@@ -1064,14 +1078,13 @@ function buildWebPushConfig(data) {
 }
 
 /**
- * Sends one push payload and reconciles successful sends / dead tokens.
- * @param {Array<Object>} recipients Push recipients
+ * Sends push in FCM-sized batches and deletes dead tokens.
+ * @param {Array<Object>} recipients Push recipients, one per token
  * @param {Object} data FCM data payload
+ * @param {Array<Object>} outcomes Collects {memberId, success} per token
  * @return {Promise<Array>}
  */
-async function sendPushToRecipients(recipients, data) {
-  if (!recipients.length) return [];
-
+async function sendPushBatches(recipients, data, outcomes) {
   const messaging = getMessaging();
   const results = [];
   const batchSize = 500;
@@ -1095,13 +1108,10 @@ async function sendPushToRecipients(recipients, data) {
         attempted: batchRecipients.length,
         code: error.code,
       });
-      await Promise.all(batchRecipients.map((recipient) =>
-        releasePushRecipient(
-            recipient.memberId,
-            recipient.type,
-            recipient.subjectId,
-        ),
-      ));
+      batchRecipients.forEach((recipient) => outcomes.push({
+        memberId: recipient.memberId,
+        success: false,
+      }));
       throw error;
     }
     results.push(response);
@@ -1119,35 +1129,61 @@ async function sendPushToRecipients(recipients, data) {
             "unknown"),
     });
 
-    const followUps = response.responses.map((sendResult, index) => {
+    const cleanups = response.responses.map((sendResult, index) => {
       const recipient = batchRecipients[index];
-      if (sendResult.success) {
-        return markPushRecipient(
-            recipient.memberId,
-            recipient.type,
-            recipient.subjectId,
-        );
+      outcomes.push({
+        memberId: recipient.memberId,
+        success: sendResult.success,
+      });
+      if (sendResult.success ||
+          !isUnrecoverablePushTokenError(sendResult.error)) {
+        return null;
       }
-      if (isUnrecoverablePushTokenError(sendResult.error)) {
-        return Promise.all([
-          deleteStalePushToken(recipient.memberId, recipient.token),
-          releasePushRecipient(
-              recipient.memberId,
-              recipient.type,
-              recipient.subjectId,
-          ),
-        ]);
-      }
-      return releasePushRecipient(
-          recipient.memberId,
-          recipient.type,
-          recipient.subjectId,
-      );
+      return Promise.all(recipient.refs.map((ref) =>
+        deleteStalePushToken(recipient.memberId, ref, recipient.token),
+      ));
     });
-    await Promise.all(followUps);
+    await Promise.all(cleanups);
   }
 
   return results;
+}
+
+/**
+ * Sends one push payload, one recipient per phone token, then settles each
+ * member's dedupe marker once from the outcomes of every batch.
+ * @param {Array<Object>} recipients Push recipients, one per token
+ * @param {Object} data FCM data payload
+ * @return {Promise<Array>}
+ */
+async function sendPushToRecipients(recipients, data) {
+  if (!recipients.length) return [];
+
+  const outcomes = [];
+  try {
+    return await sendPushBatches(recipients, data, outcomes);
+  } finally {
+    // A member's tokens can span batches, so marking per batch would release a
+    // member whose other phone already got it. Outcomes follow recipient
+    // order, so anything past them was never sent and counts as failed.
+    recipients.slice(outcomes.length).forEach(({memberId}) => {
+      outcomes.push({memberId, success: false});
+    });
+    const {type, subjectId} = recipients[0];
+    const {marked, released} = decideMemberMarkers(outcomes);
+    // Settled, not Promise.all: a throw here would replace the send error.
+    const settled = await Promise.allSettled([
+      ...marked.map((id) => markPushRecipient(id, type, subjectId)),
+      ...released.map((id) => releasePushRecipient(id, type, subjectId)),
+    ]);
+    settled
+        .filter((result) => result.status === "rejected")
+        .forEach((result) => console.error("Push marker write failed", {
+          type,
+          subjectId,
+          error: result.reason && result.reason.message,
+        }));
+  }
 }
 
 /**
@@ -1162,29 +1198,29 @@ async function sendPushToMembers(docs, payload) {
 
   const recipients = (await Promise.all(docs.map(async (doc) => {
     const member = doc.data();
-    const pushToken = await getPushToken(doc.id, member);
-    if (!pushToken) {
-      return null;
+    const pushTokens = await getPushTokens(doc.id, member);
+    if (!pushTokens.length) {
+      return [];
     }
     // Fixed-desk plans generate one booking doc per working day. Use a
     // recipient/subject marker so push follows the same grouped behavior as
-    // the in-app notification id.
+    // the in-app notification id. One marker per member, not per phone.
     const shouldSend = await reservePushRecipient(
         doc.id,
         type,
         subjectId,
     );
-    if (shouldSend) {
-      return {
-        memberId: doc.id,
-        token: pushToken,
-        type,
-        subjectId,
-        locale: resolvePushLocale(member),
-      };
-    }
-    return null;
-  }))).filter(Boolean);
+    if (!shouldSend) return [];
+    const locale = resolvePushLocale(member);
+    return pushTokens.map(({token, refs}) => ({
+      memberId: doc.id,
+      token,
+      refs,
+      type,
+      subjectId,
+      locale,
+    }));
+  }))).flat();
 
   if (!recipients.length) {
     // Either nobody opted in, everyone's token is gone, or the dedupe marker

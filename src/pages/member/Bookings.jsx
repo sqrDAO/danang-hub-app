@@ -235,7 +235,7 @@ const useFixedDeskForm = () => {
   }
 }
 
-const useBookingMutations = (form, fd, uid, pushOptedIn) => {
+const useBookingMutations = (form, fd, uid) => {
   const queryClient = useQueryClient()
   const { t } = useTranslation()
   const invalidate = useInvalidateQueries()
@@ -257,7 +257,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       showToast(t('toast.bookingCreated'), 'success')
       form.resetBookingForm()
       if (isDesk) resyncAfterPossibleAutoApprove([id])
-      promptPushOptInAfterSuccess(uid, pushOptedIn)
+      promptPushOptInAfterSuccess(uid)
     },
     onError: (error) => {
       showToast(t('toast.bookingCreateFailed'), 'error')
@@ -279,7 +279,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       showToast(t('toast.recurringBookingsCreated', { count: result.totalCreated }), 'success')
       form.resetBookingForm()
       if (isDesk) resyncAfterPossibleAutoApprove(result?.createdIds)
-      promptPushOptInAfterSuccess(uid, pushOptedIn)
+      promptPushOptInAfterSuccess(uid)
     },
     onError: (error) => {
       showToast(t(seriesErrorKey(error, 'toast.recurringBookingsFailed')), 'error')
@@ -310,7 +310,7 @@ const useBookingMutations = (form, fd, uid, pushOptedIn) => {
       invalidate('bookings', 'memberStats')
       showToast(t('toast.fixedDeskCreated', { count: result.totalCreated }), 'success')
       fd.resetFdForm()
-      promptPushOptInAfterSuccess(uid, pushOptedIn)
+      promptPushOptInAfterSuccess(uid)
     },
     onError: (error) => {
       showToast(t(seriesErrorKey(error, 'toast.fixedDeskFailed')), 'error')
@@ -1245,7 +1245,6 @@ const MemberBookings = () => {
   const locale = getLocale(i18n)
   const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
-  const pushOptedIn = userProfile?.preferences?.pushNotifications === true
 
   useEffect(() => {
     warmAmenityBookingRanges()
@@ -1277,7 +1276,7 @@ const MemberBookings = () => {
 
   const form = useBookingForm(bookableAmenities, searchParams, setSearchParams, navigate)
   const fd = useFixedDeskForm()
-  const mutations = useBookingMutations(form, fd, currentUser?.uid, pushOptedIn)
+  const mutations = useBookingMutations(form, fd, currentUser?.uid)
   const { limit, deskHoursUsed } = useMonthlyLimit(userProfile, myBookings, amenities)
   const handlers = useBookingHandlers({ currentUser, form, fd, mutations, t, limit })
 

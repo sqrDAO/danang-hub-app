@@ -184,7 +184,7 @@ const useEventsQueries = (currentUser) => {
   return { upcomingEventsData, isLoadingEvents, eventsError, approvedEvents, myEvents, amenities, isLoadingAmenities }
 }
 
-const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOptedIn }) => {
+const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid }) => {
   const invalidate = useInvalidateQueries()
   const createMutation = useMutation({
     mutationFn: createEvent,
@@ -193,7 +193,7 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid, pushOp
       setIsModalOpen(false)
       setIsSubmitting(false)
       showToast(t('toast.eventSubmittedForApproval'), 'success')
-      promptPushOptInAfterSuccess(uid, pushOptedIn)
+      promptPushOptInAfterSuccess(uid)
     },
     onError: () => {
       setIsSubmitting(false)
@@ -266,8 +266,7 @@ const useEventActionMutations = ({
   currentUser,
   processedActionRef,
   searchParams,
-  setSearchParams,
-  pushOptedIn
+  setSearchParams
 }) => {
   const invalidate = useInvalidateQueries()
   // useInvalidateQueries deliberately exposes invalidation only, so the
@@ -289,7 +288,7 @@ const useEventActionMutations = ({
       }))
       invalidate('memberStats')
       showToast(t('toast.eventRegisterSuccess'), 'success')
-      promptPushOptInAfterSuccess(currentUser?.uid, pushOptedIn)
+      promptPushOptInAfterSuccess(currentUser?.uid)
       resetActionState()
     },
     onError: (error) => {
@@ -770,7 +769,7 @@ const submitMemberEventForm = async ({
   }
 }
 
-const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOptedIn }) => {
+const useMemberEventModal = ({ t, currentUser, userProfile, amenities }) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
   const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false)
@@ -785,8 +784,7 @@ const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOpted
     t,
     setIsModalOpen,
     setIsSubmitting,
-    uid: currentUser?.uid,
-    pushOptedIn
+    uid: currentUser?.uid
   })
 
   const resetEventModal = () => {
@@ -850,7 +848,7 @@ const useMemberEventModal = ({ t, currentUser, userProfile, amenities, pushOpted
 }
 
 const useMemberEventInteractions = ({
-  t, currentUser, processedActionRef, searchParams, setSearchParams, pushOptedIn,
+  t, currentUser, processedActionRef, searchParams, setSearchParams,
   deleteMutation
 }) => {
   const [hostModalMember, setHostModalMember] = useState(null)
@@ -862,8 +860,7 @@ const useMemberEventInteractions = ({
     currentUser,
     processedActionRef,
     searchParams,
-    setSearchParams,
-    pushOptedIn
+    setSearchParams
   })
 
   const handleDeleteMyEvent = async (eventId) => {
@@ -958,15 +955,13 @@ const MemberEvents = () => {
     isLoadingAmenities,
   } = useEventsQueries(currentUser)
 
-  const pushOptedIn = userProfile?.preferences?.pushNotifications === true
-
   const {
     isModalOpen, editingEvent, hasAcceptedGuidelines, linkAmenity, prefillAmenityId,
     dateError, eventDuration, isSubmitting, setHasAcceptedGuidelines,
     setEventHallRequest, changeEventDuration, checkEventHall, resetEventModal, handleSubmit,
     handleOpenCreateModal, openCreateForAmenity, handleEditMyEvent, bannerInputRef,
     deleteMutation
-  } = useMemberEventModal({ t, currentUser, userProfile, amenities, pushOptedIn })
+  } = useMemberEventModal({ t, currentUser, userProfile, amenities })
 
   const interactions = useMemberEventInteractions({
     t,
@@ -974,7 +969,6 @@ const MemberEvents = () => {
     processedActionRef,
     searchParams,
     setSearchParams,
-    pushOptedIn,
     deleteMutation
   })
 

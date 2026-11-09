@@ -8,12 +8,15 @@ import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
   getDeviceOptInState,
+  getPushDeviceId,
+  isAnotherAccountOptedIn,
+  readPushDeviceId,
   setDeviceOptedIn,
   setDeviceOptedOut,
   isDeviceOptedIn,
   shouldAdoptLegacyOptIn,
-  shouldRefreshPushToken,
-  shouldSuppressPushOptInPrompt
+  shouldRecordLaunchOptOut,
+  shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
@@ -50,11 +53,9 @@ export const isPushSupported = async () => {
 }
 
 /** Whether the soft post-success prompt may be shown. */
-export const canShowPushOptInPrompt = async ({ optedIn = false, uid } = {}) => {
-  if (shouldSuppressPushOptInPrompt({
-    preferenceEnabled: optedIn,
-    deviceOptedIn: isDeviceOptedIn(uid)
-  })) return false
+export const canShowPushOptInPrompt = async ({ uid } = {}) => {
+  // On/off is per phone: another phone being opted in says nothing about this one.
+  if (isDeviceOptedIn(uid)) return false
   if (!(await isPushSupported())) return false
   if (!firebaseVapidKey) return false
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
@@ -94,24 +95,78 @@ const getServiceWorkerRegistration = async () => {
   return navigator.serviceWorker.ready
 }
 
-const getPushTokenRef = (uid) => doc(db, PUSH_TOKENS_COLLECTION, uid)
+const getDevicePushTokenRef = (uid, deviceId) =>
+  doc(db, PUSH_TOKENS_COLLECTION, uid, 'devices', deviceId)
 
-const savePushToken = async (uid, token) => {
-  await setDoc(getPushTokenRef(uid), {
+/**
+ * The single-token doc from before per-phone tokens. Deleted, never written:
+ * once any phone has its own doc, turns off or logs out, the legacy token
+ * (possibly a sold or forgotten phone's) must stop receiving.
+ */
+const deleteLegacyPushToken = (uid) => deleteDoc(doc(db, PUSH_TOKENS_COLLECTION, uid))
+
+/**
+ * Writes this phone's device doc, then drops the legacy doc. In that order:
+ * during a deploy the old rules refuse the device write, and the legacy doc
+ * must keep delivering until a device doc has landed.
+ */
+const savePushToken = async (uid, deviceId, token) => {
+  await setDoc(getDevicePushTokenRef(uid, deviceId), {
     token,
     platform: 'web',
     updatedAt: new Date().toISOString()
-  }, { merge: true })
-}
-
-const removeStoredPushToken = async (uid) => {
-  await deleteDoc(getPushTokenRef(uid))
+  })
+  await deleteLegacyPushToken(uid)
 }
 
 const deleteBrowserPushToken = async () => {
   if (!(await isPushSupported())) return false
-  const messaging = getMessaging(app)
+  if (Notification.permission !== 'granted') return false
+  const serviceWorkerRegistration = await getServiceWorkerRegistration()
+  // No push subscription means no live token to revoke.
+  if (!(await serviceWorkerRegistration.pushManager.getSubscription())) return false
+  // deleteToken only targets our sw.js after getToken has bound it in this page
+  // session; otherwise it registers the SDK's default /firebase-messaging-sw.js,
+  // which this app doesn't ship, and throws. With permission granted and a live
+  // subscription, getToken returns the existing token without prompting.
+  const messaging = await getMessagingInstance(true)
+  await getToken(messaging, { vapidKey: firebaseVapidKey, serviceWorkerRegistration })
   return deleteToken(messaging)
+}
+
+// The in-flight revoke. A quick off→on or logout→login can get the same token
+// back, so issuePushToken waits for this first or the revoke would kill it.
+let pendingBrowserTokenRevoke = null
+
+/**
+ * Removes this phone's push: its device doc and the legacy doc. Once no doc
+ * holds this phone's token the server can't send to it, so the browser token
+ * revoke is best effort and not awaited (it can be a network round trip, and
+ * logout must not wait on it). The legacy doc may hold another phone's token
+ * that hasn't opened the app since per-phone tokens shipped; that phone gets
+ * push again when it next opens the app.
+ * Only a phone that granted permission can hold the legacy token, so logging
+ * out elsewhere leaves it alone.
+ * The deletes run independently: during a deploy the old rules refuse the
+ * device delete, and that must not skip the legacy delete.
+ */
+const clearThisPhonePush = async (uid) => {
+  const deviceId = readPushDeviceId()
+  const mayHoldLegacyToken = typeof Notification !== 'undefined' &&
+    Notification.permission === 'granted'
+  const results = await Promise.allSettled([
+    deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
+    mayHoldLegacyToken ? deleteLegacyPushToken(uid) : null
+  ])
+  // Another account opted in on this phone uses the same token; revoking it
+  // would silence them too, and their device doc keeps it in use anyway.
+  if (!isAnotherAccountOptedIn(uid)) {
+    pendingBrowserTokenRevoke = deleteBrowserPushToken().catch((error) => {
+      console.warn('Unable to revoke the browser push token:', error)
+    })
+  }
+  const failed = results.find((result) => result.status === 'rejected')
+  if (failed) throw failed.reason
 }
 
 const resolvePushContent = (payload) => {
@@ -263,6 +318,7 @@ export const stopForegroundPushListener = () => {
 
 /** Mints a fresh FCM token against the active service worker registration. */
 const issuePushToken = async () => {
+  await pendingBrowserTokenRevoke
   const messaging = await getMessagingInstance(true)
   const serviceWorkerRegistration = await getServiceWorkerRegistration()
   const token = await getToken(messaging, {
@@ -277,10 +333,16 @@ const issuePushToken = async () => {
 }
 
 export const enablePushNotifications = async (uid) => {
+  // A phone that cannot keep its id cannot keep its doc, so it would show off
+  // right after enabling and logout could not find what to remove.
+  const deviceId = getPushDeviceId()
+  if (!deviceId) throw new Error(PUSH_DISABLED_MESSAGE)
   await ensurePushPermission()
   const token = await issuePushToken()
 
-  await savePushToken(uid, token)
+  await savePushToken(uid, deviceId, token)
+  // The server sends only to members with the preference on, and launch
+  // refresh needs it too. Never written false: off is per phone.
   await updateMemberPreferences(uid, { pushNotifications: true })
   // Marked only after the writes land, so a half-failed opt-in does not leave a
   // device claiming an opt-in it never completed.
@@ -295,9 +357,10 @@ export const enablePushNotifications = async (uid) => {
  *
  * FCM web tokens die routinely — cleared site data, a reinstalled PWA, the push
  * service resubscribing — and the server deletes the stored token on the first
- * failed send. Without this, a member's push stays opted in (the preference)
- * but never delivers again. The preference itself is account intent: a dead
- * token must not turn it off, and this refresh must not turn it back on.
+ * failed send. Without this, a phone stays opted in (its marker) but never
+ * delivers again. The account preference gates it: the app never writes it
+ * false, so false is an opt-out from before per-phone tokens, recorded here
+ * on this phone so it stays off. This refresh never writes the preference.
  *
  * Deliberately never calls requestPermission: a launch-time permission prompt
  * is exactly the behavior the opt-in banner exists to avoid.
@@ -308,6 +371,10 @@ export const enablePushNotifications = async (uid) => {
 export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) => {
   const state = getDeviceOptInState(uid)
   if (state === DEVICE_OPTED_OUT) return false
+  if (shouldRecordLaunchOptOut({ state, preferenceEnabled })) {
+    setDeviceOptedOut(uid)
+    return false
+  }
 
   const permission = typeof Notification === 'undefined'
     ? 'default'
@@ -320,32 +387,49 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   if (!deviceOptedIn) return false
 
   const eligible = await isPushSupported()
-  if (!shouldRefreshPushToken({
-    eligible,
-    permission,
-    deviceOptedIn,
-    preferenceEnabled
-  })) return false
+  if (!shouldRefreshPushToken({ eligible, permission, deviceOptedIn, preferenceEnabled })) return false
   if (!firebaseVapidKey) return false
+  const deviceId = getPushDeviceId()
+  if (!deviceId) return false
 
   const token = await issuePushToken()
-  await savePushToken(uid, token)
+  await savePushToken(uid, deviceId, token)
   // Recorded only once the token write landed, mirroring enablePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
+  // AuthContext gates the listener on the marker, which an adopted phone only
+  // gets here; without this its first session shows Chrome's default shell.
+  await ensureForegroundPushListener()
   return true
 }
 
+/**
+ * Profile switch off: this phone only, recorded so launch refresh stays off.
+ * If a delete fails the phone may still get push, so it is marked back on:
+ * the switch shows On next to the error, and saving again retries the cleanup.
+ */
 export const disablePushNotifications = async (uid) => {
   stopForegroundPushListener()
   setDeviceOptedOut(uid)
-  await removeStoredPushToken(uid)
-  await updateMemberPreferences(uid, { pushNotifications: false })
-  await deleteBrowserPushToken().catch(() => false)
+  try {
+    await clearThisPhonePush(uid)
+  } catch (error) {
+    setDeviceOptedIn(uid)
+    ensureForegroundPushListener().catch((listenerError) => {
+      console.warn('Unable to restart the foreground push listener:', listenerError)
+    })
+    throw error
+  }
 }
 
+/**
+ * Logout: removes this phone's push whatever its marker says (a phone not yet
+ * adopted can still hold a live token), but keeps the marker so logging back
+ * in re-registers without a permission prompt.
+ */
 export const disablePushNotificationsOnLogout = async (uid) => {
   if (!isMobilePushEligible()) return false
-  await disablePushNotifications(uid)
+  stopForegroundPushListener()
+  await clearThisPhonePush(uid)
   return true
 }

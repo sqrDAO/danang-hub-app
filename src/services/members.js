@@ -45,7 +45,13 @@ export const updateMember = async (uid, data) => {
   })
 }
 
+// Writes each preference as its own field path, so a save never puts back a
+// preference it didn't set (e.g. a stale page overwriting push).
 export const updateMemberPreferences = async (uid, preferences, extraFields = {}) => {
+  if (LOCAL_DEV_MODE) {
+    const current = getLocalMember(uid)?.preferences
+    return updateLocalMember(uid, { ...extraFields, preferences: { ...current, ...preferences } })
+  }
   const memberRef = doc(db, MEMBERS_COLLECTION, uid)
   const preferenceUpdates = Object.fromEntries(
     Object.entries(preferences).map(([key, value]) => [`preferences.${key}`, value])
