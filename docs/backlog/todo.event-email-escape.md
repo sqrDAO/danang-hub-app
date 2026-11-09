@@ -9,6 +9,7 @@ profile email is member-editable), and tidy the From header and send-failure log
 
 ## Files
 - `functions/emailHtml.js` (new) — pure `escapeHtml(value)` helper, testable without firebase-admin
+- `README.md` (edited) — Cloud Functions table: email goes only to the verified Auth email
 - `functions/index.js` (edited) — escape `eventTitle`, `reasonText`, `displayName` in the
   email HTML; recipient from `getAuth().getUser(uid)` when `emailVerified`;
   `from: {name, address}`; tagged error log when `sendMail` fails
@@ -26,8 +27,10 @@ profile email is member-editable), and tidy the From header and send-failure log
 - [ ] The From header is passed as `{name, address}`, not a hand-quoted string.
 - [ ] A `sendMail` failure logs at error level with the tag `[event-status-email]`.
 - [ ] That failure log includes the full error object (stack and cause).
-- [ ] An organizer with no profile display name is greeted by their verified email, never "Hi ,".
-- [ ] A failed Auth lookup of the organizer (e.g. deleted user) logs with the tag `[event-status-email]` and sends no email.
+- [ ] An organizer with no profile display name is greeted by their verified email.
+- [ ] An organizer with a verified Auth email but no `members/{uid}` doc still gets the email.
+- [ ] A failed Auth lookup of the organizer (e.g. deleted user) logs with the tag `[event-status-email]`.
+- [ ] A failed Auth lookup of the organizer sends no email.
 - [ ] NOT: no email to `members/{uid}.email` (member-editable, so it can point at anyone).
 - [ ] NOT: no change to the in-app notification or push, which still reach every organizer.
 - [ ] NOT: no escaping of the email subject (plain text, not HTML).

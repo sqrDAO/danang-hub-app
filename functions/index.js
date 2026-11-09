@@ -2610,12 +2610,13 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         }
         const prefs = (member && member.preferences) || {};
         const sendEmail = prefs.emailNotifications !== false;
-        const recipient = member && sendEmail && process.env.EMAIL_USER ?
+        // The address comes from Auth, so a missing profile doesn't skip it.
+        const recipient = sendEmail && process.env.EMAIL_USER ?
           await getVerifiedEmail(after.organizerId) :
           null;
 
         if (recipient) {
-          const displayName = member.displayName || recipient;
+          const displayName = (member && member.displayName) || recipient;
           const fromName =
             process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
           const appUrl =
@@ -2719,19 +2720,17 @@ exports.notifyEventStatusChange = onDocumentUpdated(
               subject,
               html: bodyHtml,
             });
+            console.log("Event status email sent:", {
+              to: recipient,
+              eventId,
+              status: after.status,
+            });
           } catch (mailError) {
             console.error("[event-status-email] send failed:", {
               eventId,
               status: after.status,
             }, mailError);
-            return null;
           }
-
-          console.log("Event status email sent:", {
-            to: recipient,
-            eventId,
-            status: after.status,
-          });
         }
 
         return null;
