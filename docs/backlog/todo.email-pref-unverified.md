@@ -34,3 +34,7 @@ notifications" switch. Disable that switch for them and say where their updates 
 ## Notes
 A disabled `<input>` is left out of `FormData`, so `buildProfileUpdateData` would read it as
 off and write `false`. Keep the existing value when the switch is disabled.
+
+Unconfirmed (#165 review): a wallet account (`eth_<addr>`) that linked Google may have its verified
+address only in `providerData[google.com]`, not in the top-level `email`/`emailVerified`. Check with
+a real linked account before deciding whether `getVerifiedEmail` or this switch should account for it.
