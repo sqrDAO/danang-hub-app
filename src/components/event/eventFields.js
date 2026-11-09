@@ -1,4 +1,5 @@
 import { formatEventDate, formatEventTime } from '../../utils/timezone.js'
+import { isEventSpaceAmenity } from '../../utils/bookingDeepLink.js'
 
 // Which event fields each viewer sees. A card and its detail modal show every
 // field except `hide`, so a card never shows what its modal hides. The page's
@@ -76,7 +77,7 @@ export const getEventFormPayload = (formData, eventDate, linkAmenity) => ({
 })
 
 export const getEventSpaces = (amenities) =>
-  amenities.filter(amenity => amenity.isAvailable !== false && amenity.type === 'event-space')
+  amenities.filter(amenity => amenity.isAvailable !== false && isEventSpaceAmenity(amenity))
 
 export const getDefaultEventSpace = (eventSpaces) =>
   eventSpaces.find(amenity => /event hall|event space|main hall/i.test(amenity.name)) || eventSpaces[0]

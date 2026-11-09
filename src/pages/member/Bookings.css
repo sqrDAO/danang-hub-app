@@ -13,6 +13,12 @@
   margin-top: var(--spacing-sm);
 }
 
+.event-hall-hint-link {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .amenities-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

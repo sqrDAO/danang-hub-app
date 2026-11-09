@@ -514,6 +514,8 @@
     "capacity": "Sức chứa: {{count}}",
     "bookNow": "📅 Đặt chỗ ngay",
     "noAmenities": "Không có tiện ích khả dụng. Vui lòng liên hệ quản trị viên.",
+    "eventHallHint": "Cần dùng hội trường sự kiện? Hãy đặt bằng cách tạo sự kiện.",
+    "eventHallHintLink": "Tạo sự kiện",
     "upcomingBookings": "Đặt chỗ sắp tới",
     "noUpcomingBookings": "Chưa có đặt chỗ sắp tới",
     "pastBookings": "Đặt chỗ đã qua",
