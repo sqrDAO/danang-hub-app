@@ -2,20 +2,23 @@
 **Phase**: — · **Deps**: —
 
 ## Goal
-CLAUDE.md says fixed-desk days are never cancelled individually, while `firestore.rules` lets an owner cancel an approved `fixed-desk` day (#172). Decision: members cancel whole plans only, through the app, and there is no server-side enforcement, so the wording is corrected and the rule is kept.
+CLAUDE.md says fixed-desk days are never cancelled individually, while `firestore.rules` lets an owner cancel an approved `fixed-desk` day (#172). Decision: members cancel approved days only as a whole plan, through the app, and there is no server-side enforcement, so the wording is corrected and the rule is kept.
 
 ## Files
-- `CLAUDE.md` (edited) — Fixed desk plans bullet: whole-plan cancel only; why the owner rule must keep allowing approved `fixed-desk` days
+- `CLAUDE.md` (edited) — Fixed desk plans bullet: approved days cancel only as a whole plan; why the owner rule must keep allowing approved `fixed-desk` days
 
 ## Acceptance
-- [ ] CLAUDE.md says members cancel a fixed desk plan only as a whole, via `cancelFixedDeskPlan`.
+- [ ] CLAUDE.md says members cancel approved fixed desk days only as a whole plan, via `cancelFixedDeskPlan`.
+- [ ] CLAUDE.md says pending fixed desk days keep the usual Cancel and Delete.
 - [ ] CLAUDE.md says the app offers no single-day cancel for approved fixed desk days.
-- [ ] CLAUDE.md says `cancelFixedDeskPlan` writes each day under the owner rule, so the rule must keep allowing approved `fixed-desk` days.
+- [ ] CLAUDE.md says `cancelFixedDeskPlan` cancels each day under the owner rule.
+- [ ] CLAUDE.md says `firestore.rules` must keep letting owners cancel approved `fixed-desk` days.
 - [ ] NOT: no change to `firestore.rules`.
-- [ ] NOT: no change to `cancelFixedDeskPlan` or the Bookings UI.
+- [ ] NOT: no change to `cancelFixedDeskPlan`.
+- [ ] NOT: no change to the Bookings UI.
 
 ## Verify
-- `git diff origin/main --stat` → only `CLAUDE.md` and this spec
+- `git diff origin/main...HEAD --stat` → only `CLAUDE.md` and this spec
 - `npm run lint && npm run build` → green (no code change; sanity only)
 
 ## Notes
