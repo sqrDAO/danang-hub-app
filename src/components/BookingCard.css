@@ -1,0 +1,181 @@
+/* Shared booking card (member Dashboard + My Bookings). Names are distinct from
+   the old .booking-item / .booking-amenity, which admin pages still style. */
+/* Cinema-ticket stub: date | body, split by a dashed tear line with a notch
+   at each end. --cut = padding 14 + date 60 + half the 14px gap. The notches
+   are real holes (mask, top and bottom halves each cut one), so whatever sits
+   behind the card shows through in either theme. The mask also clips
+   box-shadow, so light theme loses the card shadow; the border stays. */
+.booking-tile {
+  --cut: 81px;
+  --notch: 7px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow, none);
+  text-align: left;
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at var(--cut) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--cut) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at var(--cut) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--cut) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+}
+
+.booking-tile::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--notch) + 4px);
+  bottom: calc(var(--notch) + 4px);
+  /* -1px: left counts from inside the 1px border, the mask from outside it */
+  left: calc(var(--cut) - 1px);
+  transform: translateX(-50%);
+  border-left: 1.5px dashed var(--btn-secondary-border);
+}
+
+.booking-tile svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.booking-tile-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.booking-tile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.booking-tile .booking-tile-title {
+  margin: 0;
+  font-family: var(--font-main);
+  letter-spacing: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.booking-tile-time {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-tile-time svg {
+  color: var(--accent-primary);
+}
+
+.booking-tile-duration {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.booking-tile .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Date column: bare text, no frame, so the card holds one container. Fixed
+   width keeps titles aligned across cards; today is amber. Numerals in Wolgen. */
+.date-tile {
+  flex-shrink: 0;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.date-tile.is-today {
+  color: var(--accent-primary);
+}
+
+.date-tile-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.date-tile-day {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 3px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-tile-month {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* The status pill as a button: shape from .status-badge, green of its own so
+   "can enter" stands apart from approved (amber) and completed (green, in
+   Past). ::after widens the tap area to ~46px, mostly downward: 6px up stops
+   at the time line (column gap), 14px down at the actions or card edge
+   (body gap / padding). No capitalize: "Thẻ vào" would become "Thẻ Vào". */
+.btn-pass {
+  position: relative;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+  font-family: inherit;
+  line-height: inherit;
+  text-transform: none;
+  cursor: pointer;
+  transition: var(--transition);
+  /* The flash and a sticky touch hover both lingered behind the opening pass */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-pass::after {
+  content: '';
+  position: absolute;
+  inset: -6px -4px -14px;
+}
+
+/* pointer: fine too: some touch browsers report hover: hover */
+@media (hover: hover) and (pointer: fine) {
+  .btn-pass:hover {
+    border-color: var(--color-success);
+  }
+}
+
+.btn-pass:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Light success text (#16a34a) is ~3.3:1 on white, too faint for a label */
+[data-theme="light"] .btn-pass {
+  color: var(--color-success-dark);
+}
+
+/* Amber text on white is ~2:1: take dark text in light theme, the way
+   .btn-secondary already does; the "Today" label still marks the day. */
+[data-theme="light"] .date-tile.is-today {
+  color: var(--text-primary);
+}

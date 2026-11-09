@@ -46,6 +46,7 @@ const {
   monthWindow,
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
+const {escapeHtml} = require("./emailHtml");
 const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
 
 initializeApp();
@@ -75,6 +76,25 @@ function getTransporter() {
       pass: process.env.EMAIL_PASS,
     },
   });
+}
+
+/**
+ * Returns the user's Firebase Auth email only when Firebase has verified it.
+ * The members/{uid}.email profile field is member-editable, so it is never
+ * used as a mail recipient.
+ * A failed lookup (e.g. a deleted organizer) is logged and returns null.
+ * @param {string} uid Firebase Auth uid
+ * @return {Promise<string|null>} verified email, or null
+ */
+async function getVerifiedEmail(uid) {
+  try {
+    const user = await getAuth().getUser(uid);
+    return user.emailVerified && user.email ? user.email : null;
+  } catch (error) {
+    console.error(
+        "[event-status-email] recipient lookup failed:", {uid}, error);
+    return null;
+  }
 }
 
 const HUB_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -2626,9 +2646,13 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         }
         const prefs = (member && member.preferences) || {};
         const sendEmail = prefs.emailNotifications !== false;
+        // The address comes from Auth, so a missing profile doesn't skip it.
+        const recipient = sendEmail && process.env.EMAIL_USER ?
+          await getVerifiedEmail(after.organizerId) :
+          null;
 
-        if (member && member.email && sendEmail && process.env.EMAIL_USER) {
-          const displayName = member.displayName || member.email;
+        if (recipient) {
+          const displayName = (member && member.displayName) || recipient;
           const fromName =
             process.env.EMAIL_FROM_NAME || "Da Nang Blockchain Hub";
           const appUrl =
@@ -2639,7 +2663,8 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             `Your event "${eventTitle}" was not approved`;
 
           const eventTitleHtml =
-            `<strong style="color:#38bdf8;">"${eventTitle}"</strong>`;
+            `<strong style="color:#38bdf8;">` +
+            `"${escapeHtml(eventTitle)}"</strong>`;
           const statusHtml = isApproved ?
             `${eventTitleHtml} has been ` +
             `<strong style="color:#22c55e;">approved</strong>` +
@@ -2670,7 +2695,7 @@ exports.notifyEventStatusChange = onDocumentUpdated(
             `background:#fff1f2;border-left:4px solid #ef4444;` +
             `border-radius:6px;">` +
             `<p style="margin:0;font-size:14px;color:#991b1b;">` +
-            `<strong>Reason:</strong> ${reasonText}</p></div>`;
+            `<strong>Reason:</strong> ${escapeHtml(reasonText)}</p></div>`;
 
           /* eslint-disable max-len */
           const bodyHtml = `
@@ -2692,7 +2717,7 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         <tr>
           <td style="padding:32px;">
             <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;">
-              Hi ${displayName},
+              Hi ${escapeHtml(displayName)},
             </p>
             <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;line-height:1.6;">
               ${statusHtml}
@@ -2724,18 +2749,24 @@ exports.notifyEventStatusChange = onDocumentUpdated(
 </html>`;
           /* eslint-enable max-len */
 
-          await getTransporter().sendMail({
-            from: `"${fromName}" <${process.env.EMAIL_USER}>`,
-            to: member.email,
-            subject,
-            html: bodyHtml,
-          });
-
-          console.log("Event status email sent:", {
-            to: member.email,
-            eventId,
-            status: after.status,
-          });
+          try {
+            await getTransporter().sendMail({
+              from: {name: fromName, address: process.env.EMAIL_USER},
+              to: recipient,
+              subject,
+              html: bodyHtml,
+            });
+            console.log("Event status email sent:", {
+              to: recipient,
+              eventId,
+              status: after.status,
+            });
+          } catch (mailError) {
+            console.error("[event-status-email] send failed:", {
+              eventId,
+              status: after.status,
+            }, mailError);
+          }
         }
 
         return null;

@@ -492,6 +492,15 @@
       "availableDays": "Available Days"
     }
   },
+  "bookingPass": {
+    "title": "Booking confirmation",
+    "show": "Entry pass",
+    "confirmed": "Booking confirmed",
+    "guest": "Guest",
+    "company": "Company",
+    "time": "Time",
+    "hint": "Show this screen to the security guard at the entrance."
+  },
   "memberBookings": {
     "title": "My Bookings",
     "tabBookings": "Bookings",
@@ -506,8 +515,6 @@
     "noUpcomingBookings": "No upcoming bookings",
     "pastBookings": "Past Bookings",
     "noPastBookings": "No past bookings",
-    "start": "Start:",
-    "end": "End:",
     "confirmCancel": "Are you sure you want to cancel this booking?",
     "confirmDelete": "Are you sure you want to delete this booking?",
     "conflictError": "This time slot conflicts with an existing booking.",

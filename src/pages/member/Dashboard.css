@@ -46,75 +46,6 @@
   gap: var(--spacing-md);
 }
 
-.booking-item {
-  padding: var(--spacing-md);
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  text-align: left;
-  box-shadow: var(--card-shadow, none);
-}
-
-.booking-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
-  align-items: flex-start;
-  justify-content: flex-start;
-  text-align: left;
-  min-width: 0;
-}
-
-.booking-amenity {
-  display: block;
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--text-primary);
-  text-align: left;
-  width: 100%;
-  margin-bottom: 0.25rem;
-}
-
-.booking-duration {
-  display: block;
-  color: var(--accent-secondary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-align: left;
-  width: 100%;
-}
-
-.booking-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--spacing-sm);
-  flex-shrink: 0;
-}
-
-.booking-time-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-  text-align: right;
-}
-
-.booking-time {
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.booking-time-small {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
 .section-title-row {
   display: flex;
   justify-content: space-between;
@@ -136,50 +67,6 @@
 
 .event-list-detailed {
   gap: var(--spacing-lg);
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.status-badge.pending {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-}
-
-.status-badge.approved {
-  background: var(--color-info-bg);
-  color: var(--color-info);
-  border: 1px solid var(--color-info-border);
-}
-
-.status-badge.checked-in {
-  background: rgba(255, 230, 187, 0.3);
-  color: var(--accent-secondary);
-  border: 1px solid rgba(255, 230, 187, 0.5);
-}
-
-[data-theme="light"] .status-badge.checked-in {
-  background: rgba(255, 164, 6, 0.12);
-  border-color: rgba(255, 164, 6, 0.35);
-}
-
-.status-badge.completed {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
-}
-
-.status-badge.cancelled {
-  background: var(--color-error-bg);
-  color: var(--color-error-light);
-  border: 1px solid var(--color-error-border);
 }
 
 .empty-state {
@@ -222,23 +109,6 @@
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
-  }
-
-  .booking-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-md);
-    text-align: left;
-  }
-
-  .booking-right {
-    align-items: flex-start;
-    width: 100%;
-  }
-
-  .booking-time-info {
-    align-items: flex-start;
-    text-align: left;
   }
 }
 
