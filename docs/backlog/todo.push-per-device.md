@@ -46,6 +46,7 @@ Each member keeps one push token per phone, so every phone that turned notificat
 - [ ] Profile's switch, in the edit form until touched, follows marker changes made after the page opened
 - [ ] A Profile save with the switch untouched never turns this phone off
 - [ ] Saving with the switch On registers a phone that shows On but has no device doc yet
+- [ ] A save with the switch untouched still saves the profile fields when registering this phone fails
 - [ ] Profile save writes only `preferences.emailNotifications` and `preferences.eventReminders`, never `preferences.pushNotifications`
 - [ ] On desktop, Profile shows a note that notifications are managed on each phone, with no switch
 - [ ] The after-success opt-in prompt shows on any phone that isn't opted in, even if another phone is
@@ -64,8 +65,7 @@ Each member keeps one push token per phone, so every phone that turned notificat
 - [ ] NOT: a migration script, server-side legacy deletes, or a cap on phones per member
 
 ## Verify
-- `npm run lint && npm run build` and `cd functions && npm run lint` → green
-- `npm test` → green, including `test/pushTokens.test.js` and `test/pushDeviceOptIn.test.js`
+- `npm run lint && npm run build && npm test` and `cd functions && npm run lint` → green, including `test/pushTokens.test.js` and `test/pushDeviceOptIn.test.js`
 - `npm run test:rules` → green, including `test/firestore-push-tokens.rules.test.js`
 - `npm run dev`, Profile, mobile viewport → one per-phone switch; desktop → the note
 - post-deploy (human): enable on two phones, approve a booking → both buzz; turn one off → only the other buzzes; log out and back in on one → it buzzes again, no prompt; `firebase functions:log` → "Push batch sent" `attempted` counts tokens
@@ -77,4 +77,4 @@ Each member keeps one push token per phone, so every phone that turned notificat
 - Deploy order is Hosting → rules → Functions. For a few minutes the old rules refuse device-doc writes, so the legacy doc is deleted only after a device write lands.
 - FCM tokens are per browser, not per account. The revoke is best effort (once no doc holds a token, nothing sends to it), skipped while another account here is opted in, not awaited on logout, and awaited before a new token since FCM can return the same one. `shouldAdoptLegacyOptIn` is unchanged; a phone shared between accounts may adopt the other account (already true today; accepted).
 - Device id: random, localStorage `pushDeviceId`, per phone (not per uid), kept across logouts. Can't be stored → enable throws `PUSH_DISABLED_MESSAGE`.
-- Overrides `done.mobile-only-browser-push.md`: the desktop opt-out control is gone. An old cached build can still write the preference false on logout once; that member turns a phone back on.
+- Overrides `done.mobile-only-browser-push.md`: the desktop opt-out control is gone. An old cached build can still write the preference false on logout once; that member turns each phone back on.

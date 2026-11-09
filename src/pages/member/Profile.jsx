@@ -87,6 +87,10 @@ const syncPushPreference = async (uid, desiredPushNotifications, currentPushNoti
   setPushPermission(currentNotificationPermission())
 }
 
+const warnUntouchedPushFailed = (error) => {
+  console.warn('Unable to register this phone for push on save:', error)
+}
+
 // On/off is per phone, so the switch reflects this phone's marker, not the
 // account preference. Subscribed, not read once: the launch refresh can adopt
 // or opt out this phone after Profile mounts.
@@ -665,12 +669,15 @@ const MemberProfile = () => {
 
     setIsSaving(true)
     try {
-      await syncPushPreference(
+      const pushSync = syncPushPreference(
         currentUser.uid,
         desiredPushNotifications,
         currentPushOn,
         setPushPermission
       )
+      // Untouched, the sync can only register a phone that shows On; that is
+      // best effort, so a failure must not lose the member's profile edits.
+      await (pushTouched ? pushSync : pushSync.catch(warnUntouchedPushFailed))
       await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData), data)
 
       if (typeof refreshUserProfile === 'function') {
