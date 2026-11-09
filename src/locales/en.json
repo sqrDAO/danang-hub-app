@@ -514,6 +514,8 @@
     "capacity": "Capacity: {{count}}",
     "bookNow": "📅 Book Now",
     "noAmenities": "No amenities available. Please contact admin.",
+    "eventHallHint": "Need the event hall? It is booked by creating an event.",
+    "eventHallHintLink": "Create an event",
     "upcomingBookings": "Upcoming Bookings",
     "noUpcomingBookings": "No upcoming bookings",
     "pastBookings": "Past Bookings",

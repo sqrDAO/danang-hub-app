@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
@@ -26,7 +26,7 @@ import { showToast } from '../../utils/toast'
 import { conflictCheckErrorKey, seriesErrorKey } from '../../utils/conflictCheck'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
-import { resolveBookingDeepLink } from '../../utils/bookingDeepLink'
+import { bookingGridAmenities, eventCreatePath, isEventSpaceAmenity, resolveBookingDeepLink } from '../../utils/bookingDeepLink'
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import { rangeOverlapsClosure } from '../../utils/hubClosures'
@@ -154,6 +154,11 @@ const useBookingForm = (amenities, searchParams, setSearchParams, navigate) => {
   }
 
   const openForAmenity = (amenity) => {
+    // The grid hides event spaces; this guards any other caller too.
+    if (isEventSpaceAmenity(amenity)) {
+      navigate(eventCreatePath(amenity))
+      return
+    }
     setSelectedAmenity(amenity)
     setSelectedStartTime(null)
     setSelectedEndTime(null)
@@ -617,11 +622,21 @@ const DeskHoursUsed = ({ hours, t }) => (
   )
 )
 
-const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, onBook, onShowPhotos, onRegisterFixedDesk, deskHoursUsed }) => (
+const EventHallHint = ({ show, t }) => (
+  show ? (
+    <p className="section-description">
+      {t('memberBookings.eventHallHint')}{' '}
+      <Link to="/member/events?action=create" className="event-hall-hint-link">{t('memberBookings.eventHallHintLink')}</Link>
+    </p>
+  ) : null
+)
+
+const AmenitiesSection = ({ t, amenitiesLoading, availableAmenities, showEventHallHint, onBook, onShowPhotos, onRegisterFixedDesk, deskHoursUsed }) => (
   <div className="bookings-section glass">
     <div className="section-header">
       <h2 className="section-title">{t('memberBookings.availableAmenities')}</h2>
       <p className="section-description">{t('memberBookings.availableAmenitiesDesc')}</p>
+      <EventHallHint show={showEventHallHint} t={t} />
       <DeskHoursUsed hours={deskHoursUsed} t={t} />
     </div>
     {amenitiesLoading ? (
@@ -1267,6 +1282,7 @@ const MemberBookings = () => {
   const handlers = useBookingHandlers({ currentUser, form, fd, mutations, t, limit })
 
   const deskAmenities = bookableAmenities.filter(a => a.type === 'desk')
+  const gridAmenities = useMemo(() => bookingGridAmenities(bookableAmenities), [bookableAmenities])
 
   const now = useHubNow()
   const uniqueBookings = useMemo(() => deduplicateBookings(myBookings), [myBookings])
@@ -1305,7 +1321,8 @@ const MemberBookings = () => {
           t={t}
           deskHoursUsed={deskHoursUsed}
           amenitiesLoading={amenitiesLoading}
-          availableAmenities={bookableAmenities.filter(a => a.type !== 'event-space')}
+          availableAmenities={gridAmenities}
+          showEventHallHint={gridAmenities.length < bookableAmenities.length}
           onBook={handlers.handleBookAmenity}
           onShowPhotos={setLightboxAmenity}
           onRegisterFixedDesk={deskPlanType === PARTNER_DESK ? null : fd.openForAmenity}

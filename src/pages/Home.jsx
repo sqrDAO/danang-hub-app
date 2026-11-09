@@ -11,6 +11,7 @@ import EventCard from '../components/event/EventCard'
 import EventDetailModal from '../components/event/EventDetailModal'
 import { getAmenities } from '../services/amenities'
 import { isAmenityOpenTo } from '../utils/deskPlans'
+import { isEventSpaceAmenity } from '../utils/bookingDeepLink'
 import { getUpcomingEvents, getApprovedEvents } from '../services/events'
 import './Home.css'
 
@@ -33,7 +34,7 @@ const isEventFull = (event) => event.capacity && event.attendees?.length >= even
 const asDate = (value) => (value instanceof Date ? value : new Date(value))
 
 const amenityMemberPath = (amenity) => (
-  amenity.type === 'event-space'
+  isEventSpaceAmenity(amenity)
     ? `/member/events?action=create&amenityId=${amenity.id}`
     : `/member/bookings?amenityId=${amenity.id}`
 )
@@ -47,7 +48,7 @@ const loginPath = (signup, redirect, extra = {}) => {
 }
 
 const amenityAuthPath = (amenity, signup) => (
-  amenity.type === 'event-space'
+  isEventSpaceAmenity(amenity)
     ? loginPath(signup, '/member/events', { action: 'create', amenityId: amenity.id })
     : loginPath(signup, '/member/bookings', { amenityId: amenity.id })
 )
