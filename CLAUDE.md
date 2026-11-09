@@ -33,7 +33,7 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 - **Wallet auth = custom tokens.** `generateWalletNonce` (5-min single-use nonce in `nonces/{address}`) → wallet signs → `verifyWalletSignature` (atomic nonce consume, ethers/nacl verify) → uid `eth_<addr>`/`sol_<addr>`. Flow lives in `src/services/walletAuth.js`.
 - **Notifications are function-written only.** Clients can read their own and update only the `read` field (`firestore.rules`); `notifyEventStatusChange` writes them and sends the nodemailer email (`EMAIL_*` env, `EMAIL_PASS` secret).
 - **Member profile auto-creates** in `members/{uid}` on first login (`AuthContext.createUserProfile`, `membershipType: 'member'`). Admin = `membershipType === 'admin'`; owners cannot change their own `membershipType` (rules).
-- **Fixed desk plans** = one independent booking doc per working day sharing a `planGroupId`. Members cancel a plan only as a whole, via `cancelFixedDeskPlan`; the app offers no single-day cancel. It runs client-side and cancels each day under the owner rule, so `firestore.rules` must keep letting owners cancel approved `fixed-desk` days (don't tighten it to `partner-desk` only).
+- **Fixed desk plans** = one independent booking doc per working day sharing a `planGroupId`. Members cancel approved days only as a whole plan, via `cancelFixedDeskPlan`; the app offers no single-day cancel for approved days (pending days keep the usual Cancel and Delete). It runs client-side and cancels each day under the owner rule, so `firestore.rules` must keep letting owners cancel approved `fixed-desk` days (don't tighten it to `partner-desk` only).
 
 ## Conventions
 
