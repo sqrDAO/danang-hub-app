@@ -50,6 +50,11 @@
   border: 1px solid rgba(255, 230, 187, 0.3);
 }
 
+/* #C47B0D is ~3.3:1 on white; dark brand amber passes 4.5:1 (#167) */
+[data-theme="light"] .availability-badge.available {
+  color: #8f5200;
+}
+
 .availability-badge.unavailable {
   background: var(--color-error-bg);
   color: var(--color-error-light);

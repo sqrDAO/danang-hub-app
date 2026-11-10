@@ -169,11 +169,6 @@
   outline-offset: 2px;
 }
 
-/* Light success text (#16a34a) is ~3.3:1 on white, too faint for a label */
-[data-theme="light"] .btn-pass {
-  color: var(--color-success-dark);
-}
-
 /* Amber text on white is ~2:1: take dark text in light theme, the way
    .btn-secondary already does; the "Today" label still marks the day. */
 [data-theme="light"] .date-tile.is-today {
