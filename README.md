@@ -182,9 +182,10 @@ firebase deploy --only storage
 firebase deploy --only functions
 ```
 
-Merging to `main` deploys hosting, **Firestore rules**, and functions via GitHub
-Actions. Two things are *not* deployed by CI, because the CI service account
-lacks the permissions — run these manually as project owner when they change:
+Merging to `main` deploys **Firestore rules**, functions, then hosting via GitHub
+Actions; the backend goes first, so a new site never calls an old function. Two
+things are *not* deployed by CI, because the CI service account lacks the
+permissions — run these manually as project owner when they change:
 
 ```bash
 firebase deploy --only firestore:indexes
