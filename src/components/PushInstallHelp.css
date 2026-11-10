@@ -1,0 +1,12 @@
+.push-install-help ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.push-install-help li + li {
+  margin-top: 0.3rem;
+}
+
+.push-install-help p {
+  margin: 0.4rem 0 0;
+}

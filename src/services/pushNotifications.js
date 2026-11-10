@@ -4,7 +4,7 @@ import app, { db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
 import { updateMemberPreferences } from './members'
 import { isMobilePushEligible } from '../utils/mobilePushEligibility'
-import { needsHomeScreenInstall } from '../utils/iosInstallHint'
+import { getHomeScreenInstallHint } from '../utils/iosInstallHint'
 import {
   DEVICE_OPTED_IN,
   DEVICE_OPTED_OUT,
@@ -54,15 +54,23 @@ export const isPushSupported = async () => {
 }
 
 /**
+ * For a phone without push: 'install' (iPhone tab, add to Home Screen first),
+ * 'safari' (iPhone in-app browser, open in Safari first), or null. Needs the
+ * VAPID key, since push can't work after installing without it.
+ */
+export const getPushInstallHint = () => (firebaseVapidKey ? getHomeScreenInstallHint() : null)
+
+/**
  * Which soft post-success prompt to show: 'enable' (tap turns push on),
- * 'install' (iPhone tab — push needs a Home Screen install first), or null.
+ * an install hint (see getPushInstallHint), or null.
  */
 export const getPushOptInPromptMode = async ({ uid } = {}) => {
   // On/off is per phone: another phone being opted in says nothing about this one.
   if (isDeviceOptedIn(uid)) return null
   if (!firebaseVapidKey) return null
-  if (needsHomeScreenInstall()) return 'install'
-  if (!(await isPushSupported())) return null
+  // Hint only when push really is missing, so an installed app that can push
+  // always gets 'enable', whatever its user agent says.
+  if (!(await isPushSupported())) return getPushInstallHint()
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
     return null
   }
