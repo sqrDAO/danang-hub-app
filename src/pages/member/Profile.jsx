@@ -16,6 +16,7 @@ import {
 } from '../../services/pushNotifications'
 import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
+import { getEmailStatus } from '../../utils/emailVerification'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
 
@@ -65,10 +66,17 @@ const buildProfileUpdateData = (formData) => ({
 
 // pushNotifications is left out on purpose: the switch is per phone, and only
 // enablePushNotifications writes it (true). A stale save must not write it.
-const buildPreferenceUpdate = (formData) => ({
-  emailNotifications: formData.get('emailNotifications') === 'on',
+// emailNotifications is left out while its switch is disabled: a disabled
+// checkbox is missing from FormData, which would read as off.
+const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
+  ...(emailSwitchEnabled && { emailNotifications: formData.get('emailNotifications') === 'on' }),
   eventReminders: formData.get('eventReminders') === 'on',
 })
+
+const emailPreferenceLabel = (emailStatus, preferences, t) => {
+  if (emailStatus !== 'verified') return t('profile.emailNotificationsNotAvailable')
+  return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
+}
 
 const currentNotificationPermission = () =>
   typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -228,6 +236,25 @@ const PushNotificationPreferenceField = ({
   )
 }
 
+const EmailNotificationsField = ({ emailStatus, preferences }) => {
+  const { t } = useTranslation()
+  const canEmail = emailStatus === 'verified'
+  return (
+    <div className="form-group form-group-checkbox">
+      <label className="form-label form-label-checkbox">
+        <input
+          type="checkbox"
+          name="emailNotifications"
+          defaultChecked={canEmail && preferences.emailNotifications !== false}
+          disabled={!canEmail}
+        />
+        <span>{t('profile.emailNotifications')}</span>
+      </label>
+      {!canEmail && <p className="form-field-note">{t('profile.emailNotificationsUnavailable')}</p>}
+    </div>
+  )
+}
+
 const ProfileEditForm = ({
   userProfile,
   profileComplete,
@@ -242,6 +269,7 @@ const ProfileEditForm = ({
   pushSupported,
   pushPreferenceHelp,
   devicePushOn,
+  emailStatus,
 }) => {
   const { t } = useTranslation()
   return (
@@ -351,16 +379,7 @@ const ProfileEditForm = ({
 
       <section className="profile-section">
         <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-        <div className="form-group form-group-checkbox">
-          <label className="form-label form-label-checkbox">
-            <input
-              type="checkbox"
-              name="emailNotifications"
-              defaultChecked={preferences.emailNotifications !== false}
-            />
-            <span>{t('profile.emailNotifications')}</span>
-          </label>
-        </div>
+        <EmailNotificationsField emailStatus={emailStatus} preferences={preferences} />
         <div className="form-group form-group-checkbox">
           <label className="form-label form-label-checkbox">
             <input
@@ -452,14 +471,14 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
       <h3 className="profile-section-title">{t('profile.preferences')}</h3>
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.emailNotifications')}</span>
-        <span className="detail-value">{preferences.emailNotifications !== false ? t('common.on') : t('common.off')}</span>
+        <span className="detail-value">{emailPreferenceLabel(emailStatus, preferences, t)}</span>
       </div>
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.eventReminders')}</span>
@@ -510,7 +529,7 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn }) => {
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn, emailStatus }) => {
   const { t } = useTranslation()
   return (
     <>
@@ -551,6 +570,7 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         preferences={preferences}
         mobilePushEligible={mobilePushEligible}
         devicePushOn={devicePushOn}
+        emailStatus={emailStatus}
       />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
@@ -567,10 +587,9 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
 const MemberProfile = () => {
   const { t } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
-  const location = useLocation()
+  const isAdminRoute = useLocation().pathname.startsWith('/admin')
   const invalidate = useInvalidateQueries()
   const profileComplete = isProfileComplete()
-  const isAdminRoute = location.pathname.startsWith('/admin')
   const [isEditing, setIsEditing] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -580,6 +599,7 @@ const MemberProfile = () => {
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
   const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
+  const emailStatus = getEmailStatus(currentUser)
 
   const copyAddress = async (addr) => {
     try {
@@ -678,7 +698,7 @@ const MemberProfile = () => {
       // Untouched, the sync can only register a phone that shows On; that is
       // best effort, so a failure must not lose the member's profile edits.
       await (pushTouched ? pushSync : pushSync.catch(warnUntouchedPushFailed))
-      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData), data)
+      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData, emailStatus === 'verified'), data)
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
@@ -757,6 +777,7 @@ const MemberProfile = () => {
               pushSupported={pushSupported}
               pushPreferenceHelp={pushPreferenceHelp}
               devicePushOn={devicePushOn}
+              emailStatus={emailStatus}
             />
           ) : (
             <ProfileDetails
@@ -769,6 +790,7 @@ const MemberProfile = () => {
               onEdit={() => setIsEditing(true)}
               mobilePushEligible={mobilePushEligible}
               devicePushOn={devicePushOn}
+              emailStatus={emailStatus}
             />
           )}
         </div>

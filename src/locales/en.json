@@ -250,6 +250,8 @@
     "bio": "Bio",
     "preferences": "Preferences",
     "emailNotifications": "Email notifications",
+    "emailNotificationsUnavailable": "Event emails aren't available for this account. Event updates arrive in the bell and as push notifications.",
+    "emailNotificationsNotAvailable": "Not available",
     "eventReminders": "Event reminders",
     "pushNotifications": "Notifications on this phone",
     "pushNotificationsHelp": "You'll be asked for browser permission when you enable notifications on this phone.",

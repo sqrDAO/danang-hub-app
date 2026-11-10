@@ -250,6 +250,8 @@
     "bio": "Tiểu sử",
     "preferences": "Tùy chọn",
     "emailNotifications": "Thông báo qua email",
+    "emailNotificationsUnavailable": "Tài khoản này không nhận được email về sự kiện. Cập nhật sự kiện sẽ đến qua chuông thông báo và thông báo đẩy.",
+    "emailNotificationsNotAvailable": "Không khả dụng",
     "eventReminders": "Nhắc nhở sự kiện",
     "pushNotifications": "Thông báo trên điện thoại này",
     "pushNotificationsHelp": "Bạn sẽ được yêu cầu cấp quyền trình duyệt khi bật thông báo trên điện thoại này.",
