@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
-import { sendVerificationEmail } from '../services/emailVerification'
+import { sendVerificationEmail, setAuthEmailLanguage } from '../services/emailVerification'
 import i18n from '../i18n'
 import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
@@ -114,6 +114,7 @@ export const AuthProvider = ({ children }) => {
   // Reset password
   const resetPassword = async (email) => {
     try {
+      setAuthEmailLanguage(i18n.language)
       await sendPasswordResetEmail(auth, email)
     } catch (error) {
       console.error('Error sending password reset email:', error)

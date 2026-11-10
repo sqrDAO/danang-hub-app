@@ -8,3 +8,31 @@ export const getEmailStatus = (user) => {
   if (!user?.email) return 'none'
   return user.emailVerified ? 'verified' : 'unverified'
 }
+
+const VERIFY_COOLDOWN_MS = 60 * 1000
+const sentAtKey = (uid) => `hub-verify-sent:${uid}`
+
+// Whole seconds until another verification email may be sent; 0 when it may.
+export const verifyCooldownSecondsLeft = (sentAt, now) =>
+  sentAt ? Math.max(0, Math.ceil((sentAt + VERIFY_COOLDOWN_MS - now) / 1000)) : 0
+
+export const verifyErrorKey = (error) =>
+  error?.code === 'auth/too-many-requests' ? 'profile.verifyEmailTooMany' : 'profile.verifyEmailFailed'
+
+// Per tab and per account, so leaving Profile or switching views can't reset
+// the cooldown. Storage can throw (private mode); the cooldown is best effort.
+export const readVerifySentAt = (uid) => {
+  try {
+    return Number(window.sessionStorage.getItem(sentAtKey(uid))) || 0
+  } catch {
+    return 0
+  }
+}
+
+export const recordVerifySent = (uid, at = Date.now()) => {
+  try {
+    window.sessionStorage.setItem(sentAtKey(uid), String(at))
+  } catch {
+    // Best effort: without storage the button only waits while it stays mounted.
+  }
+}

@@ -7,8 +7,11 @@ email, so 32 of 35 email/password members (prod, 2026-11-10) can't get them. Let
 from Profile, and send the verification email on sign-up.
 
 ## Files
-- `src/services/emailVerification.js` (new) — `sendVerificationEmail(language)`, `reloadEmailVerified()`
-- `src/contexts/AuthContext.jsx` (edited) — `signUpWithEmail` sends the verification email (best effort)
+- `src/services/emailVerification.js` (new) — `sendVerificationEmail(language, continuePath)`, `reloadEmailVerified()`, `setAuthEmailLanguage()`
+- `src/utils/emailVerification.js` (edited) — cooldown and error-key helpers, last-send time in `sessionStorage`
+- `src/contexts/AuthContext.jsx` (edited) — sign-up sends the verification email (best effort); password reset uses the app language
+- `test/emailVerification.test.js` (edited) — cooldown and error-key cases
+- `README.md` (edited) — feature list; who gets the event status email
 - `src/pages/member/Profile.jsx` (edited) — verify prompt with cooldown; reload on mount; read-only label
 - `src/pages/member/Profile.css` (edited) — verify prompt spacing
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — `profile.verifyEmail*`, `profile.emailNotificationsVerifyToEnable`
@@ -19,10 +22,15 @@ from Profile, and send the verification email on sign-up.
 - [ ] The read-only Profile view shows the same prompt.
 - [ ] The read-only label reads "Verify your email to turn on" for unverified members.
 - [ ] After sending, the button waits 60 s before it can resend.
+- [ ] Switching between edit and read-only view, or leaving Profile, keeps the cooldown.
+- [ ] Profile right after sign-up shows the cooldown for the sign-up email.
 - [ ] A Firebase `auth/too-many-requests` shows its own "try again later" message.
 - [ ] The verification email is in the app's current language (EN or VI).
-- [ ] The link's Continue button opens `/member/profile`.
+- [ ] The link's Continue button opens the Profile page it was sent from (`/member/profile` or `/admin/profile`).
 - [ ] Opening Profile after verifying shows the switch enabled without signing out.
+- [ ] An open Profile tab enables the switch when the window regains focus after verifying.
+- [ ] A verification seen for one account never enables the switch for another.
+- [ ] A password-reset email is in the app's current language.
 - [ ] Signing up with email/password sends the verification email once.
 - [ ] A failed send on sign-up does not fail the sign-up.
 - [ ] NOT: blocking sign-in for unverified accounts.

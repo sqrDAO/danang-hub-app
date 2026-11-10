@@ -17,7 +17,12 @@ import {
 import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
 import { reloadEmailVerified, sendVerificationEmail } from '../../services/emailVerification'
-import { getEmailStatus } from '../../utils/emailVerification'
+import {
+  getEmailStatus,
+  readVerifySentAt,
+  verifyCooldownSecondsLeft,
+  verifyErrorKey
+} from '../../utils/emailVerification'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
 
@@ -74,30 +79,35 @@ const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
   eventReminders: formData.get('eventReminders') === 'on',
 })
 
-const VERIFY_COOLDOWN_SECONDS = 60
-
-const verifyErrorKey = (error) =>
-  error?.code === 'auth/too-many-requests' ? 'profile.verifyEmailTooMany' : 'profile.verifyEmailFailed'
-
 const emailPreferenceLabel = (emailStatus, preferences, t) => {
   if (emailStatus === 'none') return t('profile.emailNotificationsNotAvailable')
   if (emailStatus === 'unverified') return t('profile.emailNotificationsVerifyToEnable')
   return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
 }
 
-// Reloads an unverified Auth user once per mount, so a link clicked in another
-// tab (or the Continue button landing here) turns the switch on.
+// Reloads an unverified Auth user on mount and whenever the window regains
+// focus, so a link clicked in another tab (or the Continue button landing
+// here) turns the switch on. Keyed by uid, so it never credits another account.
 const useEmailStatus = (user) => {
-  const [verifiedAfterReload, setVerifiedAfterReload] = useState(false)
+  const [verifiedUid, setVerifiedUid] = useState(null)
+  const status = getEmailStatus(user)
+  const uid = user?.uid
   useEffect(() => {
-    if (getEmailStatus(user) !== 'unverified') return undefined
+    if (status !== 'unverified') return undefined
     let isActive = true
-    reloadEmailVerified()
-      .then((verified) => { if (isActive && verified) setVerifiedAfterReload(true) })
-      .catch((error) => console.warn('Unable to refresh email verification:', error))
-    return () => { isActive = false }
-  }, [user])
-  return verifiedAfterReload ? 'verified' : getEmailStatus(user)
+    const recheck = () => {
+      reloadEmailVerified()
+        .then((nowVerifiedUid) => { if (isActive && nowVerifiedUid) setVerifiedUid(nowVerifiedUid) })
+        .catch((error) => console.warn('Unable to refresh email verification:', error))
+    }
+    recheck()
+    window.addEventListener('focus', recheck)
+    return () => {
+      isActive = false
+      window.removeEventListener('focus', recheck)
+    }
+  }, [status, uid])
+  return uid && verifiedUid === uid ? 'verified' : status
 }
 
 const currentNotificationPermission = () =>
@@ -258,22 +268,27 @@ const PushNotificationPreferenceField = ({
   )
 }
 
+// The cooldown reads the last send time from session storage (sign-up and
+// both Profile views share it), so remounting can't reset it.
 const EmailVerifyPrompt = ({ email, className = '' }) => {
   const { t, i18n } = useTranslation()
+  const { currentUser } = useAuth()
+  const { pathname } = useLocation()
   const [sending, setSending] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [now, setNow] = useState(Date.now)
+  const secondsLeft = verifyCooldownSecondsLeft(readVerifySentAt(currentUser?.uid), now)
 
   useEffect(() => {
     if (secondsLeft <= 0) return undefined
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
+    const timer = setTimeout(() => setNow(Date.now()), 1000)
     return () => clearTimeout(timer)
-  }, [secondsLeft])
+  }, [secondsLeft, now])
 
   const handleSend = async () => {
     setSending(true)
     try {
-      await sendVerificationEmail(i18n.language)
-      setSecondsLeft(VERIFY_COOLDOWN_SECONDS)
+      await sendVerificationEmail(i18n.language, pathname)
+      setNow(Date.now())
       showToast(t('profile.verifyEmailSent', { email }), 'success')
     } catch (error) {
       console.error('Error sending verification email:', error)

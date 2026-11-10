@@ -52,7 +52,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Booking Interface** — calendar picker with live conflict checking
 - **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
 - **Event Registration** — browse, register, and manage waitlist position
-- **Profile Management** — edit personal info, upload avatar, display wallet address
+- **Profile Management** — edit personal info, upload avatar, display wallet address, verify an email/password sign-in for event emails
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
@@ -245,7 +245,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
-| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and status push for opted-in organizers when an event is approved or rejected, plus an optional email sent only to the organizer's verified Firebase Auth email (Google sign-in; wallet and email/password organizers get none) |
+| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and status push for opted-in organizers when an event is approved or rejected, plus an optional email sent only to the organizer's verified Firebase Auth email (Google, or email/password once verified; wallet organizers get none) |
 | `notifyEventRevisionParticipants` | Firestore trigger (onUpdate) | Sends in-app status updates to retained attendees/waitlisted members after a previously approved event changes revision state |
 | `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `sendEventReminders` | Scheduled (hourly) | Reminds every member about approved events ~24h out (in-app + push), with copy per attendee/waitlisted/other |
