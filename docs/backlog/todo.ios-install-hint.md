@@ -17,13 +17,14 @@ On iPhone, web push only works once the app is added to the Home Screen, so a me
 ## Acceptance
 - [ ] iPhone Safari tab, iOS ≥ 16.4: after a booking/event success the pop-up says "Add the app to your Home Screen first"
 - [ ] Tapping it shows the steps: "Share" (or ··· → Share), "Add to Home Screen", open from the Home Screen and sign in, turn on notifications in Profile
-- [ ] The steps end with "Already added it? Open the app from your Home Screen."
+- [ ] Below the steps: Don't see "Add to Home Screen"? Open this page in Safari first.
+- [ ] Below that: Already added it? Open the app from your Home Screen.
 - [ ] Tapping again hides the steps; the button's `aria-expanded` follows and `aria-controls` points at the steps
 - [ ] While the steps are open the pop-up has no auto-close
 - [ ] While the steps are open, × closes without counting toward the 3-dismiss limit
 - [ ] While the steps are open, moving to another page closes the pop-up without counting a dismiss
 - [ ] × before opening the steps still counts toward the limit
-- [ ] iPhone in-app browser (Zalo, Facebook, Messenger, Instagram, LINE, Telegram, WeChat): the pop-up says "Open this page in Safari to turn on notifications." with no steps
+- [ ] iPhone in-app browser (Zalo, Facebook, Messenger, Instagram, LINE, WeChat): the pop-up says "Open this page in Safari to turn on notifications." with no steps
 - [ ] Profile → Edit on an iPhone without push shows the same steps (or the Safari line in an in-app browser) instead of "Notifications are not supported on this phone"
 - [ ] Without `VITE_FIREBASE_VAPID_KEY`, neither the pop-up nor Profile shows install help
 - [ ] A phone where push is supported always gets `'enable'`, even if it doesn't report itself as installed
@@ -48,4 +49,5 @@ On iPhone, web push only works once the app is added to the Home Screen, so a me
 ## Notes
 - The hint is returned only when `isPushSupported()` is false, so dev (no push) shows it for checking and an installed app with push never gets stuck in install mode.
 - An installed iPhone web app has its own storage, separate from Safari: a fresh login, dismiss counter and device opt-in marker. That's why the steps say to sign in again, and why Safari can't tell the app is installed.
+- In-app browsers with a plain Safari UA (e.g. Telegram's, or any `SFSafariViewController`) can't be detected and get the install steps; the "Don't see Add to Home Screen?" line covers them.
 - Recent iOS Safari freezes the UA OS version at 18.x, which still passes the ≥ 16.4 check.

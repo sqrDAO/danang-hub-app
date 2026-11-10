@@ -96,6 +96,7 @@
     "pushInstallStepAdd": "Chọn \"Thêm vào MH chính\".",
     "pushInstallStepOpen": "Mở ứng dụng từ Màn hình chính và đăng nhập lại.",
     "pushInstallStepEnable": "Bật thông báo trong trang Hồ sơ.",
+    "pushInstallNoAddOption": "Không thấy \"Thêm vào MH chính\"? Hãy mở trang này bằng Safari trước.",
     "pushInstallAlreadyAdded": "Đã thêm rồi? Hãy mở ứng dụng từ Màn hình chính.",
     "pushOpenInSafari": "Hãy mở trang này bằng Safari để bật thông báo.",
     "pushOptInEnabled": "Đã bật thông báo trên điện thoại này.",

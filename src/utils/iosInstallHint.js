@@ -1,13 +1,15 @@
 // iPhone only allows web push from a Home Screen web app (iOS 16.4+). In a
 // browser tab Notification is missing, so push can't be offered there; the
 // member has to install the app first. In-app browsers (Zalo, Facebook,
-// Messenger, Instagram, LINE, Telegram, WeChat) have no Add to Home Screen, so
-// they get "open this page in Safari" instead of the steps.
+// Messenger, Instagram, LINE, WeChat) have no Add to Home Screen, so they get
+// "open this page in Safari" instead of the steps. Ones with a plain Safari UA
+// (e.g. Telegram's) can't be told apart; the steps' "Don't see Add to Home
+// Screen?" line covers them.
 import { isMobilePushEligible } from './mobilePushEligibility.js'
 
 // iPhone and iPod send "iPhone OS 18_6"; iPad sends "CPU OS", so it never matches.
 const IPHONE_OS_VERSION = /iPhone OS (\d+)_(\d+)/
-const IN_APP_BROWSER = /FBAN|FBAV|Instagram|Line\/|Zalo|Telegram|MicroMessenger/
+const IN_APP_BROWSER = /FBAN|FBAV|Instagram|Line\/|Zalo|MicroMessenger/
 
 const isIosAtLeast164 = (userAgent) => {
   const match = userAgent.match(IPHONE_OS_VERSION)

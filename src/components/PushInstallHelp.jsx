@@ -19,6 +19,7 @@ const PushInstallHelp = ({ hint, id, className = '' }) => {
       <ol>
         {INSTALL_STEP_KEYS.map((key) => <li key={key}>{t(key)}</li>)}
       </ol>
+      <p>{t('notifications.pushInstallNoAddOption')}</p>
       <p>{t('notifications.pushInstallAlreadyAdded')}</p>
     </div>
   )
