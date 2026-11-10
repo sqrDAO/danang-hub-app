@@ -38,14 +38,6 @@ jobs:
         run: npm ci
         working-directory: functions
 
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
-          channelId: live
-          projectId: danang-hub-app
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -61,6 +53,17 @@ jobs:
 
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project danang-hub-app --non-interactive
+
+      # Hosting last: a new client may rely on a new function response (e.g. the
+      # closure-day 'slot-unavailable' reason, #136), so the backend goes live
+      # first. A failed backend deploy also holds back the site that needs it.
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
+          channelId: live
+          projectId: danang-hub-app
 
   # Publishes a GitHub release, tagged v<package.json version>, the first time
   # that version ships, with that version's CHANGELOG.md section as notes.
