@@ -30,6 +30,8 @@ export const getLocalDevUser = () => {
   return {
     uid: profile.uid,
     email: profile.email,
+    // Verified, so the email switch's enabled state can be checked locally
+    emailVerified: true,
     displayName: profile.displayName,
     photoURL: profile.photoURL
   }
