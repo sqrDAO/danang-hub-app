@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
   closePushOptInBanner,
   subscribePushOptIn
 } from '../utils/pushOptInPrompt'
 import { showToast } from '../utils/toast'
+import PushInstallHelp from './PushInstallHelp'
 import './PushOptInBanner.css'
 
 const BellGlyph = () => (
@@ -15,22 +17,42 @@ const BellGlyph = () => (
   </svg>
 )
 
+const STEPS_ID = 'push-opt-in-steps'
+const BODY_KEYS = {
+  enable: 'notifications.pushOptInBody',
+  install: 'notifications.pushInstallBody',
+  safari: 'notifications.pushOpenInSafari'
+}
+
 const PushOptInBanner = () => {
   const { t } = useTranslation()
+  const { pathname } = useLocation()
   const { refreshUserProfile } = useAuth()
   const [state, setState] = useState(null)
   const [enabling, setEnabling] = useState(false)
   const [progressKey, setProgressKey] = useState(0)
+  // Page the install steps were opened on; null while they're closed.
+  const [stepsPath, setStepsPath] = useState(null)
+  const stepsOpen = stepsPath !== null
 
   useEffect(() => subscribePushOptIn((next) => {
     setState(next)
     if (next) {
       setEnabling(false)
+      setStepsPath(null)
       setProgressKey((key) => key + 1)
     }
   }), [])
 
+  // Open steps have no auto-close, so moving to another page closes them
+  // instead of leaving the banner over every page.
+  useEffect(() => {
+    if (stepsPath !== null && pathname !== stepsPath) closePushOptInBanner()
+  }, [pathname, stepsPath])
+
   if (!state) return null
+
+  const isInstall = state.mode === 'install'
 
   const handleEnable = async () => {
     if (enabling) return
@@ -54,10 +76,19 @@ const PushOptInBanner = () => {
     }
   }
 
+  // Install mode: the tap toggles the steps. Swapping the progress bar for the
+  // steps list also removes its onAnimationEnd, so it stays open. Safari mode
+  // has nothing to expand, so the tap just closes it.
+  const handleTap = {
+    install: () => setStepsPath((openOn) => (openOn === null ? pathname : null)),
+    safari: () => closePushOptInBanner()
+  }[state.mode] ?? handleEnable
+
   const handleDismiss = (event) => {
     event.stopPropagation()
     if (enabling) return
-    closePushOptInBanner({ countDismiss: true })
+    // Reading the steps is engagement, not a refusal.
+    closePushOptInBanner({ countDismiss: !stepsOpen })
   }
 
   const handleTimeout = () => {
@@ -74,13 +105,15 @@ const PushOptInBanner = () => {
       <button
         type="button"
         className="push-opt-in-body"
-        onClick={handleEnable}
+        onClick={handleTap}
         disabled={enabling}
+        aria-expanded={isInstall ? stepsOpen : undefined}
+        aria-controls={isInstall ? STEPS_ID : undefined}
       >
         <BellGlyph />
         <span className="push-opt-in-copy">
           <strong>{t('notifications.pushOptInTitle')}</strong>
-          <span>{t('notifications.pushOptInBody')}</span>
+          <span>{t(BODY_KEYS[state.mode] ?? BODY_KEYS.enable)}</span>
         </span>
       </button>
       <button
@@ -92,13 +125,15 @@ const PushOptInBanner = () => {
       >
         ×
       </button>
-      <div className="push-opt-in-progress" aria-hidden>
-        <div
-          key={progressKey}
-          className="push-opt-in-progress-bar"
-          onAnimationEnd={handleTimeout}
-        />
-      </div>
+      {stepsOpen ? <PushInstallHelp hint="install" id={STEPS_ID} className="push-opt-in-steps" /> : (
+        <div className="push-opt-in-progress" aria-hidden>
+          <div
+            key={progressKey}
+            className="push-opt-in-progress-bar"
+            onAnimationEnd={handleTimeout}
+          />
+        </div>
+      )}
     </div>
   )
 }

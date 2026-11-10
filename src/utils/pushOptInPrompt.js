@@ -37,9 +37,9 @@ const recordManualDismiss = (uid) => {
   }
 }
 
-const openBanner = (uid) => {
+const openBanner = (uid, mode) => {
   if (!uid || visibleState) return
-  visibleState = { uid }
+  visibleState = { uid, mode }
   notify()
 }
 
@@ -80,16 +80,18 @@ export const promptPushOptInAfterSuccess = (uid) => {
   pendingTimer = setTimeout(async () => {
     pendingTimer = null
     if (visibleState || isStopped(uid)) return
+    let mode
     try {
       // Loaded here rather than at module scope: PushOptInBanner imports this
       // file and is mounted app-wide, so a static import would pull
       // firebase/messaging into the eager entry chunk. If the chunk fails to
       // load we simply skip the prompt.
-      const { canShowPushOptInPrompt } = await import('../services/pushNotifications')
-      if (!(await canShowPushOptInPrompt({ uid }))) return
+      const { getPushOptInPromptMode } = await import('../services/pushNotifications')
+      mode = await getPushOptInPromptMode({ uid })
+      if (!mode) return
     } catch {
       return
     }
-    openBanner(uid)
+    openBanner(uid, mode)
   }, TOAST_MS + GAP_MS)
 }

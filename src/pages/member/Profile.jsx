@@ -7,10 +7,12 @@ import { useAuth } from '../../hooks/useAuth'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
 import Avatar from '../../components/Avatar'
+import PushInstallHelp from '../../components/PushInstallHelp'
 import { updateMember, updateMemberPreferences, getMemberStats } from '../../services/members'
 import {
   disablePushNotifications,
   enablePushNotifications,
+  getPushInstallHint,
   isMobilePushEligible,
   isPushSupported
 } from '../../services/pushNotifications'
@@ -203,6 +205,8 @@ const PushNotificationPreferenceField = ({
   // null until the member touches the box: until then it follows this phone,
   // which a launch refresh can change while the form is open.
   const [pushChoice, setPushChoice] = useState(null)
+  // An iPhone tab or in-app browser can't push yet: show how to get there.
+  const installHint = pushSupported ? null : getPushInstallHint()
   if (mobilePushEligible) {
     return (
       <div className="form-group form-group-checkbox">
@@ -217,7 +221,9 @@ const PushNotificationPreferenceField = ({
           />
           <span>{t('profile.pushNotifications')}</span>
         </label>
-        <p className="form-field-note">{pushPreferenceHelp}</p>
+        {installHint
+          ? <PushInstallHelp hint={installHint} className="form-field-note" />
+          : <p className="form-field-note">{pushPreferenceHelp}</p>}
       </div>
     )
   }
