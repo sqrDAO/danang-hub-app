@@ -16,6 +16,7 @@ import {
 } from '../../services/pushNotifications'
 import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
+import { reloadEmailVerified, sendVerificationEmail } from '../../services/emailVerification'
 import { getEmailStatus } from '../../utils/emailVerification'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
@@ -73,9 +74,30 @@ const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
   eventReminders: formData.get('eventReminders') === 'on',
 })
 
+const VERIFY_COOLDOWN_SECONDS = 60
+
+const verifyErrorKey = (error) =>
+  error?.code === 'auth/too-many-requests' ? 'profile.verifyEmailTooMany' : 'profile.verifyEmailFailed'
+
 const emailPreferenceLabel = (emailStatus, preferences, t) => {
-  if (emailStatus !== 'verified') return t('profile.emailNotificationsNotAvailable')
+  if (emailStatus === 'none') return t('profile.emailNotificationsNotAvailable')
+  if (emailStatus === 'unverified') return t('profile.emailNotificationsVerifyToEnable')
   return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
+}
+
+// Reloads an unverified Auth user once per mount, so a link clicked in another
+// tab (or the Continue button landing here) turns the switch on.
+const useEmailStatus = (user) => {
+  const [verifiedAfterReload, setVerifiedAfterReload] = useState(false)
+  useEffect(() => {
+    if (getEmailStatus(user) !== 'unverified') return undefined
+    let isActive = true
+    reloadEmailVerified()
+      .then((verified) => { if (isActive && verified) setVerifiedAfterReload(true) })
+      .catch((error) => console.warn('Unable to refresh email verification:', error))
+    return () => { isActive = false }
+  }, [user])
+  return verifiedAfterReload ? 'verified' : getEmailStatus(user)
 }
 
 const currentNotificationPermission = () =>
@@ -236,13 +258,54 @@ const PushNotificationPreferenceField = ({
   )
 }
 
-const EmailNotificationsField = ({ emailStatus, preferences }) => {
+const EmailVerifyPrompt = ({ email, className = '' }) => {
+  const { t, i18n } = useTranslation()
+  const [sending, setSending] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState(0)
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return undefined
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [secondsLeft])
+
+  const handleSend = async () => {
+    setSending(true)
+    try {
+      await sendVerificationEmail(i18n.language)
+      setSecondsLeft(VERIFY_COOLDOWN_SECONDS)
+      showToast(t('profile.verifyEmailSent', { email }), 'success')
+    } catch (error) {
+      console.error('Error sending verification email:', error)
+      showToast(t(verifyErrorKey(error)), 'error')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className={`email-verify-prompt ${className}`}>
+      <p className="form-field-note">{t('profile.verifyEmailPrompt', { email })}</p>
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={handleSend}
+        disabled={sending || secondsLeft > 0}
+      >
+        {secondsLeft > 0 ? t('profile.verifyEmailResendIn', { seconds: secondsLeft }) : t('profile.verifyEmailSend')}
+      </button>
+    </div>
+  )
+}
+
+const EmailNotificationsField = ({ emailStatus, authEmail, preferences }) => {
   const { t } = useTranslation()
   const canEmail = emailStatus === 'verified'
   return (
     <div className="form-group form-group-checkbox">
       <label className="form-label form-label-checkbox">
         <input
+          key={emailStatus}
           type="checkbox"
           name="emailNotifications"
           defaultChecked={canEmail && preferences.emailNotifications !== false}
@@ -250,7 +313,8 @@ const EmailNotificationsField = ({ emailStatus, preferences }) => {
         />
         <span>{t('profile.emailNotifications')}</span>
       </label>
-      {!canEmail && <p className="form-field-note">{t('profile.emailNotificationsUnavailable')}</p>}
+      {emailStatus === 'unverified' && <EmailVerifyPrompt email={authEmail} />}
+      {emailStatus === 'none' && <p className="form-field-note">{t('profile.emailNotificationsUnavailable')}</p>}
     </div>
   )
 }
@@ -270,6 +334,7 @@ const ProfileEditForm = ({
   pushPreferenceHelp,
   devicePushOn,
   emailStatus,
+  authEmail,
 }) => {
   const { t } = useTranslation()
   return (
@@ -379,7 +444,7 @@ const ProfileEditForm = ({
 
       <section className="profile-section">
         <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-        <EmailNotificationsField emailStatus={emailStatus} preferences={preferences} />
+        <EmailNotificationsField emailStatus={emailStatus} authEmail={authEmail} preferences={preferences} />
         <div className="form-group form-group-checkbox">
           <label className="form-label form-label-checkbox">
             <input
@@ -471,7 +536,7 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus, authEmail }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
@@ -480,6 +545,9 @@ const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePush
         <span className="detail-label">{t('profile.emailNotifications')}</span>
         <span className="detail-value">{emailPreferenceLabel(emailStatus, preferences, t)}</span>
       </div>
+      {emailStatus === 'unverified' && (
+        <EmailVerifyPrompt email={authEmail} className="email-verify-prompt--detail" />
+      )}
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
@@ -529,7 +597,7 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn, emailStatus }) => {
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn, emailStatus, authEmail }) => {
   const { t } = useTranslation()
   return (
     <>
@@ -571,6 +639,7 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         mobilePushEligible={mobilePushEligible}
         devicePushOn={devicePushOn}
         emailStatus={emailStatus}
+        authEmail={authEmail}
       />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
@@ -599,7 +668,7 @@ const MemberProfile = () => {
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
   const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
-  const emailStatus = getEmailStatus(currentUser)
+  const emailStatus = useEmailStatus(currentUser)
 
   const copyAddress = async (addr) => {
     try {
@@ -778,6 +847,7 @@ const MemberProfile = () => {
               pushPreferenceHelp={pushPreferenceHelp}
               devicePushOn={devicePushOn}
               emailStatus={emailStatus}
+              authEmail={currentUser?.email}
             />
           ) : (
             <ProfileDetails
@@ -791,6 +861,7 @@ const MemberProfile = () => {
               mobilePushEligible={mobilePushEligible}
               devicePushOn={devicePushOn}
               emailStatus={emailStatus}
+              authEmail={currentUser?.email}
             />
           )}
         </div>

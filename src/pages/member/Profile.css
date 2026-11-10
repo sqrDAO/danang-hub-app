@@ -195,6 +195,20 @@
   line-height: 1.5;
 }
 
+.email-verify-prompt .btn {
+  margin: var(--spacing-sm) 0 0 1.8rem;
+}
+
+/* Read-only view: no checkbox to align with */
+.email-verify-prompt--detail {
+  margin: calc(-1 * var(--spacing-sm)) 0 var(--spacing-md);
+}
+
+.email-verify-prompt--detail .form-field-note,
+.email-verify-prompt--detail .btn {
+  margin-left: 0;
+}
+
 .profile-link {
   color: var(--accent-secondary);
   text-decoration: none;

@@ -9,6 +9,8 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
+import { sendVerificationEmail } from '../services/emailVerification'
+import i18n from '../i18n'
 import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
   signInWithSolanaWallet as walletAuthSignInWithSolanaWallet,
@@ -85,7 +87,11 @@ export const AuthProvider = ({ children }) => {
 
       // Create user profile in Firestore
       await createUserProfile(result.user)
-      
+      // Best effort: Profile offers a resend, so a failed send must not fail sign-up.
+      sendVerificationEmail(i18n.language).catch((error) => {
+        console.warn('Unable to send the verification email on sign-up:', error)
+      })
+
       return result.user
     } catch (error) {
       console.error('Error signing up with email:', error)
