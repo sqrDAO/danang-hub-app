@@ -151,6 +151,12 @@
   background: var(--color-info);
 }
 
+/* Light --color-info is dark amber for badge text, too close to the green
+   approved dot; this orange is 3.56:1 on the white panel and 2:1 from it */
+[data-theme="light"] .notification-status--pending {
+  background: #ea580c;
+}
+
 .notification-empty {
   padding: var(--spacing-lg) var(--spacing-md);
   text-align: center;

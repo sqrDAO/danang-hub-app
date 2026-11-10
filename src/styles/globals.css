@@ -158,8 +158,9 @@
   --color-warning-bg: rgba(251, 191, 36, 0.15);
   --color-warning-border: rgba(251, 191, 36, 0.3);
   --color-info: #8f5200;
-  --color-info-bg: rgba(255, 164, 6, 0.1);
-  --color-info-border: rgba(255, 164, 6, 0.3);
+  /* Stronger than the warning tint, so Approved reads apart from Pending */
+  --color-info-bg: rgba(255, 164, 6, 0.25);
+  --color-info-border: rgba(255, 164, 6, 0.45);
 
   color-scheme: light;
 }
