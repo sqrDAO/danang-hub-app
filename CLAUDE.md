@@ -57,9 +57,9 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 
 ## Backlog workflow (STRICT)
 
-No work without a spec. Every task = `docs/backlog/todo.<slug>.md`. Rename to `done.<slug>.md` **only after explicit human approval** — that rename is the completion source of truth.
+Issue first, spec when work begins. Findings, audits and proposed work start as a labeled GitHub issue, not a `todo.*` spec. Whoever picks up the issue writes `docs/backlog/todo.<slug>.md` (linking the issue) before writing code. No implementation without a spec. Rename to `done.<slug>.md` **only after explicit human approval** — that rename is the completion source of truth.
 
-Loop: **Plan** (write spec) → **Do** (implement; update spec first if scope changes) → **Check** (`npm run lint && npm run build` green) → **Verify** (walk the spec's `## Verify`) → **Act** (present outputs; await approval; rename `todo.*` → `done.*`).
+Loop: **Issue** (exists or opened first) → **Plan** (write spec) → **Do** (implement; update spec first if scope changes) → **Check** (`npm run lint && npm run build` green) → **Verify** (walk the spec's `## Verify`) → **Act** (present outputs; await approval; rename `todo.*` → `done.*`).
 
 Phase gate: for specs tagged `Phase: 1–4`, the rename IS the phase gate — don't start the next phase's spec until the prior phase's is renamed `done.*` after approval.
 
