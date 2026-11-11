@@ -30,10 +30,8 @@ import { bookingGridAmenities, eventCreatePath, isEventSpaceAmenity, resolveBook
 import { useTranslation } from 'react-i18next'
 import { formatDateDDMMYYYY, toDateInputHub, HUB_TIMEZONE } from '../../utils/timezone'
 import { rangeOverlapsClosure } from '../../utils/hubClosures'
+import { appLocale } from '../../utils/appLocale'
 import './Bookings.css'
-
-const getLocale = (i18n) =>
-  i18n.language && i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US'
 
 const isMobileViewport = () =>
   typeof window !== 'undefined' && window.innerWidth <= 768
@@ -1242,7 +1240,7 @@ const MemberBookings = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [lightboxAmenity, setLightboxAmenity] = useState(null)
-  const locale = getLocale(i18n)
+  const locale = appLocale(i18n.language)
   const isMobile = useMobileViewport()
   const memberBookingsWindow = getMemberBookingsWindow()
 

@@ -5,6 +5,7 @@ import { getAmenityBookingRanges } from '../services/functions'
 import { getDefaultAvailability, getDayAvailability } from '../services/amenities'
 import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
 import { getHubClosure } from '../utils/hubClosures'
+import { appLocale } from '../utils/appLocale'
 import {
   addHubDays,
   formatHubDate,
@@ -442,7 +443,7 @@ const BookingCalendar = ({
   onMobileStageChange,
 }) => {
   const { t, i18n } = useTranslation()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const locale = appLocale(i18n.language)
   const [currentDate, setCurrentDate] = useState(
     () => getHubStartOfDay(selectedDate ?? new Date())
   )

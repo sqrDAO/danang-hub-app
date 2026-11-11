@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { formatHubDate, isSameHubDay } from '../utils/timezone'
 import { canShowPass, formatDurationShort, formatHubTimeRange, hasBookingTimes } from '../utils/bookingPass'
+import { appLocale } from '../utils/appLocale'
 import './BookingCard.css'
 
 const STATUS_ICON = {
@@ -41,8 +42,6 @@ const StatusPill = ({ booking, status, t, onShowPass, now }) => {
     </span>
   )
 }
-
-const appLocale = (i18n) => (i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US')
 
 // Label defaults to the short weekday; callers pass "Today" when it is true.
 const DateTile = ({ date, locale, label, highlight = false }) => (

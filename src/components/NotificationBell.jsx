@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { getUnreadNotifications, markNotificationRead, markNotificationsRead } from '../services/notifications'
 import { playDesktopNotificationSound } from '../utils/desktopNotificationSound'
 import { formatHubDateTimeCompact } from '../utils/timezone'
+import { appLocale } from '../utils/appLocale'
 import { deskPlanCopyPrefix, isDeskPlan } from '../utils/deskPlans'
 import { MONTHLY_DESK_HOURS, MONTHLY_HOURS_LIMIT_REASON } from '../utils/monthlyHours'
 import './NotificationBell.css'
@@ -233,7 +234,7 @@ const getNotificationPath = (notification) => (
 )
 
 const getNotificationTimeLabel = (createdAt, language) => {
-  const locale = language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const locale = appLocale(language)
   return formatHubDateTimeCompact(createdAt, locale)
 }
 

@@ -6,6 +6,7 @@ import { getBookings } from '../services/bookings'
 import { getApprovedEvents } from '../services/events'
 import { getAmenities } from '../services/amenities'
 import { addHubDays, formatHubDate, parseHubDateTime } from '../utils/timezone'
+import { appLocale } from '../utils/appLocale'
 import './UnifiedCalendar.css'
 
 const EMPTY_ITEMS = []
@@ -127,7 +128,7 @@ const bookingBelongsToUser = (booking, currentUserId, userIsAdmin) => {
 
 const UnifiedCalendar = () => {
   const { t, i18n } = useTranslation()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const locale = appLocale(i18n.language)
   const { currentUser, isAdmin } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedAmenityType, setSelectedAmenityType] = useState('')
