@@ -56,8 +56,13 @@ auto-creates `members/{uid}` on first login with `membershipType: 'member'`.
 ### Guards — `src/components/ProtectedRoute.jsx` via `App.jsx`
 
 `requireAdmin` → `isAdmin()` (`userProfile.membershipType === 'admin'`).
-`requireProfileComplete` → `isProfileComplete()` (displayName + email + company + jobTitle
-all non-empty). These are UX guards only — the real enforcement is `firestore.rules` (§5).
+`requireProfileComplete` → `isProfileComplete()` (displayName + company + jobTitle non-empty;
+email isn't required, and verifying it is optional). These are UX guards only — the real
+enforcement is `firestore.rules` (§5). `members.email` mirrors the Auth email: AuthContext syncs
+it on load (not awaited, so a dropped connection can't hold sign-in). The rules let an owner with
+an Auth email set only that, or leave a legacy value unchanged, so an account that never loads its
+profile can keep an old typed address. Wallet accounts have no Auth email and type their own.
+System mail never reads this field (only `getVerifiedEmail`).
 
 ---
 

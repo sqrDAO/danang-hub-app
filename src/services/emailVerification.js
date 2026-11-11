@@ -10,13 +10,18 @@ export const setAuthEmailLanguage = (language) => {
 }
 
 // The continue URL gives Firebase's "email verified" page a Continue button
-// back to the Profile page the member sent it from (member or admin layout).
-export const sendVerificationEmail = async (language, continuePath = '/member/profile') => {
-  if (LOCAL_DEV_MODE) return
-  setAuthEmailLanguage(language)
+// back to the verify screen it was sent from (member or admin). A link clicked in another tab only shows up after
+// a reload, so this reloads first and sends nothing (resolving false) to an
+// already verified account.
+export const sendVerificationEmail = async (language, continuePath) => {
+  if (LOCAL_DEV_MODE) return true
   const user = auth.currentUser
+  await user.reload()
+  if (user.emailVerified) return false
+  setAuthEmailLanguage(language)
   await sendEmailVerification(user, { url: `${window.location.origin}${continuePath}` })
   recordVerifySent(user.uid)
+  return true
 }
 
 // Firebase restores emailVerified from its cache, so a link clicked in another

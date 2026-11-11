@@ -56,16 +56,6 @@ const MemberEditForm = ({ member, partners, t, onSubmit, onCancel, isSubmitting 
         />
       </div>
       <div className="form-group">
-        <label className="form-label">{t('profile.email')}</label>
-        <input
-          type="email"
-          name="email"
-          className="form-field"
-          defaultValue={member.email}
-          required
-        />
-      </div>
-      <div className="form-group">
         <label className="form-label">{t('adminMembers.membershipType')}</label>
         <select name="membershipType" className="form-field" defaultValue={member.membershipType}>
           <option value="member">{t('adminMembers.memberOption')}</option>
@@ -360,7 +350,6 @@ const AdminMembers = () => {
     const formData = new FormData(e.target)
     const data = {
       displayName: formData.get('displayName'),
-      email: formData.get('email'),
       membershipType: formData.get('membershipType'),
       partnerId: formData.get('partnerId') || null
     }

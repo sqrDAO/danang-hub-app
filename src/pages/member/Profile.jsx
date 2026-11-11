@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useAuth } from '../../hooks/useAuth'
@@ -18,14 +18,9 @@ import {
 } from '../../services/pushNotifications'
 import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
-import { reloadEmailVerified, sendVerificationEmail } from '../../services/emailVerification'
-import {
-  getEmailStatus,
-  readVerifySentAt,
-  verifyCooldownSecondsLeft,
-  verifyErrorKey
-} from '../../utils/emailVerification'
+import { getEmailStatus } from '../../utils/emailVerification'
 import { showToast } from '../../utils/toast'
+import { missingProfileFields } from '../../utils/profileFields'
 import './Profile.css'
 
 const URL_PATTERN = /^https?:\/\/.+\..+/
@@ -42,11 +37,8 @@ const CopyIcon = () => (
 )
 
 const validateRequiredFields = (data, t) => {
-  if (!data.displayName?.trim()) return t('profile.validation.nameRequired')
-  if (!data.email?.trim()) return t('profile.validation.emailRequired')
-  if (!data.company?.trim()) return t('profile.validation.companyRequired')
-  if (!data.jobTitle?.trim()) return t('profile.validation.jobTitleRequired')
-  return null
+  const [firstMissing] = missingProfileFields(data)
+  return firstMissing ? t(firstMissing.error) : null
 }
 
 const isInvalidOptionalField = (value, pattern) =>
@@ -63,7 +55,8 @@ const getPushPreferenceHelp = (supported, permission, t) => {
 
 const buildProfileUpdateData = (formData) => ({
   displayName: formData.get('displayName')?.trim() || '',
-  email: formData.get('email')?.trim() || '',
+  // Only a wallet account's email input is enabled; a disabled one isn't submitted.
+  ...(formData.has('email') && { email: formData.get('email').trim() }),
   phone: formData.get('phone')?.trim() || '',
   bio: formData.get('bio')?.trim() || '',
   company: formData.get('company')?.trim() || '',
@@ -74,42 +67,41 @@ const buildProfileUpdateData = (formData) => ({
 
 // pushNotifications is left out on purpose: the switch is per phone, and only
 // enablePushNotifications writes it (true). A stale save must not write it.
-// emailNotifications is left out while its switch is disabled: a disabled
-// checkbox is missing from FormData, which would read as off.
+// emailNotifications is left out while its switch is disabled (wallets): a
+// disabled checkbox is missing from FormData, which would read as off.
 const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
   ...(emailSwitchEnabled && { emailNotifications: formData.get('emailNotifications') === 'on' }),
   eventReminders: formData.get('eventReminders') === 'on',
 })
 
-const emailPreferenceLabel = (emailStatus, preferences, t) => {
-  if (emailStatus === 'none') return t('profile.emailNotificationsNotAvailable')
-  if (emailStatus === 'unverified') return t('profile.emailNotificationsVerifyToEnable')
-  return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
+// An unverified account may turn event emails on ahead of verifying; they
+// start once it verifies (system mail needs a verified email). Until then
+// the box shows the stored value only when it is on: true for an opt-in, and
+// for accounts created before new ones started off when unverified.
+const emailNotificationsChecked = (emailStatus, preferences) => {
+  if (emailStatus === 'verified') return preferences.emailNotifications !== false
+  return emailStatus === 'unverified' && preferences.emailNotifications === true
 }
 
-// Reloads an unverified Auth user on mount and whenever the window regains
-// focus, so a link clicked in another tab (or the Continue button landing
-// here) turns the switch on. Keyed by uid, so it never credits another account.
-const useEmailStatus = (user) => {
-  const [verifiedUid, setVerifiedUid] = useState(null)
-  const status = getEmailStatus(user)
-  const uid = user?.uid
-  useEffect(() => {
-    if (status !== 'unverified') return undefined
-    let isActive = true
-    const recheck = () => {
-      reloadEmailVerified()
-        .then((nowVerifiedUid) => { if (isActive && nowVerifiedUid) setVerifiedUid(nowVerifiedUid) })
-        .catch((error) => console.warn('Unable to refresh email verification:', error))
-    }
-    recheck()
-    window.addEventListener('focus', recheck)
-    return () => {
-      isActive = false
-      window.removeEventListener('focus', recheck)
-    }
-  }, [status, uid])
-  return uid && verifiedUid === uid ? 'verified' : status
+// A save with event emails on for an unverified account is followed by the
+// verify screen, which explains why.
+const savesUnverifiedEmailOn = (formData, emailStatus) =>
+  emailStatus === 'unverified' && formData.get('emailNotifications') === 'on'
+
+// Admins verify inside the admin layout, members inside theirs.
+const verifyEmailPath = (pathname) =>
+  pathname.startsWith('/admin') ? '/admin/verify-email' : '/member/verify-email'
+
+const VerifyEmailLink = () => {
+  const { t } = useTranslation()
+  const { pathname } = useLocation()
+  return <Link to={verifyEmailPath(pathname)} className="profile-link">{t('profile.emailNotificationsNeedsVerified')}</Link>
+}
+
+const emailPreferenceLabel = (emailStatus, preferences, t) => {
+  if (emailStatus === 'none') return t('profile.emailNotificationsWallet')
+  if (emailStatus !== 'verified') return <VerifyEmailLink />
+  return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
 }
 
 const currentNotificationPermission = () =>
@@ -201,7 +193,7 @@ const ProfileHeader = ({ userProfile, isAvatarUploading, avatarInputRef, onAvata
       </div>
       <div className="profile-info">
         <h2 className="profile-name">{userProfile.displayName || 'N/A'}</h2>
-        <p className="profile-email">{userProfile.email || 'N/A'}</p>
+        {userProfile.email && <p className="profile-email">{userProfile.email}</p>}
         <span className={`membership-badge ${userProfile.membershipType}`}>
           {userProfile.membershipType || 'member'}
         </span>
@@ -274,68 +266,45 @@ const PushNotificationPreferenceField = ({
   )
 }
 
-// The cooldown reads the last send time from session storage (sign-up and
-// both Profile views share it), so remounting can't reset it.
-const EmailVerifyPrompt = ({ email, className = '' }) => {
-  const { t, i18n } = useTranslation()
-  const { currentUser } = useAuth()
-  const { pathname } = useLocation()
-  const [sending, setSending] = useState(false)
-  const [now, setNow] = useState(Date.now)
-  const secondsLeft = verifyCooldownSecondsLeft(readVerifySentAt(currentUser?.uid), now)
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return undefined
-    const timer = setTimeout(() => setNow(Date.now()), 1000)
-    return () => clearTimeout(timer)
-  }, [secondsLeft, now])
-
-  const handleSend = async () => {
-    setSending(true)
-    try {
-      await sendVerificationEmail(i18n.language, pathname)
-      setNow(Date.now())
-      showToast(t('profile.verifyEmailSent', { email }), 'success')
-    } catch (error) {
-      console.error('Error sending verification email:', error)
-      showToast(t(verifyErrorKey(error)), 'error')
-    } finally {
-      setSending(false)
-    }
-  }
-
+// Locked to the sign-in email, except for a wallet account, which has none
+// and may type its own contact address. Nothing is ever sent to that one.
+const EmailFormField = ({ emailStatus, userProfile }) => {
+  const { t } = useTranslation()
+  const isWallet = emailStatus === 'none'
   return (
-    <div className={`email-verify-prompt ${className}`}>
-      <p className="form-field-note">{t('profile.verifyEmailPrompt', { email })}</p>
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm"
-        onClick={handleSend}
-        disabled={sending || secondsLeft > 0}
-      >
-        {secondsLeft > 0 ? t('profile.verifyEmailResendIn', { seconds: secondsLeft }) : t('profile.verifyEmailSend')}
-      </button>
+    <div className="form-group">
+      <label className="form-label" htmlFor="profile-email">{t('profile.email')}</label>
+      <input
+        id="profile-email"
+        type="email"
+        name="email"
+        className="form-field"
+        defaultValue={userProfile.email}
+        placeholder={isWallet ? t('profile.optional') : undefined}
+        disabled={!isWallet}
+      />
+      {isWallet && <p className="form-field-note form-field-note--flush">{t('profile.walletEmailHelp')}</p>}
     </div>
   )
 }
 
-const EmailNotificationsField = ({ emailStatus, authEmail, preferences }) => {
+const EmailNotificationsField = ({ emailStatus, preferences }) => {
   const { t } = useTranslation()
-  const canEmail = emailStatus === 'verified'
+  // No verify link here: leaving the form would drop unsaved edits. The save
+  // opens the verify screen instead.
+  const isWallet = emailStatus === 'none'
   return (
     <div className="form-group form-group-checkbox">
       <label className="form-label form-label-checkbox">
         <input
-          key={emailStatus}
           type="checkbox"
           name="emailNotifications"
-          defaultChecked={canEmail && preferences.emailNotifications !== false}
-          disabled={!canEmail}
+          defaultChecked={emailNotificationsChecked(emailStatus, preferences)}
+          disabled={isWallet}
         />
         <span>{t('profile.emailNotifications')}</span>
       </label>
-      {emailStatus === 'unverified' && <EmailVerifyPrompt email={authEmail} />}
-      {emailStatus === 'none' && <p className="form-field-note">{t('profile.emailNotificationsUnavailable')}</p>}
+      {isWallet && <p className="form-field-note">{t('profile.emailNotificationsWallet')}</p>}
     </div>
   )
 }
@@ -355,7 +324,6 @@ const ProfileEditForm = ({
   pushPreferenceHelp,
   devicePushOn,
   emailStatus,
-  authEmail,
 }) => {
   const { t } = useTranslation()
   return (
@@ -373,17 +341,7 @@ const ProfileEditForm = ({
             required
           />
         </div>
-        <div className="form-group">
-          <label className="form-label">{t('profile.email')} {!profileComplete && <span className="form-required">*</span>}</label>
-          <input
-            type="email"
-            name="email"
-            className="form-field"
-            defaultValue={userProfile.email}
-            placeholder="you@example.com"
-            required
-          />
-        </div>
+        <EmailFormField emailStatus={emailStatus} userProfile={userProfile} />
         <div className="form-group">
           <label className="form-label">{t('profile.phone')}</label>
           <input
@@ -465,7 +423,7 @@ const ProfileEditForm = ({
 
       <section className="profile-section">
         <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-        <EmailNotificationsField emailStatus={emailStatus} authEmail={authEmail} preferences={preferences} />
+        <EmailNotificationsField emailStatus={emailStatus} preferences={preferences} />
         <div className="form-group form-group-checkbox">
           <label className="form-label form-label-checkbox">
             <input
@@ -557,7 +515,7 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus, authEmail }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
@@ -566,9 +524,6 @@ const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePush
         <span className="detail-label">{t('profile.emailNotifications')}</span>
         <span className="detail-value">{emailPreferenceLabel(emailStatus, preferences, t)}</span>
       </div>
-      {emailStatus === 'unverified' && (
-        <EmailVerifyPrompt email={authEmail} className="email-verify-prompt--detail" />
-      )}
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
@@ -618,7 +573,7 @@ const ProfileActivitySection = ({ userProfile, stats, statsLoading }) => {
   )
 }
 
-const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn, emailStatus, authEmail }) => {
+const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedAddress, onCopyAddress, onEdit, mobilePushEligible, devicePushOn, emailStatus }) => {
   const { t } = useTranslation()
   return (
     <>
@@ -660,7 +615,6 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         mobilePushEligible={mobilePushEligible}
         devicePushOn={devicePushOn}
         emailStatus={emailStatus}
-        authEmail={authEmail}
       />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
@@ -674,13 +628,38 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
   )
 }
 
+// Names only what is still missing; the field labels come from the locale files.
+const ProfileCompleteBanner = ({ userProfile }) => {
+  const { t, i18n } = useTranslation()
+  const missing = missingProfileFields(userProfile).map(({ label }) => t(label))
+  if (missing.length === 0) return null
+  const fields = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(missing)
+  return (
+    <div className="profile-complete-banner glass" role="alert">
+      <p className="profile-complete-banner-text" dangerouslySetInnerHTML={{ __html: t('profile.completeBanner', { fields }) }} />
+    </div>
+  )
+}
+
+// An incomplete profile opens straight into the edit form.
+const useEditMode = (profileComplete, userProfile) => {
+  const [isEditing, setIsEditing] = useState(false)
+  useEffect(() => {
+    if (!profileComplete && userProfile) {
+      setIsEditing(true)
+    }
+  }, [profileComplete, userProfile])
+  return [isEditing, setIsEditing]
+}
+
 const MemberProfile = () => {
   const { t } = useTranslation()
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
   const invalidate = useInvalidateQueries()
+  const navigate = useNavigate()
   const profileComplete = isProfileComplete()
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useEditMode(profileComplete, userProfile)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -689,7 +668,7 @@ const MemberProfile = () => {
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
   const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
-  const emailStatus = useEmailStatus(currentUser)
+  const emailStatus = getEmailStatus(currentUser)
 
   const copyAddress = async (addr) => {
     try {
@@ -745,12 +724,6 @@ const MemberProfile = () => {
   }, [])
 
   useEffect(() => {
-    if (!profileComplete && userProfile) {
-      setIsEditing(true)
-    }
-  }, [profileComplete, userProfile])
-
-  useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges && isEditing) {
         e.preventDefault()
@@ -788,7 +761,7 @@ const MemberProfile = () => {
       // Untouched, the sync can only register a phone that shows On; that is
       // best effort, so a failure must not lose the member's profile edits.
       await (pushTouched ? pushSync : pushSync.catch(warnUntouchedPushFailed))
-      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData, emailStatus === 'verified'), data)
+      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData, emailStatus !== 'none'), data)
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
@@ -797,6 +770,9 @@ const MemberProfile = () => {
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
+      if (savesUnverifiedEmailOn(formData, emailStatus)) {
+        navigate(isAdminRoute ? '/admin/verify-email' : '/member/verify-email', { state: { forNotifications: true } })
+      }
     } catch (error) {
       showToast(error.message || t('toast.profileUpdateFailed'), 'error')
     } finally {
@@ -835,11 +811,7 @@ const MemberProfile = () => {
       <div className="container">
         <h1 className="page-title">{t('profile.title')}</h1>
 
-        {!profileComplete && (
-          <div className="profile-complete-banner glass" role="alert">
-            <p className="profile-complete-banner-text" dangerouslySetInnerHTML={{ __html: t('profile.completeBanner') }} />
-          </div>
-        )}
+        {!profileComplete && <ProfileCompleteBanner userProfile={userProfile} />}
 
         <div className="profile-card glass">
           <ProfileHeader
@@ -868,7 +840,6 @@ const MemberProfile = () => {
               pushPreferenceHelp={pushPreferenceHelp}
               devicePushOn={devicePushOn}
               emailStatus={emailStatus}
-              authEmail={currentUser?.email}
             />
           ) : (
             <ProfileDetails
@@ -882,7 +853,6 @@ const MemberProfile = () => {
               mobilePushEligible={mobilePushEligible}
               devicePushOn={devicePushOn}
               emailStatus={emailStatus}
-              authEmail={currentUser?.email}
             />
           )}
         </div>

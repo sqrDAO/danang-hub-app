@@ -9,7 +9,8 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
-import { sendVerificationEmail, setAuthEmailLanguage } from '../services/emailVerification'
+import { setAuthEmailLanguage } from '../services/emailVerification'
+import { updateMember } from '../services/members'
 import i18n from '../i18n'
 import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
@@ -21,6 +22,21 @@ import {
 import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
 import { isDeviceOptedIn, shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
+import { missingProfileFields } from '../utils/profileFields'
+
+// members.email mirrors the Auth email for an account that has one, so this
+// brings an older, typed-in address in line;
+// functions/scripts/sync-member-emails.cjs did the same for every profile once.
+// A wallet account has no Auth email and types its own contact address.
+// Not awaited: a Firestore write resolves only once the server acknowledges
+// it, so waiting would hold sign-in on a dropped connection. The returned
+// profile already shows the Auth email, which is the true value either way.
+const withAuthEmail = (user, profile) => {
+  if (!user.email || profile.email === user.email) return profile
+  updateMember(user.uid, { email: user.email })
+    .catch((error) => console.warn('Unable to sync the profile email:', error))
+  return { ...profile, email: user.email }
+}
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)
@@ -42,7 +58,9 @@ export const AuthProvider = ({ children }) => {
         photoURL: user.photoURL || '',
         membershipType: 'member',
         preferences: {
-          emailNotifications: true,
+          // On for a verified (Google) email; an unverified one opts in on
+          // Profile, and that save leads to the verify screen.
+          emailNotifications: user.emailVerified === true,
           eventReminders: true,
           pushNotifications: false,
         },
@@ -58,12 +76,12 @@ export const AuthProvider = ({ children }) => {
     // (handles race where onAuthStateChanged created the doc before the wallet method ran)
     if (extraFields.walletAddress) {
       await updateDoc(userRef, { walletAddress: extraFields.walletAddress })
-      const profileData = { ...userSnap.data(), walletAddress: extraFields.walletAddress }
+      const profileData = withAuthEmail(user, { ...userSnap.data(), walletAddress: extraFields.walletAddress })
       setUserProfile(profileData)
       return profileData
     }
 
-    const profileData = userSnap.data()
+    const profileData = withAuthEmail(user, userSnap.data())
     setUserProfile(profileData)
     return profileData
   }
@@ -87,10 +105,6 @@ export const AuthProvider = ({ children }) => {
 
       // Create user profile in Firestore
       await createUserProfile(result.user)
-      // Best effort: Profile offers a resend, so a failed send must not fail sign-up.
-      sendVerificationEmail(i18n.language).catch((error) => {
-        console.warn('Unable to send the verification email on sign-up:', error)
-      })
 
       return result.user
     } catch (error) {
@@ -175,21 +189,16 @@ export const AuthProvider = ({ children }) => {
     return userProfile?.membershipType === 'admin'
   }
 
-  // Profile is complete when Name, Email, Company and Role are all set
-  const isProfileComplete = () => {
-    const displayName = userProfile?.displayName?.trim()
-    const email = userProfile?.email?.trim()
-    const company = userProfile?.company?.trim()
-    const jobTitle = userProfile?.jobTitle?.trim()
-    return !!(displayName && email && company && jobTitle)
-  }
+  // Profile is complete when Name, Company and Role are set. Email isn't
+  // required, and verifying it is optional.
+  const isProfileComplete = () => missingProfileFields(userProfile).length === 0
 
   const refreshUserProfile = async () => {
     if (currentUser) {
       const userRef = doc(db, 'members', currentUser.uid)
       const userSnap = await getDoc(userRef)
       if (userSnap.exists()) {
-        setUserProfile(userSnap.data())
+        setUserProfile(withAuthEmail(currentUser, userSnap.data()))
       }
     }
   }
@@ -201,7 +210,7 @@ export const AuthProvider = ({ children }) => {
         const userRef = doc(db, 'members', user.uid)
         const userSnap = await getDoc(userRef)
         if (userSnap.exists()) {
-          setUserProfile(userSnap.data())
+          setUserProfile(withAuthEmail(user, userSnap.data()))
         } else {
           await createUserProfile(user)
         }

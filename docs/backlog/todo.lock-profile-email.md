@@ -1,75 +1,80 @@
-# Lock the profile email to the sign-in email; optional verify and add-email
+# Lock the profile email to the sign-in email; verify on its own screen
 **Phase**: — · **Deps**: email-verification
 
 ## Goal
 `members.email` is member-editable, so it can differ from the sign-in (Auth) email and name any
-address, which admins and attendees then see as a contact. Make it mirror the Auth email, and give
-the Email field one optional row to verify it, add one (wallet) or replace a mistyped one by link;
-verifying only unlocks event emails.
+address, which admins and attendees then see as a contact. Lock it to the Auth email for accounts
+that have one, move the optional verify step to its own screen, and keep Profile looking as it did.
 
 ## Files
-- `src/contexts/AuthContext.jsx` (edited) — `isProfileComplete` checks name, company and role only; whenever the profile loads (login, session restore, `refreshUserProfile`), copy the Auth email into `members.email` when they differ
-- `src/services/emailVerification.js` (edited) — `sendEmailChangeLink(email, language, continuePath)` via `verifyBeforeUpdateEmail`; both senders reload first, send nothing if already verified, and record where the link went; `reloadEmailVerified` refreshes the ID token once verified
-- `src/utils/emailVerification.js` (edited) — `readVerifySentTo`; error keys for `auth/email-already-in-use`, `auth/invalid-email`, `auth/requires-recent-login`
-- `src/pages/member/Profile.jsx` (edited) — Email field: read-only Auth email, no required mark, one verify / add / change row in both views; banner names only the missing fields; email dropped from form validation and save; recheck on focus, then `refreshUserProfile` to sync
-- `src/pages/member/Profile.css` (edited) — email row layout
+- `src/contexts/AuthContext.jsx` (edited) — `isProfileComplete` checks name, company and role only; new profiles start with email notifications on only for a verified email; copy the Auth email into `members.email` on every profile load; no verification email on sign-up
+- `functions/scripts/sync-member-emails.cjs` (new) — one-off backfill of the same sync; dry run by default, `--apply` to write
+- `src/pages/member/VerifyEmail.jsx` (new) — `/member/verify-email`: the Auth email, a send button with a 60 s cooldown, Verified once the link is clicked
+- `src/App.jsx` (edited) — the `/member/verify-email` and `/admin/verify-email` routes
+- `src/services/emailVerification.js` (edited) — `sendVerificationEmail` reloads first, sends nothing to a verified account, continues to the verify screen
+- `src/utils/emailVerification.js` (edited) — comments for the three email states
+- `src/utils/profileFields.js` (new) — the required profile fields, shared by `isProfileComplete`, the save check and the banner
+- `test/profileFields.test.js` (new) — missing-field cases
+- `src/pages/member/Profile.jsx` (edited) — Email: a disabled input (edit) or plain text (view) like the other fields, an optional input for wallets; an unverified account may turn on email notifications, and a save with them on opens the verify screen; banner names only the missing fields
+- `src/pages/member/Profile.css` (edited) — disabled field look; verify screen layout
 - `src/pages/admin/Members.jsx` (edited) — email input dropped from the edit form and its submit data
-- `firestore.rules` (edited) — owners may set `members.email` only to `''` or their token email
+- `firestore.rules` (edited) — an owner with an Auth email may set `members.email` only to it; one without may set any value
 - `test/firestore-member-email.rules.test.js` (new) — owner email rules
-- `test/emailVerification.test.js` (edited) — new error keys, sent-to address
-- `src/locales/en.json`, `src/locales/vi.json` (edited) — email row strings, banner with `{{fields}}`; drop `emailNotificationsUnavailable`, `emailNotificationsNotAvailable`, `validation.emailRequired`
-- `README.md` (edited) — feature list, `notifyEventStatusChange` row, `members` collection
-- `docs/knowledge/data-flow.md` (edited) — what `isProfileComplete` checks; `members.email` sync
+- `test/emailVerification.test.js` (edited) — cooldown storage
+- `src/locales/en.json`, `src/locales/vi.json` (edited) — verify screen, wallet field and banner `{{fields}}` strings
+- `README.md`, `docs/knowledge/data-flow.md` (edited) — feature list, `members` collection, `isProfileComplete`, email sync
 
 ## Acceptance
 - [ ] A profile with name, company and role is complete whether or not its email is verified.
-- [ ] A wallet member with no email can complete their profile.
-- [ ] Profile shows the email as read-only text with no required mark, in both views.
+- [ ] A wallet member can complete their profile with no email.
 - [ ] The completion banner names only the missing fields among name, company and role.
-- [ ] An unverified email's row has a "Verify" button and a "Change" link.
-- [ ] A verified email's row shows "Verified" and no buttons.
-- [ ] A wallet member with no email sees "No email" and an "Add email" button.
-- [ ] "Add email" and "Change" open an email input with "Send link" and "Cancel".
-- [ ] After a send, the row names the address the link went to, also after switching views.
-- [ ] Right after email sign-up, the row names the sign-up address as already sent.
-- [ ] Sends share one 60 s cooldown, shown on the button.
-- [ ] Sending when the account is already verified sends no email and shows it verified.
-- [ ] Returning to the tab after clicking a link shows the email verified.
-- [ ] An address used by another account shows its own "belongs to another account" message.
+- [ ] The banner, the save check and `isProfileComplete` read one list (`src/utils/profileFields.js`).
+- [ ] Email sign-up sends no verification email.
+- [ ] A Google or password account's Email shows as a disabled input in the edit form.
+- [ ] A Google or password account's Email shows as plain text in the read-only view.
+- [ ] Profile shows no Verify button, Verified badge or "link sent" text.
+- [ ] In the read-only view, an unverified account's email-notifications value links to `/member/verify-email`.
+- [ ] In the edit form, an unverified account's email-notifications box is enabled, with no link or note.
+- [ ] A new profile starts with email notifications on only when its email is verified.
+- [ ] An unverified account's box starts ticked only if it was turned on before.
+- [ ] Saving with that box ticked opens the verify screen.
+- [ ] The verify screen opened that way says event emails need a verified email.
+- [ ] The verify screen sends a link to the Auth email.
+- [ ] Before a send, the verify screen reads "Verify your email" with a "Not verified" tag.
+- [ ] After a send this session, it reads "Check your inbox" with a "Link sent" tag and an m:ss resend countdown.
+- [ ] NOT: the verify screen offering to change the address.
+- [ ] After a send, the button counts down 60 s before it can resend, also after leaving and returning.
+- [ ] Sending when the account is already verified sends no email and shows Verified.
+- [ ] A verified screen with email notifications off says they can be turned on in Profile.
+- [ ] Returning to the tab after clicking the link shows Verified on the verify screen.
+- [ ] The link's Continue button opens the verify screen.
+- [ ] A wallet account opening the verify screen is sent to Profile.
+- [ ] An admin's verify flow stays in the admin area (`/admin/verify-email`, back to `/admin/profile`).
+- [ ] A wallet account sees an optional email text input in the edit form, saved with the profile.
+- [ ] A wallet account's email notifications read "Not available for wallet sign-ins".
 - [ ] After login, `members.email` equals the Auth email when the account has one.
-- [ ] An owner write setting `members.email` to another address is denied by the rules.
-- [ ] An owner create with `email: ''` (wallet sign-up) is allowed.
+- [ ] The login sync and the backfill leave a wallet account's typed email alone.
+- [ ] After the backfill's `--apply`, a re-run dry run reports 0 profiles to change.
+- [ ] An owner with an Auth email cannot set `members.email` to another address (rules).
+- [ ] An owner without an Auth email can set `members.email` to any value (rules).
 - [ ] Owner writes that leave `email` unchanged are allowed, including legacy mismatched values.
 - [ ] The admin member edit form has no email input.
 - [ ] NOT: requiring a verified email, or any email, to complete a profile.
-- [ ] NOT: changing who receives event emails (`getVerifiedEmail` stays as is).
-- [ ] NOT: constraining admin writes to `members.email` in the rules.
-- [ ] NOT: removing wallet sign-in.
+- [ ] NOT: changing who receives system mail (`getVerifiedEmail` stays the only recipient source).
+- [ ] NOT: changing or adding a sign-in email from the app.
 
 ## Verify
-- `npm run lint && npm run build` → green
-- `cd functions && npm run lint` → green (no function changes)
-- `npm test` → green
+- `npm run lint && npm run build && npm test` → green
+- `cd functions && npm run lint && npx eslint scripts/sync-member-emails.cjs` → green (`eslint .` skips `.cjs`)
 - `npm run test:rules` → green, including `firestore-member-email.rules.test.js`
+- `node functions/scripts/sync-member-emails.cjs` (prod, after the rules deploy) → dry run lists the changes; `--apply`, then the dry run again → 0 to change
 - `firebase emulators:start --project demo-danang-hub` + `VITE_USE_EMULATORS=true npm run dev`
   (links: `curl -s localhost:9099/emulator/v1/projects/demo-danang-hub/oobCodes`):
-  - email sign-up → profile completes unverified → row names the address as sent → open link → return → Verified
-  - "Change" → new address → open link → return → new address, Verified
-  - wallet sign-in → profile completes with "No email" → "Add email" → open link → return → Verified; `members/eth_…` has the email
-  - Google sign-in → Verified, no buttons
+  - email sign-up → no link in `oobCodes` → fill profile, tick email notifications, save → verify screen with guide → send → open link → return → Verified
+  - wallet sign-in → profile completes with no email → type one → save → shown in the read-only view
+  - Google sign-in → plain email, email notifications on
 - regression: `firestore-member-partner.rules.test.js`, admin member edit, Profile save of the other fields
 
 ## Notes
-- No one is gated. Prod (2026-11-11, 175 accounts): 32 unverified email/password and 11 wallet
-  accounts will see the Verify / Add email row; Google accounts are all verified.
-- A mistyped address is fixed with "Change": the account moves to an address the member proves
-  they own. Never delete or replace the old account (YouAI #242 dropped that for security).
-- Until verified, Firebase treats a password account as untrusted: a Google sign-in on the same
-  Gmail silently removes the password provider (YouAI #250). This spec doesn't change that.
-- Unchecked in prod: Google sign-in on a Gmail attached to a wallet account. Low risk: no wallet
-  account has signed in for 90+ days.
-- Rules read `request.auth.token.email`, which only updates on a new ID token: call
-  `getIdToken(true)` after `reload()` and before writing `members.email`.
-- Changing an account's email may revoke its refresh token and sign the member out; they sign in
-  again and the login sync writes the email.
-- `verifyBeforeUpdateEmail` (not `updateEmail`) still works with email enumeration protection on.
+- System mail reads only a verified Auth email (`getVerifiedEmail`), never `members.email`; keep new mail on it.
+- An admin fixes a mistyped sign-up address in the Firebase console; no account is deleted or replaced (YouAI #242).

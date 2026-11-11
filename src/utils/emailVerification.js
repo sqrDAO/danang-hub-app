@@ -1,9 +1,9 @@
-// Event emails go only to a Firebase-verified Auth email (getVerifiedEmail in
-// functions/index.js), so the email switch follows the Auth user, never the
-// member-editable profile email.
-// 'verified': Google, or a password account that clicked the link.
+// Event emails go only to a verified Auth email (getVerifiedEmail in
+// functions/index.js); verifying is optional. members.email just mirrors it.
+// 'verified': Google, or an account that clicked its link.
 // 'unverified': a password account that hasn't yet.
-// 'none': a wallet (custom token) account, which has no Auth email.
+// 'none': a wallet (custom token) account, which has no Auth email and types
+// its own contact address instead.
 export const getEmailStatus = (user) => {
   if (!user?.email) return 'none'
   return user.emailVerified ? 'verified' : 'unverified'
@@ -16,11 +16,15 @@ const sentAtKey = (uid) => `hub-verify-sent:${uid}`
 export const verifyCooldownSecondsLeft = (sentAt, now) =>
   sentAt ? Math.max(0, Math.ceil((sentAt + VERIFY_COOLDOWN_MS - now) / 1000)) : 0
 
+// The resend countdown as m:ss, e.g. 45 → "0:45", 60 → "1:00".
+export const formatCooldown = (seconds) =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+
 export const verifyErrorKey = (error) =>
   error?.code === 'auth/too-many-requests' ? 'profile.verifyEmailTooMany' : 'profile.verifyEmailFailed'
 
-// Per tab and per account, so leaving Profile or switching views can't reset
-// the cooldown. Storage can throw (private mode); the cooldown is best effort.
+// Per tab and per account, so leaving the verify screen can't reset the
+// cooldown. Storage can throw (private mode); the cooldown is best effort.
 export const readVerifySentAt = (uid) => {
   try {
     return Number(window.sessionStorage.getItem(sentAtKey(uid))) || 0

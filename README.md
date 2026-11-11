@@ -52,7 +52,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Booking Interface** — calendar picker with live conflict checking
 - **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
 - **Event Registration** — browse, register, and manage waitlist position
-- **Profile Management** — edit personal info, upload avatar, display wallet address, verify an email/password sign-in for event emails
+- **Profile Management** — edit personal info, upload avatar, display wallet address; the profile email is read-only and mirrors the sign-in email, and verifying it is optional (a separate Verify email screen, linked from the email-notifications setting) and only unlocks event emails; wallet accounts have no sign-in email and type their own contact address
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
@@ -342,7 +342,7 @@ functions/
 
 | Collection | Description |
 |------------|-------------|
-| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it) |
+| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it), `email` (owners with a sign-in email may only set that; wallet accounts type their own) |
 | `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration); optional `reservedForPartnerId` marks a partner's desk, bookable only by that partner's members (set from the Partners panel, rules-enforced) |
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |
