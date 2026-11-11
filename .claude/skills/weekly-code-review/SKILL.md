@@ -1,16 +1,15 @@
 ---
 name: weekly-code-review
-description: Run the weekly code review for danang-hub-app — establish a baseline, review the week's merged diff, sweep the codebase invariants, then write docs/reviews/<date>-weekly.md plus a docs/backlog/todo.*.md spec per actionable finding. Use when asked for a weekly review, a code health check, or when a weekly-review routine fires.
+description: Run the weekly code review for danang-hub-app — establish a baseline, review the week's merged diff, sweep the codebase invariants, then write docs/reviews/<date>-weekly.md plus one GitHub issue per actionable finding. Use when asked for a weekly review, a code health check, or when a weekly-review routine fires.
 ---
 
 # Weekly code review
 
-Produce a review report plus one backlog spec per actionable finding. **Review and plan
-only — do not fix anything you find.** Fixes go through the normal backlog loop after a
-human approves the spec (see `CLAUDE.md` → Backlog workflow).
+Produce a review report plus one GitHub issue per actionable finding. **Review only — do
+not fix anything you find, and do not write `todo.*` specs.** Whoever picks up an issue
+writes the spec and runs the normal backlog loop (see `CLAUDE.md` → Backlog workflow).
 
-Read `CLAUDE.md` first — the architecture invariants there are the checklist for step 4,
-and the spec format in it is binding on step 6.
+Read `CLAUDE.md` first — the architecture invariants there are the checklist for step 4.
 
 ## 1. Scope the window
 
@@ -87,7 +86,7 @@ code still honors them. High-yield targets, in rough order:
 Verify before writing anything down. Read the code path end to end, and prefer an
 emulator check for a rules or trigger claim. A wrong high-severity finding costs more
 than a missed low one. If a claim can't be fully verified from the repo (deployed rules,
-prod data), say so in the finding and make the spec's first step "verify against live".
+prod data), say so in the finding and make the issue's first step "verify against live".
 
 ## 5. Write the report
 
@@ -99,37 +98,37 @@ prod data), say so in the finding and make the spec's first step "verify against
 4. **Findings** — severity-ordered. `H` = data integrity or access control, `M` =
    user-visible defect or ongoing cost, `L` = quality with no user impact. Each finding:
    what is wrong, the `file:line` anchors, the concrete consequence, and a link to its
-   spec. Fence code blocks with a language (`text` for rules snippets) — markdownlint
+   issue. Fence code blocks with a language (`text` for rules snippets) — markdownlint
    MD040 is enforced by review tooling.
 5. **Recommended order** — what to do first and why.
-6. **Process notes** — backlog hygiene, open specs still valid, testing gaps.
+6. **Process notes** — backlog hygiene, open issues and specs still valid, testing gaps.
 
 State impact concretely ("a concurrent waitlist join is silently erased"), not
 abstractly ("possible race condition").
 
-## 6. Write one spec per actionable finding
+## 6. Open one issue per actionable finding
 
-`docs/backlog/todo.<slug>.md`, in the exact format `CLAUDE.md` → Spec format defines:
-**Goal · Files · Acceptance · Verify**, ≤ 80 lines, Notes optional.
+`gh issue create --label <label> --assignee Th0dium` — label per `gh label list` and how
+earlier issues are labeled (`bug` for broken behavior, `enhancement` for improvements).
+Open the issues before committing the report so its findings can link them.
 
-Rules that reviewers will hold you to:
+Body: one short plain paragraph (what's wrong, where, the consequence), then the rest in
+a collapsed `<details>` block — `file:line` anchors, suggested approach, and a `Done when`
+checklist. Rules that reviewers will hold you to:
 
-- **No placeholders.** Every command must be runnable as written — no `…`, no
-  `<placeholder>`. If a step needs a fixture, supply a concrete one.
-- **One testable claim per Acceptance bullet.** No compound clauses.
-- **`NOT:` bullets** encode scope boundaries and forbidden behavior.
-- **Acceptance must match what the fix can actually enforce.** If a mechanism can't
+- **One testable claim per `Done when` bullet.** No compound clauses; runnable commands, no
+  `<placeholder>`.
+- **Criteria must match what the fix can actually enforce.** If a mechanism can't
   guarantee something (Firestore rules can't diff array contents, for instance), write
-  the criteria to the enforceable boundary and state the residual gap in Notes. Never
-  let Acceptance promise what Notes admits is impossible.
-- **A finding needing a human decision gets a `## Decision required` section** at the
-  top, and the spec is written for one option. Don't leave Acceptance asserting a
-  behavior that Notes calls undecided.
-- Merge findings that must be fixed together into one spec (same file, same PR).
+  the criteria to the enforceable boundary and state the residual gap. Never promise
+  what the notes admit is impossible.
+- **A finding needing a human decision says so in the first paragraph** and lists the
+  options; don't write criteria for an undecided behavior.
+- Merge findings that must be fixed together into one issue (same file, same PR).
 
 ## 7. Ship it
 
-Commit the report and specs together on a `claude/`-prefixed branch and push with
+Commit the report on a `claude/`-prefixed branch and push with
 `git push -u origin <branch>`. **Do not open a PR unless asked** — and if the branch's
 previous PR is already merged, restart from the default branch rather than stacking:
 
@@ -137,8 +136,5 @@ previous PR is already merged, restart from the default branch rather than stack
 git fetch origin main && git checkout -B <branch> origin/main
 ```
 
-Do not rename any `todo.*` spec to `done.*` — that rename requires explicit human
-approval and is the completion source of truth.
-
-Report back: baseline results, finding counts by severity, the spec list, and any
+Report back: baseline results, finding counts by severity, the issue list, and any
 decision you need from a human.
