@@ -164,8 +164,9 @@ pending ──admin reviewEvent(approve)──▶ approved      attendees[] ⇄ 
   status flip fires
   **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
   `notifications` doc for the organizer and (2) sends a styled HTML email via
-  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
-  `preferences.emailNotifications`.
+  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), always sent
+  but only to the organizer's verified Auth email (`getVerifiedEmail`); no preference
+  turns it off.
 - **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
   `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
   These are bare client writes with no callable fallback, so `firestore.rules` carries a

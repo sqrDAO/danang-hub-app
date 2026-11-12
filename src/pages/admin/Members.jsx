@@ -187,12 +187,6 @@ const MemberPreferencesSection = ({ member, t }) => (
   <section className="profile-section">
     <h3 className="profile-section-title">{t('profile.preferences')}</h3>
     <div className="profile-detail-item">
-      <span className="detail-label">{t('profile.emailNotifications')}</span>
-      <span className="detail-value">
-        {(member.preferences?.emailNotifications !== false) ? t('common.on') : t('common.off')}
-      </span>
-    </div>
-    <div className="profile-detail-item">
       <span className="detail-label">{t('profile.eventReminders')}</span>
       <span className="detail-value">
         {(member.preferences?.eventReminders !== false) ? t('common.on') : t('common.off')}

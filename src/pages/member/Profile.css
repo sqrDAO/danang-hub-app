@@ -337,6 +337,20 @@
   font-weight: 600;
 }
 
+/* The email, with a verify link under it when unverified. */
+.profile-detail-email {
+  gap: var(--spacing-md);
+}
+
+.profile-detail-email .detail-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 .profile-actions {
   margin-top: var(--spacing-lg);
 }

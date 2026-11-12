@@ -2645,10 +2645,11 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         } catch (pushError) {
           console.error("Error sending event status push:", pushError);
         }
-        const prefs = (member && member.preferences) || {};
-        const sendEmail = prefs.emailNotifications !== false;
-        // The address comes from Auth, so a missing profile doesn't skip it.
-        const recipient = sendEmail && process.env.EMAIL_USER ?
+        // About the organizer's own submission, so it is always sent; it is
+        // not a notification and no preference turns it off. Only a verified
+        // Auth email receives it, so an unverified sign-up can't make the hub
+        // mail someone else's address. A missing profile doesn't skip it.
+        const recipient = process.env.EMAIL_USER ?
           await getVerifiedEmail(after.organizerId) :
           null;
 

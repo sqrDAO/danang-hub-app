@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useAuth } from '../../hooks/useAuth'
@@ -67,26 +67,9 @@ const buildProfileUpdateData = (formData) => ({
 
 // pushNotifications is left out on purpose: the switch is per phone, and only
 // enablePushNotifications writes it (true). A stale save must not write it.
-// emailNotifications is left out while its switch is disabled (wallets): a
-// disabled checkbox is missing from FormData, which would read as off.
-const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
-  ...(emailSwitchEnabled && { emailNotifications: formData.get('emailNotifications') === 'on' }),
+const buildPreferenceUpdate = (formData) => ({
   eventReminders: formData.get('eventReminders') === 'on',
 })
-
-// The box shows the stored setting (unset reads as on, as system mail reads
-// it). An unverified account may keep it on; event emails start once it
-// verifies (system mail needs a verified email).
-const emailNotificationsChecked = (emailStatus, preferences) =>
-  emailStatus !== 'none' && preferences.emailNotifications !== false
-
-// A save that turns event emails on for an unverified account is followed by
-// the verify screen, which explains why. Only a switch from off: the box
-// already shows on for an unset value, and other saves shouldn't redirect.
-const turnsUnverifiedEmailOn = (formData, emailStatus, preferences) =>
-  emailStatus === 'unverified' &&
-  preferences?.emailNotifications === false &&
-  formData.get('emailNotifications') === 'on'
 
 // Admins verify inside the admin layout, members inside theirs.
 const verifyEmailPath = (pathname) =>
@@ -96,13 +79,6 @@ const VerifyEmailLink = () => {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   return <Link to={verifyEmailPath(pathname)} className="profile-link">{t('profile.verifyEmailTitle')}</Link>
-}
-
-const emailPreferenceLabel = (emailStatus, preferences, t) => {
-  if (emailStatus === 'none') return t('profile.emailNotificationsWallet')
-  const value = preferences.emailNotifications !== false ? t('common.on') : t('common.off')
-  if (emailStatus === 'verified') return value
-  return <>{value} · <VerifyEmailLink /></>
 }
 
 const currentNotificationPermission = () =>
@@ -289,27 +265,6 @@ const EmailFormField = ({ emailStatus, userProfile }) => {
   )
 }
 
-const EmailNotificationsField = ({ emailStatus, preferences }) => {
-  const { t } = useTranslation()
-  // No verify link here: leaving the form would drop unsaved edits. The save
-  // opens the verify screen instead.
-  const isWallet = emailStatus === 'none'
-  return (
-    <div className="form-group form-group-checkbox">
-      <label className="form-label form-label-checkbox">
-        <input
-          type="checkbox"
-          name="emailNotifications"
-          defaultChecked={emailNotificationsChecked(emailStatus, preferences)}
-          disabled={isWallet}
-        />
-        <span>{t('profile.emailNotifications')}</span>
-      </label>
-      {isWallet && <p className="form-field-note">{t('profile.emailNotificationsWallet')}</p>}
-    </div>
-  )
-}
-
 const ProfileEditForm = ({
   userProfile,
   profileComplete,
@@ -424,7 +379,6 @@ const ProfileEditForm = ({
 
       <section className="profile-section">
         <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-        <EmailNotificationsField emailStatus={emailStatus} preferences={preferences} />
         <div className="form-group form-group-checkbox">
           <label className="form-label form-label-checkbox">
             <input
@@ -516,15 +470,11 @@ const ProfileProfessionalSection = ({ userProfile }) => {
   )
 }
 
-const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn, emailStatus }) => {
+const ProfilePreferencesSection = ({ preferences, mobilePushEligible, devicePushOn }) => {
   const { t } = useTranslation()
   return (
     <section className="profile-section">
       <h3 className="profile-section-title">{t('profile.preferences')}</h3>
-      <div className="profile-detail-item">
-        <span className="detail-label">{t('profile.emailNotifications')}</span>
-        <span className="detail-value">{emailPreferenceLabel(emailStatus, preferences, t)}</span>
-      </div>
       <div className="profile-detail-item">
         <span className="detail-label">{t('profile.eventReminders')}</span>
         <span className="detail-value">{preferences.eventReminders !== false ? t('common.on') : t('common.off')}</span>
@@ -584,9 +534,13 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
           <span className="detail-label">{t('profile.displayName')}</span>
           <span className="detail-value">{userProfile.displayName || '—'}</span>
         </div>
-        <div className="profile-detail-item">
+        <div className="profile-detail-item profile-detail-email">
           <span className="detail-label">{t('profile.email')}</span>
-          <span className="detail-value">{userProfile.email || '—'}</span>
+          <span className="detail-value">
+            <span>{userProfile.email || '—'}</span>
+            {/* No link in the edit form: leaving it would drop unsaved edits. */}
+            {emailStatus === 'unverified' && <VerifyEmailLink />}
+          </span>
         </div>
         <div className="profile-detail-item">
           <span className="detail-label">{t('profile.phone')}</span>
@@ -615,7 +569,6 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         preferences={preferences}
         mobilePushEligible={mobilePushEligible}
         devicePushOn={devicePushOn}
-        emailStatus={emailStatus}
       />
 
       <ProfileActivitySection userProfile={userProfile} stats={stats} statsLoading={statsLoading} />
@@ -658,7 +611,6 @@ const MemberProfile = () => {
   const { userProfile, currentUser, refreshUserProfile, isProfileComplete } = useAuth()
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
   const invalidate = useInvalidateQueries()
-  const navigate = useNavigate()
   const profileComplete = isProfileComplete()
   const [isEditing, setIsEditing] = useEditMode(profileComplete, userProfile)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -744,7 +696,6 @@ const MemberProfile = () => {
     // Only a switch the member touched changes this phone.
     const pushTouched = pushInput?.dataset.touched === 'true' && !pushInput.disabled
     const desiredPushNotifications = pushTouched ? pushInput.checked : currentPushOn
-    const showVerifyAfterSave = turnsUnverifiedEmailOn(formData, emailStatus, userProfile?.preferences)
     const data = buildProfileUpdateData(formData)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
@@ -763,7 +714,7 @@ const MemberProfile = () => {
       // Untouched, the sync can only register a phone that shows On; that is
       // best effort, so a failure must not lose the member's profile edits.
       await (pushTouched ? pushSync : pushSync.catch(warnUntouchedPushFailed))
-      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData, emailStatus !== 'none'), data)
+      await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData), data)
 
       if (typeof refreshUserProfile === 'function') {
         await refreshUserProfile()
@@ -772,9 +723,6 @@ const MemberProfile = () => {
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
-      if (showVerifyAfterSave) {
-        navigate(isAdminRoute ? '/admin/verify-email' : '/member/verify-email', { state: { forNotifications: true } })
-      }
     } catch (error) {
       showToast(error.message || t('toast.profileUpdateFailed'), 'error')
     } finally {

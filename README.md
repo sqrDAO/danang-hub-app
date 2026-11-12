@@ -52,7 +52,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Booking Interface** — calendar picker with live conflict checking
 - **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
 - **Event Registration** — browse, register, and manage waitlist position
-- **Profile Management** — edit personal info, upload avatar, display wallet address; the profile email is read-only and mirrors the sign-in email; new email/password sign-ups must verify it on a separate Verify email screen before using the hub, while for older accounts verifying is optional (linked from the email-notifications setting) and only unlocks event emails; wallet accounts have no sign-in email and type their own contact address
+- **Profile Management** — edit personal info, upload avatar, display wallet address; the profile email is read-only and mirrors the sign-in email; new email/password sign-ups must verify it on a separate Verify email screen before using the hub, while for older accounts verifying is optional (linked next to the email on Profile) and lets the hub email them about events they submit; there is no email-notifications setting yet; wallet accounts have no sign-in email and type their own contact address
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
@@ -246,7 +246,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
 | `notifyEventResubmission` | Firestore trigger (onUpdate) | Notifies admins of a revisioned approved/rejected event resubmission |
-| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and status push for opted-in organizers when an event is approved or rejected, plus an optional email sent only to the organizer's verified Firebase Auth email (Google, or email/password once verified; wallet organizers get none) |
+| `notifyEventStatusChange` | Firestore trigger (onUpdate) | Writes organizer in-app notifications and status push for opted-in organizers when an event is approved or rejected, plus an email, always sent (no preference turns it off) but only to the organizer's verified Firebase Auth email (Google, or email/password once verified; wallet organizers get none) |
 | `notifyEventRevisionParticipants` | Firestore trigger (onUpdate) | Sends in-app status updates to retained attendees/waitlisted members after a previously approved event changes revision state |
 | `cleanupPushNotificationMarkers` | Scheduled (daily) | Deletes expired browser push dedupe markers |
 | `sendEventReminders` | Scheduled (hourly) | Reminds every member about approved events ~24h out (in-app + push), with copy per attendee/waitlisted/other |

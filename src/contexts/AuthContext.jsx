@@ -67,9 +67,7 @@ export const AuthProvider = ({ children }) => {
         photoURL: user.photoURL || '',
         membershipType: 'member',
         preferences: {
-          // On for a verified (Google) email; an unverified one opts in on
-          // Profile, and that save leads to the verify screen.
-          emailNotifications: user.emailVerified === true,
+          emailNotifications: true,
           eventReminders: true,
           pushNotifications: false,
         },

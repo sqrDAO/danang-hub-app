@@ -183,12 +183,12 @@ const UnverifiedView = ({ currentUser, onAlreadyVerified, introKey }) => {
   )
 }
 
-const VerifiedCard = ({ email, emailNotificationsOn, profilePath }) => {
+const VerifiedCard = ({ email, profilePath }) => {
   const { t } = useTranslation()
   return (
     <VerifyCard
       title={t('profile.verifyEmailDoneTitle')}
-      intro={t(emailNotificationsOn ? 'profile.verifyEmailDone' : 'profile.verifyEmailDoneOff')}
+      intro={t('profile.verifyEmailDone')}
       email={email}
       tag={<span className="status-badge approved">{t('profile.emailVerified')}</span>}
     >
@@ -197,19 +197,13 @@ const VerifiedCard = ({ email, emailNotificationsOn, profilePath }) => {
   )
 }
 
-const verifyIntroKey = (required, forNotifications) => {
-  if (required) return 'profile.verifyEmailRequired'
-  return forNotifications ? 'profile.verifyEmailForNotifications' : 'profile.verifyEmailHelp'
-}
-
 // Required for a new email sign-up (ProtectedRoute keeps it here until it
-// verifies); optional for older accounts, where it only unlocks event emails.
-// Reached from the email notifications value on Profile, after a save with
-// them on (which passes forNotifications), and from the Continue button in
-// the email.
+// verifies); optional for older accounts, where it lets the hub email them
+// about events they submit. Reached from the email on Profile and from the
+// Continue button in the email.
 const VerifyEmail = () => {
-  const { currentUser, userProfile, isEmailVerificationPending } = useAuth()
-  const { state, pathname } = useLocation()
+  const { currentUser, isEmailVerificationPending } = useAuth()
+  const { pathname } = useLocation()
   const [status, markVerified] = useEmailStatus(currentUser)
   const isAdminRoute = pathname.startsWith('/admin')
   const profilePath = isAdminRoute ? '/admin/profile' : '/member/profile'
@@ -219,12 +213,12 @@ const VerifyEmail = () => {
     <Layout isAdmin={isAdminRoute}>
       <div className="container">
         {status === 'verified'
-          ? <VerifiedCard email={currentUser.email} emailNotificationsOn={userProfile?.preferences?.emailNotifications !== false} profilePath={profilePath} />
+          ? <VerifiedCard email={currentUser.email} profilePath={profilePath} />
           : (
             <UnverifiedView
               currentUser={currentUser}
               onAlreadyVerified={markVerified}
-              introKey={verifyIntroKey(isEmailVerificationPending(), state?.forNotifications)}
+              introKey={isEmailVerificationPending() ? 'profile.verifyEmailRequired' : 'profile.verifyEmailHelp'}
             />
           )}
       </div>
