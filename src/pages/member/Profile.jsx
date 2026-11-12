@@ -74,14 +74,11 @@ const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
   eventReminders: formData.get('eventReminders') === 'on',
 })
 
-// An unverified account may turn event emails on ahead of verifying; they
-// start once it verifies (system mail needs a verified email). Until then
-// the box shows the stored value only when it is on: true for an opt-in, and
-// for accounts created before new ones started off when unverified.
-const emailNotificationsChecked = (emailStatus, preferences) => {
-  if (emailStatus === 'verified') return preferences.emailNotifications !== false
-  return emailStatus === 'unverified' && preferences.emailNotifications === true
-}
+// The box shows the stored setting (unset reads as on, as system mail reads
+// it). An unverified account may keep it on; event emails start once it
+// verifies (system mail needs a verified email).
+const emailNotificationsChecked = (emailStatus, preferences) =>
+  emailStatus !== 'none' && preferences.emailNotifications !== false
 
 // A save with event emails on for an unverified account is followed by the
 // verify screen, which explains why.
@@ -95,13 +92,14 @@ const verifyEmailPath = (pathname) =>
 const VerifyEmailLink = () => {
   const { t } = useTranslation()
   const { pathname } = useLocation()
-  return <Link to={verifyEmailPath(pathname)} className="profile-link">{t('profile.emailNotificationsNeedsVerified')}</Link>
+  return <Link to={verifyEmailPath(pathname)} className="profile-link">{t('profile.verifyEmailTitle')}</Link>
 }
 
 const emailPreferenceLabel = (emailStatus, preferences, t) => {
   if (emailStatus === 'none') return t('profile.emailNotificationsWallet')
-  if (emailStatus !== 'verified') return <VerifyEmailLink />
-  return preferences.emailNotifications !== false ? t('common.on') : t('common.off')
+  const value = preferences.emailNotifications !== false ? t('common.on') : t('common.off')
+  if (emailStatus === 'verified') return value
+  return <>{value} · <VerifyEmailLink /></>
 }
 
 const currentNotificationPermission = () =>

@@ -56,8 +56,11 @@ auto-creates `members/{uid}` on first login with `membershipType: 'member'`.
 ### Guards — `src/components/ProtectedRoute.jsx` via `App.jsx`
 
 `requireAdmin` → `isAdmin()` (`userProfile.membershipType === 'admin'`).
+Every route → `isEmailVerificationPending()` first: a profile created with
+`emailVerificationRequired: true` (new email/password sign-ups) is sent to the verify screen until
+its Auth email is verified; older profiles lack the flag, so verifying stays optional for them.
 `requireProfileComplete` → `isProfileComplete()` (displayName + company + jobTitle non-empty;
-email isn't required, and verifying it is optional). These are UX guards only — the real
+email isn't required). These are UX guards only — the real
 enforcement is `firestore.rules` (§5). `members.email` mirrors the Auth email: AuthContext syncs
 it on load (not awaited, so a dropped connection can't hold sign-in). The rules let an owner with
 an Auth email set only that, or leave a legacy value unchanged, so an account that never loads its

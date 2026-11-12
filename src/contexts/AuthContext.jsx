@@ -38,6 +38,12 @@ const withAuthEmail = (user, profile) => {
   return { ...profile, email: user.email }
 }
 
+// A new email/password sign-up must verify its email before using the app
+// (ProtectedRoute sends it to the verify screen). Profiles created before this
+// flag existed don't have it, so verifying stays optional for them.
+const verificationRequirement = (user) =>
+  (user.email && !user.emailVerified ? { emailVerificationRequired: true } : {})
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
@@ -65,6 +71,7 @@ export const AuthProvider = ({ children }) => {
           pushNotifications: false,
         },
         createdAt: new Date().toISOString(),
+        ...verificationRequirement(user),
         ...(extraFields.walletAddress && { walletAddress: extraFields.walletAddress }),
       }
       await setDoc(userRef, baseProfile)
@@ -190,8 +197,13 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Profile is complete when Name, Company and Role are set. Email isn't
-  // required, and verifying it is optional.
+  // required; verifying is a separate gate (isEmailVerificationPending).
   const isProfileComplete = () => missingProfileFields(userProfile).length === 0
+
+  // reload() on the verify screen updates currentUser in place, so the next
+  // render after the link is clicked lets the account through.
+  const isEmailVerificationPending = () =>
+    userProfile?.emailVerificationRequired === true && currentUser?.emailVerified !== true
 
   const refreshUserProfile = async () => {
     if (currentUser) {
@@ -304,6 +316,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAdmin,
     isProfileComplete,
+    isEmailVerificationPending,
     refreshUserProfile,
   }
 

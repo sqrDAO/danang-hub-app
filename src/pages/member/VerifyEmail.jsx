@@ -66,7 +66,7 @@ const VerifyCard = ({ title, intro, email, tag, children }) => (
   </>
 )
 
-const SendLinkCard = ({ uid, email, onAlreadyVerified, forNotifications }) => {
+const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey }) => {
   const { t } = useTranslation()
   const link = useSendLink(uid, onAlreadyVerified)
   if (link.sent) {
@@ -89,7 +89,7 @@ const SendLinkCard = ({ uid, email, onAlreadyVerified, forNotifications }) => {
   return (
     <VerifyCard
       title={t('profile.verifyEmailTitle')}
-      intro={t(forNotifications ? 'profile.verifyEmailForNotifications' : 'profile.verifyEmailHelp')}
+      intro={t(introKey)}
       email={email}
       tag={<span className="status-badge pending">{t('profile.verifyEmailNotVerified')}</span>}
     >
@@ -114,11 +114,18 @@ const VerifiedCard = ({ email, emailNotificationsOn, profilePath }) => {
   )
 }
 
-// Optional: verifying only unlocks event emails. Reached from the email
-// notifications value on Profile, after a save with them on (which passes
-// forNotifications), and from the Continue button in the email.
+const verifyIntroKey = (required, forNotifications) => {
+  if (required) return 'profile.verifyEmailRequired'
+  return forNotifications ? 'profile.verifyEmailForNotifications' : 'profile.verifyEmailHelp'
+}
+
+// Required for a new email sign-up (ProtectedRoute keeps it here until it
+// verifies); optional for older accounts, where it only unlocks event emails.
+// Reached from the email notifications value on Profile, after a save with
+// them on (which passes forNotifications), and from the Continue button in
+// the email.
 const VerifyEmail = () => {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, isEmailVerificationPending } = useAuth()
   const { state, pathname } = useLocation()
   const [status, markVerified] = useEmailStatus(currentUser)
   const isAdminRoute = pathname.startsWith('/admin')
@@ -135,7 +142,7 @@ const VerifyEmail = () => {
               uid={currentUser.uid}
               email={currentUser.email}
               onAlreadyVerified={markVerified}
-              forNotifications={state?.forNotifications}
+              introKey={verifyIntroKey(isEmailVerificationPending(), state?.forNotifications)}
             />
           )}
       </div>
