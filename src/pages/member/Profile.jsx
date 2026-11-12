@@ -18,7 +18,7 @@ import {
 } from '../../services/pushNotifications'
 import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../utils/pushDeviceOptIn'
 import { uploadMemberAvatar } from '../../services/storage'
-import { getEmailStatus } from '../../utils/emailVerification'
+import useEmailStatus from '../../hooks/useEmailStatus'
 import { showToast } from '../../utils/toast'
 import { missingProfileFields } from '../../utils/profileFields'
 import './Profile.css'
@@ -668,7 +668,7 @@ const MemberProfile = () => {
   const [pushPermission, setPushPermission] = useState(currentNotificationPermission)
   const avatarInputRef = useRef(null)
   const devicePushOn = useDevicePushOn(currentUser?.uid, userProfile?.preferences)
-  const emailStatus = getEmailStatus(currentUser)
+  const [emailStatus] = useEmailStatus(currentUser)
 
   const copyAddress = async (addr) => {
     try {

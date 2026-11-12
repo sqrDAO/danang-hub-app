@@ -80,8 +80,8 @@ function getTransporter() {
 
 /**
  * Returns the user's Firebase Auth email only when Firebase has verified it.
- * The members/{uid}.email profile field is member-editable, so it is never
- * used as a mail recipient.
+ * The members/{uid}.email profile field mirrors the Auth email but may be
+ * unverified (or typed by a wallet member), so it is never a mail recipient.
  * A failed lookup (e.g. a deleted organizer) is logged and returns null.
  * @param {string} uid Firebase Auth uid
  * @return {Promise<string|null>} verified email, or null
@@ -2316,9 +2316,10 @@ exports.sendBookingConfirmation = onDocumentCreated(
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        // TODO: Integrate with email service; only send if sendEmail is true
+        // TODO: Integrate with email service; only send if sendEmail is true,
+        // and only to getVerifiedEmail (never members.email)
         console.log("Booking confirmation:", {
-          memberEmail: member && member.email ? member.email : null,
+          memberEmail: await getVerifiedEmail(booking.memberId),
           memberPhone: member && member.phone ? member.phone : null,
           amenityName: amenity && amenity.name ? amenity.name : null,
           startTime: booking.startTime,

@@ -1,5 +1,5 @@
 # Lock the profile email to the sign-in email; verify on its own screen
-**Phase**: — · **Deps**: email-verification
+**Phase**: — · **Deps**: email-verification, email-pref-unverified
 
 ## Goal
 `members.email` is member-editable, so it can differ from the sign-in (Auth) email and name any
@@ -9,12 +9,12 @@ that have one, move the optional verify step to its own screen, and keep Profile
 ## Files
 - `src/contexts/AuthContext.jsx` (edited) — `isProfileComplete` checks name, company and role only; new profiles start with email notifications on only for a verified email; copy the Auth email into `members.email` on every profile load; no verification email on sign-up
 - `functions/scripts/sync-member-emails.cjs` (new) — one-off backfill of the same sync; dry run by default, `--apply` to write
+- `src/hooks/useEmailStatus.js` (new) — the Auth email status, reloaded on mount and focus; used by Profile and the verify screen
 - `src/pages/member/VerifyEmail.jsx` (new) — `/member/verify-email`: the Auth email, a send button with a 60 s cooldown, Verified once the link is clicked
 - `src/App.jsx` (edited) — the `/member/verify-email` and `/admin/verify-email` routes
 - `src/services/emailVerification.js` (edited) — `sendVerificationEmail` reloads first, sends nothing to a verified account, continues to the verify screen
 - `src/utils/emailVerification.js` (edited) — comments for the three email states
-- `src/utils/profileFields.js` (new) — the required profile fields, shared by `isProfileComplete`, the save check and the banner
-- `test/profileFields.test.js` (new) — missing-field cases
+- `src/utils/profileFields.js`, `test/profileFields.test.js` (new) — the required profile fields, shared by `isProfileComplete`, the save check and the banner; missing-field cases
 - `src/pages/member/Profile.jsx` (edited) — Email: a disabled input (edit) or plain text (view) like the other fields, an optional input for wallets; an unverified account may turn on email notifications, and a save with them on opens the verify screen; banner names only the missing fields
 - `src/pages/member/Profile.css` (edited) — disabled field look; verify screen layout
 - `src/pages/admin/Members.jsx` (edited) — email input dropped from the edit form and its submit data
@@ -22,7 +22,7 @@ that have one, move the optional verify step to its own screen, and keep Profile
 - `test/firestore-member-email.rules.test.js` (new) — owner email rules
 - `test/emailVerification.test.js` (edited) — cooldown storage
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — verify screen, wallet field and banner `{{fields}}` strings
-- `README.md`, `docs/knowledge/data-flow.md` (edited) — feature list, `members` collection, `isProfileComplete`, email sync
+- `README.md`, `docs/knowledge/data-flow.md`, `functions/index.js` (edited) — feature list, `members` collection, `isProfileComplete`, email sync; `getVerifiedEmail` comment and booking stub
 
 ## Acceptance
 - [ ] A profile with name, company and role is complete whether or not its email is verified.
@@ -34,7 +34,7 @@ that have one, move the optional verify step to its own screen, and keep Profile
 - [ ] A Google or password account's Email shows as plain text in the read-only view.
 - [ ] Profile shows no Verify button, Verified badge or "link sent" text.
 - [ ] In the read-only view, an unverified account's email-notifications value links to `/member/verify-email`.
-- [ ] In the edit form, an unverified account's email-notifications box is enabled, with no link or note.
+- [ ] In the edit form, an unverified account's email-notifications box is enabled, with no link or note (reverses `done.email-pref-unverified.md`).
 - [ ] A new profile starts with email notifications on only when its email is verified.
 - [ ] An unverified account's box starts ticked only if it was turned on before.
 - [ ] Saving with that box ticked opens the verify screen.
