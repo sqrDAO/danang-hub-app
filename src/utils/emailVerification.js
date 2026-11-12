@@ -23,6 +23,16 @@ export const formatCooldown = (seconds) =>
 export const verifyErrorKey = (error) =>
   error?.code === 'auth/too-many-requests' ? 'profile.verifyEmailTooMany' : 'profile.verifyEmailFailed'
 
+const CHANGE_EMAIL_ERROR_KEYS = {
+  'auth/requires-recent-login': 'profile.changeEmailRecentLogin',
+  'auth/email-already-in-use': 'profile.changeEmailInUse',
+  'auth/invalid-email': 'profile.changeEmailInvalid',
+  'auth/too-many-requests': 'profile.verifyEmailTooMany'
+}
+
+export const changeEmailErrorKey = (error) =>
+  CHANGE_EMAIL_ERROR_KEYS[error?.code] || 'profile.changeEmailFailed'
+
 // Per tab and per account, so leaving the verify screen can't reset the
 // cooldown. Storage can throw (private mode); the cooldown is best effort.
 export const readVerifySentAt = (uid) => {

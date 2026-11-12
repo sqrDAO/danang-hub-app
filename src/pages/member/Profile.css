@@ -241,6 +241,26 @@
   text-decoration: none;
 }
 
+/* A link-styled button on the verify screen. */
+.verify-email-change {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.verify-email-change-form {
+  margin-top: var(--spacing-md);
+}
+
+.verify-email-change-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
 .profile-link:hover {
   text-decoration: underline;
 }

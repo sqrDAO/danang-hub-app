@@ -4,8 +4,9 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import useEmailStatus from '../../hooks/useEmailStatus'
 import Layout from '../../components/Layout'
-import { sendVerificationEmail } from '../../services/emailVerification'
+import { changeSignInEmail, sendVerificationEmail } from '../../services/emailVerification'
 import {
+  changeEmailErrorKey,
   formatCooldown,
   readVerifySentAt,
   verifyCooldownSecondsLeft,
@@ -66,7 +67,7 @@ const VerifyCard = ({ title, intro, email, tag, children }) => (
   </>
 )
 
-const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey }) => {
+const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey, footer }) => {
   const { t } = useTranslation()
   const link = useSendLink(uid, onAlreadyVerified)
   if (link.sent) {
@@ -83,6 +84,7 @@ const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey }) => {
             : t('profile.verifyEmailResend')}
         </button>
         <p className="verify-email-text verify-email-text--after">{t('profile.verifyEmailSpam')}</p>
+        {footer}
       </VerifyCard>
     )
   }
@@ -96,7 +98,88 @@ const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey }) => {
       <button type="button" className="btn btn-primary verify-email-btn" onClick={link.send} disabled={link.busy}>
         {t('profile.verifyEmail')}
       </button>
+      {footer}
     </VerifyCard>
+  )
+}
+
+// A mistyped sign-up address: the link goes to the new address, and the
+// sign-in email changes only once it is clicked there.
+const useChangeEmail = (currentEmail, onSent) => {
+  const { pathname } = useLocation()
+  const { t, i18n } = useTranslation()
+  const [sending, setSending] = useState(false)
+  const submit = async (event) => {
+    event.preventDefault()
+    const newEmail = new FormData(event.target).get('newEmail').trim()
+    if (newEmail.toLowerCase() === currentEmail.toLowerCase()) {
+      showToast(t('profile.changeEmailSame'), 'error')
+      return
+    }
+    setSending(true)
+    try {
+      await changeSignInEmail(newEmail, i18n.language, pathname)
+      onSent(newEmail)
+    } catch (error) {
+      console.error('Error changing the sign-in email:', error)
+      showToast(t(changeEmailErrorKey(error)), 'error')
+    } finally {
+      setSending(false)
+    }
+  }
+  return { submit, sending }
+}
+
+const ChangeEmailForm = ({ currentEmail, onSent }) => {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const change = useChangeEmail(currentEmail, onSent)
+  if (!open) {
+    return (
+      <p className="verify-email-text verify-email-text--after">
+        <button type="button" className="profile-link verify-email-change" onClick={() => setOpen(true)}>
+          {t('profile.changeEmailToggle')}
+        </button>
+      </p>
+    )
+  }
+  return (
+    <form className="verify-email-change-form" onSubmit={change.submit}>
+      <label className="form-label" htmlFor="verify-new-email">{t('profile.changeEmailLabel')}</label>
+      <input id="verify-new-email" type="email" name="newEmail" className="form-field" required autoFocus />
+      <div className="verify-email-change-actions">
+        <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</button>
+        <button type="submit" className="btn btn-primary" disabled={change.sending}>{t('profile.changeEmailSend')}</button>
+      </div>
+    </form>
+  )
+}
+
+const ChangeSentCard = ({ email, onBack }) => {
+  const { t } = useTranslation()
+  return (
+    <VerifyCard
+      title={t('profile.changeEmailSentTitle')}
+      intro={t('profile.changeEmailSent')}
+      email={email}
+      tag={<span className="status-badge pending">{t('profile.verifyEmailLinkSentTag')}</span>}
+    >
+      <button type="button" className="btn btn-secondary verify-email-btn" onClick={onBack}>{t('profile.changeEmailBack')}</button>
+    </VerifyCard>
+  )
+}
+
+const UnverifiedView = ({ currentUser, onAlreadyVerified, introKey }) => {
+  const [changeSentTo, setChangeSentTo] = useState(null)
+  if (changeSentTo) return <ChangeSentCard email={changeSentTo} onBack={() => setChangeSentTo(null)} />
+  return (
+    <SendLinkCard
+      uid={currentUser.uid}
+      email={currentUser.email}
+      onAlreadyVerified={onAlreadyVerified}
+      introKey={introKey}
+      footer={<ChangeEmailForm currentEmail={currentUser.email} onSent={setChangeSentTo} />}
+    />
   )
 }
 
@@ -138,9 +221,8 @@ const VerifyEmail = () => {
         {status === 'verified'
           ? <VerifiedCard email={currentUser.email} emailNotificationsOn={userProfile?.preferences?.emailNotifications !== false} profilePath={profilePath} />
           : (
-            <SendLinkCard
-              uid={currentUser.uid}
-              email={currentUser.email}
+            <UnverifiedView
+              currentUser={currentUser}
               onAlreadyVerified={markVerified}
               introKey={verifyIntroKey(isEmailVerificationPending(), state?.forNotifications)}
             />

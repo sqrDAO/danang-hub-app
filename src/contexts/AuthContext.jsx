@@ -31,9 +31,12 @@ import { missingProfileFields } from '../utils/profileFields'
 // Not awaited: a Firestore write resolves only once the server acknowledges
 // it, so waiting would hold sign-in on a dropped connection. The returned
 // profile already shows the Auth email, which is the true value either way.
+// The rules compare against the email in the ID token, which can predate an
+// email change for up to an hour, so the token is refreshed first.
 const withAuthEmail = (user, profile) => {
   if (!user.email || profile.email === user.email) return profile
-  updateMember(user.uid, { email: user.email })
+  user.getIdToken(true)
+    .then(() => updateMember(user.uid, { email: user.email }))
     .catch((error) => console.warn('Unable to sync the profile email:', error))
   return { ...profile, email: user.email }
 }

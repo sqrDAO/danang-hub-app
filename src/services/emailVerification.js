@@ -1,4 +1,4 @@
-import { sendEmailVerification } from 'firebase/auth'
+import { sendEmailVerification, verifyBeforeUpdateEmail } from 'firebase/auth'
 import { auth } from './firebase'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { recordVerifySent } from '../utils/emailVerification'
@@ -32,4 +32,13 @@ export const reloadEmailVerified = async () => {
   const user = auth.currentUser
   await user.reload()
   return user.emailVerified ? user.uid : null
+}
+
+// Corrects a mistyped sign-up address before it is verified. Firebase mails a
+// link to the new address and switches the sign-in email only when it is
+// clicked, which also verifies it; the member then signs in with it.
+export const changeSignInEmail = async (newEmail, language, continuePath) => {
+  if (LOCAL_DEV_MODE) return
+  setAuthEmailLanguage(language)
+  await verifyBeforeUpdateEmail(auth.currentUser, newEmail, { url: `${window.location.origin}${continuePath}` })
 }

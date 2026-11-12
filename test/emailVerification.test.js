@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  changeEmailErrorKey,
   formatCooldown,
   getEmailStatus,
   readVerifySentAt,
@@ -66,4 +67,13 @@ test('a send remembers when the link went, per account', () => {
 
 test('without storage, nothing counts as sent', () => {
   assert.equal(readVerifySentAt('uid-a'), 0)
+})
+
+test('change-email errors map to their own messages, others to a generic one', () => {
+  assert.equal(changeEmailErrorKey({ code: 'auth/requires-recent-login' }), 'profile.changeEmailRecentLogin')
+  assert.equal(changeEmailErrorKey({ code: 'auth/email-already-in-use' }), 'profile.changeEmailInUse')
+  assert.equal(changeEmailErrorKey({ code: 'auth/invalid-email' }), 'profile.changeEmailInvalid')
+  assert.equal(changeEmailErrorKey({ code: 'auth/too-many-requests' }), 'profile.verifyEmailTooMany')
+  assert.equal(changeEmailErrorKey({ code: 'auth/network-request-failed' }), 'profile.changeEmailFailed')
+  assert.equal(changeEmailErrorKey(undefined), 'profile.changeEmailFailed')
 })

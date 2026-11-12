@@ -63,6 +63,10 @@ const listAuthEmails = async () => {
     const uid = c.uid.slice(0, 10);
     console.log(`  ${uid}…  ${mask(c.current)} -> ${mask(c.next)}`);
   }
+  if (noAuthAccount.length) {
+    console.log("\nwithout an Auth account:");
+    for (const uid of noAuthAccount) console.log(`  ${uid}`);
+  }
 
   if (!APPLY) {
     console.log("\nre-run with --apply to write");

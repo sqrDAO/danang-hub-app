@@ -80,10 +80,13 @@ const buildPreferenceUpdate = (formData, emailSwitchEnabled) => ({
 const emailNotificationsChecked = (emailStatus, preferences) =>
   emailStatus !== 'none' && preferences.emailNotifications !== false
 
-// A save with event emails on for an unverified account is followed by the
-// verify screen, which explains why.
-const savesUnverifiedEmailOn = (formData, emailStatus) =>
-  emailStatus === 'unverified' && formData.get('emailNotifications') === 'on'
+// A save that turns event emails on for an unverified account is followed by
+// the verify screen, which explains why. Only a switch from off: the box
+// already shows on for an unset value, and other saves shouldn't redirect.
+const turnsUnverifiedEmailOn = (formData, emailStatus, preferences) =>
+  emailStatus === 'unverified' &&
+  preferences?.emailNotifications === false &&
+  formData.get('emailNotifications') === 'on'
 
 // Admins verify inside the admin layout, members inside theirs.
 const verifyEmailPath = (pathname) =>
@@ -741,6 +744,7 @@ const MemberProfile = () => {
     // Only a switch the member touched changes this phone.
     const pushTouched = pushInput?.dataset.touched === 'true' && !pushInput.disabled
     const desiredPushNotifications = pushTouched ? pushInput.checked : currentPushOn
+    const showVerifyAfterSave = turnsUnverifiedEmailOn(formData, emailStatus, userProfile?.preferences)
     const data = buildProfileUpdateData(formData)
     const validationError = validateProfileForm(data, !profileComplete, t)
     if (validationError) {
@@ -768,7 +772,7 @@ const MemberProfile = () => {
       setIsEditing(false)
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
-      if (savesUnverifiedEmailOn(formData, emailStatus)) {
+      if (showVerifyAfterSave) {
         navigate(isAdminRoute ? '/admin/verify-email' : '/member/verify-email', { state: { forNotifications: true } })
       }
     } catch (error) {
