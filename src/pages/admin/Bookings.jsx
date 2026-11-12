@@ -16,6 +16,7 @@ import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import './Bookings.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { appLocale } from '../../utils/appLocale'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
 import { deskPlanBadgeKey, isDeskPlan } from '../../utils/deskPlans'
 import { isPendingRenewal } from '../../utils/renewals'
@@ -645,7 +646,7 @@ const isApprovableInBulk = (b) => b.status === 'pending' && !isPendingRenewal(b)
 const AdminBookings = () => {
   const { t, i18n } = useTranslation()
   const { currentUser } = useAuth()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const locale = appLocale(i18n.language)
   const {
     statusFilter,
     categoryFilter,

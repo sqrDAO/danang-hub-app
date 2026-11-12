@@ -8,6 +8,7 @@ import { getBookings, getCompletedBookingsCount } from '../../services/bookings'
 import { getEvents, getCompletedEventsCount } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { appLocale } from '../../utils/appLocale'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import '../member/Profile.css'
@@ -87,7 +88,7 @@ const useAdminDashboardData = () => {
 
 const AdminDashboard = () => {
   const { t, i18n } = useTranslation()
-  const locale = i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US'
+  const locale = appLocale(i18n.language)
   const [recentBookingsPage, setRecentBookingsPage] = useState(1)
   const RECENT_BOOKINGS_PAGE_SIZE = 5
 

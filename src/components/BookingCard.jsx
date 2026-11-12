@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { formatHubDate, isSameHubDay } from '../utils/timezone'
 import { canShowPass, formatDurationShort, formatHubTimeRange, hasBookingTimes } from '../utils/bookingPass'
+import { appLocale } from '../utils/appLocale'
 import './BookingCard.css'
 
 const STATUS_ICON = {
@@ -42,8 +43,6 @@ const StatusPill = ({ booking, status, t, onShowPass, now }) => {
   )
 }
 
-const appLocale = (i18n) => (i18n.language?.startsWith('vi') ? 'vi-VN' : 'en-US')
-
 // Label defaults to the short weekday; callers pass "Today" when it is true.
 const DateTile = ({ date, locale, label, highlight = false }) => (
   <div className={`date-tile${highlight ? ' is-today' : ''}`}>
@@ -57,7 +56,7 @@ const DateTile = ({ date, locale, label, highlight = false }) => (
 // action buttons all read the same instant.
 const BookingCard = ({ booking, amenity, onShowPass, now = new Date(), children }) => {
   const { t, i18n } = useTranslation()
-  const locale = appLocale(i18n)
+  const locale = appLocale(i18n.language)
   // Without valid times the hub-day and format calls would throw: keep the
   // date column (it holds the tear line) but leave it and the time line empty.
   const timed = hasBookingTimes(booking)
