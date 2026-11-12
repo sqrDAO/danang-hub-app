@@ -56,7 +56,7 @@ const DateTile = ({ date, locale, label, highlight = false }) => (
 // action buttons all read the same instant.
 const BookingCard = ({ booking, amenity, onShowPass, now = new Date(), children }) => {
   const { t, i18n } = useTranslation()
-  const locale = appLocale(i18n)
+  const locale = appLocale(i18n.language)
   // Without valid times the hub-day and format calls would throw: keep the
   // date column (it holds the tear line) but leave it and the time line empty.
   const timed = hasBookingTimes(booking)

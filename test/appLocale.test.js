@@ -11,4 +11,6 @@ test('maps everything else to en-US', () => {
   assert.equal(appLocale('en'), 'en-US')
   assert.equal(appLocale('en-US'), 'en-US')
   assert.equal(appLocale(undefined), 'en-US')
+  assert.equal(appLocale(null), 'en-US')
+  assert.equal(appLocale(''), 'en-US')
 })
