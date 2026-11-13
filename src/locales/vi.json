@@ -280,6 +280,7 @@
     "changeEmailSentTitle": "Kiểm tra hộp thư mới",
     "changeEmailSent": "Chúng tôi đã gửi liên kết đến địa chỉ bên dưới. Mở liên kết để chuyển email đăng nhập sang địa chỉ này, sau đó đăng nhập lại bằng địa chỉ mới.",
     "changeEmailBack": "Quay lại",
+    "changeEmailSpam": "Chưa nhận được? Hãy kiểm tra thư rác. Nếu vẫn không thấy, có thể địa chỉ này đã có tài khoản; hãy đăng nhập bằng địa chỉ đó.",
     "changeEmailRecentLogin": "Để bảo mật, hãy đăng xuất và đăng nhập lại, rồi đổi email.",
     "changeEmailInUse": "Email này đã được dùng cho một tài khoản khác.",
     "changeEmailInvalid": "Nhập địa chỉ email hợp lệ.",

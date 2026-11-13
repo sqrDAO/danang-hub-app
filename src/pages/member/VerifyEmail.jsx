@@ -165,6 +165,8 @@ const ChangeSentCard = ({ email, onBack }) => {
       tag={<span className="status-badge pending">{t('profile.verifyEmailLinkSentTag')}</span>}
     >
       <button type="button" className="btn btn-secondary verify-email-btn" onClick={onBack}>{t('profile.changeEmailBack')}</button>
+      {/* Enumeration protection hides a taken address, so no error says so. */}
+      <p className="verify-email-text verify-email-text--after">{t('profile.changeEmailSpam')}</p>
     </VerifyCard>
   )
 }

@@ -41,6 +41,7 @@
 - [ ] Changing sends a link to the new address and leaves the sign-in email unchanged until it is clicked.
 - [ ] After the link is clicked, the member signs in with the new address, which is verified.
 - [ ] A change that needs a recent sign-in says to sign out and back in.
+- [ ] The change-sent card says a link that never arrives may mean the address already has an account.
 - [ ] After a send, the button counts down 60 s before it can resend, also after leaving and returning.
 - [ ] Sending when the account is already verified sends no email and shows Verified.
 - [ ] Returning to the tab after clicking the link shows Verified on the verify screen.

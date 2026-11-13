@@ -280,6 +280,7 @@
     "changeEmailSentTitle": "Check your new inbox",
     "changeEmailSent": "We sent a link to the address below. Open it to switch your sign-in email to it, then sign in again with the new address.",
     "changeEmailBack": "Back",
+    "changeEmailSpam": "Nothing yet? Check your spam folder. If it never arrives, that address may already have an account. Sign in with it instead.",
     "changeEmailRecentLogin": "For your security, sign out and sign in again, then change your email.",
     "changeEmailInUse": "That email is already used by another account.",
     "changeEmailInvalid": "Enter a valid email address.",
