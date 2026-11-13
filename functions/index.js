@@ -80,8 +80,8 @@ function getTransporter() {
 
 /**
  * Returns the user's Firebase Auth email only when Firebase has verified it.
- * The members/{uid}.email profile field is member-editable, so it is never
- * used as a mail recipient.
+ * The members/{uid}.email profile field mirrors the Auth email but may be
+ * unverified (or typed by a wallet member), so it is never a mail recipient.
  * A failed lookup (e.g. a deleted organizer) is logged and returns null.
  * @param {string} uid Firebase Auth uid
  * @return {Promise<string|null>} verified email, or null
@@ -2316,9 +2316,10 @@ exports.sendBookingConfirmation = onDocumentCreated(
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        // TODO: Integrate with email service; only send if sendEmail is true
+        // TODO: Integrate with email service; only send if sendEmail is true,
+        // and only to getVerifiedEmail (never members.email)
         console.log("Booking confirmation:", {
-          memberEmail: member && member.email ? member.email : null,
+          memberEmail: await getVerifiedEmail(booking.memberId),
           memberPhone: member && member.phone ? member.phone : null,
           amenityName: amenity && amenity.name ? amenity.name : null,
           startTime: booking.startTime,
@@ -2644,10 +2645,11 @@ exports.notifyEventStatusChange = onDocumentUpdated(
         } catch (pushError) {
           console.error("Error sending event status push:", pushError);
         }
-        const prefs = (member && member.preferences) || {};
-        const sendEmail = prefs.emailNotifications !== false;
-        // The address comes from Auth, so a missing profile doesn't skip it.
-        const recipient = sendEmail && process.env.EMAIL_USER ?
+        // About the organizer's own submission, so it is always sent; it is
+        // not a notification and no preference turns it off. Only a verified
+        // Auth email receives it, so an unverified sign-up can't make the hub
+        // mail someone else's address. A missing profile doesn't skip it.
+        const recipient = process.env.EMAIL_USER ?
           await getVerifiedEmail(after.organizerId) :
           null;
 

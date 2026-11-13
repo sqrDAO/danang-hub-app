@@ -1,8 +1,18 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
+// Where a signed-in user must go first, or null. A new email sign-up verifies
+// its email first, then completes its profile.
+const firstStopPath = ({ isAdmin, isEmailVerificationPending, isProfileComplete }, requireProfileComplete) => {
+  const area = isAdmin() ? '/admin' : '/member'
+  if (isEmailVerificationPending()) return `${area}/verify-email`
+  if (requireProfileComplete && !isProfileComplete()) return `${area}/profile`
+  return null
+}
+
 const ProtectedRoute = ({ children, requireAdmin = false, requireProfileComplete = false }) => {
-  const { currentUser, loading, isAdmin, isProfileComplete } = useAuth()
+  const auth = useAuth()
+  const { currentUser, loading, isAdmin } = auth
   const location = useLocation()
 
   if (loading) {
@@ -26,11 +36,9 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireProfileComplete
     return <Navigate to="/member" replace />
   }
 
-  if (requireProfileComplete && !isProfileComplete()) {
-    const profilePath = isAdmin() ? '/admin/profile' : '/member/profile'
-    if (location.pathname !== profilePath) {
-      return <Navigate to={profilePath} replace state={{ requireProfileComplete: true }} />
-    }
+  const stop = firstStopPath(auth, requireProfileComplete)
+  if (stop && location.pathname !== stop) {
+    return <Navigate to={stop} replace />
   }
 
   return children

@@ -19,6 +19,7 @@ const buildLocalDevAuthValue = () => {
     logout: asyncNoop,
     isAdmin: () => userProfile.membershipType === 'admin',
     isProfileComplete: () => true,
+    isEmailVerificationPending: () => false,
     refreshUserProfile: asyncNoop
   }
 }

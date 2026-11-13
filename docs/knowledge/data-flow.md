@@ -56,8 +56,16 @@ auto-creates `members/{uid}` on first login with `membershipType: 'member'`.
 ### Guards — `src/components/ProtectedRoute.jsx` via `App.jsx`
 
 `requireAdmin` → `isAdmin()` (`userProfile.membershipType === 'admin'`).
-`requireProfileComplete` → `isProfileComplete()` (displayName + email + company + jobTitle
-all non-empty). These are UX guards only — the real enforcement is `firestore.rules` (§5).
+Every route → `isEmailVerificationPending()` first: a profile created with
+`emailVerificationRequired: true` (new email/password sign-ups) is sent to the verify screen until
+its Auth email is verified; older profiles lack the flag, so verifying stays optional for them.
+`requireProfileComplete` → `isProfileComplete()` (displayName + company + jobTitle non-empty;
+email isn't required). These are UX guards only — the real
+enforcement is `firestore.rules` (§5). `members.email` mirrors the Auth email: AuthContext syncs
+it on load (not awaited, so a dropped connection can't hold sign-in). The rules let an owner with
+an Auth email set only that, or leave a legacy value unchanged, so an account that never loads its
+profile can keep an old typed address. Wallet accounts have no Auth email and type their own.
+System mail never reads this field (only `getVerifiedEmail`).
 
 ---
 
@@ -234,8 +242,9 @@ pending ──admin reviewEvent(approve)──▶ approved      attendees[] ⇄ 
   status flip fires
   **`notifyEventStatusChange`** (`functions/index.js`), which (1) writes a
   `notifications` doc for the organizer and (2) sends a styled HTML email via
-  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), respecting
-  `preferences.emailNotifications`.
+  **nodemailer** (SMTP from `EMAIL_*` env, `EMAIL_PASS` from Secret Manager), always sent
+  but only to the organizer's verified Auth email (`getVerifiedEmail`); no preference
+  turns it off.
 - **Register / waitlist** — `registerForEvent`/`unregisterFromEvent` use
   `arrayUnion`/`arrayRemove` on `attendees`; `addToWaitlist`/`removeFromWaitlist` likewise.
   These are bare client writes with no callable fallback, so `firestore.rules` carries a

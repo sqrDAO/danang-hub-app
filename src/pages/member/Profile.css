@@ -195,23 +195,70 @@
   line-height: 1.5;
 }
 
-.email-verify-prompt .btn {
-  margin: var(--spacing-sm) 0 0 1.8rem;
+/* The locked sign-in email: the same field as the others, dimmed so it
+   reads as fixed. */
+.profile-form .form-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* Read-only view: no checkbox to align with */
-.email-verify-prompt--detail {
-  margin: calc(-1 * var(--spacing-sm)) 0 var(--spacing-md);
-}
-
-.email-verify-prompt--detail .form-field-note,
-.email-verify-prompt--detail .btn {
+/* A note under a field rather than a checkbox: nothing to indent past. */
+.form-field-note--flush {
   margin-left: 0;
+}
+
+/* Verify screen: the address and its status tag share Profile's detail
+   row; the tag wraps under an address too long for one line. */
+.verify-email-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.verify-email-row .detail-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.verify-email-text {
+  margin: 0 0 var(--spacing-md);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.verify-email-text--after {
+  margin: var(--spacing-md) 0 0;
+  text-align: center;
+}
+
+/* The screen's one action spans the card, like the address box above it. */
+.verify-email-btn {
+  width: 100%;
 }
 
 .profile-link {
   color: var(--accent-secondary);
   text-decoration: none;
+}
+
+/* A link-styled button on the verify screen. */
+.verify-email-change {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.verify-email-change-form {
+  margin-top: var(--spacing-md);
+}
+
+.verify-email-change-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
 }
 
 .profile-link:hover {
@@ -288,6 +335,20 @@
 .detail-value {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+/* The email, with a verify link under it when unverified. */
+.profile-detail-email {
+  gap: var(--spacing-md);
+}
+
+.profile-detail-email .detail-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .profile-actions {

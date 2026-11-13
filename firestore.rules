@@ -43,6 +43,16 @@ service cloud.firestore {
     // Owners create with membershipType 'member' and no partnerId, and can
     // neither change nor remove either field afterwards; only admins can,
     // and only to 'member' or 'admin'.
+    // email mirrors the caller's Auth email (AuthContext syncs it), so an owner
+    // with one may set it only to that (or leave it unchanged). A wallet account
+    // has no Auth email and types its own contact address. System mail never
+    // reads this field: it goes only to a verified Auth email.
+    function ownerEmailAllowed(before) {
+      let email = request.resource.data.get('email', '');
+      let authEmail = request.auth.token.get('email', '');
+      return authEmail == '' || email == authEmail || email == before;
+    }
+
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
@@ -52,12 +62,15 @@ service cloud.firestore {
       // to a partner
       allow create: if isOwner(userId) &&
                        request.resource.data.get('membershipType', null) == 'member' &&
-                       !('partnerId' in request.resource.data);
+                       !('partnerId' in request.resource.data) &&
+                       ownerEmailAllowed('');
       // Users can update their own profile (except membershipType and partnerId,
-      // which they may not change or remove)
+      // which they may not change or remove, and email, which follows their
+      // Auth email when they have one)
       allow update: if isOwner(userId) &&
                        request.resource.data.get('membershipType', null) == resource.data.get('membershipType', null) &&
-                       request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null);
+                       request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null) &&
+                       ownerEmailAllowed(resource.data.get('email', ''));
       // Only admins can update membershipType or any member. A profile with no
       // membershipType (legacy) reads as 'member' here, so admins can still
       // edit its other fields.

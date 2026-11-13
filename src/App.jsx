@@ -19,6 +19,7 @@ const AdminEvents = lazy(() => import('./pages/admin/Events'))
 const MemberBookings = lazy(() => import('./pages/member/Bookings'))
 const MemberEvents = lazy(() => import('./pages/member/Events'))
 const MemberProfile = lazy(() => import('./pages/member/Profile'))
+const VerifyEmail = lazy(() => import('./pages/member/VerifyEmail'))
 
 const RouteFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -96,6 +97,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/verify-email"
+          element={
+            <ProtectedRoute requireAdmin>
+              <VerifyEmail />
+            </ProtectedRoute>
+          }
+        />
         
         {/* Member Routes (require Company + Role for first-time users) */}
         <Route
@@ -123,6 +132,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MemberProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/member/verify-email"
+          element={
+            <ProtectedRoute>
+              <VerifyEmail />
             </ProtectedRoute>
           }
         />
