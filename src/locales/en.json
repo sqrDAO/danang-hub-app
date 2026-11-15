@@ -604,11 +604,26 @@
   },
   "eventCard": {
     "untitled": "Untitled Event",
-    "attending": "{{current}} / {{total}} attending",
+    "attending": "<count>{{current}}</count> / {{total}} attending",
     "waiting": "{{count}} waiting",
     "by": "by",
     "rejected": "Rejected: {{reason}}",
     "organizerYou": "You're the organizer"
+  },
+  "eventRegistrants": {
+    "title": "Registrants",
+    "registered": "Registered",
+    "waitlist": "Waitlist",
+    "waitlistHint": "In queue order. Promoting moves people up from the top.",
+    "searchPlaceholder": "Search name, email or company",
+    "noMatch": "No one matches \"{{query}}\"",
+    "emptyTitle": "No registrations yet",
+    "emptyHint": "Members who register for this event will show up here.",
+    "deletedAccount": "Deleted account",
+    "unnamed": "Unnamed member",
+    "copyEmails": "Copy emails",
+    "emailsCopied": "Copied {{count}} email(s)",
+    "copyFailed": "Could not copy the emails."
   },
   "eventDetails": {
     "when": "Date & time",
@@ -617,7 +632,7 @@
     "hostedBy": "Hosted by",
     "organizedBy": "Organized by",
     "attendees": "Attendees",
-    "attendeesValue": "{{current}} / {{total}}",
+    "attendeesValue": "<count>{{current}}</count> / {{total}}",
     "waitlistValue": "{{count}} waiting",
     "rejectionReason": "Rejection reason",
     "noReason": "No reason provided",

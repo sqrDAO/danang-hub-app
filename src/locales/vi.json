@@ -602,11 +602,26 @@
   },
   "eventCard": {
     "untitled": "Sự kiện chưa đặt tên",
-    "attending": "{{current}} / {{total}} người tham gia",
+    "attending": "<count>{{current}}</count> / {{total}} người tham gia",
     "waiting": "{{count}} người đang chờ",
     "by": "tổ chức bởi",
     "rejected": "Bị từ chối: {{reason}}",
     "organizerYou": "Bạn là người tổ chức"
+  },
+  "eventRegistrants": {
+    "title": "Người đăng ký",
+    "registered": "Đã đăng ký",
+    "waitlist": "Danh sách chờ",
+    "waitlistHint": "Theo thứ tự xếp hàng. Khi chuyển, người đứng đầu được lên trước.",
+    "searchPlaceholder": "Tìm theo tên, email hoặc công ty",
+    "noMatch": "Không tìm thấy ai khớp với \"{{query}}\"",
+    "emptyTitle": "Chưa có ai đăng ký",
+    "emptyHint": "Thành viên đăng ký sự kiện này sẽ hiển thị tại đây.",
+    "deletedAccount": "Tài khoản đã xóa",
+    "unnamed": "Thành viên chưa đặt tên",
+    "copyEmails": "Sao chép email",
+    "emailsCopied": "Đã sao chép {{count}} email",
+    "copyFailed": "Không thể sao chép email."
   },
   "eventDetails": {
     "when": "Thời gian",
@@ -615,7 +630,7 @@
     "hostedBy": "Đơn vị tổ chức",
     "organizedBy": "Tổ chức bởi",
     "attendees": "Người tham gia",
-    "attendeesValue": "{{current}} / {{total}}",
+    "attendeesValue": "<count>{{current}}</count> / {{total}}",
     "waitlistValue": "{{count}} người đang chờ",
     "rejectionReason": "Lý do từ chối",
     "noReason": "Không có lý do được cung cấp",

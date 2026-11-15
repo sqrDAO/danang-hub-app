@@ -6,6 +6,7 @@ import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
 import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
+import EventRegistrantsModal from '../../components/event/EventRegistrantsModal'
 import EventCard from '../../components/event/EventCard'
 import EventFormModal from '../../components/event/EventFormModal'
 import { getEventVenueId, getEventFormPayload } from '../../components/event/eventFields'
@@ -102,7 +103,7 @@ const useAdminEventsData = () => {
     queryFn: getPendingEvents
   })
 
-  const { data: members = [] } = useQuery({
+  const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: ['members'],
     queryFn: getMembers
   })
@@ -112,7 +113,7 @@ const useAdminEventsData = () => {
     queryFn: getAmenities
   })
 
-  return { allEvents, pendingEvents, members, amenities, isLoading }
+  return { allEvents, pendingEvents, members, membersLoading, amenities, isLoading }
 }
 
 const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting }) => {
@@ -269,12 +270,13 @@ const EventCardActions = ({
   </div>
 )
 
-const AdminEventCard = ({ event, t, onShowHost, onOpenDetails, ...actionProps }) => (
+const AdminEventCard = ({ event, t, onShowHost, onOpenDetails, onShowRegistrants, ...actionProps }) => (
   <EventCard
     event={event}
     view="admin"
     onOpen={onOpenDetails}
     onShowHost={onShowHost}
+    onShowRegistrants={onShowRegistrants}
     actions={<EventCardActions event={event} t={t} {...actionProps} />}
   />
 )
@@ -396,7 +398,7 @@ const AdminEvents = () => {
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const bannerInputRef = useRef(null)
-  const { allEvents, pendingEvents, members, amenities, isLoading } = useAdminEventsData()
+  const { allEvents, pendingEvents, members, membersLoading, amenities, isLoading } = useAdminEventsData()
   const {
     linkAmenity, eventDuration, dateError,
     checkEventHall, setEventHallRequest, changeEventDuration, resetEventHallCheck
@@ -471,9 +473,10 @@ const AdminEvents = () => {
 
   const [hostModalMember, setHostModalMember] = useState(null)
   const [detailEvent, setDetailEvent] = useState(null)
+  const [registrantsEvent, setRegistrantsEvent] = useState(null)
 
   // Admin still keeps the full members list for the organizer <select>, so the
-  // pre-fetched roster doubles as the host-modal source.
+  // pre-fetched roster doubles as the host-modal and registrants-modal source.
   const getOrganizer = (organizerId) => members.find(m => m.id === organizerId)
 
   const handleSubmit = async (e) => {
@@ -571,6 +574,7 @@ const AdminEvents = () => {
                 t={t}
                 onShowHost={() => setHostModalMember(getOrganizer(event.organizerId))}
                 onOpenDetails={setDetailEvent}
+                onShowRegistrants={setRegistrantsEvent}
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onPromoteWaitlist={handlePromoteWaitlist}
@@ -615,7 +619,16 @@ const AdminEvents = () => {
           onClose={() => setDetailEvent(null)}
           amenities={amenities}
           onShowHost={(organizerId) => setHostModalMember(getOrganizer(organizerId))}
+          onShowRegistrants={setRegistrantsEvent}
           view="admin"
+        />
+
+        <EventRegistrantsModal
+          event={registrantsEvent}
+          members={members}
+          membersLoading={membersLoading}
+          onClose={() => setRegistrantsEvent(null)}
+          onShowMember={setHostModalMember}
         />
 
         <HostProfileModal member={hostModalMember} onClose={() => setHostModalMember(null)} />
