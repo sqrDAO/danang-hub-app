@@ -6,6 +6,7 @@ import {
   getHostNames,
   getAmenityName,
   isWebLink,
+  getUnfamiliarLinkHost,
   getEventVenueId
 } from './eventFields'
 import OrganizerName from './OrganizerName'
@@ -66,6 +67,24 @@ const EventFacts = ({ event, fields, onShowHost, t }) => (
   </div>
 )
 
+// With `linkCheck` (admin), a link off the known platforms shows its host
+// under the button and asks before opening.
+const EventLinkButton = ({ event, fields, t }) => {
+  if (!isWebLink(event.eventLink)) return null
+  const host = fields.has('linkCheck') ? getUnfamiliarLinkHost(event.eventLink) : ''
+  const confirmOpen = (e) => {
+    if (host && !window.confirm(t('eventDetails.openUnfamiliarConfirm', { host }))) e.preventDefault()
+  }
+  return (
+    <div className="event-detail-link-row">
+      <a href={event.eventLink} target="_blank" rel="noopener noreferrer" onClick={confirmOpen} className="btn btn-secondary btn-sm event-detail-open-link">
+        {t('eventDetails.openLink')} ↗
+      </a>
+      {host && <span className="event-detail-link-caution">{t('eventDetails.unfamiliarSite', { host })}</span>}
+    </div>
+  )
+}
+
 const RejectionNotice = ({ event, t }) => {
   if (event.status !== 'rejected') return null
   return (
@@ -116,11 +135,7 @@ const EventDetailBody = ({ event, view, amenities, onShowHost, t }) => {
         <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>
       )}
       <EventFacts event={event} fields={fields} onShowHost={onShowHost} t={t} />
-      {fields.has('eventLink') && isWebLink(event.eventLink) && (
-        <a href={event.eventLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm event-detail-open-link">
-          {t('eventDetails.openLink')} ↗
-        </a>
-      )}
+      {fields.has('eventLink') && <EventLinkButton event={event} fields={fields} t={t} />}
       {fields.has('rejection') && <RejectionNotice event={event} t={t} />}
       {fields.has('description') && event.description && (
         <section className="event-detail-description">

@@ -9,7 +9,7 @@ import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
 import EventCard from '../../components/event/EventCard'
 import EventFormModal from '../../components/event/EventFormModal'
-import { getEventVenueId, getEventFormPayload } from '../../components/event/eventFields'
+import { getEventVenueId, getEventFormPayload, openEventLink } from '../../components/event/eventFields'
 import { useEventHallCheck } from '../../components/event/useEventHallCheck'
 import {
   getApprovedEvents,
@@ -344,9 +344,11 @@ const useEventActionMutations = ({
     }
   })
 
-  const handleRegister = async (eventId) => {
-    if (isPendingFor(registerMutation, eventId)) return
-    await registerMutation.mutateAsync({ eventId, memberId: currentUser.uid })
+  // Opens the event page too, before the await so the popup isn't blocked.
+  const handleRegister = async (event) => {
+    if (isPendingFor(registerMutation, event.id)) return
+    openEventLink(event.eventLink)
+    await registerMutation.mutateAsync({ eventId: event.id, memberId: currentUser.uid })
   }
 
   const handleUnregister = async (eventId) => {
@@ -456,7 +458,7 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
       <>
         <button
           className="btn btn-primary btn-full-width btn-large"
-          onClick={() => handlers.onRegister(event.id)}
+          onClick={() => handlers.onRegister(event)}
           disabled={full || handlers.registeringId === event.id}
         >
           {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}

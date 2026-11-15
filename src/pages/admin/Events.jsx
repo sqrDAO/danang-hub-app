@@ -8,7 +8,7 @@ import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
 import EventCard from '../../components/event/EventCard'
 import EventFormModal from '../../components/event/EventFormModal'
-import { getEventVenueId, getEventFormPayload } from '../../components/event/eventFields'
+import { getEventVenueId, getEventFormPayload, getUnfamiliarLinkHost } from '../../components/event/eventFields'
 import { useEventHallCheck } from '../../components/event/useEventHallCheck'
 import {
   getEvents,
@@ -89,6 +89,13 @@ const submitUpdateEvent = async (data, ctx) => {
     data.bannerUrl = ctx.selectedEvent.bannerUrl
   }
   ctx.updateMutation.mutate({ id: ctx.selectedEvent.id, data })
+}
+
+// A link off the known event platforms replaces the usual confirm with a note
+// naming its host, so it doesn't read as the routine prompt.
+const getApproveMessage = (event, t) => {
+  const host = getUnfamiliarLinkHost(event.eventLink)
+  return host ? t('adminEvents.unfamiliarLinkNote', { host }) : t('adminEvents.confirmApprove')
 }
 
 const useAdminEventsData = () => {
@@ -443,7 +450,7 @@ const AdminEvents = () => {
 
   const handleApprove = async (event) => {
     if (isPendingFor(approveMutation, event.id)) return
-    if (window.confirm(t('adminEvents.confirmApprove'))) {
+    if (window.confirm(getApproveMessage(event, t))) {
       await approveMutation.mutateAsync({ eventId: event.id, expectedRevision: event.revision || 1 })
     }
   }

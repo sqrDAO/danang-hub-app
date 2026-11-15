@@ -14,13 +14,14 @@ export const EVENT_VIEWS = {
 }
 
 // Every event field the card/modal can show (the card has no event link row).
+// `linkCheck` is the unfamiliar-site caution on the event link.
 export const EVENT_FIELDS = [
   'status', 'date', 'hosts', 'organizer', 'attendees',
-  'eventLink', 'description', 'rejection', 'venue', 'revision'
+  'eventLink', 'linkCheck', 'description', 'rejection', 'venue', 'revision'
 ]
 
 // Admin-only data: hidden unless the view sets `allowRestricted`.
-const RESTRICTED_FIELDS = new Set(['venue', 'revision'])
+const RESTRICTED_FIELDS = new Set(['venue', 'revision', 'linkCheck'])
 
 const isAllowed = (field, view) =>
   !view.hide.includes(field) && (view.allowRestricted || !RESTRICTED_FIELDS.has(field))
@@ -45,6 +46,46 @@ export const getAmenityName = (amenities, amenityId) =>
 // Event links are member-entered; only render real web links (blocks e.g.
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
+
+// Event platforms admins see all the time. A link elsewhere is not blocked:
+// the admin just gets a caution before approving the event or opening it.
+export const KNOWN_EVENT_HOSTS = [
+  'lu.ma', 'luma.com', 'meetup.com', 'eventbrite.com', 'zoom.us',
+  'meet.google.com', 'forms.gle', 'docs.google.com', 't.me', 'discord.gg',
+  'x.com', 'facebook.com', 'youtube.com'
+]
+
+// An exact match or a subdomain. Never a substring check: `lu.ma.evil.com`
+// contains `lu.ma` but is not it.
+const isKnownHost = (host) =>
+  KNOWN_EVENT_HOSTS.some(known => host === known || host.endsWith(`.${known}`))
+
+// The host to warn the admin about, or '' for no link or a known platform.
+// Uses the parsed hostname, the site the browser actually loads: the raw text
+// can mislead (`https://lu.ma@evil.com` loads evil.com). A non-web link has no
+// host, so it is shown as typed.
+const getHost = (url) => {
+  try {
+    return isWebLink(url) ? new URL(url).hostname : ''
+  } catch {
+    return '' // e.g. `https://` alone
+  }
+}
+
+export const getUnfamiliarLinkHost = (url) => {
+  if (!url) return ''
+  const host = getHost(url)
+  if (!host) return url
+  return isKnownHost(host) ? '' : host
+}
+
+// New tab without `window.opener`, so the event site cannot redirect this tab.
+// `<a target="_blank">` gets that by default; `window.open` does not. Call it
+// synchronously in the click handler: after an `await` the browser no longer
+// treats it as the user's click and blocks the popup.
+export const openEventLink = (url) => {
+  if (isWebLink(url)) window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 // An event's venue. Older events may also carry `linkedAmenityId`; they are
 // decorative only, so it is deliberately ignored.
