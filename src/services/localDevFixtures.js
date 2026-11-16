@@ -89,7 +89,6 @@ export const buildLocalDevMembers = () => {
       jobTitle: 'Smart Contract Dev',
       membershipType: 'member',
       preferences: {
-        emailNotifications: true,
         eventReminders: true,
         pushNotifications: true
       }
@@ -104,7 +103,6 @@ export const buildLocalDevMembers = () => {
       jobTitle: 'AI Engineer',
       membershipType: 'member',
       preferences: {
-        emailNotifications: false,
         eventReminders: true,
         pushNotifications: false
       }
@@ -119,7 +117,6 @@ export const buildLocalDevMembers = () => {
       jobTitle: 'Product Manager',
       membershipType: 'member',
       preferences: {
-        emailNotifications: true,
         eventReminders: true,
         pushNotifications: false
       }
