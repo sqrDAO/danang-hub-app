@@ -6,6 +6,7 @@ import { markConflictCheckError, retryTransientOnce } from '../utils/conflictChe
 import {
   checkLocalBookingConflicts,
   editLocalOwnEvent,
+  importLocalEvent,
   listLocalAmenityRanges,
   reviewLocalEvent
 } from './localDevStore'
@@ -84,6 +85,17 @@ export const reviewEvent = async ({ eventId, expectedRevision, action, reason = 
   if (LOCAL_DEV_MODE) return reviewLocalEvent({ eventId, action, reason })
   const review = httpsCallable(functions, 'reviewEvent')
   const result = await review({ eventId, expectedRevision, action, reason })
+  return result.data
+}
+
+// Reads a public Luma event page server-side (the browser cannot, CORS) and
+// returns a draft for the create form: { title, description, date, duration,
+// eventLink, image }. `duration` is null when the page has no end time and
+// `image` is null when it has no cover on Luma's image host.
+export const importEventFromUrl = async (url) => {
+  if (LOCAL_DEV_MODE) return importLocalEvent(url)
+  const importEvent = httpsCallable(functions, 'importEventFromUrl')
+  const result = await importEvent({ url })
   return result.data
 }
 

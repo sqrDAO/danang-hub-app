@@ -156,6 +156,25 @@ export const deleteMemberAvatar = async (photoUrl) => {
  * @param {File} file - The image file to upload
  * @returns {Promise<string>} - The download URL of the uploaded banner
  */
+const BANNER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+
+/**
+ * Download an imported event's cover as a File for the banner input. Nothing
+ * is uploaded here; the file goes through uploadEventBanner on submit.
+ * @param {string} imageUrl - Cover address from importEventFromUrl
+ * @returns {Promise<File>}
+ */
+export const fetchBannerFile = async (imageUrl) => {
+  // Without this Accept the image host may answer with AVIF, which the banner rejects.
+  const response = await fetch(imageUrl, { headers: { Accept: 'image/jpeg,image/png,image/webp' } })
+  if (!response.ok) throw new Error(`Cover image returned ${response.status}`)
+  const blob = await response.blob()
+  const file = new File([blob], `imported-banner.${BANNER_EXTENSIONS[blob.type] || 'img'}`, { type: blob.type })
+  const validation = validateImageFile(file)
+  if (!validation.valid) throw new Error(validation.error)
+  return file
+}
+
 export const uploadEventBanner = async (file) => {
   const validation = validateImageFile(file)
   if (!validation.valid) {

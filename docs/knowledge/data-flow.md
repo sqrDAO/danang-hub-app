@@ -282,6 +282,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `getAmenityBookingRanges` | callable (auth required) | Busy `startTime`/`endTime`/`status` ranges for an amenity over a window of at most 60 days, with no member identity. The booking calendar's only source for other members' bookings (§5) |
 | `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content |
 | `reviewEvent` | callable (admin) | Revision-aware approve/reject; status only |
+| `importEventFromUrl` | callable (any member) | Fetch a public Luma page (host allowlist, redirects re-checked) and return a form draft from its `Event` JSON-LD; no writes |
 | `removePartner` | callable (admin) | Detach the partner's members, release its desk and delete it in one transaction, then cancel their unstarted Partner Desk days (`partner-removed`); `{daysPending: true}` if that last step fails |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |

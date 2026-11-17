@@ -17,6 +17,9 @@ const {
   getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
 const {
+  parseImportUrl, fetchEventPage, extractEventJsonLd, toEventDraft,
+} = require("./eventImport");
+const {
   HUB_UTC_OFFSET_HOURS,
   rangeOverlapsClosure,
 } = require("./hubClosures");
@@ -525,6 +528,32 @@ exports.reviewEvent = onCall(async (request) => {
   } catch (error) {
     throw getEventError(error);
   }
+});
+
+// Pre-fills the event form from a public Luma page. Read-only: nothing is
+// saved until the member submits the form through the normal create flow.
+exports.importEventFromUrl = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const startUrl = parseImportUrl(request.data && request.data.url);
+  if (!startUrl) {
+    throw new HttpsError("invalid-argument", "This link is not supported.");
+  }
+
+  let page;
+  try {
+    page = await fetchEventPage(startUrl);
+  } catch (error) {
+    console.error("Event import fetch failed:", error.message);
+    throw new HttpsError("unavailable", "Could not read the event page.");
+  }
+
+  const draft = toEventDraft(extractEventJsonLd(page.html), page.url);
+  if (!draft) {
+    throw new HttpsError("not-found", "No event details found on this page.");
+  }
+  return draft;
 });
 
 // Check slot availability - no auth (for chatbot, public availability)
