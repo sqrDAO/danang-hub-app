@@ -235,7 +235,7 @@ export const buildLocalDevEvents = () => [
     capacity: 25,
     requestedAmenityId: 'local-hall',
     hostingProjects: 'SuperteamVN, PayStream Protocol',
-    eventLink: 'https://example.com/ai-agents-smart-contracts-workshop'
+    eventLink: 'https://lu.ma/ai-agents-smart-contracts-workshop'
   },
   // Pending Event submitted by Bob Tran (for testing admin review / approval / rejection)
   {
@@ -271,7 +271,7 @@ export const buildLocalDevEvents = () => [
     capacity: 20,
     requestedAmenityId: 'local-hall',
     hostingProjects: 'Solana Vietnam',
-    eventLink: 'https://example.com/rust-solana-zero-to-hero'
+    eventLink: 'https://lu.ma@phish.example/rust-solana-zero-to-hero' // looks like Luma, loads phish.example
   },
   // Past Completed Event (5 days ago) -> completed count test on Admin Dashboard
   {
