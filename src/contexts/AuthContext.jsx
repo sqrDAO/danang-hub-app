@@ -67,7 +67,6 @@ export const AuthProvider = ({ children }) => {
         photoURL: user.photoURL || '',
         membershipType: 'member',
         preferences: {
-          emailNotifications: true,
           eventReminders: true,
           pushNotifications: false,
         },
