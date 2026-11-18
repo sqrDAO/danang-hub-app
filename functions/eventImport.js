@@ -55,8 +55,14 @@ const readCappedText = async (response) => {
   return text + decoder.decode();
 };
 
+// Tags a failure with the callable error code it should reach the form as;
+// untagged failures (timeout, network, oversized page) become `unavailable`.
+const importError = (callableCode, message) =>
+  Object.assign(new Error(message), {callableCode});
+
 // Redirects are followed by hand so each hop is re-checked against the
-// allowlist (lu.ma answers with a redirect to luma.com).
+// allowlist (lu.ma answers with a redirect to luma.com). Unread bodies are
+// cancelled so the connection is released right away.
 const fetchEventPage = async (startUrl, fetchImpl = fetch) => {
   const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
   let url = startUrl;
@@ -67,13 +73,20 @@ const fetchEventPage = async (startUrl, fetchImpl = fetch) => {
       headers: {"user-agent": "Mozilla/5.0 (compatible; event-import)"},
     });
     if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel();
       const target = response.headers.get("location");
       url = parseImportUrl(target ? new URL(target, url).href : null);
-      if (!url) throw new Error("Redirect to an unsupported address.");
+      if (!url) {
+        throw importError("invalid-argument",
+            "Redirect to an unsupported address.");
+      }
       continue;
     }
     if (!response.ok) {
-      throw new Error(`Event page returned ${response.status}.`);
+      await response.body?.cancel();
+      const gone = response.status === 404 || response.status === 410;
+      throw importError(gone ? "not-found" : undefined,
+          `Event page returned ${response.status}.`);
     }
     return {html: await readCappedText(response), url};
   }
@@ -110,12 +123,12 @@ const extractEventJsonLd = (html) => {
 const asText = (value, maxLength) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
+// A time without an offset is read as hub time (Asia/Ho_Chi_Minh, which has
+// no daylight saving), never as the server's own time zone.
 const asInstant = (value) => {
-  if (typeof value !== "string" ||
-      !/(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) {
-    return null;
-  }
-  const date = new Date(value);
+  if (typeof value !== "string") return null;
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  const date = new Date(hasOffset ? value : `${value}+07:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 

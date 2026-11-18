@@ -546,7 +546,8 @@ exports.importEventFromUrl = onCall(async (request) => {
     page = await fetchEventPage(startUrl);
   } catch (error) {
     console.error("Event import fetch failed:", error.message);
-    throw new HttpsError("unavailable", "Could not read the event page.");
+    throw new HttpsError(error.callableCode || "unavailable",
+        "Could not read the event page.");
   }
 
   const draft = toEventDraft(extractEventJsonLd(page.html), page.url);

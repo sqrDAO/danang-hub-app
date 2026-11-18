@@ -13,8 +13,7 @@ pre-fill title, description, date/time, duration, event link and cover image for
   JSON-LD extraction, mapping to a form draft.
 - `functions/index.js` (edited) — `importEventFromUrl` callable.
 - `test/eventImport.test.js` (new) — tests for the module above, with a fake `fetch`.
-- `src/services/functions.js` (edited) — `importEventFromUrl` wrapper.
-- `src/services/localDevStore.js` (edited) — sample draft for local dev mode.
+- `src/services/functions.js`, `src/services/localDevStore.js` (edited) — `importEventFromUrl` wrapper and its local dev sample draft.
 - `src/services/storage.js` (edited) — `fetchBannerFile` downloads the cover as a `File`.
 - `src/components/event/EventImportField.jsx` (new) — link input and Import button.
 - `src/components/event/EventFormModal.jsx`, `EventFormModal.css` (edited) — render the
@@ -28,6 +27,7 @@ pre-fill title, description, date/time, duration, event link and cover image for
 - [ ] The edit form shows no import field.
 - [ ] Importing a public Luma event fills title, description, date/time, duration and event link.
 - [ ] The imported date/time shows the event's start in Asia/Ho_Chi_Minh.
+- [ ] A `startDate` or `endDate` without an offset is read as Asia/Ho_Chi_Minh time.
 - [ ] Duration is `endDate − startDate` in minutes, rounded up to a multiple of 15.
 - [ ] A page with no end date leaves the duration field unchanged.
 - [ ] The callable rejects unauthenticated callers.
@@ -65,16 +65,16 @@ pre-fill title, description, date/time, duration, event link and cover image for
   Event Hall hours error still blocks submit
 
 ## Notes
-- Checked 2026-11-17: `lu.ma/<slug>` redirects to `luma.com/<slug>`, and the page carries
-  one `application/ld+json` block of `@type: Event` whose `startDate`/`endDate` include an
-  offset. That check ran from a developer machine; Luma may treat requests from Google
-  Cloud differently, which only a deployed call proves.
-- The host allowlist replaces the issue's private-IP checks: the function can only ever
-  request two fixed public hosts. #203/#204's known-host list is not merged, so this spec
-  defines its own.
-- Decisions on the issue's open questions: any signed-in member may import (anyone who can
-  create an event); no `importedFrom`; cover imported (2026-11-17) by the browser, since
-  Luma's image host sends `access-control-allow-origin: *` and honours a JPEG/PNG/WebP `Accept`.
+- Checked 2026-11-17 from a developer machine: `lu.ma/<slug>` redirects to `luma.com/<slug>`,
+  whose page has one `@type: Event` JSON-LD block with offset dates. Luma may treat Google
+  Cloud requests differently, which only a deployed call proves.
+- The host allowlist replaces the issue's private-IP checks: the function only ever requests
+  two fixed public hosts (#203/#204's known-host list is not merged).
+- Decisions on the issue's open questions: any signed-in member may import; no `importedFrom`;
+  the browser imports the cover (Luma's image host allows CORS and honours a JPEG/PNG/WebP `Accept`).
+- Known gaps, accepted by the author for this PR: no per-user rate limit or App Check, so a
+  member could loop the callable and get the project's egress IPs blocked by Luma; and a second
+  import keeps the first link's description or cover where the second link has none.
 - The form is uncontrolled, so the import writes values through `form.elements`.
 - Luma can change the JSON-LD block at any time; the feature then fails soft to manual
   entry. Maintainer to confirm one fetch per pasted link is fine under Luma's terms.

@@ -12,10 +12,11 @@ const IMPORT_ERROR_KEYS = {
 // The event form is uncontrolled (inputs keep their own values), so an import
 // writes straight to the inputs. Duration is the one controlled field: it goes
 // through changeEventDuration last, which also re-runs the Event Hall check
-// against the date just filled in.
+// against the date just filled in. Empty draft values are skipped, so an import
+// never clears what the user already typed.
 const fillEventForm = (form, values, changeEventDuration) => {
   for (const name of ['title', 'description', 'date', 'eventLink']) {
-    form.elements[name].value = values[name]
+    if (values[name]) form.elements[name].value = values[name]
   }
   changeEventDuration(values.duration ?? form.elements.duration.value, form)
 }
@@ -48,8 +49,12 @@ const EventImportField = ({ changeEventDuration, t }) => {
     setIsImporting(true)
     try {
       const draft = await importEventFromUrl(url.trim())
+      // Closing the modal removes the form. A late import must not touch it:
+      // the duration lives on the page and would carry into the next new event.
+      if (!form.isConnected) return
       fillEventForm(form, getImportedFormValues(draft), changeEventDuration)
       const hasBanner = await importBanner(form, draft.image)
+      if (!form.isConnected) return
       if (hasBanner) showToast(t('toast.eventImported'), 'success')
       else showToast(t('toast.eventImportedNoBanner'), 'info', 5000)
     } catch (error) {

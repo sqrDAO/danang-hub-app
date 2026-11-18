@@ -102,11 +102,21 @@ test('toEventDraft falls back to the page URL when the block links elsewhere', (
   assert.equal(draft.eventLink, pageUrl.href)
 })
 
-test('toEventDraft needs a title and a start with an offset', () => {
+test('toEventDraft needs a title and a valid start', () => {
   assert.equal(toEventDraft(null, pageUrl), null)
   assert.equal(toEventDraft({ ...lumaEvent, name: ' ' }, pageUrl), null)
-  assert.equal(toEventDraft({ ...lumaEvent, startDate: '2026-12-01T18:30:00' }, pageUrl), null)
   assert.equal(toEventDraft({ ...lumaEvent, startDate: 'soon' }, pageUrl), null)
+  assert.equal(toEventDraft({ ...lumaEvent, startDate: undefined }, pageUrl), null)
+})
+
+test('toEventDraft reads times without an offset as hub time', () => {
+  const draft = toEventDraft({
+    ...lumaEvent,
+    startDate: '2026-12-01T18:30:00',
+    endDate: '2026-12-01T21:10'
+  }, pageUrl)
+  assert.equal(draft.date, '2026-12-01T11:30:00.000Z')
+  assert.equal(draft.duration, 165)
 })
 
 const htmlResponse = (html) => new Response(html, { status: 200 })
@@ -145,7 +155,8 @@ test('fetchEventPage refuses a redirect to a host off the allowlist', async () =
   const { calls, fetchImpl } = fakeFetch({
     'https://lu.ma/abc': () => redirect('http://169.254.169.254/latest/meta-data')
   })
-  await assert.rejects(fetchEventPage(new URL('https://lu.ma/abc'), fetchImpl), /unsupported/)
+  await assert.rejects(fetchEventPage(new URL('https://lu.ma/abc'), fetchImpl),
+    { message: /unsupported/, callableCode: 'invalid-argument' })
   assert.equal(calls.length, 1)
 })
 
@@ -160,8 +171,12 @@ test('fetchEventPage stops after 3 redirects', async () => {
 test('fetchEventPage rejects error statuses and pages over 1 MB', async () => {
   const { fetchImpl } = fakeFetch({
     'https://luma.com/missing': () => new Response('nope', { status: 404 }),
+    'https://luma.com/down': () => new Response('nope', { status: 503 }),
     'https://luma.com/huge': () => htmlResponse('x'.repeat(1000001))
   })
-  await assert.rejects(fetchEventPage(new URL('https://luma.com/missing'), fetchImpl), /404/)
+  await assert.rejects(fetchEventPage(new URL('https://luma.com/missing'), fetchImpl),
+    { message: /404/, callableCode: 'not-found' })
+  await assert.rejects(fetchEventPage(new URL('https://luma.com/down'), fetchImpl),
+    { message: /503/, callableCode: undefined })
   await assert.rejects(fetchEventPage(new URL('https://luma.com/huge'), fetchImpl), /too large/)
 })
