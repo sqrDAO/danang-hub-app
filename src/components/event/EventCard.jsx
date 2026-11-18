@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import OrganizerName from './OrganizerName'
+import AttendeeCount from './AttendeeCount'
 import {
   getVisibleFields,
   getWhenText,
@@ -38,14 +39,11 @@ const HostLine = ({ event, fields, onShowHost, t }) => {
   )
 }
 
-const AttendeesLine = ({ event, t }) => {
+const AttendeesLine = ({ event, onShowRegistrants, t }) => {
   const waiting = event.waitlist?.length || 0
   return (
     <p className="ecard-row">
-      {t('eventCard.attending', {
-        current: event.attendees?.length || 0,
-        total: event.capacity || '∞'
-      })}
+      <AttendeeCount event={event} i18nKey="eventCard.attending" onShowRegistrants={onShowRegistrants} className="ecard-link" />
       {waiting > 0 && ` · ${t('eventCard.waiting', { count: waiting })}`}
     </p>
   )
@@ -69,11 +67,11 @@ const RevisionLine = ({ event, t }) => {
   )
 }
 
-const CardRows = ({ event, fields, onShowHost, t }) => (
+const CardRows = ({ event, fields, onShowHost, onShowRegistrants, t }) => (
   <div className="ecard-rows">
     {fields.has('date') && event.date && <p className="ecard-row ecard-row-date">{getWhenText(event)}</p>}
     <HostLine event={event} fields={fields} onShowHost={onShowHost} t={t} />
-    {fields.has('attendees') && <AttendeesLine event={event} t={t} />}
+    {fields.has('attendees') && <AttendeesLine event={event} onShowRegistrants={onShowRegistrants} t={t} />}
     {fields.has('rejection') && <RejectionLine event={event} t={t} />}
     {fields.has('revision') && <RevisionLine event={event} t={t} />}
     {fields.has('description') && event.description && <p className="ecard-teaser">{event.description}</p>}
@@ -91,7 +89,8 @@ const getCardClassName = ({ status, showStatus, past, compact }) => [
 // which fields show; `context` (viewer-specific lines) and `actions` (buttons)
 // come from the page. `compact` is the smaller size used in dashboard widgets.
 // Pass `to` for a display-only card that navigates, else `onOpen(event)`.
-const EventCard = ({ event, view, to, onOpen, onShowHost, context, actions, past = false, compact = false }) => {
+// `onShowRegistrants(event)` turns the attendee count into a link (admin).
+const EventCard = ({ event, view, to, onOpen, onShowHost, onShowRegistrants, context, actions, past = false, compact = false }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const fields = getVisibleFields(view)
@@ -115,7 +114,7 @@ const EventCard = ({ event, view, to, onOpen, onShowHost, context, actions, past
           </h3>
           {showStatus && <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>}
         </div>
-        <CardRows event={event} fields={fields} onShowHost={onShowHost} t={t} />
+        <CardRows event={event} fields={fields} onShowHost={onShowHost} onShowRegistrants={onShowRegistrants} t={t} />
         {context && <div className="ecard-context">{context}</div>}
       </div>
       {actions && <div className="ecard-actions">{actions}</div>}

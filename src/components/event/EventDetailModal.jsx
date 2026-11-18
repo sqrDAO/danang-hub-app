@@ -10,6 +10,7 @@ import {
   getEventVenueId
 } from './eventFields'
 import OrganizerName from './OrganizerName'
+import AttendeeCount from './AttendeeCount'
 import './EventDetailModal.css'
 
 const isEmpty = (value) => value === null || value === undefined || value === ''
@@ -42,18 +43,15 @@ const HostFact = ({ event, fields, onShowHost, t }) => {
   )
 }
 
-const AttendeesFact = ({ event, t }) => (
+const AttendeesFact = ({ event, onShowRegistrants, t }) => (
   <Fact
     label={t('eventDetails.attendees')}
-    value={t('eventDetails.attendeesValue', {
-      current: event.attendees?.length || 0,
-      total: event.capacity || '∞'
-    })}
+    value={<AttendeeCount event={event} i18nKey="eventDetails.attendeesValue" onShowRegistrants={onShowRegistrants} className="event-detail-link" />}
     sub={event.waitlist?.length ? t('eventDetails.waitlistValue', { count: event.waitlist.length }) : null}
   />
 )
 
-const EventFacts = ({ event, fields, onShowHost, t }) => (
+const EventFacts = ({ event, fields, onShowHost, onShowRegistrants, t }) => (
   <div className="event-detail-facts">
     {fields.has('date') && (
       <Fact
@@ -63,7 +61,7 @@ const EventFacts = ({ event, fields, onShowHost, t }) => (
       />
     )}
     <HostFact event={event} fields={fields} onShowHost={onShowHost} t={t} />
-    {fields.has('attendees') && <AttendeesFact event={event} t={t} />}
+    {fields.has('attendees') && <AttendeesFact event={event} onShowRegistrants={onShowRegistrants} t={t} />}
   </div>
 )
 
@@ -123,7 +121,7 @@ const RestrictedDetails = ({ event, fields, amenities, t }) => {
   )
 }
 
-const EventDetailBody = ({ event, view, amenities, onShowHost, t }) => {
+const EventDetailBody = ({ event, view, amenities, onShowHost, onShowRegistrants, t }) => {
   const fields = getVisibleFields(view)
   const status = event.status || 'approved'
   return (
@@ -134,7 +132,7 @@ const EventDetailBody = ({ event, view, amenities, onShowHost, t }) => {
       {fields.has('status') && (
         <span className={`status-badge ${status}`}>{t(`status.${status}`)}</span>
       )}
-      <EventFacts event={event} fields={fields} onShowHost={onShowHost} t={t} />
+      <EventFacts event={event} fields={fields} onShowHost={onShowHost} onShowRegistrants={onShowRegistrants} t={t} />
       {fields.has('eventLink') && <EventLinkButton event={event} fields={fields} t={t} />}
       {fields.has('rejection') && <RejectionNotice event={event} t={t} />}
       {fields.has('description') && event.description && (
@@ -148,8 +146,9 @@ const EventDetailBody = ({ event, view, amenities, onShowHost, t }) => {
   )
 }
 
-// `view` names an entry in EVENT_VIEWS (eventFields.js).
-const EventDetailModal = ({ event, view, onClose, amenities = [], onShowHost }) => {
+// `view` names an entry in EVENT_VIEWS (eventFields.js). `onShowRegistrants`
+// turns the attendee count into a link (admin).
+const EventDetailModal = ({ event, view, onClose, amenities = [], onShowHost, onShowRegistrants }) => {
   const { t } = useTranslation()
   return (
     <Modal isOpen={!!event} onClose={onClose} title={event && (event.title || t('eventCard.untitled'))} className="event-detail-modal">
@@ -159,6 +158,7 @@ const EventDetailModal = ({ event, view, onClose, amenities = [], onShowHost }) 
           view={view}
           amenities={amenities}
           onShowHost={onShowHost}
+          onShowRegistrants={onShowRegistrants}
           t={t}
         />
       )}
