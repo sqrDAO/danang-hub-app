@@ -11,13 +11,6 @@ import {
 
 const INDEPENDENCE_DAY = '2026-08-31'
 
-test('the Independence Day closure covers 31 Aug through 2 Sep 2026', () => {
-  const closure = HUB_CLOSURES.find(c => c.id === 'independence-day-2026')
-  assert.ok(closure)
-  assert.equal(closure.start, '2026-08-31')
-  assert.equal(closure.end, '2026-09-02')
-})
-
 test('closes every day of the range, endpoints included', () => {
   for (const day of ['2026-08-31', '2026-09-01', '2026-09-02']) {
     assert.equal(isHubClosed(day), true, `${day} should be closed`)

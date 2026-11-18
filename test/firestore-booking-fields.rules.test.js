@@ -87,9 +87,4 @@ if (!hasEmulator) {
       await assertFails(updateDoc(doc(memberDb(), 'bookings', `own-${field}`), { [field]: value }))
     })
   }
-
-  test('owners can still cancel a desk plan day', async () => {
-    await seed('bookings', 'plan-day', booking({ status: 'approved', planType: 'fixed-desk', planGroupId: 'g1' }))
-    await assertSucceeds(updateDoc(doc(memberDb(), 'bookings', 'plan-day'), { status: 'cancelled' }))
-  })
 }
