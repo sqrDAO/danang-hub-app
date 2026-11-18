@@ -19,7 +19,6 @@ export const getLocalDevProfile = () => ({
   jobTitle: 'Local Preview',
   membershipType: 'admin',
   preferences: {
-    emailNotifications: false,
     eventReminders: false,
     pushNotifications: false
   }

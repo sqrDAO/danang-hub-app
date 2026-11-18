@@ -92,7 +92,7 @@ async function getVerifiedEmail(uid) {
     return user.emailVerified && user.email ? user.email : null;
   } catch (error) {
     console.error(
-        "[event-status-email] recipient lookup failed:", {uid}, error);
+        "[verified-email] recipient lookup failed:", {uid}, error);
     return null;
   }
 }
@@ -2304,27 +2304,19 @@ exports.sendBookingConfirmation = onDocumentCreated(
       const booking = snap.data();
 
       try {
-        // Get member details (includes preferences.emailNotifications)
-        const memberDoc = await db.collection("members")
-            .doc(booking.memberId).get();
-        const member = memberDoc.exists ? memberDoc.data() : null;
-        const prefs = (member && member.preferences) || {};
-        const sendEmail = prefs.emailNotifications !== false;
-
         // Get amenity details
         const amenityDoc = await db.collection("amenities")
             .doc(booking.amenityId).get();
         const amenity = amenityDoc.exists ? amenityDoc.data() : null;
 
-        // TODO: Integrate with email service; only send if sendEmail is true,
-        // and only to getVerifiedEmail (never members.email)
+        // TODO: Integrate with email service; send only to
+        // getVerifiedEmail(booking.memberId) (never members.email)
         console.log("Booking confirmation:", {
-          memberEmail: await getVerifiedEmail(booking.memberId),
-          memberPhone: member && member.phone ? member.phone : null,
+          bookingId: event.params.bookingId,
+          memberId: booking.memberId,
           amenityName: amenity && amenity.name ? amenity.name : null,
           startTime: booking.startTime,
           endTime: booking.endTime,
-          sendEmail,
         });
 
         return null;

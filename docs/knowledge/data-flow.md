@@ -86,8 +86,8 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
    `details.reason: 'slot-unavailable'`; series skip only that day (`src/utils/conflictCheck.js`).
 2. `createBooking()` (`src/services/bookings.js`) writes the doc with `status: 'pending'`
    and `Timestamp`-converted times.
-3. `sendBookingConfirmation` fires `onCreate` — currently **logs only** (email TODO),
-   reading `members/{memberId}.preferences.emailNotifications`.
+3. `sendBookingConfirmation` fires `onCreate` — currently **logs only** (email TODO):
+   booking id, member id, amenity name and times; no Auth lookup, no email or phone.
 
 ### Conflict semantics — `functions/index.js › checkBookingConflicts`
 
