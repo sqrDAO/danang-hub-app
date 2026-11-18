@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, getEventVenueId, getVenuePayload, getEventFormPayload, getImportedFormValues } from '../src/components/event/eventFields.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload, getImportedFormValues } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -78,4 +78,29 @@ test('getImportedFormValues keeps a missing duration null', () => {
   const values = getImportedFormValues({ title: 'T', date: '2026-12-01T11:30:00.000Z', duration: null })
   assert.equal(values.duration, null)
   assert.equal(values.description, '')
+})
+
+test('linkCheck is admin-only', () => {
+  const withCheck = Object.keys(EVENT_VIEWS).filter(name => getVisibleFields(name).has('linkCheck'))
+  assert.deepEqual(withCheck, ['admin'])
+})
+
+test('known platforms and their subdomains raise no caution', () => {
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc'), '')
+  assert.equal(getUnfamiliarLinkHost('https://events.LU.MA/abc'), '')
+  assert.equal(getUnfamiliarLinkHost('https://www.meetup.com/x'), '')
+  assert.equal(getUnfamiliarLinkHost(''), '')
+  assert.equal(getUnfamiliarLinkHost(undefined), '')
+})
+
+test('unfamiliar sites are flagged by the host the browser loads', () => {
+  assert.equal(getUnfamiliarLinkHost('https://evil.xyz/event'), 'evil.xyz')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma.evil.com/x'), 'lu.ma.evil.com')
+  assert.equal(getUnfamiliarLinkHost('https://notlu.ma/x'), 'notlu.ma')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma@evil.com/x'), 'evil.com')
+})
+
+test('a link with no web host is flagged as typed', () => {
+  assert.equal(getUnfamiliarLinkHost('javascript:alert(1)'), 'javascript:alert(1)')
+  assert.equal(getUnfamiliarLinkHost('https://'), 'https://')
 })

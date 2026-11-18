@@ -465,6 +465,7 @@
     "noEventsInCategory": "Chưa có sự kiện trong danh mục này",
     "confirmDelete": "Bạn có chắc chắn muốn xóa sự kiện này?",
     "confirmApprove": "Duyệt sự kiện này? Sự kiện sẽ xuất hiện trên lịch cho tất cả thành viên.",
+    "unfamiliarLinkNote": "Lưu ý: link sự kiện dẫn tới {{host}}.",
     "confirmRejectApproved": "Thu hồi duyệt và từ chối sự kiện này? Sự kiện sẽ bị xóa khỏi lịch.",
     "rejectReason": "Lý do từ chối (tuỳ chọn):",
     "promoteCount": "Chuyển bao nhiêu thành viên từ danh sách chờ?",
@@ -624,6 +625,8 @@
     "revision": "Bản sửa",
     "description": "Mô tả",
     "openLink": "Mở liên kết sự kiện",
+    "unfamiliarSite": "Trang lạ: {{host}}",
+    "openUnfamiliarConfirm": "Mở {{host}}? Đây không phải trang sự kiện quen thuộc.",
     "adminSection": "Thông tin quản trị"
   },
   "memberEvents": {
