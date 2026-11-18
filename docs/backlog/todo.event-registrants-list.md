@@ -12,6 +12,7 @@ On `/admin/events` the attendee count ("3 / 50") becomes a link that opens a mod
 - `src/components/event/EventRegistrantsModal.jsx` (new) — the modal: search, registered list, waitlist
 - `src/components/event/EventRegistrantsModal.css` (new) — modal styles, theme variables only
 - `src/pages/admin/Events.jsx` (edited) — holds `registrantsEvent`, renders the modal from the loaded `members` roster
+- `src/services/members.js` (edited) — `getMembers` sorts newest-first in JS instead of `orderBy`, so members without `createdAt` still load
 - `src/locales/en.json` (edited) — `<count>` tag in `eventCard.attending` / `eventDetails.attendeesValue`; `eventRegistrants` keys
 - `src/locales/vi.json` (edited) — same keys as `en.json`
 - `test/registrants.test.js` (new) — covers the pure helpers
@@ -28,6 +29,7 @@ On `/admin/events` the attendee count ("3 / 50") becomes a link that opens a mod
 - [ ] Each row shows avatar, name, job title · company, email (`mailto:`) and phone (`tel:`) when present
 - [ ] Clicking a name opens that member's profile modal on top
 - [ ] A uid with no member doc is listed as "Deleted account" with its uid
+- [ ] A member doc without `createdAt` still resolves to that member, not "Deleted account"
 - [ ] An event with no attendees and no waitlist shows an empty state
 - [ ] A search box appears when the event has 8 or more people in total
 - [ ] Search filters both sections by name, email, company, job title or phone
