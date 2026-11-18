@@ -612,7 +612,7 @@
     "title": "Người đăng ký",
     "registered": "Đã đăng ký",
     "waitlist": "Danh sách chờ",
-    "waitlistHint": "Theo thứ tự xếp hàng. Khi chuyển, người đứng đầu được lên trước.",
+    "waitlistHint": "Theo thứ tự xếp hàng. Nút \"Chuyển từ danh sách chờ\" trên sự kiện sẽ lấp chỗ trống từ người đứng đầu.",
     "searchPlaceholder": "Tìm theo tên, email hoặc công ty",
     "noMatch": "Không tìm thấy ai khớp với \"{{query}}\"",
     "emptyTitle": "Chưa có ai đăng ký",
@@ -621,7 +621,9 @@
     "unnamed": "Thành viên chưa đặt tên",
     "copyEmails": "Sao chép email",
     "emailsCopied": "Đã sao chép {{count}} email",
-    "copyFailed": "Không thể sao chép email."
+    "copyFailed": "Không thể sao chép email.",
+    "loadFailed": "Không tải được danh sách thành viên",
+    "loadFailedHint": "Tải lại trang để thử lại."
   },
   "eventDetails": {
     "when": "Thời gian",

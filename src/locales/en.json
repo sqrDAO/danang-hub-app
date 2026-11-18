@@ -614,7 +614,7 @@
     "title": "Registrants",
     "registered": "Registered",
     "waitlist": "Waitlist",
-    "waitlistHint": "In queue order. Promoting moves people up from the top.",
+    "waitlistHint": "In queue order. \"Promote Waitlist\" on the event fills open spots from the top.",
     "searchPlaceholder": "Search name, email or company",
     "noMatch": "No one matches \"{{query}}\"",
     "emptyTitle": "No registrations yet",
@@ -623,7 +623,9 @@
     "unnamed": "Unnamed member",
     "copyEmails": "Copy emails",
     "emailsCopied": "Copied {{count}} email(s)",
-    "copyFailed": "Could not copy the emails."
+    "copyFailed": "Could not copy the emails.",
+    "loadFailed": "Could not load the members list",
+    "loadFailedHint": "Reload the page to try again."
   },
   "eventDetails": {
     "when": "Date & time",

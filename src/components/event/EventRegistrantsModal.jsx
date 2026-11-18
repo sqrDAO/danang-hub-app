@@ -144,7 +144,9 @@ const RegistrantLists = ({ event, members, onShowMember, t }) => {
 
 // Admin-only: who registered for `event` and who is waiting, resolved against
 // the already-loaded `members` roster. `onShowMember(member)` opens a profile.
-const EventRegistrantsModal = ({ event, members, membersLoading, onClose, onShowMember }) => {
+// A failed roster load shows an error: with no members every row would
+// otherwise resolve to "Deleted account".
+const EventRegistrantsModal = ({ event, members, membersLoading, membersError, onClose, onShowMember }) => {
   const { t } = useTranslation()
   return (
     <Modal isOpen={!!event} onClose={onClose} title={t('eventRegistrants.title')} className="registrants-modal">
@@ -152,6 +154,8 @@ const EventRegistrantsModal = ({ event, members, membersLoading, onClose, onShow
         <div className="registrants">
           {membersLoading
             ? <div className="spinner" role="status" aria-label={t('common.loading')}></div>
+            : membersError
+            ? <EmptyState title={t('eventRegistrants.loadFailed')} hint={t('eventRegistrants.loadFailedHint')} />
             // Keyed by event so the search box starts empty for each event.
             : <RegistrantLists key={event.id} event={event} members={members} onShowMember={onShowMember} t={t} />}
         </div>

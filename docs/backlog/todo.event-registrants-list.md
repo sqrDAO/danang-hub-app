@@ -36,6 +36,8 @@ On `/admin/events` the attendee count ("3 / 50") becomes a link that opens a mod
 - [ ] "Copy emails" on a section copies that section's unique emails, comma-separated, and toasts the count
 - [ ] "Copy emails" is absent on a section where nobody has an email
 - [ ] A spinner replaces the lists while the members roster is still loading
+- [ ] An error message replaces the lists when the members roster fails to load
+- [ ] NOT: listing everyone as "Deleted account" when the roster fails to load
 - [ ] The modal makes no Firestore read or write of its own
 - [ ] Every new string exists in both `en.json` and `vi.json`
 - [ ] NOT: the count is a link on member, organizer or public pages

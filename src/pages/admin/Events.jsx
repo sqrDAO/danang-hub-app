@@ -103,7 +103,7 @@ const useAdminEventsData = () => {
     queryFn: getPendingEvents
   })
 
-  const { data: members = [], isLoading: membersLoading } = useQuery({
+  const { data: members = [], isLoading: membersLoading, isError: membersError } = useQuery({
     queryKey: ['members'],
     queryFn: getMembers
   })
@@ -113,7 +113,7 @@ const useAdminEventsData = () => {
     queryFn: getAmenities
   })
 
-  return { allEvents, pendingEvents, members, membersLoading, amenities, isLoading }
+  return { allEvents, pendingEvents, members, membersLoading, membersError, amenities, isLoading }
 }
 
 const useAdminEventMutations = ({ t, setIsModalOpen, resetForm, setIsSubmitting }) => {
@@ -398,7 +398,7 @@ const AdminEvents = () => {
   const [activeTab, setActiveTab] = useState('pending') // 'pending', 'approved', 'all'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const bannerInputRef = useRef(null)
-  const { allEvents, pendingEvents, members, membersLoading, amenities, isLoading } = useAdminEventsData()
+  const { allEvents, pendingEvents, members, membersLoading, membersError, amenities, isLoading } = useAdminEventsData()
   const {
     linkAmenity, eventDuration, dateError,
     checkEventHall, setEventHallRequest, changeEventDuration, resetEventHallCheck
@@ -627,6 +627,7 @@ const AdminEvents = () => {
           event={registrantsEvent}
           members={members}
           membersLoading={membersLoading}
+          membersError={membersError}
           onClose={() => setRegistrantsEvent(null)}
           onShowMember={setHostModalMember}
         />
