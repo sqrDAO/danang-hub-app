@@ -9,7 +9,7 @@ import AuthPrompt from '../components/AuthPrompt'
 import AmenityPhotoLightbox from '../components/AmenityPhotoLightbox'
 import EventCard from '../components/event/EventCard'
 import EventDetailModal from '../components/event/EventDetailModal'
-import { openEventLink } from '../components/event/eventFields'
+import { hasEventPage, openEventLink } from '../components/event/eventFields'
 import { getAmenities } from '../services/amenities'
 import { isAmenityOpenTo } from '../utils/deskPlans'
 import { isEventSpaceAmenity } from '../utils/bookingDeepLink'
@@ -67,6 +67,12 @@ const HeroCta = ({ currentUser, isAdmin, t }) => {
   )
 }
 
+// Hub capacity only blocks an event without its own page.
+const getRegisterLabelKey = (event) => {
+  if (hasEventPage(event)) return 'home.eventsRegisterOnPage'
+  return isEventFull(event) ? 'home.eventsFull' : 'home.eventsRegister'
+}
+
 const EventPreviewCard = ({ event, onRegister, onOpenDetails, t }) => (
   <EventCard
     event={event}
@@ -76,9 +82,9 @@ const EventPreviewCard = ({ event, onRegister, onOpenDetails, t }) => (
       <button
         className="btn btn-primary btn-full-width"
         onClick={() => onRegister(event)}
-        disabled={isEventFull(event)}
+        disabled={!hasEventPage(event) && isEventFull(event)}
       >
-        {isEventFull(event) ? t('home.eventsFull') : t('home.eventsRegister')}
+        {t(getRegisterLabelKey(event))}
       </button>
     }
   />
@@ -184,13 +190,20 @@ const Home = () => {
     navigate(amenityMemberPath(amenity))
   }
 
+  // An event with its own page opens it for anyone, signed in or not. The Hub
+  // registration is only a note, so it is skipped when signed out or full
+  // (`?action=register` does not check capacity).
   const handleRegisterEvent = (event) => {
+    if (hasEventPage(event)) {
+      openEventLink(event.eventLink)
+      if (currentUser && !isEventFull(event)) navigate(`/member/events?action=register&eventId=${event.id}`)
+      return
+    }
     if (!currentUser) {
       setSelectedEvent(event)
       setAuthPromptOpen(true)
       return
     }
-    openEventLink(event.eventLink)
     navigate(`/member/events?action=register&eventId=${event.id}`)
   }
 

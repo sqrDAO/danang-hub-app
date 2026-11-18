@@ -232,7 +232,7 @@ export const buildLocalDevEvents = () => [
     organizerDisplayName: 'Alice Nguyen',
     organizerPhotoURL: '',
     duration: 120,
-    capacity: 25,
+    capacity: 2, // full (two attendees), so the full-with-its-own-page case can be tried
     requestedAmenityId: 'local-hall',
     hostingProjects: 'SuperteamVN, PayStream Protocol',
     eventLink: 'https://lu.ma/ai-agents-smart-contracts-workshop'

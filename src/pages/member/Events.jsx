@@ -9,7 +9,7 @@ import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
 import EventCard from '../../components/event/EventCard'
 import EventFormModal from '../../components/event/EventFormModal'
-import { getEventVenueId, getEventFormPayload, openEventLink } from '../../components/event/eventFields'
+import { getEventVenueId, getEventFormPayload, hasEventPage, openEventLink } from '../../components/event/eventFields'
 import { useEventHallCheck } from '../../components/event/useEventHallCheck'
 import {
   getApprovedEvents,
@@ -345,9 +345,11 @@ const useEventActionMutations = ({
   })
 
   // Opens the event page too, before the await so the popup isn't blocked.
+  // A full event with its own page still opens it; the Hub just records nothing.
   const handleRegister = async (event) => {
     if (isPendingFor(registerMutation, event.id)) return
     openEventLink(event.eventLink)
+    if (hasEventPage(event) && isEventFull(event)) return
     await registerMutation.mutateAsync({ eventId: event.id, memberId: currentUser.uid })
   }
 
@@ -436,47 +438,72 @@ const MyEventsSection = ({ myEvents, onDelete, onEdit, onOpenDetails, deletingId
   )
 }
 
-const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t }) => (
-  <div className="event-actions">
-    {registered ? (
-      <button
-        className="btn btn-secondary btn-full-width"
-        onClick={() => handlers.onUnregister(event.id)}
-        disabled={handlers.unregisteringId === event.id}
-      >
-        {t('memberEvents.registeredUnregister')}
-      </button>
-    ) : onWaitlist ? (
-      <button
-        className="btn btn-secondary btn-full-width"
-        onClick={() => handlers.onLeaveWaitlist(event.id)}
-        disabled={handlers.leavingWaitlistId === event.id}
-      >
-        {t('memberEvents.onWaitlistLeave')}
-      </button>
-    ) : (
-      <>
-        <button
-          className="btn btn-primary btn-full-width btn-large"
-          onClick={() => handlers.onRegister(event)}
-          disabled={full || handlers.registeringId === event.id}
-        >
-          {full ? t('memberEvents.eventFull') : t('memberEvents.registerForEvent')}
-        </button>
-        {full && (
-          <button
-            className="btn btn-secondary btn-full-width"
-            onClick={() => handlers.onJoinWaitlist(event.id)}
-            disabled={handlers.joiningWaitlistId === event.id}
-            style={{ marginTop: '0.5rem' }}
-          >
-            {t('memberEvents.joinWaitlist')}
-          </button>
-        )}
-      </>
-    )}
+// Registered or waitlisted: a quiet status with a small way out, so it doesn't
+// compete with Register on the other cards.
+const EventActionStatus = ({ status, actionLabel, onAction, pending }) => (
+  <div className="event-actions event-action-status">
+    <span>{status}</span>
+    <button type="button" className="event-action-link" onClick={onAction} disabled={pending}>
+      {actionLabel}
+    </button>
   </div>
 )
+
+const getRegisterLabelKey = (withPage, full) => {
+  if (withPage) return 'memberEvents.registerOnEventPage'
+  return full ? 'memberEvents.eventFull' : 'memberEvents.registerForEvent'
+}
+
+// Hub capacity and the waitlist apply only to an event without its own page.
+const RegisterActions = ({ event, full, handlers, t }) => {
+  const withPage = hasEventPage(event)
+  const blocked = full && !withPage
+  return (
+    <div className="event-actions">
+      <button
+        className="btn btn-primary btn-full-width btn-large"
+        onClick={() => handlers.onRegister(event)}
+        disabled={blocked || handlers.registeringId === event.id}
+      >
+        {t(getRegisterLabelKey(withPage, full))}
+      </button>
+      {blocked && (
+        <button
+          className="btn btn-secondary btn-full-width"
+          onClick={() => handlers.onJoinWaitlist(event.id)}
+          disabled={handlers.joiningWaitlistId === event.id}
+          style={{ marginTop: '0.5rem' }}
+        >
+          {t('memberEvents.joinWaitlist')}
+        </button>
+      )}
+    </div>
+  )
+}
+
+const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t }) => {
+  if (registered) {
+    return (
+      <EventActionStatus
+        status={t('memberEvents.registeredStatus')}
+        actionLabel={t('memberEvents.unregisterLink')}
+        onAction={() => handlers.onUnregister(event.id)}
+        pending={handlers.unregisteringId === event.id}
+      />
+    )
+  }
+  if (onWaitlist) {
+    return (
+      <EventActionStatus
+        status={t('memberEvents.waitlistStatus')}
+        actionLabel={t('memberEvents.leaveWaitlistLink')}
+        onAction={() => handlers.onLeaveWaitlist(event.id)}
+        pending={handlers.leavingWaitlistId === event.id}
+      />
+    )
+  }
+  return <RegisterActions event={event} full={full} handlers={handlers} t={t} />
+}
 
 const UpcomingEventContext = ({ isMyEvent, waitlistPosition, t }) => (
   <>

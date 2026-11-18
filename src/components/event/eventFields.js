@@ -47,6 +47,11 @@ export const getAmenityName = (amenities, amenityId) =>
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
 
+// An event whose real sign-up lives on its own page (Luma, a form…). The Hub
+// only points there: Register always opens the page, and Hub capacity and the
+// waitlist never stand in the way.
+export const hasEventPage = (event) => isWebLink(event?.eventLink)
+
 // Event platforms admins see all the time. A link elsewhere is not blocked:
 // the admin just gets a caution before approving the event or opening it.
 export const KNOWN_EVENT_HOSTS = [
@@ -72,11 +77,16 @@ const getHost = (url) => {
   }
 }
 
+// A query value that is itself a link: a known host can still forward anywhere
+// (`l.facebook.com/l.php?u=https://evil.com`). Only called on a parsed web link.
+const carriesLink = (url) =>
+  [...new URL(url).searchParams.values()].some(value => /^(https?:)?\/\//i.test(value))
+
 export const getUnfamiliarLinkHost = (url) => {
   if (!url) return ''
   const host = getHost(url)
   if (!host) return url
-  return isKnownHost(host) ? '' : host
+  return isKnownHost(host) && !carriesLink(url) ? '' : host
 }
 
 // New tab without `window.opener`, so the event site cannot redirect this tab.
