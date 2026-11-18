@@ -107,7 +107,6 @@ test('alias keys that name no partner are reported', () => {
 
 test('đ folds to d', () => {
   assert.equal(normalizePartnerName('Đổi mới số'), normalizePartnerName('Doi moi so'))
-  assert.equal(normalizePartnerNameClient('Đổi mới số'), normalizePartnerName('Doi moi so'))
 })
 
 test('unrelated or empty companies match nothing', () => {

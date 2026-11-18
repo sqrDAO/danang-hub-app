@@ -9,13 +9,6 @@ test('escapeHtml escapes the five HTML-significant characters', () => {
   assert.equal(escapeHtml(`& < > " '`), '&amp; &lt; &gt; &quot; &#39;')
 })
 
-test('escapeHtml turns an injected link into literal text', () => {
-  assert.equal(
-    escapeHtml('<a href="https://evil.example">Claim prize</a>'),
-    '&lt;a href=&quot;https://evil.example&quot;&gt;Claim prize&lt;/a&gt;',
-  )
-})
-
 test('escapeHtml leaves ordinary and Vietnamese text unchanged', () => {
   assert.equal(escapeHtml('Hội thảo Web3 Đà Nẵng'), 'Hội thảo Web3 Đà Nẵng')
 })

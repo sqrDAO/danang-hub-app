@@ -14,36 +14,33 @@ import {
   updateLocalMember,
   getLocalAmenity,
   setLocalPartnerDesk,
-  filterLocalBookings,
-  overlappingLocalBookings,
+  listLocalBookings,
   resetLocalDevStore
 } from '../src/services/localDevStore.js'
 
-test('filters bookings by member and amenity', () => {
-  const bookings = [
-    { id: 'a', memberId: 'me', amenityId: 'desk', startTime: new Date('2026-09-01T02:00:00Z'), status: 'approved' },
-    { id: 'b', memberId: 'you', amenityId: 'desk', startTime: new Date('2026-09-01T03:00:00Z'), status: 'approved' },
-    { id: 'c', memberId: 'me', amenityId: 'room', startTime: new Date('2026-09-01T04:00:00Z'), status: 'approved' }
-  ]
-  assert.deepEqual(filterLocalBookings(bookings, { memberId: 'me' }).map((item) => item.id), ['c', 'a'])
-  assert.deepEqual(filterLocalBookings(bookings, { amenityId: 'room' }).map((item) => item.id), ['c'])
+test('lists bookings by member and amenity, newest first', () => {
+  resetLocalDevStore()
+  const book = (memberId, amenityId, startTime) => createLocalBooking({
+    memberId, amenityId, startTime, endTime: new Date(new Date(startTime).getTime() + 3600e3)
+  })
+  const a = book('me', 'local-desk', '2030-09-02T02:00:00Z')
+  book('you', 'local-desk', '2030-09-02T03:00:00Z')
+  const c = book('me', 'local-meeting', '2030-09-02T04:00:00Z')
+  assert.deepEqual(listLocalBookings({ memberId: 'me' }).map((item) => item.id), [c, a])
+  assert.deepEqual(listLocalBookings({ amenityId: 'local-meeting', memberId: 'me' }).map((item) => item.id), [c])
 })
 
-test('detects overlapping ranges on a meeting room', () => {
-  const bookings = [{
-    id: 'busy',
-    amenityId: 'room',
-    startTime: new Date('2026-09-01T03:00:00Z'),
-    endTime: new Date('2026-09-01T04:00:00Z'),
-    status: 'approved'
-  }]
-  const overlaps = overlappingLocalBookings(
-    bookings,
-    'room',
-    '2026-09-01T03:30:00Z',
-    '2026-09-01T04:30:00Z'
-  )
-  assert.equal(overlaps.length, 1)
+test('a meeting room conflicts on any overlap, not on an adjacent slot', () => {
+  resetLocalDevStore()
+  createLocalBooking({
+    memberId: 'a',
+    amenityId: 'local-meeting',
+    status: 'approved',
+    startTime: '2030-09-03T03:00:00Z',
+    endTime: '2030-09-03T04:00:00Z'
+  })
+  assert.equal(checkLocalBookingConflicts('local-meeting', '2030-09-03T03:30:00Z', '2030-09-03T04:30:00Z').hasConflicts, true)
+  assert.equal(checkLocalBookingConflicts('local-meeting', '2030-09-03T04:00:00Z', '2030-09-03T05:00:00Z').hasConflicts, false)
 })
 
 test('desk conflicts only after capacity is full', () => {

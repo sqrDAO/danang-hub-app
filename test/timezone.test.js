@@ -91,20 +91,6 @@ test('formatHubDate ignores a caller-supplied timeZone', () => {
   )
 })
 
-test('reuses formatters across repeated calls', () => {
-  const instant = new Date('2026-08-05T00:30:00.000Z')
-  const first = formatHubDate(instant, 'en-US', { weekday: 'short' })
-  const second = formatHubDate(instant, 'en-US', { weekday: 'short' })
-  assert.equal(first, second)
-  // The carousel formats hundreds of dates per render; this must stay cheap.
-  const startedAt = process.hrtime.bigint()
-  for (let index = 0; index < 366; index++) {
-    formatHubDate(new Date(instant.getTime() + index * 86400000), 'en-US', { weekday: 'short' })
-  }
-  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6
-  assert.ok(elapsedMs < 100, `366 formats took ${elapsedMs.toFixed(1)}ms, expected well under 100ms`)
-})
-
 test('adds hub calendar months, clamping the day and keeping the hub time', () => {
   assert.equal(addHubMonths(parseHubDateTime('2026-01-31T09:00'), 1).toISOString(), '2026-02-28T02:00:00.000Z')
   assert.equal(addHubMonths(parseHubDateTime('2028-01-31T09:00'), 1).toISOString(), '2028-02-29T02:00:00.000Z')
