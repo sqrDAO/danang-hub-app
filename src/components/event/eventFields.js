@@ -1,4 +1,4 @@
-import { formatEventDate, formatEventTime } from '../../utils/timezone.js'
+import { formatEventDate, formatEventTime, toDatetimeLocalHub } from '../../utils/timezone.js'
 import { isEventSpaceAmenity } from '../../utils/bookingDeepLink.js'
 
 // Which event fields each viewer sees. A card and its detail modal show every
@@ -135,6 +135,17 @@ export const getEventFormPayload = (formData, eventDate, linkAmenity) => ({
   hostingProjects: formData.get('hostingProjects')?.trim() || '',
   eventLink: formData.get('eventLink')?.trim() || '',
   ...getVenuePayload(formData, linkAmenity)
+})
+
+// An imported draft (see importEventFromUrl) as form input values. `date` is
+// the hub-time string a datetime-local input takes; `duration` stays null when
+// the source page had no end time.
+export const getImportedFormValues = (draft) => ({
+  title: draft.title || '',
+  description: draft.description || '',
+  date: toDatetimeLocalHub(draft.date),
+  duration: draft.duration ?? null,
+  eventLink: draft.eventLink || ''
 })
 
 export const getEventSpaces = (amenities) =>

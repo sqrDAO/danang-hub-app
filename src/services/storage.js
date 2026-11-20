@@ -151,6 +151,34 @@ export const deleteMemberAvatar = async (photoUrl) => {
   }
 }
 
+const BANNER_EXTENSIONS = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const BANNER_FETCH_TIMEOUT_MS = 15000
+
+/**
+ * Download an imported event's cover as a File for the banner input. Nothing
+ * is uploaded here; the file goes through uploadEventBanner on submit.
+ * @param {string} imageUrl - Cover address from importEventFromUrl
+ * @returns {Promise<File>}
+ */
+export const fetchBannerFile = async (imageUrl) => {
+  // Without this Accept the image host may answer with AVIF, which the banner rejects.
+  // The timeout also covers reading the body, so a slow host cannot leave the import hanging.
+  const response = await fetch(imageUrl, {
+    headers: { Accept: 'image/jpeg,image/png,image/webp' },
+    signal: AbortSignal.timeout(BANNER_FETCH_TIMEOUT_MS)
+  })
+  if (!response.ok) throw new Error(`Cover image returned ${response.status}`)
+  // Refuse an oversized cover before downloading it; validateImageFile re-checks the real size.
+  if (Number(response.headers.get('content-length')) > MAX_FILE_SIZE) {
+    throw new Error('Cover image is too large')
+  }
+  const blob = await response.blob()
+  const file = new File([blob], `imported-banner.${BANNER_EXTENSIONS[blob.type] || 'img'}`, { type: blob.type })
+  const validation = validateImageFile(file)
+  if (!validation.valid) throw new Error(validation.error)
+  return file
+}
+
 /**
  * Uploads an event banner image to Firebase Storage
  * @param {File} file - The image file to upload
