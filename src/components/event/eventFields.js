@@ -47,6 +47,11 @@ export const getAmenityName = (amenities, amenityId) =>
 // `javascript:` URLs, which React 18 would still render).
 export const isWebLink = (url) => /^https?:\/\//i.test(url || '')
 
+// An event whose real sign-up lives on its own page (Luma, a form…). The Hub
+// only points there: Register always opens the page, and Hub capacity and the
+// waitlist never stand in the way.
+export const hasEventPage = (event) => isWebLink(event?.eventLink)
+
 // Event platforms admins see all the time. A link elsewhere is not blocked:
 // the admin just gets a caution before approving the event or opening it.
 export const KNOWN_EVENT_HOSTS = [
@@ -60,23 +65,38 @@ export const KNOWN_EVENT_HOSTS = [
 const isKnownHost = (host) =>
   KNOWN_EVENT_HOSTS.some(known => host === known || host.endsWith(`.${known}`))
 
+// `value` read as a web link relative to `base`, or null. Resolved the way the
+// browser resolves a redirect, so odd spellings (`/\evil.com`, ` https://evil.com`,
+// a tab inside `https`) land where the browser would actually go.
+const toWebUrl = (value, base) => {
+  try {
+    const target = new URL(value, base)
+    return isWebLink(target.href) ? target : null
+  } catch {
+    return null // e.g. `https://` alone: not a link a browser could follow
+  }
+}
+
+// A known host can still forward anywhere through its query
+// (`l.facebook.com/l.php?u=https://evil.com`), also through another known hop
+// (`?u=https://l.facebook.com/l.php?u=…`), so each hop is followed. A chain
+// longer than MAX_HOPS counts as forwarding.
+const MAX_HOPS = 3
+const carriesLink = (url, hops = 1) => [...url.searchParams.values()].some(value => {
+  const target = toWebUrl(value, url)
+  if (!target) return false
+  return hops > MAX_HOPS || !isKnownHost(target.hostname) || carriesLink(target, hops + 1)
+})
+
 // The host to warn the admin about, or '' for no link or a known platform.
 // Uses the parsed hostname, the site the browser actually loads: the raw text
 // can mislead (`https://lu.ma@evil.com` loads evil.com). A non-web link has no
 // host, so it is shown as typed.
-const getHost = (url) => {
-  try {
-    return isWebLink(url) ? new URL(url).hostname : ''
-  } catch {
-    return '' // e.g. `https://` alone
-  }
-}
-
 export const getUnfamiliarLinkHost = (url) => {
   if (!url) return ''
-  const host = getHost(url)
-  if (!host) return url
-  return isKnownHost(host) ? '' : host
+  const parsed = isWebLink(url) && toWebUrl(url)
+  if (!parsed) return url
+  return isKnownHost(parsed.hostname) && !carriesLink(parsed) ? '' : parsed.hostname
 }
 
 // New tab without `window.opener`, so the event site cannot redirect this tab.

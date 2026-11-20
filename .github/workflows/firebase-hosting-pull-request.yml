@@ -4,7 +4,43 @@ name: Deploy to Firebase Hosting on PR
 on: pull_request
 
 jobs:
+  checks:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Lint app
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Lint Functions
+        run: npm run lint
+        working-directory: functions
+
   build_and_preview:
+    needs: checks
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:

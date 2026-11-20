@@ -4,9 +4,7 @@ import {
   getDocs,
   getDoc,
   updateDoc,
-  deleteDoc,
-  query,
-  orderBy
+  deleteDoc
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { getBookings } from './bookings'
@@ -21,9 +19,12 @@ export const SUPPORTED_LOCALES = ['en', 'vi']
 export const getMembers = async () => {
   if (LOCAL_DEV_MODE) return listLocalMembers()
   const membersRef = collection(db, MEMBERS_COLLECTION)
-  const q = query(membersRef, orderBy('createdAt', 'desc'))
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  // Sorted here, not with orderBy: Firestore's orderBy drops docs missing the
+  // field, and a missing member reads as "Deleted account" in the registrants list.
+  const snapshot = await getDocs(membersRef)
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 }
 
 export const getMember = async (uid) => {

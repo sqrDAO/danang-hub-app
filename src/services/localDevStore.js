@@ -91,7 +91,7 @@ const bookingMatchesFilters = (booking, filters, startBound, endBound) => (
   bookingInWindow(booking, startBound, endBound)
 )
 
-export const filterLocalBookings = (bookings, filters = {}) => {
+const filterLocalBookings = (bookings, filters = {}) => {
   const startBound = filters.startDate ? new Date(filters.startDate) : null
   const endBound = filters.endDate ? new Date(filters.endDate) : null
   return bookings
@@ -151,7 +151,7 @@ export const cancelLocalFixedDeskPlan = async (planGroupId) => {
 
 const rangesOverlap = (startA, endA, startB, endB) => startA < endB && endA > startB
 
-export const overlappingLocalBookings = (bookings, amenityId, startTime, endTime, excludeId) => {
+const overlappingLocalBookings = (bookings, amenityId, startTime, endTime, excludeId) => {
   const startMs = new Date(startTime).getTime()
   const endMs = new Date(endTime).getTime()
   return bookings.filter((booking) => {
