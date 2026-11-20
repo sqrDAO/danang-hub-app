@@ -856,6 +856,7 @@
     "bookingDeleted": "Booking deleted successfully!",
     "slotNoLongerAvailable": "This time slot is no longer available. Please select another time.",
     "profileUpdated": "Profile updated successfully",
+    "pushCleanupWarning": "Notifications are off on this phone, but some cleanup could not finish. Your other changes can still be saved.",
     "profileUpdateFailed": "Failed to update profile",
     "photoUpdated": "Photo updated successfully",
     "photoUpdateFailed": "Failed to update photo",

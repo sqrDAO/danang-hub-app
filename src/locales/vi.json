@@ -854,6 +854,7 @@
     "bookingDeleted": "Xóa đặt chỗ thành công!",
     "slotNoLongerAvailable": "Khung giờ này không còn khả dụng. Vui lòng chọn thời gian khác.",
     "profileUpdated": "Cập nhật hồ sơ thành công",
+    "pushCleanupWarning": "Thông báo đã tắt trên điện thoại này, nhưng chưa thể hoàn tất việc dọn dẹp. Các thay đổi khác của bạn vẫn có thể được lưu.",
     "profileUpdateFailed": "Không thể cập nhật hồ sơ",
     "photoUpdated": "Cập nhật ảnh đại diện thành công",
     "photoUpdateFailed": "Không thể cập nhật ảnh đại diện",

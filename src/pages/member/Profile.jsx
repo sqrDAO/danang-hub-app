@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
+import { profileErrorMessage } from '../../utils/pushErrors'
+import { settleProfilePushSync } from '../../utils/profilePushSync'
 import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
@@ -87,7 +89,7 @@ const currentNotificationPermission = () =>
 // On compares against a registered phone, not the switch: a phone the launch
 // refresh hasn't adopted (or failed to) shows On but has no device doc, so
 // saving On registers it.
-const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications, setPushPermission) => {
+const syncPushPreference = async (uid, desiredPushNotifications, currentPushNotifications) => {
   if (desiredPushNotifications && !isDeviceOptedIn(uid)) {
     await enablePushNotifications(uid)
   } else if (!desiredPushNotifications && currentPushNotifications) {
@@ -95,11 +97,6 @@ const syncPushPreference = async (uid, desiredPushNotifications, currentPushNoti
   } else {
     return
   }
-  setPushPermission(currentNotificationPermission())
-}
-
-const warnUntouchedPushFailed = (error) => {
-  console.warn('Unable to register this phone for push on save:', error)
 }
 
 // On/off is per phone, so the switch reflects this phone's marker, not the
@@ -708,12 +705,15 @@ const MemberProfile = () => {
       const pushSync = syncPushPreference(
         currentUser.uid,
         desiredPushNotifications,
-        currentPushOn,
-        setPushPermission
+        currentPushOn
       )
       // Untouched, the sync can only register a phone that shows On; that is
       // best effort, so a failure must not lose the member's profile edits.
-      await (pushTouched ? pushSync : pushSync.catch(warnUntouchedPushFailed))
+      await settleProfilePushSync({
+        sync: pushSync, touched: pushTouched,
+        onWarning: () => showToast(t('toast.pushCleanupWarning'), 'warning'),
+        onPermissionChange: setPushPermission, readPermission: currentNotificationPermission
+      })
       await updateMemberPreferences(currentUser.uid, buildPreferenceUpdate(formData), data)
 
       if (typeof refreshUserProfile === 'function') {
@@ -724,7 +724,7 @@ const MemberProfile = () => {
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
     } catch (error) {
-      showToast(error.message || t('toast.profileUpdateFailed'), 'error')
+      showToast(profileErrorMessage(error, t), 'error')
     } finally {
       setIsSaving(false)
     }
