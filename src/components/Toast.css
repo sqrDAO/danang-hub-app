@@ -3,9 +3,24 @@
   top: calc(var(--header-height) + var(--spacing-md));
   right: var(--spacing-md);
   z-index: 10000;
-  display: flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  bottom: auto;
+  left: auto;
   flex-direction: column;
   gap: var(--spacing-sm);
+  pointer-events: none;
+}
+
+.toast-container:popover-open,
+.toast-container:not([popover]) {
+  display: flex;
+}
+
+.toast-container::backdrop {
   pointer-events: none;
 }
 

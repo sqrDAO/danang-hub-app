@@ -520,7 +520,7 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
                     </li>
                   ))}
               </ul>,
-              document.body
+              memberInputRef.current?.closest('dialog') ?? document.body
             )}
           </div>
         </div>

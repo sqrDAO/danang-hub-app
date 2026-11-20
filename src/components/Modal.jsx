@@ -31,7 +31,7 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
   }
 
   const handlePointerDown = (event) => {
-    pressedOutside.current = isOutside(event)
+    pressedOutside.current = event.target === event.currentTarget && isOutside(event)
   }
 
   const handlePointerUp = (event) => {
@@ -42,8 +42,18 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
   }
 
   const handleCancel = (event) => {
+    event.stopPropagation()
     event.preventDefault()
     onClose()
+  }
+
+  const handleNativeClose = (event) => {
+    event.stopPropagation()
+    // A non-cancelable Escape may bypass cancel prevention. The prop remains
+    // authoritative when a caller refuses dismissal during an in-flight save.
+    if (isOpen && dialogRef.current?.isConnected && !dialogRef.current.open) {
+      dialogRef.current.showModal()
+    }
   }
 
   if (!isOpen) return null
@@ -53,6 +63,7 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
       className={`modal-content glass ${className}`.trim()}
       ref={dialogRef}
       onCancel={handleCancel}
+      onClose={handleNativeClose}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       aria-labelledby={title ? titleId : undefined}
