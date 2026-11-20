@@ -71,7 +71,8 @@ const PushOptInBanner = () => {
       showToast(t('notifications.pushOptInEnabled'), 'success')
       closePushOptInBanner()
     } catch (error) {
-      showToast(error.message || t('notifications.pushOptInFailed'), 'error')
+      console.warn('Unable to enable push notifications:', error)
+      showToast(t('notifications.pushOptInFailed'), 'error')
       setEnabling(false)
     }
   }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
+import { profileErrorMessage } from '../../utils/pushErrors'
 import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
@@ -724,7 +725,7 @@ const MemberProfile = () => {
       setHasUnsavedChanges(false)
       showToast(t('toast.profileUpdated'), 'success')
     } catch (error) {
-      showToast(error.message || t('toast.profileUpdateFailed'), 'error')
+      showToast(profileErrorMessage(error, t), 'error')
     } finally {
       setIsSaving(false)
     }
