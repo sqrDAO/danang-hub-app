@@ -6,6 +6,7 @@ import { getImportedFormValues } from './eventFields'
 
 const IMPORT_ERROR_KEYS = {
   'functions/invalid-argument': 'toast.eventImportUnsupported',
+  'functions/resource-exhausted': 'toast.eventImportRateLimited',
   'functions/not-found': 'toast.eventImportNoData'
 }
 

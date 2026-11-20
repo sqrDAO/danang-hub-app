@@ -9,6 +9,8 @@ Let them paste a Luma link in the create form and have the server read the publi
 pre-fill title, description, date/time, duration, event link and cover image for review.
 
 ## Files
+- `functions/importRateLimit.js`, `test/importRateLimit.test.js` — hourly limit state.
+- `firestore.rules`, `test/firestore-import-rate-limit.rules.test.js` — server-only counter access.
 - `functions/eventImport.js` (new) — URL allowlist, guarded page fetch, schema.org `Event`
   JSON-LD extraction, mapping to a form draft.
 - `functions/index.js` (edited) — `importEventFromUrl` callable.
@@ -43,16 +45,19 @@ pre-fill title, description, date/time, duration, event link and cover image for
 - [ ] Picking another file by hand replaces the imported cover.
 - [ ] When the cover cannot be imported, the other fields still fill and a toast asks for a manual upload.
 - [ ] With the Event Hall box ticked, an import re-runs the hours check on the new date.
-- [ ] NOT: nothing is written to Firestore by the import.
+- [ ] A transaction permits 10 import attempts per account per hour, counting failed fetches.
+- [ ] The 11th attempt returns resource-exhausted with EN/VI feedback.
+- [ ] Clients cannot read or modify importRateLimits counters.
 - [ ] NOT: capacity, hosting organizations and venue are not imported.
 - [ ] NOT: the cover is not uploaded to Storage before the form is submitted.
 - [ ] NOT: a Luma image URL is never saved as `bannerUrl`.
 - [ ] NOT: no host other than Luma is accepted.
 - [ ] NOT: no `importedFrom` field is stored on the event.
-- [ ] NOT: no change to `firestore.rules`, `createEvent`, `editOwnEvent` or `reviewEvent`.
+- [ ] NOT: no change to `createEvent`, `editOwnEvent` or `reviewEvent`.
 - [ ] NOT: no new npm dependency.
 
 ## Verify
+- `npm run test:rules` → server-only import counters reject all client reads and writes.
 - `npm run lint && npm run build && npm test` → all exit 0
 - `cd functions && npm run lint` → exit 0
 - `npm run dev:skipauth`, member Events page: Create Event, accept guidelines, paste any
@@ -72,9 +77,10 @@ pre-fill title, description, date/time, duration, event link and cover image for
   two fixed public hosts (#203/#204's known-host list is not merged).
 - Decisions on the issue's open questions: any signed-in member may import; no `importedFrom`;
   the browser imports the cover (Luma's image host allows CORS and honours a JPEG/PNG/WebP `Accept`).
-- Known gaps, accepted by the author for this PR: no per-user rate limit or App Check, so a
-  member could loop the callable and get the project's egress IPs blocked by Luma; and a second
-  import keeps the first link's description or cover where the second link has none.
+- Import attempts reserve quota before fetching, including failed fetches. Counters reset after one hour.
+- A second import retains existing text and cover when the source lacks those values.
 - The form is uncontrolled, so the import writes values through `form.elements`.
 - Luma can change the JSON-LD block at any time; the feature then fails soft to manual
   entry. Maintainer to confirm one fetch per pasted link is fine under Luma's terms.
+
+- Rate-limit revision verified with app/Functions lint, production build, 308 unit passes and the full Firestore rules suite.

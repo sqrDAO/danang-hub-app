@@ -843,6 +843,7 @@
     "eventImportedNoBanner": "Event details imported, but not the cover image. Please add a banner yourself.",
     "eventImportUnsupported": "Only Luma links (lu.ma or luma.com) can be imported.",
     "eventImportNoData": "No event details found on that page. Please fill in the form manually.",
+    "eventImportRateLimited": "You have reached 10 import attempts this hour. Please try again later.",
     "eventImportFailed": "Could not import the event. Please try again or fill in the form manually.",
     "eventUpdated": "Event updated successfully!",
     "eventResubmitted": "Event changes submitted for review.",

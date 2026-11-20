@@ -238,7 +238,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
-| `importEventFromUrl` | Callable | Reads a public Luma event page (`lu.ma` / `luma.com` only) and returns a draft that pre-fills the create form; saves nothing |
+| `importEventFromUrl` | Callable | Reads a public Luma event page (`lu.ma` / `luma.com` only) and returns a draft that pre-fills the create form; reserves one of 10 hourly import attempts in a server-only counter |
 | `removePartner` | Callable | Admin-only partner removal: detaches its members, releases its desk and deletes it, then cancels the members' upcoming Partner Desk days (`partner-removed`) |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
@@ -352,6 +352,7 @@ functions/
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
 | `push_tokens` | Private browser push tokens, one `push_tokens/{uid}/devices/{deviceId}` doc per phone (on/off is per phone, by deleting that phone's doc); read only for members whose `preferences.pushNotifications` is on, which turning any phone on sets and nothing sets false. The legacy single-token `push_tokens/{uid}` doc is read until a phone writes its device doc, turns off or logs out, which deletes it; invalid tokens are pruned after unrecoverable FCM failures |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
+| `importRateLimits` | Server-only per-account import counters (`windowStart` in milliseconds and `count`), allowing 10 attempts per hour, including failed page fetches |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 

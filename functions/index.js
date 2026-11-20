@@ -52,6 +52,8 @@ const {getNewlyPromoted} = require("./waitlist");
 const {escapeHtml} = require("./emailHtml");
 const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
 
+const {nextRateLimitState} = require("./importRateLimit");
+
 initializeApp();
 
 const db = getFirestore();
@@ -530,8 +532,7 @@ exports.reviewEvent = onCall(async (request) => {
   }
 });
 
-// Pre-fills the event form from a public Luma page. Read-only: nothing is
-// saved until the member submits the form through the normal create flow.
+// Reserves import quota before fetching; event creation still requires submit.
 exports.importEventFromUrl = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated.");
@@ -540,6 +541,17 @@ exports.importEventFromUrl = onCall(async (request) => {
   if (!startUrl) {
     throw new HttpsError("invalid-argument", "This link is not supported.");
   }
+
+  const limitRef = db.collection("importRateLimits").doc(request.auth.uid);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(limitRef);
+    const next = nextRateLimitState(snapshot.data(), Date.now());
+    if (!next) {
+      throw new HttpsError("resource-exhausted",
+          "Import limit reached. Try again after the hourly window resets.");
+    }
+    transaction.set(limitRef, next);
+  });
 
   let page;
   try {
