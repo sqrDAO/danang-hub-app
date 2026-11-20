@@ -1,40 +1,36 @@
 # Observe Content Security Policy violations
+**Phase**: — · **Deps**: — · **Issue**: #196
 
 ## Goal
-Start the report-only rollout for [#196](https://github.com/sqrDAO/danang-hub-app/issues/196). Use browser violation observations to validate the allowlist before a later enforcement change.
+Start the CSP rollout for #196 with a report-only header, so browsers log what an enforced policy would block. Use those logs to fix the allowlist before a later PR enforces it.
 
 ## Files
-- `firebase.json` — report-only response header for hosted resources.
+- `firebase.json` (edited) — `Content-Security-Policy-Report-Only` header on every hosted path
 
 ## Acceptance
-- [ ] Hosting sends Content-Security-Policy-Report-Only on application routes.
-- [ ] Sources cover Firebase Auth, Firestore, Storage, Functions, FCM and Google Fonts.
-- [ ] Inline scripts and eval are reported.
-- [ ] Enforcement remains pending deployed flow verification.
+- [ ] Hosting sends `Content-Security-Policy-Report-Only` on `/`, `/login` and `/sw.js`.
+- [ ] `connect-src` allows Firebase Auth, Firestore, Storage, Installations, FCM and the `us-central1` callables.
+- [ ] `style-src` and `font-src` allow Google Fonts.
+- [ ] `script-src` has no `'unsafe-inline'` or `'unsafe-eval'`, so inline scripts and eval get reported.
+- [ ] `object-src` is `'none'`.
+- [ ] NOT: an enforcing `Content-Security-Policy` header.
+- [ ] NOT: a remote report endpoint (`report-uri` / `report-to`).
 
 ## Verify
-- Run app lint, build, unit tests and Functions lint.
-- Start Firebase Hosting emulator and inspect headers on `/`, `/login`, and `/sw.js`.
-- On the deployed preview, preserve the browser console and filter for CSP violations.
-- Exercise email/Google/EVM/Solana login, booking, event creation, image upload, push opt-in, reload and offline PWA navigation.
-- Record each legitimate blocked origin/directive and the flow before changing the allowlist.
-- Test a fresh browser session and an installed PWA after service-worker refresh.
-- After report-only production observations pass, follow up with enforcement and repeat these flows.
+- `npm run lint && npm run build && npm test` → green (298 pass, 8 emulator-dependent skips)
+- `firebase emulators:start --only hosting` then `curl -sI localhost:5000/ | grep -i content-security-policy-report-only` → the header; same for `/login` and `/sw.js`
+- on the PR preview, DevTools console filtered for "Content-Security-Policy": no report while doing each of these:
+  - email, Google, EVM and Solana sign-in
+  - a booking, creating an event with a banner upload, avatar upload
+  - push opt-in, reload, offline navigation in the installed PWA
 
-## Source rationale
-- Scripts allow same-origin bundles and Google's `apis.google.com` Auth popup helper.
-- Styles allow Google Fonts and inline styles used by React components; fonts allow fonts.gstatic.com.
-- Images allow HTTPS for stored member/amenity images and Google avatars, plus data wallet icons and blob upload previews.
-- Connections allow named Firebase APIs, Google Auth helpers and the project's us-central1 callable host.
-- Frames allow the project's Firebase Auth domain and same-origin auth helpers.
-- Workers and manifests use same-origin resources. Objects are disabled; base URLs and form actions are same-origin.
-- Wallet signing uses injected providers and Firebase callables.
-- Reports are observed in DevTools locally; there is no remote collection endpoint. Capture only directive and origin, omitting user data and URL queries.
-- This PR covers the initial rollout. #196 remains open until production enforcement and authenticated flow checks pass.
-
-## Results
-- App lint, Functions lint, production build and PWA generation pass.
-- Unit tests pass (298 passed, 8 emulator-dependent skips).
-- Firebase Hosting emulator serves the report-only header on `/`, `/login` and `/sw.js`, all HTTP 200.
-- Deployed browser violation collection and authenticated flows remain pending.
-- Build reports existing Wolgen font resolution and large-chunk warnings.
+## Notes
+- Sources:
+  - `apis.google.com` serves the Auth popup helper script.
+  - `danang-hub-app.firebaseapp.com` is the auth iframe; a custom `authDomain` on the app's own host is covered by `'self'`.
+  - `img-src https: data: blob:` covers stored images, Google avatars, wallet icons and upload previews.
+  - Wallet signing uses injected providers, so it needs no extra host.
+- `connect-src` names this project's hosts; another Firebase project needs its own.
+- Not in the allowlist yet: `images.lumacdn.com`, which the Luma import (#208) fetches. Add it before enforcing.
+- Record each legitimate report (directive and origin only, no user data or query strings) before changing the allowlist. #196 stays open until enforcement ships.
+- Existing build warnings (unresolved Wolgen font URLs, large chunks) are unchanged.
