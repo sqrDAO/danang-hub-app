@@ -10,6 +10,7 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
 
   const dialogRef = useRef(null)
   const pressedOutside = useRef(false)
+  const lastFocused = useRef(null)
 
   useLayoutEffect(() => {
     if (!isOpen) return undefined
@@ -52,7 +53,9 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
     // A non-cancelable Escape may bypass cancel prevention. The prop remains
     // authoritative when a caller refuses dismissal during an in-flight save.
     if (isOpen && dialogRef.current?.isConnected && !dialogRef.current.open) {
+      const focused = lastFocused.current
       dialogRef.current.showModal()
+      if (focused?.isConnected) focused.focus()
     }
   }
 
@@ -64,6 +67,9 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, className = ''
       ref={dialogRef}
       onCancel={handleCancel}
       onClose={handleNativeClose}
+      onFocusCapture={event => {
+        if (!event.target.closest('.toast-container')) lastFocused.current = event.target
+      }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       aria-labelledby={title ? titleId : undefined}

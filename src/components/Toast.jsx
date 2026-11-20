@@ -19,18 +19,21 @@ const useToastHost = () => {
       document.removeEventListener('focusin', update)
     }
   }, [])
-  return host
+  return host.isConnected ? host : document.body
 }
 
 export const ToastContainer = () => {
   const [toasts, setToasts] = useState([])
   const host = useToastHost()
   const containerRef = useRef(null)
+  const previousFocus = useRef(null)
 
   useLayoutEffect(() => {
     const container = containerRef.current
-    if (!container.showPopover) return
-    container.hidePopover()
+    // Closing a modal and queuing/expiring a toast can share a commit.
+    // The host observer will move us to the remaining dialog or body next.
+    if (!container?.isConnected || !container.showPopover) return
+    if (container.matches(':popover-open')) container.hidePopover()
     if (toasts.length) container.showPopover()
   }, [toasts, host])
 
@@ -46,22 +49,30 @@ export const ToastContainer = () => {
     return subscribeToToasts(listener)
   }, [])
 
-  const removeToast = (id) => {
+  const removeToast = (id, event) => {
+    if (event.currentTarget.contains(document.activeElement) && previousFocus.current?.isConnected) {
+      previousFocus.current.focus()
+    }
     setToasts(prev => prev.filter(t => t.id !== id))
   }
 
   return createPortal(
-    <div className="toast-container" ref={containerRef} popover="manual" aria-live="polite">
+    <div className="toast-container" ref={containerRef} popover="manual" aria-live="polite"
+      onFocusCapture={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) previousFocus.current = event.relatedTarget
+      }}
+      onPointerDown={event => event.preventDefault()}
+    >
       {toasts.map(toast => (
         <div
           key={toast.id}
           className={`toast toast-${toast.type}`}
-          onClick={() => removeToast(toast.id)}
+          onClick={event => removeToast(toast.id, event)}
         >
           <div className="toast-content">
             <span className="toast-message">{toast.message}</span>
           </div>
-          <button className="toast-close" onClick={() => removeToast(toast.id)}>
+          <button type="button" className="toast-close" onClick={event => removeToast(toast.id, event)}>
             ×
           </button>
         </div>

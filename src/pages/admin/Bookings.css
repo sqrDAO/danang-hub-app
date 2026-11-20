@@ -228,6 +228,10 @@
 }
 
 .member-combobox-list {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  color: var(--text-primary);
   z-index: 9999;
   background: var(--surface-color);
   border: 1px solid var(--card-border);

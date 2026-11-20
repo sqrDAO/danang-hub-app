@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import Layout from '../../components/Layout'
 import Modal from '../../components/Modal'
+import MemberCombobox from '../../components/MemberCombobox'
 import BookingCalendar from '../../components/BookingCalendar'
 import { showToast } from '../../utils/toast'
 import { isPendingFor } from '../../utils/mutationTarget'
@@ -328,10 +328,6 @@ const isAssignFormIncomplete = (form) => (
   (form.bookingType === 'fixed-desk' && !form.fdStartDate)
 )
 
-const getMemberInputValue = (assignMemberQuery, memberId, members) => (
-  assignMemberQuery || (memberId ? (members.find(m => m.id === memberId)?.displayName || members.find(m => m.id === memberId)?.email || '') : '')
-)
-
 const AssignStandardCalendar = ({ form, amenities, onRangeChange, onSelectedDateChange, disabled, conflictError, t }) => {
   const amenity = amenities.find(item => item.id === form.amenityId)
   const hasPrerequisites = Boolean(form.memberId && amenity)
@@ -364,23 +360,11 @@ const AssignStandardCalendar = ({ form, amenities, onRangeChange, onSelectedDate
 
 const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned }) => {
   const { t } = useTranslation()
-  const [assignMemberQuery, setAssignMemberQuery] = useState('')
-  const [assignMemberOpen, setAssignMemberOpen] = useState(false)
-  const [memberDropdownRect, setMemberDropdownRect] = useState(null)
-  const memberInputRef = useRef(null)
-
-  useEffect(() => {
-    if (assignMemberOpen && memberInputRef.current) {
-      setMemberDropdownRect(memberInputRef.current.getBoundingClientRect())
-    }
-  }, [assignMemberOpen])
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM)
   const [assignConflictError, setAssignConflictError] = useState(null)
 
   const resetAssignForm = () => {
     setAssignForm(EMPTY_ASSIGN_FORM)
-    setAssignMemberQuery('')
-    setAssignMemberOpen(false)
     setAssignConflictError(null)
   }
 
@@ -466,64 +450,14 @@ const AssignBookingModal = ({ isOpen, onClose, members, amenities, onAssigned })
       title={t('adminBookings.assignBooking')}
     >
       <div className="booking-step">
-        <div className="form-group">
-          <label className="form-label">{t('adminBookings.assignMember')}</label>
-          <div className="member-combobox">
-            <input
-              ref={memberInputRef}
-              type="text"
-              className="form-field"
-              placeholder={t('adminBookings.searchMember')}
-              value={getMemberInputValue(assignMemberQuery, assignForm.memberId, members)}
-              onChange={e => {
-                setAssignMemberQuery(e.target.value)
-                setAssignForm(f => clearStandardRange({ ...f, memberId: '' }))
-                setAssignConflictError(null)
-                setAssignMemberOpen(e.target.value.length > 0)
-              }}
-              onBlur={() => setTimeout(() => setAssignMemberOpen(false), 150)}
-              autoComplete="off"
-              disabled={assignMutation.isPending}
-            />
-            {assignMemberOpen && !assignMutation.isPending && memberDropdownRect && createPortal(
-              <ul
-                className="member-combobox-list"
-                style={{
-                  position: 'fixed',
-                  top: memberDropdownRect.bottom + 4,
-                  left: memberDropdownRect.left,
-                  width: memberDropdownRect.width,
-                }}
-              >
-                {members
-                  .filter(m => {
-                    const q = assignMemberQuery.toLowerCase()
-                    return !q ||
-                      (m.displayName || '').toLowerCase().includes(q) ||
-                      (m.email || '').toLowerCase().includes(q)
-                  })
-                  .map(m => (
-                    <li
-                      key={m.id}
-                      className={`member-combobox-option${assignForm.memberId === m.id ? ' selected' : ''}`}
-                      onMouseDown={() => {
-                        setAssignForm(f => clearStandardRange({ ...f, memberId: m.id }))
-                        setAssignConflictError(null)
-                        setAssignMemberQuery('')
-                        setAssignMemberOpen(false)
-                      }}
-                    >
-                      <span className="member-combobox-name">{m.displayName || m.email}</span>
-                      {m.displayName && m.email && (
-                        <span className="member-combobox-email">{m.email}</span>
-                      )}
-                    </li>
-                  ))}
-              </ul>,
-              memberInputRef.current?.closest('dialog') ?? document.body
-            )}
-          </div>
-        </div>
+        <MemberCombobox
+          members={members} memberId={assignForm.memberId} disabled={assignMutation.isPending}
+          label={t('adminBookings.assignMember')} placeholder={t('adminBookings.searchMember')}
+          onChange={memberId => {
+            setAssignForm(form => clearStandardRange({ ...form, memberId }))
+            setAssignConflictError(null)
+          }}
+        />
         <div className="form-group">
           <label className="form-label">{t('adminBookings.assignAmenity')}</label>
           <select

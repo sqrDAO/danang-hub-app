@@ -1,3 +1,7 @@
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Wolgen — brand display font (Da Nang Blockchain Hub) */
 @font-face {
   font-family: 'Wolgen';
