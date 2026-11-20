@@ -279,7 +279,7 @@ const SolanaWalletPicker = ({ wallets, onSelect }) => (
   </div>
 )
 
-const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDown, onSubmit, onForgotPassword }) => {
+const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onSubmit, onForgotPassword }) => {
   const { t } = useTranslation()
   return (
     <form className="login-form" onSubmit={onSubmit}>
@@ -292,7 +292,6 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
             name="email"
             value={formData.email}
             onChange={onInputChange}
-            onKeyDown={onKeyDown}
             placeholder={t('auth.emailPlaceholder')}
             autoComplete="email"
           />
@@ -310,7 +309,6 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
               name="password"
               value={formData.password}
               onChange={onInputChange}
-              onKeyDown={onKeyDown}
               placeholder="••••••••"
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
               maxLength={MAX_PASSWORD_LENGTH}
@@ -329,7 +327,6 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onKeyDow
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={onInputChange}
-                onKeyDown={onKeyDown}
                 placeholder="••••••••"
                 autoComplete="new-password"
                 maxLength={MAX_PASSWORD_LENGTH}
@@ -449,7 +446,7 @@ const AuthFooter = ({ isSignUp, onToggleMode }) => {
 }
 
 // Forgot Password View
-const ForgotPasswordView = ({ theme, error, message, formData, submitting, onInputChange, onKeyDown, onSubmit, onBack }) => {
+const ForgotPasswordView = ({ theme, error, message, formData, submitting, onInputChange, onSubmit, onBack }) => {
   const { t } = useTranslation()
   return (
     <div className="login-container">
@@ -475,7 +472,6 @@ const ForgotPasswordView = ({ theme, error, message, formData, submitting, onInp
                 name="email"
                 value={formData.email}
                 onChange={onInputChange}
-                onKeyDown={onKeyDown}
                 placeholder={t('auth.emailPlaceholder')}
                 autoComplete="email"
               />
@@ -587,17 +583,6 @@ const Login = () => {
 
     setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
-  }
-
-  const handleKeyDown = (e) => {
-    // Submit form when Enter is pressed on password or confirmPassword fields
-    if (e.key === 'Enter' && !submitting) {
-      e.preventDefault()
-      const form = e.target.closest('form')
-      if (form) {
-        form.requestSubmit()
-      }
-    }
   }
 
   const handleEmailAuth = async (e) => {
@@ -722,7 +707,6 @@ const Login = () => {
         formData={formData}
         submitting={submitting}
         onInputChange={handleInputChange}
-        onKeyDown={handleKeyDown}
         onSubmit={handleForgotPassword}
         onBack={() => {
           setShowForgotPassword(false)
@@ -782,7 +766,6 @@ const Login = () => {
           formData={formData}
           submitting={submitting}
           onInputChange={handleInputChange}
-          onKeyDown={handleKeyDown}
           onSubmit={handleEmailAuth}
           onForgotPassword={() => setShowForgotPassword(true)}
         />
