@@ -46,7 +46,11 @@
   font-weight: 600;
 }
 
+/* Inline-block + 24px line box: a WCAG 2.5.8 tap target that looks unchanged. */
 .event-action-link {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
   background: none;
   border: none;
   padding: 0;

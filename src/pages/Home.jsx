@@ -192,7 +192,7 @@ const Home = () => {
 
   // An event with its own page opens it for anyone, signed in or not. The Hub
   // registration is only a note, so it is skipped when signed out or full
-  // (`?action=register` does not check capacity).
+  // (`?action=register` re-checks full on fresh data, in case this list is stale).
   const handleRegisterEvent = (event) => {
     if (hasEventPage(event)) {
       openEventLink(event.eventLink)

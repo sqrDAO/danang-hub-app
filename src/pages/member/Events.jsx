@@ -102,6 +102,21 @@ const resolveRedirectEvent = (eventId, upcomingEventsData, approvedEvents) => {
   return { event, missing }
 }
 
+// Home links here after opening an event's own page. Home's data can be stale,
+// so a full event with a page is re-checked here and records nothing, as on
+// this page's Register.
+const runRegisterAction = (event, payload, ctx) => {
+  const { currentUser, t, searchParams, setSearchParams } = ctx
+  if (hasEventPage(event) && isEventFull(event)) {
+    clearActionParams(searchParams, setSearchParams)
+  } else if (!event.attendees?.includes(currentUser.uid)) {
+    ctx.registerMutation.mutate(payload)
+  } else {
+    showToast(t('toast.alreadyRegistered'), 'info')
+    clearActionParams(searchParams, setSearchParams)
+  }
+}
+
 const runRedirectAction = (action, event, ctx) => {
   const { currentUser, t, searchParams, setSearchParams, processedActionRef } = ctx
   if (event.status !== 'approved') {
@@ -111,13 +126,7 @@ const runRedirectAction = (action, event, ctx) => {
   }
   const payload = { eventId: event.id, memberId: currentUser.uid }
   if (action === 'register') {
-    // Only register if not already registered
-    if (!event.attendees?.includes(currentUser.uid)) {
-      ctx.registerMutation.mutate(payload)
-    } else {
-      showToast(t('toast.alreadyRegistered'), 'info')
-      clearActionParams(searchParams, setSearchParams)
-    }
+    runRegisterAction(event, payload, ctx)
     return
   }
   if (action === 'unregister') {
@@ -439,10 +448,16 @@ const MyEventsSection = ({ myEvents, onDelete, onEdit, onOpenDetails, deletingId
 }
 
 // Registered or waitlisted: a quiet status with a small way out, so it doesn't
-// compete with Register on the other cards.
-const EventActionStatus = ({ status, actionLabel, onAction, pending }) => (
+// compete with Register on the other cards. An event with its own page keeps a
+// way back to it, since only a sign-up there counts.
+const EventActionStatus = ({ event, status, actionLabel, onAction, pending, t }) => (
   <div className="event-actions event-action-status">
     <span>{status}</span>
+    {hasEventPage(event) && (
+      <a href={event.eventLink} target="_blank" rel="noopener noreferrer" className="event-action-link">
+        {t('memberEvents.openEventPage')}
+      </a>
+    )}
     <button type="button" className="event-action-link" onClick={onAction} disabled={pending}>
       {actionLabel}
     </button>
@@ -485,20 +500,24 @@ const UpcomingEventActions = ({ event, registered, onWaitlist, full, handlers, t
   if (registered) {
     return (
       <EventActionStatus
+        event={event}
         status={t('memberEvents.registeredStatus')}
         actionLabel={t('memberEvents.unregisterLink')}
         onAction={() => handlers.onUnregister(event.id)}
         pending={handlers.unregisteringId === event.id}
+        t={t}
       />
     )
   }
   if (onWaitlist) {
     return (
       <EventActionStatus
+        event={event}
         status={t('memberEvents.waitlistStatus')}
         actionLabel={t('memberEvents.leaveWaitlistLink')}
         onAction={() => handlers.onLeaveWaitlist(event.id)}
         pending={handlers.leavingWaitlistId === event.id}
+        t={t}
       />
     )
   }

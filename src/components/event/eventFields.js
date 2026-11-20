@@ -65,28 +65,38 @@ export const KNOWN_EVENT_HOSTS = [
 const isKnownHost = (host) =>
   KNOWN_EVENT_HOSTS.some(known => host === known || host.endsWith(`.${known}`))
 
+// `value` read as a web link relative to `base`, or null. Resolved the way the
+// browser resolves a redirect, so odd spellings (`/\evil.com`, ` https://evil.com`,
+// a tab inside `https`) land where the browser would actually go.
+const toWebUrl = (value, base) => {
+  try {
+    const target = new URL(value, base)
+    return isWebLink(target.href) ? target : null
+  } catch {
+    return null // e.g. `https://` alone: not a link a browser could follow
+  }
+}
+
+// A known host can still forward anywhere through its query
+// (`l.facebook.com/l.php?u=https://evil.com`), also through another known hop
+// (`?u=https://l.facebook.com/l.php?u=…`), so each hop is followed. A chain
+// longer than MAX_HOPS counts as forwarding.
+const MAX_HOPS = 3
+const carriesLink = (url, hops = 1) => [...url.searchParams.values()].some(value => {
+  const target = toWebUrl(value, url)
+  if (!target) return false
+  return hops > MAX_HOPS || !isKnownHost(target.hostname) || carriesLink(target, hops + 1)
+})
+
 // The host to warn the admin about, or '' for no link or a known platform.
 // Uses the parsed hostname, the site the browser actually loads: the raw text
 // can mislead (`https://lu.ma@evil.com` loads evil.com). A non-web link has no
 // host, so it is shown as typed.
-const getHost = (url) => {
-  try {
-    return isWebLink(url) ? new URL(url).hostname : ''
-  } catch {
-    return '' // e.g. `https://` alone
-  }
-}
-
-// A query value that is itself a link: a known host can still forward anywhere
-// (`l.facebook.com/l.php?u=https://evil.com`). Only called on a parsed web link.
-const carriesLink = (url) =>
-  [...new URL(url).searchParams.values()].some(value => /^(https?:)?\/\//i.test(value))
-
 export const getUnfamiliarLinkHost = (url) => {
   if (!url) return ''
-  const host = getHost(url)
-  if (!host) return url
-  return isKnownHost(host) && !carriesLink(url) ? '' : host
+  const parsed = isWebLink(url) && toWebUrl(url)
+  if (!parsed) return url
+  return isKnownHost(parsed.hostname) && !carriesLink(parsed) ? '' : parsed.hostname
 }
 
 // New tab without `window.opener`, so the event site cannot redirect this tab.

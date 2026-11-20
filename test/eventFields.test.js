@@ -92,9 +92,30 @@ test('a known host that forwards to a link in its query is flagged', () => {
   assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=//evil.com'), 'lu.ma')
 })
 
+test('odd spellings of a forwarded link are flagged where the browser would go', () => {
+  const fb = 'https://l.facebook.com/l.php?u='
+  for (const value of ['/\\evil.com', '\\\\evil.com', 'https:\\\\evil.com', '%20https://evil.com', 'ht%09tps://evil.com', '/%09/evil.com']) {
+    assert.equal(getUnfamiliarLinkHost(fb + value), 'l.facebook.com', value)
+  }
+})
+
+test('a forwarded link is followed through known hops', () => {
+  const fb = 'https://l.facebook.com/l.php?u='
+  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent(fb + 'https://evil.com')), 'l.facebook.com')
+  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent('https://lu.ma/x')), '')
+})
+
+test('a query linking to another known platform stays known', () => {
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=https://luma.com/y'), '')
+  assert.equal(getUnfamiliarLinkHost('https://docs.google.com/forms/d/x/viewform?entry.1=https://x.com/me'), '')
+  assert.equal(getUnfamiliarLinkHost('https://www.facebook.com/events/1?ref=https%3A%2F%2Fm.facebook.com'), '')
+})
+
 test('a known host with an ordinary query stays known', () => {
   assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?utm_source=x&tk=123'), '')
   assert.equal(getUnfamiliarLinkHost('https://www.facebook.com/events/1?ref=newsfeed'), '')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?time=18:30&lang=en&x=https:/y'), '')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?next=//lu.ma/def&mail=mailto:a@b.co'), '')
 })
 
 test('a link with no web host is flagged as typed', () => {
