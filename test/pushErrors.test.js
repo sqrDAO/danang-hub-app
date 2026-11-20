@@ -10,6 +10,8 @@ for (const locale of ['en', 'vi']) {
     for (const code of ['push/timeout', 'push/revoke-failed', 'push/cleanup-failed', 'push/registration-failed']) {
       assert.equal(profileErrorMessage({ code, message: 'Raw English failure' }, t), messages.toast.profileUpdateFailed)
     }
+    assert.equal(profileErrorMessage({ code: 'push/permission-denied' }, t), messages.profile.pushNotificationsDenied)
+    assert.ok(messages.toast.pushCleanupWarning)
     assert.ok(messages.notifications.pushOptInFailed)
   })
 }

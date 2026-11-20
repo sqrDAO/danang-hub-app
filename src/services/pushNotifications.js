@@ -19,14 +19,13 @@ import {
 } from '../utils/pushDeviceOptIn'
 
 import { createForegroundListener } from './pushForegroundListener'
-import { revokePushSubscription } from './pushTokenLifecycle'
+import { pushLifecycleError, revokePushSubscription } from './pushTokenLifecycle'
 import { createPushRegistrationLifecycle } from './pushRegistrationLifecycle'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
 
 const PUSH_TOKENS_COLLECTION = 'push_tokens'
 const PUSH_DISABLED_MESSAGE = 'Push notifications are not available in this browser.'
-const PUSH_PERMISSION_MESSAGE = 'Push notifications are blocked in your browser settings.'
 const PUSH_CONFIG_MESSAGE = 'Push notifications are not configured for this app.'
 const PUSH_TOKEN_MESSAGE = 'Unable to create a push token for this browser.'
 const HUB_ICON = '/assets/favicon/android-chrome-192x192.png'
@@ -86,11 +85,11 @@ const ensurePushPermission = async () => {
   }
   if (Notification.permission === 'granted') return
   if (Notification.permission === 'denied') {
-    throw new Error(PUSH_PERMISSION_MESSAGE)
+    throw pushLifecycleError('permission-denied')
   }
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
-    throw new Error(PUSH_PERMISSION_MESSAGE)
+    throw pushLifecycleError(permission === 'denied' ? 'permission-denied' : 'permission-dismissed')
   }
 }
 
@@ -272,10 +271,10 @@ const pushRegistration = createPushRegistrationLifecycle({
 })
 
 export const enablePushNotifications = (uid) => pushRegistration.register(uid, {
+  permission: ensurePushPermission,
   prepare: async () => {
     const deviceId = getPushDeviceId()
     if (!deviceId) throw new Error(PUSH_DISABLED_MESSAGE)
-    await ensurePushPermission()
     return deviceId
   },
   // Off is per phone; enabling is the only path writing this preference.

@@ -266,3 +266,64 @@ test('SDK cleanup errors keep a push code so raw English cannot reach the UI', a
   }))
   await assert.rejects(h.register('a'), { code: 'push/cleanup-failed' })
 })
+
+test('permission can remain open beyond the network deadline and still register', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const permission = Promise.withResolvers()
+  const h = setup(() => ({ timeoutMs: 15000 }))
+  let settled = false
+  const registration = h.lifecycle.register('a', {
+    permission: () => permission.promise,
+    prepare: async () => 'phone',
+    mark: (uid) => h.state.markers.set(uid, 'in')
+  })
+  registration.then(() => { settled = true }, () => { settled = true })
+  t.mock.timers.tick(60000)
+  await nextTurn()
+  assert.equal(settled, false)
+  assert.equal(h.state.calls.length, 0)
+  permission.resolve()
+  assert.equal(await registration, 'token-a')
+  assert.equal(h.state.markers.get('a'), 'in')
+})
+
+test('logout during permission cancels A without blocking B or revoking its token', async () => {
+  const permission = Promise.withResolvers()
+  const h = setup(defaults)
+  const a = assert.rejects(h.lifecycle.register('a', {
+    permission: () => permission.promise,
+    prepare: async () => 'phone',
+    mark: (uid) => h.state.markers.set(uid, 'in')
+  }), { code: 'push/cancelled' })
+  await h.lifecycle.clear('a')
+  h.state.uid = 'b'
+  assert.equal(await h.register('b'), 'token-b')
+  permission.resolve()
+  await a
+  assert.equal(h.state.subscription, 'token-b')
+  assert.deepEqual([...h.state.documents], [['b/phone', 'token-b']])
+  assert.equal(h.state.markers.has('a'), false)
+})
+
+test('Off during permission cancels registration even while the uid stays the same', async () => {
+  const permission = Promise.withResolvers()
+  const h = setup(defaults)
+  const a = assert.rejects(h.lifecycle.register('a', {
+    permission: () => permission.promise,
+    prepare: async () => 'phone', mark: () => assert.fail('must not mark On')
+  }), { code: 'push/cancelled' })
+  await h.lifecycle.clear('a')
+  permission.resolve()
+  await a
+  assert.equal(h.state.calls.some(call => call.startsWith('issue:')), false)
+})
+
+
+test('native permission failures retain a localized push error code', async () => {
+  const h = setup(defaults)
+  await assert.rejects(h.lifecycle.register('a', {
+    permission: async () => { throw new Error('Native permission failure in English') },
+    prepare: async () => 'phone', mark: () => assert.fail('must not mark On')
+  }), { code: 'push/registration-failed' })
+  assert.equal(h.state.calls.length, 0)
+})

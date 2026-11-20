@@ -33,7 +33,7 @@ const runRegistration = async ({ ticket, ready, prepare, issue, save, commit, ma
 }
 
 /** One app has one current auth user and one browser subscription. */
-export const createPushRegistrationLifecycle = ({ currentUid, issue, save, remove, revoke, timeoutMs = 15000, cleanupTimeoutMs = 5000 }) => {
+export const createPushRegistrationLifecycle = ({ currentUid, issue, save, remove, revoke, timeoutMs = 30000, cleanupTimeoutMs = 5000 }) => {
   let generation = 0
   let registrations = Promise.resolve()
   let revocation = Promise.resolve()
@@ -52,11 +52,19 @@ export const createPushRegistrationLifecycle = ({ currentUid, issue, save, remov
     await withPushDeadline(deletes, cleanupTimeoutMs).catch(() => {})
   }
 
-  const register = (uid, { prepare, commit = async () => {}, mark }) => {
+  const register = async (uid, { permission = async () => {}, prepare, commit = async () => {}, mark }) => {
     if (!uid || currentUid() !== uid) return Promise.reject(pushLifecycleError('cancelled'))
     const started = ++generation
     const ticket = { uid, cancelled: false }
     ticket.isCurrent = () => !ticket.cancelled && started === generation && currentUid() === uid
+    // Human permission time owns no SDK queue slot and has no network deadline.
+    // Reserve the ticket first so Off/logout while the prompt is open cancels it.
+    try {
+      await permission()
+    } catch (error) {
+      throw error?.code?.startsWith('push/') ? error : pushLifecycleError('registration-failed', error)
+    }
+    assertCurrent(ticket)
     const work = registrations.then(() => runRegistration({
       ticket, ready, prepare, issue, save, commit, mark, cleanup
     }))
