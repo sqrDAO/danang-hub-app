@@ -17,6 +17,9 @@ const {
   getRevision, normalizeEditPayload, getNotificationSubjectId,
 } = require("./eventLifecycle");
 const {
+  parseImportUrl, fetchEventPage, extractEventJsonLd, toEventDraft,
+} = require("./eventImport");
+const {
   HUB_UTC_OFFSET_HOURS,
   rangeOverlapsClosure,
 } = require("./hubClosures");
@@ -48,6 +51,8 @@ const {
 const {getNewlyPromoted} = require("./waitlist");
 const {escapeHtml} = require("./emailHtml");
 const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
+
+const {nextRateLimitState} = require("./importRateLimit");
 
 initializeApp();
 
@@ -525,6 +530,43 @@ exports.reviewEvent = onCall(async (request) => {
   } catch (error) {
     throw getEventError(error);
   }
+});
+
+// Reserves import quota before fetching; event creation still requires submit.
+exports.importEventFromUrl = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const startUrl = parseImportUrl(request.data && request.data.url);
+  if (!startUrl) {
+    throw new HttpsError("invalid-argument", "This link is not supported.");
+  }
+
+  const limitRef = db.collection("importRateLimits").doc(request.auth.uid);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(limitRef);
+    const next = nextRateLimitState(snapshot.data(), Date.now());
+    if (!next) {
+      throw new HttpsError("resource-exhausted",
+          "Import limit reached. Try again after the hourly window resets.");
+    }
+    transaction.set(limitRef, next);
+  });
+
+  let page;
+  try {
+    page = await fetchEventPage(startUrl);
+  } catch (error) {
+    console.error("Event import fetch failed:", error.message);
+    throw new HttpsError(error.callableCode || "unavailable",
+        "Could not read the event page.");
+  }
+
+  const draft = toEventDraft(extractEventJsonLd(page.html), page.url);
+  if (!draft) {
+    throw new HttpsError("not-found", "No event details found on this page.");
+  }
+  return draft;
 });
 
 // Check slot availability - no auth (for chatbot, public availability)

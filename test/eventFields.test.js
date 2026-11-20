@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, hasEventPage, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload } from '../src/components/event/eventFields.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, hasEventPage, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload, getImportedFormValues } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -64,6 +64,28 @@ test('getEventFormPayload clears optional fields and clamps capacity', () => {
   assert.equal(payload.hostingProjects, '')
   assert.equal(payload.eventLink, '')
   assert.equal('waitlist' in payload, false)
+})
+
+test('getImportedFormValues turns a draft into form input values in hub time', () => {
+  assert.deepEqual(getImportedFormValues({
+    title: 'Web3 Night',
+    description: 'Talks and pizza.',
+    date: '2026-12-01T11:30:00.000Z',
+    duration: 165,
+    eventLink: 'https://luma.com/web3night'
+  }), {
+    title: 'Web3 Night',
+    description: 'Talks and pizza.',
+    date: '2026-12-01T18:30',
+    duration: 165,
+    eventLink: 'https://luma.com/web3night'
+  })
+})
+
+test('getImportedFormValues keeps a missing duration null', () => {
+  const values = getImportedFormValues({ title: 'T', date: '2026-12-01T11:30:00.000Z', duration: null })
+  assert.equal(values.duration, null)
+  assert.equal(values.description, '')
 })
 
 test('linkCheck is admin-only', () => {

@@ -26,6 +26,23 @@
   pointer-events: none;
 }
 
+/* Import from link (create only): input and button on one row */
+.event-import {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--form-divider);
+}
+
+.event-import-row {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.event-import-row .form-field {
+  flex: 1;
+  min-width: 0;
+}
+
 .form-actions-outside {
   margin-top: var(--spacing-md);
 }

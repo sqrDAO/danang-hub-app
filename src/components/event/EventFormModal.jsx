@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import Modal from '../Modal'
+import EventImportField from './EventImportField'
 import { toDatetimeLocalHub } from '../../utils/timezone'
 import { MAX_EVENT_CAPACITY, getEventVenueId, getEventSpaces, getDefaultEventSpace, getAmenityName } from './eventFields'
 import './EventFormModal.css'
@@ -42,17 +44,27 @@ const EventTextFields = ({ defaults, t }) => <>
   </>
 
 const EventBannerField = ({ bannerInputRef, isEdit, currentBannerUrl, t }) => {
+  // Preview of the chosen file, whether picked by hand or placed by an import.
+  const [chosenBannerUrl, setChosenBannerUrl] = useState(null)
+  useEffect(() => () => {
+    if (chosenBannerUrl) URL.revokeObjectURL(chosenBannerUrl)
+  }, [chosenBannerUrl])
+  const previewChosenBanner = (event) => {
+    const file = event.target.files?.[0]
+    setChosenBannerUrl(file ? URL.createObjectURL(file) : null)
+  }
+  const previewUrl = chosenBannerUrl || currentBannerUrl
   const bannerLabelKey = isEdit
     ? 'memberEvents.modal.bannerUploadReplaceLabel'
     : 'memberEvents.modal.bannerUploadLabel'
   return <div className="form-group">
     <label className="form-label">{t('memberEvents.modal.bannerLabel')}</label>
     <div className="event-banner-upload">
-      <input ref={bannerInputRef} type="file" name="banner" id="event-banner-input" className="event-banner-input" accept="image/jpeg,image/jpg,image/png,image/webp" required={!isEdit} aria-required={!isEdit} />
+      <input ref={bannerInputRef} type="file" name="banner" id="event-banner-input" className="event-banner-input" accept="image/jpeg,image/jpg,image/png,image/webp" required={!isEdit} aria-required={!isEdit} onChange={previewChosenBanner} />
       <span className="event-banner-upload-label">{t(bannerLabelKey)}</span>
     </div>
     <small className="form-hint">{t('memberEvents.modal.bannerHint')}</small>
-    {currentBannerUrl && <img className="event-banner-preview" src={currentBannerUrl} alt={t('memberEvents.modal.bannerLabel')} />}
+    {previewUrl && <img className="event-banner-preview" src={previewUrl} alt={t('memberEvents.modal.bannerLabel')} />}
   </div>
 }
 
@@ -181,6 +193,7 @@ const EventFormModal = ({
       <form onSubmit={handleSubmit}>
         {needsGuidelines && <EventGuidelinesAcknowledgement hasAcceptedGuidelines={hasAcceptedGuidelines} setHasAcceptedGuidelines={setHasAcceptedGuidelines} t={t} />}
         <fieldset className="event-create-fieldset" disabled={needsGuidelines && !hasAcceptedGuidelines}>
+          {!isEdit && <EventImportField changeEventDuration={changeEventDuration} t={t} />}
           <EventDetailsFields editingEvent={editingEvent} dateError={dateError} eventDuration={eventDuration} changeEventDuration={changeEventDuration} checkEventHall={checkEventHall} bannerInputRef={bannerInputRef} linkAmenity={linkAmenity} t={t} />
           {isAdmin && <EventOrganizerField editingEvent={editingEvent} members={members} t={t} />}
           <EventHallRequestToggle linkAmenity={linkAmenity} setEventHallRequest={setEventHallRequest} t={t} />

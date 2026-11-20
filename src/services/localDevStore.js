@@ -299,6 +299,17 @@ export const promoteLocalWaitlist = (eventId, count = 1) => {
   return { promoted: take.length }
 }
 
+// Local dev has no Cloud Functions, so any link imports this sample draft.
+export const importLocalEvent = (url) => ({
+  title: 'Imported sample event',
+  description: 'Sample description filled in by the local dev import.',
+  date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  duration: 120,
+  eventLink: url,
+  // A 1x1 PNG, so the banner path can be tried without the network.
+  image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+})
+
 export const editLocalOwnEvent = ({ eventId, expectedRevision, data }) => {
   const event = requireLocalEvent(eventId)
   if (expectedRevision != null && event.revision !== expectedRevision) {
