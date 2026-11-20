@@ -419,6 +419,7 @@
     "assignMember": "Thành viên",
     "selectMember": "Chọn thành viên...",
     "searchMember": "Tìm theo tên hoặc email...",
+    "noMembersFound": "Không tìm thấy thành viên.",
     "assignAmenity": "Tiện ích",
     "selectAmenity": "Chọn tiện ích...",
     "bookingType": "Loại đặt chỗ",
