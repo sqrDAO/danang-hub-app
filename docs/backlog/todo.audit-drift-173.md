@@ -9,10 +9,10 @@ Apply the dependency advisory fixes that fit the current version ranges, in the 
 - `functions/package-lock.json` (edited) — compatible fixes; @grpc/grpc-js 1.14.4 → 1.14.7
 
 ## Acceptance
-- [x] App audit drops from 21 (12 high, 8 moderate, 1 low) to 11 (5 high, 6 moderate).
-- [x] Functions audit drops from 12 (5 high, 7 moderate) to 6 (moderate only).
-- [x] No advisory appears that wasn't on `main`.
-- [x] Every lockfile change stays within the existing `package.json` ranges.
+- [ ] App audit drops from 21 (12 high, 8 moderate, 1 low) to 11 (5 high, 6 moderate).
+- [ ] Functions audit drops from 12 (5 high, 7 moderate) to 6 (moderate only).
+- [ ] No advisory appears that wasn't on `main`.
+- [ ] Every lockfile change stays within the existing `package.json` ranges.
 - [ ] NOT: changes to `package.json`, `functions/package.json` or `overrides`.
 - [ ] NOT: major upgrades or downgrades of firebase, react-router, vite-plugin-pwa or rules-unit-testing.
 
