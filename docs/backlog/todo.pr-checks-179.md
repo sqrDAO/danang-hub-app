@@ -1,24 +1,28 @@
 # Run required checks on pull requests
+**Phase**: — · **Deps**: — · **Issue**: #179
 
 ## Goal
-Catch app lint, unit-test and Functions lint failures before merge for [#179](https://github.com/sqrDAO/danang-hub-app/issues/179).
+Catch app lint, unit-test and Functions lint failures on a pull request, before merge (#179). The preview deploy waits for those checks, so a broken PR never gets a preview.
 
 ## Files
-- `.github/workflows/firebase-hosting-pull-request.yml` — add a checks job and require it before preview deployment.
+- `.github/workflows/firebase-hosting-pull-request.yml` (edited) — new `checks` job; `build_and_preview` gets `needs: checks`
 
 ## Acceptance
-- [ ] Every PR runs app lint, unit tests and Functions lint, including forks.
-- [ ] Checks install both locked dependency trees with Node 22.
-- [ ] Preview deployment waits for successful checks.
+- [ ] Every PR runs `npm run lint`, `npm test` and `npm run lint` in `functions/`.
+- [ ] The checks job runs on PRs from forks too.
+- [ ] The checks job has `contents: read` only and uses no secrets.
+- [ ] The checks job installs both lockfiles with `npm ci` on Node 22.
+- [ ] `build_and_preview` runs only after `checks` succeeds.
+- [ ] NOT: `pull_request_target` (fork code must never run with secrets).
+- [ ] NOT: changes to `firebase-hosting-merge.yml` or `rules-tests.yml`.
 
 ## Verify
-- Parse the workflow YAML and inspect job dependencies and permissions.
-- `npm run lint`, `npm test`, `npm --prefix functions run lint`, and `npm run build` pass.
-- Inspect GitHub checks after opening the PR.
+- `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/firebase-hosting-pull-request.yml'))"` → no error
+- `npm ci && npm run lint && npm test && npm run build` → green (298 pass, 8 emulator-dependent skips)
+- `cd functions && npm ci && npm run lint` → green
+- on the PR: the "Lint and unit tests" check passes, then `build_and_preview` runs
 
-## Results
-- YAML parsing and assertions confirm the PR trigger, read-only checks job, commands and preview dependency.
-- Clean npm installs succeed for both packages.
-- App lint, Functions lint, build and PWA generation pass.
-- Unit tests report 298 passed, 8 emulator-dependent tests skipped, zero failures.
-- Build reports existing unresolved Wolgen font URLs and large chunks.
+## Notes
+- Merging is only blocked once "Lint and unit tests" is a required status check on `main` (GitHub → Settings → Branches). That is a repo setting, done by an admin, not by this PR.
+- The checks job doesn't build; same-repo PRs build in `build_and_preview`. Fork PRs get no preview, so their build isn't checked.
+- Existing build warnings (unresolved Wolgen font URLs, large chunks) are unchanged.
