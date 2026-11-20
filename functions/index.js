@@ -59,15 +59,18 @@ const db = getFirestore();
 const REGION = "us-central1";
 setGlobalOptions({region: REGION});
 
-// Transporter is created fresh each call so Secret Manager values
-// (injected into process.env at runtime) are always current.
+// Initialize on first use, after runtime secrets are available.
+// Warm invocations share this process-local SMTP pool.
+let emailTransporter;
 /**
- * Creates a Nodemailer SMTP transporter from environment config.
+ * Gets the shared Nodemailer SMTP transporter from runtime configuration.
  * @return {object} Nodemailer transporter instance
  */
 function getTransporter() {
+  if (emailTransporter) return emailTransporter;
   const nodemailer = require("nodemailer");
-  return nodemailer.createTransport({
+  emailTransporter = nodemailer.createTransport({
+    pool: true,
     host: process.env.EMAIL_SMTP_HOST,
     port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
     secure: process.env.EMAIL_SMTP_SECURE !== "false",
@@ -76,6 +79,7 @@ function getTransporter() {
       pass: process.env.EMAIL_PASS,
     },
   });
+  return emailTransporter;
 }
 
 /**
