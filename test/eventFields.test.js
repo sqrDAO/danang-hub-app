@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload } from '../src/components/event/eventFields.js'
+import { EVENT_VIEWS, getVisibleFields, isWebLink, hasEventPage, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -33,6 +33,14 @@ test('isWebLink accepts only http(s)', () => {
   assert.equal(isWebLink('HTTP://example.com'), true)
   assert.equal(isWebLink('javascript:alert(1)'), false)
   assert.equal(isWebLink(undefined), false)
+})
+
+test('hasEventPage only for an event with a web link', () => {
+  assert.equal(hasEventPage({ eventLink: 'https://lu.ma/abc' }), true)
+  assert.equal(hasEventPage({ eventLink: '' }), false)
+  assert.equal(hasEventPage({ eventLink: 'javascript:alert(1)' }), false)
+  assert.equal(hasEventPage({}), false)
+  assert.equal(hasEventPage(undefined), false)
 })
 
 test('getEventVenueId reads only requestedAmenityId', () => {
@@ -76,6 +84,38 @@ test('unfamiliar sites are flagged by the host the browser loads', () => {
   assert.equal(getUnfamiliarLinkHost('https://lu.ma.evil.com/x'), 'lu.ma.evil.com')
   assert.equal(getUnfamiliarLinkHost('https://notlu.ma/x'), 'notlu.ma')
   assert.equal(getUnfamiliarLinkHost('https://lu.ma@evil.com/x'), 'evil.com')
+})
+
+test('a known host that forwards to a link in its query is flagged', () => {
+  assert.equal(getUnfamiliarLinkHost('https://l.facebook.com/l.php?u=https%3A%2F%2Fevil.com'), 'l.facebook.com')
+  assert.equal(getUnfamiliarLinkHost('https://www.youtube.com/redirect?q=http://evil.com'), 'www.youtube.com')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=//evil.com'), 'lu.ma')
+})
+
+test('odd spellings of a forwarded link are flagged where the browser would go', () => {
+  const fb = 'https://l.facebook.com/l.php?u='
+  for (const value of ['/\\evil.com', '\\\\evil.com', 'https:\\\\evil.com', '%20https://evil.com', 'ht%09tps://evil.com', '/%09/evil.com']) {
+    assert.equal(getUnfamiliarLinkHost(fb + value), 'l.facebook.com', value)
+  }
+})
+
+test('a forwarded link is followed through known hops', () => {
+  const fb = 'https://l.facebook.com/l.php?u='
+  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent(fb + 'https://evil.com')), 'l.facebook.com')
+  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent('https://lu.ma/x')), '')
+})
+
+test('a query linking to another known platform stays known', () => {
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=https://luma.com/y'), '')
+  assert.equal(getUnfamiliarLinkHost('https://docs.google.com/forms/d/x/viewform?entry.1=https://x.com/me'), '')
+  assert.equal(getUnfamiliarLinkHost('https://www.facebook.com/events/1?ref=https%3A%2F%2Fm.facebook.com'), '')
+})
+
+test('a known host with an ordinary query stays known', () => {
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?utm_source=x&tk=123'), '')
+  assert.equal(getUnfamiliarLinkHost('https://www.facebook.com/events/1?ref=newsfeed'), '')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?time=18:30&lang=en&x=https:/y'), '')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/abc?next=//lu.ma/def&mail=mailto:a@b.co'), '')
 })
 
 test('a link with no web host is flagged as typed', () => {

@@ -92,11 +92,13 @@ const submitUpdateEvent = async (data, ctx) => {
   ctx.updateMutation.mutate({ id: ctx.selectedEvent.id, data })
 }
 
-// A link off the known event platforms replaces the usual confirm with a note
-// naming its host, so it doesn't read as the routine prompt.
+// A link off the known event platforms puts a note naming its host above the
+// usual confirm, so it doesn't read as the routine prompt but still says that
+// OK approves.
 const getApproveMessage = (event, t) => {
   const host = getUnfamiliarLinkHost(event.eventLink)
-  return host ? t('adminEvents.unfamiliarLinkNote', { host }) : t('adminEvents.confirmApprove')
+  const confirm = t('adminEvents.confirmApprove')
+  return host ? `${t('adminEvents.unfamiliarLinkNote', { host })}\n\n${confirm}` : confirm
 }
 
 const useAdminEventsData = () => {
