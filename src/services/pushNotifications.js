@@ -1,8 +1,8 @@
 import { deleteDoc, doc, setDoc } from 'firebase/firestore'
-import { deleteToken, getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging'
-import app, { db } from './firebase'
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging'
+import app, { auth, db } from './firebase'
 import { firebaseVapidKey } from './firebaseConfig'
-import { updateMemberPreferences } from './members'
+import { getMember, updateMemberPreferences } from './members'
 import { isMobilePushEligible } from '../utils/mobilePushEligibility'
 import { getHomeScreenInstallHint } from '../utils/iosInstallHint'
 import {
@@ -10,8 +10,6 @@ import {
   DEVICE_OPTED_OUT,
   getDeviceOptInState,
   getPushDeviceId,
-  isAnotherAccountOptedIn,
-  readPushDeviceId,
   setDeviceOptedIn,
   setDeviceOptedOut,
   isDeviceOptedIn,
@@ -19,6 +17,9 @@ import {
   shouldRecordLaunchOptOut,
   shouldRefreshPushToken
 } from '../utils/pushDeviceOptIn'
+
+import { createForegroundListener } from './pushForegroundListener'
+import { anotherAccountNeedsPush, clearPushRegistration, revokePushSubscription } from './pushTokenLifecycle'
 
 export { isMobilePushEligible } from '../utils/mobilePushEligibility'
 
@@ -31,15 +32,6 @@ const HUB_ICON = '/assets/favicon/android-chrome-192x192.png'
 const HUB_BADGE = '/assets/favicon/favicon-32x32.png'
 const DEFAULT_PUSH_TITLE = 'Da Nang Blockchain Hub'
 
-/** Unsubscribe for the singleton foreground push listener, if active. */
-let stopForegroundListener = null
-/** Shared in-flight ensure so concurrent callers do not double-register. */
-let ensureForegroundPromise = null
-/**
- * Bumped by stopForegroundPushListener so an in-flight ensure abandons
- * instead of registering after disable/logout/effect cleanup.
- */
-let foregroundListenerGeneration = 0
 /** BroadcastChannel for multi-tab “is any peer focused?” queries. */
 let pushFocusChannel = null
 const PUSH_FOCUS_CHANNEL = 'hub-push-focus'
@@ -132,54 +124,46 @@ const savePushToken = async (uid, deviceId, token) => {
   await deleteLegacyPushToken(uid)
 }
 
-const deleteBrowserPushToken = async () => {
-  if (!(await isPushSupported())) return false
-  if (Notification.permission !== 'granted') return false
-  const serviceWorkerRegistration = await getServiceWorkerRegistration()
-  // No push subscription means no live token to revoke.
-  if (!(await serviceWorkerRegistration.pushManager.getSubscription())) return false
-  // deleteToken only targets our sw.js after getToken has bound it in this page
-  // session; otherwise it registers the SDK's default /firebase-messaging-sw.js,
-  // which this app doesn't ship, and throws. With permission granted and a live
-  // subscription, getToken returns the existing token without prompting.
-  const messaging = await getMessagingInstance(true)
-  await getToken(messaging, { vapidKey: firebaseVapidKey, serviceWorkerRegistration })
-  return deleteToken(messaging)
-}
-
-// The in-flight revoke. A quick off→on or logout→login can get the same token
-// back, so issuePushToken waits for this first or the revoke would kill it.
+// Registration must wait for revocation, including a quick logout → login.
 let pendingBrowserTokenRevoke = null
 
-/**
- * Removes this phone's push: its device doc and the legacy doc. Once no doc
- * holds this phone's token the server can't send to it, so the browser token
- * revoke is best effort and not awaited (it can be a network round trip, and
- * logout must not wait on it). The legacy doc may hold another phone's token
- * that hasn't opened the app since per-phone tokens shipped; that phone gets
- * push again when it next opens the app.
- * Only a phone that granted permission can hold the legacy token, so logging
- * out elsewhere leaves it alone.
- * The deletes run independently: during a deploy the old rules refuse the
- * device delete, and that must not skip the legacy delete.
- */
+const deleteBrowserPushToken = async () => {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (registration) await revokePushSubscription(registration)
+}
+
+const revokeBrowserPushToken = () => {
+  pendingBrowserTokenRevoke = deleteBrowserPushToken()
+  return pendingBrowserTokenRevoke
+}
+
+const isAnotherAccountOptedIn = async (uid) => {
+  const activeUid = auth.currentUser?.uid
+  if (!activeUid || activeUid === uid) return false
+  const member = await getMember(activeUid)
+  // A logout/login during the read invalidates the answer; revoke conservatively.
+  if (auth.currentUser?.uid !== activeUid) return false
+  return anotherAccountNeedsPush({
+    uid, activeUid, state: getDeviceOptInState(activeUid),
+    preferenceEnabled: Boolean(member?.preferences?.pushNotifications),
+    permission: typeof Notification === 'undefined' ? 'default' : Notification.permission
+  })
+}
+
+/** Remove account documents and revoke the browser endpoint as the logout backstop. */
 const clearThisPhonePush = async (uid) => {
-  const deviceId = readPushDeviceId()
+  const deviceId = getPushDeviceId({ create: false })
   const mayHoldLegacyToken = typeof Notification !== 'undefined' &&
     Notification.permission === 'granted'
-  const results = await Promise.allSettled([
-    deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
-    mayHoldLegacyToken ? deleteLegacyPushToken(uid) : null
-  ])
-  // Another account opted in on this phone uses the same token; revoking it
-  // would silence them too, and their device doc keeps it in use anyway.
-  if (!isAnotherAccountOptedIn(uid)) {
-    pendingBrowserTokenRevoke = deleteBrowserPushToken().catch((error) => {
-      console.warn('Unable to revoke the browser push token:', error)
-    })
-  }
-  const failed = results.find((result) => result.status === 'rejected')
-  if (failed) throw failed.reason
+  await clearPushRegistration({
+    deletes: [
+      deviceId ? deleteDoc(getDevicePushTokenRef(uid, deviceId)) : null,
+      mayHoldLegacyToken ? deleteLegacyPushToken(uid) : null
+    ],
+    anotherAccountNeedsPush: () => isAnotherAccountOptedIn(uid).catch(() => false),
+    revoke: revokeBrowserPushToken
+  })
 }
 
 const resolvePushContent = (payload) => {
@@ -270,68 +254,25 @@ const showForegroundSystemNotification = async (payload) => {
   await displaySystemNotification(payload)
 }
 
-/**
- * Idempotent: ensures a single onMessage handler is registered for this page.
- * Concurrent callers share one in-flight promise; stop() bumps a generation so
- * an ensure that loses a race never leaves a live listener behind.
- * @returns {Promise<(() => void)|void>}
- */
-export const ensureForegroundPushListener = async () => {
-  if (stopForegroundListener) return stopForegroundListener
-  if (ensureForegroundPromise) return ensureForegroundPromise
-
-  const generation = foregroundListenerGeneration
-  ensureForegroundPromise = (async () => {
-    try {
-      if (!(await isPushSupported())) return undefined
-      if (generation !== foregroundListenerGeneration) return undefined
-      if (stopForegroundListener) return stopForegroundListener
-
-      startPushFocusChannel()
-      const messaging = getMessaging(app)
-      const unsubscribe = onMessage(messaging, (payload) => {
-        showForegroundSystemNotification(payload).catch((error) => {
-          console.warn('Unable to show foreground push notification:', error)
-        })
+const foregroundListener = createForegroundListener({
+  isSupported: isPushSupported,
+  start: () => {
+    startPushFocusChannel()
+    return onMessage(getMessaging(app), (payload) => {
+      showForegroundSystemNotification(payload).catch((error) => {
+        console.warn('Unable to show foreground push notification:', error)
       })
+    })
+  },
+  onStop: stopPushFocusChannel
+})
 
-      if (generation !== foregroundListenerGeneration) {
-        unsubscribe()
-        stopPushFocusChannel()
-        return undefined
-      }
-
-      stopForegroundListener = () => {
-        unsubscribe()
-        stopPushFocusChannel()
-      }
-      return stopForegroundListener
-    } finally {
-      ensureForegroundPromise = null
-    }
-  })()
-
-  return ensureForegroundPromise
-}
-
-export const stopForegroundPushListener = () => {
-  foregroundListenerGeneration += 1
-  if (!stopForegroundListener) {
-    stopPushFocusChannel()
-    return
-  }
-  try {
-    stopForegroundListener()
-  } finally {
-    // Always clear so a throwing unsubscribe cannot block re-register.
-    stopForegroundListener = null
-    stopPushFocusChannel()
-  }
-}
+export const ensureForegroundPushListener = foregroundListener.ensure
+export const stopForegroundPushListener = foregroundListener.stop
 
 /** Mints a fresh FCM token against the active service worker registration. */
 const issuePushToken = async () => {
-  await pendingBrowserTokenRevoke
+  if (pendingBrowserTokenRevoke) await pendingBrowserTokenRevoke.catch(revokeBrowserPushToken)
   const messaging = await getMessagingInstance(true)
   const serviceWorkerRegistration = await getServiceWorkerRegistration()
   const token = await getToken(messaging, {
@@ -360,7 +301,6 @@ export const enablePushNotifications = async (uid) => {
   // Marked only after the writes land, so a half-failed opt-in does not leave a
   // device claiming an opt-in it never completed.
   setDeviceOptedIn(uid)
-  await ensureForegroundPushListener()
 
   return token
 }
@@ -410,9 +350,6 @@ export const refreshPushToken = async (uid, { preferenceEnabled = false } = {}) 
   // Recorded only once the token write landed, mirroring enablePushNotifications:
   // a half-failed adoption must not leave a device claiming an opt-in.
   if (state !== DEVICE_OPTED_IN) setDeviceOptedIn(uid)
-  // AuthContext gates the listener on the marker, which an adopted phone only
-  // gets here; without this its first session shows Chrome's default shell.
-  await ensureForegroundPushListener()
   return true
 }
 
@@ -428,9 +365,6 @@ export const disablePushNotifications = async (uid) => {
     await clearThisPhonePush(uid)
   } catch (error) {
     setDeviceOptedIn(uid)
-    ensureForegroundPushListener().catch((listenerError) => {
-      console.warn('Unable to restart the foreground push listener:', listenerError)
-    })
     throw error
   }
 }

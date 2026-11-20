@@ -51,7 +51,7 @@ const {
 const {getNewlyPromoted} = require("./waitlist");
 const {buildEventStatusEmail} = require("./emailHtml");
 const {getTransporter} = require("./emailTransport");
-const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
+const {getPushTokens, decideMemberMarkers} = require("./pushTokens");
 
 const {nextRateLimitState} = require("./importRateLimit");
 
@@ -814,47 +814,6 @@ async function notifyAdmins(type, subjectId, data, adminDocs) {
   return Promise.all(writes);
 }
 
-/**
- * @param {Object} member Member Firestore document data
- * @return {boolean} True if the member opted into push notifications
- */
-function hasPushEnabled(member) {
-  return Boolean(
-      member &&
-      member.preferences &&
-      member.preferences.pushNotifications === true,
-  );
-}
-
-/**
- * Reads every phone token a member has stored, one doc per phone, plus the
- * legacy single-token doc until a phone deletes it. Only for members with the
- * account preference on: the app sets it when any phone turns on and never
- * writes it false (off is per phone, by deleting that phone's doc), so false
- * is an opt-out from before per-phone tokens, and it skips the reads.
- * @param {string} memberId Member document id
- * @param {Object} member Member Firestore document data
- * @return {Promise<Array<{token: string, refs: Array}>>} Distinct tokens
- */
-async function getPushTokens(memberId, member) {
-  if (!hasPushEnabled(member)) return [];
-
-  const legacyRef = db.collection("push_tokens").doc(memberId);
-  const [deviceDocs, legacyDoc] = await Promise.all([
-    legacyRef.collection("devices").get(),
-    legacyRef.get(),
-  ]);
-
-  const entries = deviceDocs.docs.map((deviceDoc) => ({
-    token: deviceDoc.get("token"),
-    ref: deviceDoc.ref,
-  }));
-  if (legacyDoc && legacyDoc.exists) {
-    entries.push({token: legacyDoc.get("token"), ref: legacyRef});
-  }
-  return groupTokenEntries(entries);
-}
-
 const PUSH_MARKER_TTL_DAYS = 90;
 const PUSH_MARKER_TTL_MS = PUSH_MARKER_TTL_DAYS * 24 * 60 * 60 * 1000;
 const PUSH_MARKER_PENDING_MS = 10 * 60 * 1000;
@@ -1222,7 +1181,7 @@ async function sendPushToMembers(docs, payload) {
 
   const recipients = (await Promise.all(docs.map(async (doc) => {
     const member = doc.data();
-    const pushTokens = await getPushTokens(doc.id, member);
+    const pushTokens = await getPushTokens(db, doc.id, member);
     if (!pushTokens.length) {
       return [];
     }

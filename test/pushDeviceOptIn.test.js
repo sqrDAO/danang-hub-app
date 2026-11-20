@@ -6,10 +6,9 @@ import {
   DEVICE_OPT_IN_UNKNOWN,
   shouldAdoptLegacyOptIn,
   getPushDeviceId,
-  isAnotherAccountOptedIn,
   isDevicePushOn,
-  readPushDeviceId,
   setDeviceOptedIn,
+  subscribeDeviceOptIn,
   shouldAttemptLaunchPushRefresh,
   shouldRecordLaunchOptOut,
   shouldRefreshPushToken
@@ -187,15 +186,15 @@ test('getPushDeviceId returns null when storage is blocked', () => {
   assert.equal(withStorage(blocked, getPushDeviceId), null)
 })
 
-test('readPushDeviceId never creates an id', () => {
+test('getPushDeviceId with create false never creates an id', () => {
   const store = memoryStorage()
-  assert.equal(withStorage(store, readPushDeviceId), null)
+  assert.equal(withStorage(store, () => getPushDeviceId({ create: false })), null)
   assert.equal(store.getItem('pushDeviceId'), null)
 })
 
-test('readPushDeviceId returns the stored id', () => {
+test('getPushDeviceId with create false returns the stored id', () => {
   const store = memoryStorage({ pushDeviceId: 'phone-1' })
-  assert.equal(withStorage(store, readPushDeviceId), 'phone-1')
+  assert.equal(withStorage(store, () => getPushDeviceId({ create: false })), 'phone-1')
 })
 
 const pushOn = (store, overrides) => withStorage(store, () => isDevicePushOn('member-a', {
@@ -238,23 +237,27 @@ test('setDeviceOptedIn tells same-tab listeners the marker changed', () => {
   assert.deepEqual(events, ['push-device-opt-in-change'])
 })
 
-const fakeStorage = (entries) => {
-  const keys = Object.keys(entries)
-  return { length: keys.length, key: (i) => keys[i], getItem: (k) => entries[k] ?? null }
-}
-
-test('another account opted in on this phone is detected', () => {
-  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'false', 'pushDeviceOptIn:b': 'true' })
-  assert.equal(isAnotherAccountOptedIn('a', storage), true)
-})
-
-test('the account being cleaned up does not count as another account', () => {
-  const storage = fakeStorage({ 'pushDeviceOptIn:a': 'true', 'pushDeviceOptIn:b': 'false' })
-  assert.equal(isAnotherAccountOptedIn('a', storage), false)
-})
-
-test('unrelated keys and an unreadable storage count as no other account', () => {
-  assert.equal(isAnotherAccountOptedIn('a', fakeStorage({ pushDeviceId: 'true' })), false)
-  const broken = { get length () { throw new Error('blocked') } }
-  assert.equal(isAnotherAccountOptedIn('a', broken), false)
+test('storage subscriptions follow other tabs and unsubscribe cleanly', () => {
+  const listeners = new Map()
+  const storage = memoryStorage()
+  globalThis.window = {
+    localStorage: storage,
+    addEventListener: (type, handler) => listeners.set(type, handler),
+    removeEventListener: (type) => listeners.delete(type)
+  }
+  let changes = 0
+  try {
+    const unsubscribe = subscribeDeviceOptIn(() => changes++)
+    const fire = (key) => listeners.get('storage')({ key, storageArea: storage })
+    fire('unrelated')
+    assert.equal(changes, 0)
+    fire('pushDeviceOptIn:a')
+    fire(null)
+    listeners.get('push-device-opt-in-change')()
+    assert.equal(changes, 3)
+    unsubscribe()
+    assert.equal(listeners.size, 0)
+  } finally {
+    delete globalThis.window
+  }
 })

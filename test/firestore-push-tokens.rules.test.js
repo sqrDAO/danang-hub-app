@@ -60,6 +60,13 @@ if (!hasEmulator) {
     await assertSucceeds(deleteDoc(doc(memberDb(), 'push_tokens/member-a')))
   })
 
+  test('owners cannot create or update legacy push token docs', async () => {
+    const ref = doc(memberDb(), 'push_tokens/member-a')
+    await assertFails(setDoc(ref, { token: 'legacy' }))
+    await seed('push_tokens/member-a', { token: 'legacy' })
+    await assertFails(setDoc(ref, { token: 'replacement' }))
+  })
+
   test('members cannot write another member\'s device docs', async () => {
     await seed('push_tokens/member-b/devices/phone-1', device())
     const otherDb = memberDb()
