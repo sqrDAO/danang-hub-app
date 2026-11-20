@@ -47,6 +47,7 @@ const {
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
 const {escapeHtml} = require("./emailHtml");
+const {getTransporter} = require("./emailTransport");
 const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
 
 initializeApp();
@@ -58,29 +59,6 @@ const db = getFirestore();
 // to set the public invoker IAM policy in other regions).
 const REGION = "us-central1";
 setGlobalOptions({region: REGION});
-
-// Initialize on first use, after runtime secrets are available.
-// Warm invocations share this process-local SMTP pool.
-let emailTransporter;
-/**
- * Gets the shared Nodemailer SMTP transporter from runtime configuration.
- * @return {object} Nodemailer transporter instance
- */
-function getTransporter() {
-  if (emailTransporter) return emailTransporter;
-  const nodemailer = require("nodemailer");
-  emailTransporter = nodemailer.createTransport({
-    pool: true,
-    host: process.env.EMAIL_SMTP_HOST,
-    port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
-    secure: process.env.EMAIL_SMTP_SECURE !== "false",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-  return emailTransporter;
-}
 
 /**
  * Returns the user's Firebase Auth email only when Firebase has verified it.
