@@ -241,6 +241,10 @@ service cloud.firestore {
 
     // Browser push tokens are private client writes. Cloud Functions read them
     // through the Admin SDK; no client should read tokens back from Firestore.
+    match /importRateLimits/{uid} {
+      allow read, write: if false;
+    }
+
     match /push_tokens/{userId} {
       allow read: if false;
       // Legacy documents cannot be recreated after migration.
