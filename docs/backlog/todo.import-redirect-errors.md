@@ -10,8 +10,6 @@ Resolve [#225](https://github.com/sqrDAO/danang-hub-app/issues/225) by showing a
 - `src/components/event/EventImportField.jsx` (edited) — use the shared toast selector.
 - `test/eventImport.test.js` (edited) — verify blocked redirects and direct unsupported-input feedback.
 
-- `docs/review/import-redirect-error.png` (new) — fixture screenshot of blocked-redirect feedback.
-
 ## Acceptance
 - [ ] A Luma link redirecting outside the allowlist shows the existing import-failure toast.
 - [ ] Direct unsupported input retains the unsupported-link toast.
