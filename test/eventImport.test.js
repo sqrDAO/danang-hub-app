@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { getEventImportErrorKey } from '../src/utils/eventImportErrors.js'
 
 const require = createRequire(import.meta.url)
 const {
@@ -156,7 +157,12 @@ test('fetchEventPage refuses a redirect to a host off the allowlist', async () =
     'https://lu.ma/abc': () => redirect('http://169.254.169.254/latest/meta-data')
   })
   await assert.rejects(fetchEventPage(new URL('https://lu.ma/abc'), fetchImpl),
-    { message: /unsupported/, callableCode: 'invalid-argument' })
+    (error) => {
+      assert.match(error.message, /unsupported/)
+      assert.equal(error.callableCode, 'unavailable')
+      assert.equal(getEventImportErrorKey({ code: `functions/${error.callableCode}` }), 'toast.eventImportFailed')
+      return true
+    })
   assert.equal(calls.length, 1)
 })
 
@@ -179,4 +185,17 @@ test('fetchEventPage rejects error statuses and pages over 1 MB', async () => {
   await assert.rejects(fetchEventPage(new URL('https://luma.com/down'), fetchImpl),
     { message: /503/, callableCode: undefined })
   await assert.rejects(fetchEventPage(new URL('https://luma.com/huge'), fetchImpl), /too large/)
+})
+
+test('direct unsupported links retain useful feedback in both locales', () => {
+  assert.equal(parseImportUrl('https://example.com/event'), null)
+  const unsupported = getEventImportErrorKey({ code: 'functions/invalid-argument' })
+  const failed = getEventImportErrorKey({ code: 'functions/unavailable' })
+  assert.equal(unsupported, 'toast.eventImportUnsupported')
+  for (const locale of ['en', 'vi']) {
+    const { toast } = require(`../src/locales/${locale}.json`)
+    assert.ok(toast[unsupported.split('.')[1]].includes('Luma'))
+    assert.ok(toast[failed.split('.')[1]])
+    assert.notEqual(toast[unsupported.split('.')[1]], toast[failed.split('.')[1]])
+  }
 })

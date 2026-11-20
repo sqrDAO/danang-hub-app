@@ -3,12 +3,7 @@ import { importEventFromUrl } from '../../services/functions'
 import { fetchBannerFile } from '../../services/storage'
 import { showToast } from '../../utils/toast'
 import { getImportedFormValues } from './eventFields'
-
-const IMPORT_ERROR_KEYS = {
-  'functions/invalid-argument': 'toast.eventImportUnsupported',
-  'functions/resource-exhausted': 'toast.eventImportRateLimited',
-  'functions/not-found': 'toast.eventImportNoData'
-}
+import { getEventImportErrorKey } from '../../utils/eventImportErrors'
 
 // The event form is uncontrolled (inputs keep their own values), so an import
 // writes straight to the inputs. Duration is the one controlled field: it goes
@@ -59,7 +54,7 @@ const EventImportField = ({ changeEventDuration, t }) => {
       if (hasBanner) showToast(t('toast.eventImported'), 'success')
       else showToast(t('toast.eventImportedNoBanner'), 'info', 5000)
     } catch (error) {
-      showToast(t(IMPORT_ERROR_KEYS[error?.code] || 'toast.eventImportFailed'), 'error')
+      showToast(t(getEventImportErrorKey(error)), 'error')
     } finally {
       setIsImporting(false)
     }
