@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   signInWithPopup,
   signOut,
@@ -20,7 +20,7 @@ import {
 // to bundle, and a failed dynamic import here would throw out of logout()
 // before signOut ever ran.
 import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
-import { isDeviceOptedIn, shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
+import { isDeviceOptedIn, subscribeDeviceOptIn, shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
 import { missingProfileFields } from '../utils/profileFields'
 
@@ -270,38 +270,33 @@ export const AuthProvider = ({ children }) => {
     return undefined
   }, [currentUser, userProfile])
 
+  const devicePushEnabled = useSyncExternalStore(
+    subscribeDeviceOptIn,
+    () => Boolean(currentUser && isDeviceOptedIn(currentUser.uid)),
+    () => false
+  )
+
   // FCM delivers to onMessage when a tab is open; without a handler Chrome shows
   // its default "site updated in the background" shell for unfocused tabs.
   useEffect(() => {
-    const pushModule = () => import('../services/pushNotifications')
-    // Per phone: another phone's opt-in says nothing about this one. An
-    // adopted phone starts its listener from refreshPushToken instead.
-    const pushEnabled = Boolean(currentUser && isDeviceOptedIn(currentUser.uid))
-    if (!pushEnabled) {
-      pushModule()
-        .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
-        .catch(() => {})
-      return undefined
-    }
-
     let cancelled = false
-    pushModule()
-      .then(async ({ ensureForegroundPushListener, stopForegroundPushListener }) => {
-        await ensureForegroundPushListener()
-        // Effect cleaned up while ensure was in flight — drop the listener.
-        if (cancelled) stopForegroundPushListener()
+    let pushService
+    import('../services/pushNotifications')
+      .then(async (service) => {
+        if (cancelled) return
+        pushService = service
+        if (devicePushEnabled) await service.ensureForegroundPushListener()
+        else service.stopForegroundPushListener()
       })
       .catch((error) => {
-        console.warn('Unable to start foreground push listener:', error)
+        console.warn('Unable to update foreground push listener:', error)
       })
 
     return () => {
       cancelled = true
-      pushModule()
-        .then(({ stopForegroundPushListener }) => stopForegroundPushListener())
-        .catch(() => {})
+      pushService?.stopForegroundPushListener()
     }
-  }, [currentUser])
+  }, [currentUser, devicePushEnabled])
 
   const value = {
     currentUser,

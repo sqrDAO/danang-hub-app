@@ -804,7 +804,8 @@ function hasPushEnabled(member) {
 
 /**
  * Reads every phone token a member has stored, one doc per phone, plus the
- * legacy single-token doc until a phone deletes it. Only for members with the
+ * legacy single-token doc until its absence is recorded on the member.
+ * Only for members with the
  * account preference on: the app sets it when any phone turns on and never
  * writes it false (off is per phone, by deleting that phone's doc), so false
  * is an opt-out from before per-phone tokens, and it skips the reads.
@@ -818,7 +819,7 @@ async function getPushTokens(memberId, member) {
   const legacyRef = db.collection("push_tokens").doc(memberId);
   const [deviceDocs, legacyDoc] = await Promise.all([
     legacyRef.collection("devices").get(),
-    legacyRef.get(),
+    member.pushTokensMigrated ? null : legacyRef.get(),
   ]);
 
   const entries = deviceDocs.docs.map((deviceDoc) => ({
@@ -827,6 +828,11 @@ async function getPushTokens(memberId, member) {
   }));
   if (legacyDoc && legacyDoc.exists) {
     entries.push({token: legacyDoc.get("token"), ref: legacyRef});
+  }
+  if (!member.pushTokensMigrated && !legacyDoc.exists) {
+    await db.collection("members").doc(memberId).update({
+      pushTokensMigrated: true,
+    });
   }
   return groupTokenEntries(entries);
 }

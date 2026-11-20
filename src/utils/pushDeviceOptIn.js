@@ -111,26 +111,6 @@ export const getDeviceOptInState = (uid) => {
 export const isDeviceOptedIn = (uid) => getDeviceOptInState(uid) === DEVICE_OPTED_IN
 
 /**
- * Whether an account other than `uid` turned push on in this browser. The FCM
- * token belongs to the browser, not the account, so they share it.
- * @param {string} uid Account being cleaned up
- * @param {Storage} [storage] Defaults to localStorage
- * @returns {boolean}
- */
-export const isAnotherAccountOptedIn = (uid, storage = globalThis.localStorage) => {
-  try {
-    for (let i = 0; i < storage.length; i += 1) {
-      const key = storage.key(i)
-      if (key?.startsWith(DEVICE_OPT_IN_KEY('')) && key !== DEVICE_OPT_IN_KEY(uid) &&
-        storage.getItem(key) === 'true') return true
-    }
-  } catch {
-    // Storage blocked: no account can be opted in here.
-  }
-  return false
-}
-
-/**
  * Whether this phone receives push, as Profile's switch shows it: opted in, or
  * about to be adopted by the launch refresh (which may land after the page
  * opened), so switching it off still runs the cleanup.
@@ -165,25 +145,19 @@ export const setDeviceOptedOut = (uid) => writeDeviceOptIn(uid, 'false')
 
 /** @returns {() => void} Unsubscribe */
 export const subscribeDeviceOptIn = (onChange) => {
+  const onStorage = (event) => {
+    if (event.storageArea === window.localStorage &&
+      (event.key === null || event.key.startsWith(DEVICE_OPT_IN_KEY('')))) onChange()
+  }
   window.addEventListener(DEVICE_OPT_IN_EVENT, onChange)
-  return () => window.removeEventListener(DEVICE_OPT_IN_EVENT, onChange)
+  window.addEventListener('storage', onStorage)
+  return () => {
+    window.removeEventListener(DEVICE_OPT_IN_EVENT, onChange)
+    window.removeEventListener('storage', onStorage)
+  }
 }
 
 const DEVICE_ID_KEY = 'pushDeviceId'
-
-/**
- * This phone's id if it already has one; never creates one. Logout uses it so
- * a phone that never registered doesn't gain an id or send a pointless delete.
- * @returns {string|null}
- */
-export const readPushDeviceId = () => {
-  if (typeof window === 'undefined') return null
-  try {
-    return window.localStorage.getItem(DEVICE_ID_KEY)
-  } catch {
-    return null
-  }
-}
 
 /**
  * This phone's stable id, keying `push_tokens/{uid}/devices/{id}` so a token
@@ -192,11 +166,11 @@ export const readPushDeviceId = () => {
  * @returns {string|null} null when storage is blocked: a phone that cannot
  * keep its id cannot keep its doc either, so callers must not register it.
  */
-export const getPushDeviceId = () => {
+export const getPushDeviceId = ({ create = true } = {}) => {
   if (typeof window === 'undefined') return null
   try {
     const stored = window.localStorage.getItem(DEVICE_ID_KEY)
-    if (stored) return stored
+    if (stored || !create) return stored
     const id = window.crypto.randomUUID()
     window.localStorage.setItem(DEVICE_ID_KEY, id)
     return id
