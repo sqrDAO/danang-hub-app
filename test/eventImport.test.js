@@ -119,6 +119,32 @@ test('toEventDraft reads times without an offset as hub time', () => {
   assert.equal(draft.duration, 165)
 })
 
+test('toEventDraft preserves all-day events at hub midnight', () => {
+  const draft = toEventDraft({
+    ...lumaEvent,
+    startDate: '2026-12-01',
+    endDate: '2026-12-02'
+  }, pageUrl)
+  assert.deepEqual(draft, {
+    title: 'Web3 Night',
+    description: 'Talks and pizza.',
+    date: '2026-11-30T17:00:00.000Z',
+    duration: 1440,
+    eventLink: lumaEvent.url,
+    image: null
+  })
+  assert.equal(toEventDraft({ ...lumaEvent, startDate: '2026-12-01', endDate: undefined }, pageUrl).duration, null)
+})
+
+test('toEventDraft preserves explicit offsets and accepts lowercase UTC suffixes', () => {
+  for (const startDate of ['2026-12-01T18:30:00+07:00', '2026-12-01T06:30:00-05:00',
+    '2026-12-01T11:30:00Z', '2026-12-01T11:30:00z']) {
+    const draft = toEventDraft({ ...lumaEvent, startDate, endDate: '2026-12-01T14:10:00z' }, pageUrl)
+    assert.equal(draft.date, '2026-12-01T11:30:00.000Z')
+    assert.equal(draft.duration, 165)
+  }
+})
+
 const htmlResponse = (html) => new Response(html, { status: 200 })
 const redirect = (location) => new Response(null, { status: 302, headers: { location } })
 

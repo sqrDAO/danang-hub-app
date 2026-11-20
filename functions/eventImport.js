@@ -123,11 +123,12 @@ const extractEventJsonLd = (html) => {
 const asText = (value, maxLength) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
-// A time without an offset is read as hub time (Asia/Ho_Chi_Minh, which has
-// no daylight saving), never as the server's own time zone.
+// Date-only values start at hub midnight. Times without an offset also use
+// hub time (Asia/Ho_Chi_Minh, no DST), never the server's own time zone.
 const asInstant = (value) => {
   if (typeof value !== "string") return null;
-  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) value += "T00:00:00";
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
   const date = new Date(hasOffset ? value : `${value}+07:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
