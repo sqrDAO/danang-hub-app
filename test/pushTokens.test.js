@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const { groupTokenEntries, decideMemberMarkers } = require('../functions/pushTokens.js')
+const { groupTokenEntries, decideMemberMarkers, getPushTokens } = require('../functions/pushTokens.js')
 
 test('groupTokenEntries keeps one item per phone token', () => {
   const grouped = groupTokenEntries([
@@ -49,4 +49,45 @@ test('decideMemberMarkers releases a member only when every phone failed', () =>
     { memberId: 'm1', success: false }
   ])
   assert.deepEqual(result, { marked: ['m2'], released: ['m1'] })
+})
+
+const tokenDb = ({ legacy = null, update = async () => {}, onLegacyRead = () => {} } = {}) => ({
+  collection: (name) => ({ doc: () => name === 'members' ? { update } : {
+    collection: () => ({ get: async () => ({ docs: [{ get: () => 'device-token', ref: 'device-ref' }] }) }),
+    get: async () => {
+      onLegacyRead()
+      return { exists: Boolean(legacy), get: () => legacy }
+    }
+  } })
+})
+
+test('migration write failure cannot abort token collection for any recipient', async () => {
+  let updates = 0
+  const db = tokenDb({ update: async () => { updates += 1; throw new Error('transient write failure') } })
+  const member = { preferences: { pushNotifications: true } }
+  const results = await Promise.all(['a', 'b'].map((uid) => getPushTokens(db, uid, member)))
+  assert.deepEqual(results, [
+    [{ token: 'device-token', refs: ['device-ref'] }],
+    [{ token: 'device-token', refs: ['device-ref'] }]
+  ])
+  assert.equal(updates, 2)
+})
+
+test('migrated accounts skip legacy reads and disabled accounts skip all token reads', async () => {
+  let reads = 0
+  const db = tokenDb({ onLegacyRead: () => { reads += 1 } })
+  const member = { preferences: { pushNotifications: true } }
+  await getPushTokens(db, 'a', { ...member, pushTokensMigrated: true })
+  assert.equal(reads, 0)
+  assert.deepEqual(await getPushTokens(null, 'a', {}), [])
+  await getPushTokens(db, 'a', member)
+  assert.equal(reads, 1)
+})
+
+test('existing legacy tokens remain deliverable until deleted', async () => {
+  let updates = 0
+  const db = tokenDb({ legacy: 'legacy-token', update: async () => { updates += 1 } })
+  const result = await getPushTokens(db, 'a', { preferences: { pushNotifications: true } })
+  assert.deepEqual(result.map(({ token }) => token), ['device-token', 'legacy-token'])
+  assert.equal(updates, 0)
 })

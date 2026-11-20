@@ -243,7 +243,8 @@ service cloud.firestore {
     // through the Admin SDK; no client should read tokens back from Firestore.
     match /push_tokens/{userId} {
       allow read: if false;
-      allow create, update, delete: if isOwner(userId);
+      // Legacy documents cannot be recreated after migration.
+      allow delete: if isOwner(userId);
 
       // One doc per phone, keyed by a random id the phone keeps, so each phone
       // overwrites only its own token.

@@ -46,4 +46,57 @@ const decideMemberMarkers = (outcomes) => {
   return {marked, released};
 };
 
-module.exports = {groupTokenEntries, decideMemberMarkers};
+/**
+ * @param {Object} member Member Firestore document data
+ * @return {boolean} True if the member opted into push notifications
+ */
+function hasPushEnabled(member) {
+  return Boolean(
+      member &&
+      member.preferences &&
+      member.preferences.pushNotifications === true,
+  );
+}
+
+/**
+ * Reads every phone token a member has stored, one doc per phone, plus the
+ * legacy single-token doc until its absence is recorded on the member.
+ * Only for members with the
+ * account preference on: the app sets it when any phone turns on and never
+ * writes it false (off is per phone, by deleting that phone's doc), so false
+ * is an opt-out from before per-phone tokens, and it skips the reads.
+ * @param {Object} db Firestore database
+ * @param {string} memberId Member document id
+ * @param {Object} member Member Firestore document data
+ * @return {Promise<Array<{token: string, refs: Array}>>} Distinct tokens
+ */
+async function getPushTokens(db, memberId, member) {
+  if (!hasPushEnabled(member)) return [];
+
+  const legacyRef = db.collection("push_tokens").doc(memberId);
+  const [deviceDocs, legacyDoc] = await Promise.all([
+    legacyRef.collection("devices").get(),
+    member.pushTokensMigrated ? null : legacyRef.get(),
+  ]);
+
+  const entries = deviceDocs.docs.map((deviceDoc) => ({
+    token: deviceDoc.get("token"),
+    ref: deviceDoc.ref,
+  }));
+  if (legacyDoc && legacyDoc.exists) {
+    entries.push({token: legacyDoc.get("token"), ref: legacyRef});
+  }
+  if (!member.pushTokensMigrated && !legacyDoc.exists) {
+    // Bookkeeping is best effort: never reject the recipients' send batch.
+    // Await the caught write so the Functions runtime cannot suspend it early.
+    await db.collection("members").doc(memberId).update({
+      pushTokensMigrated: true,
+    }).catch((error) => {
+      console.warn("Unable to mark push-token migration:", memberId, error);
+    });
+  }
+  return groupTokenEntries(entries);
+}
+
+
+module.exports = {groupTokenEntries, decideMemberMarkers, getPushTokens};

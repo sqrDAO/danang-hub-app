@@ -342,13 +342,13 @@ functions/
 
 | Collection | Description |
 |------------|-------------|
-| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it), `email` (owners with a sign-in email may only set that; wallet accounts type their own), `emailVerificationRequired` (set on new email/password sign-ups; the app holds them on the verify screen until verified) |
+| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it), `email` (owners with a sign-in email may only set that; wallet accounts type their own), `emailVerificationRequired` (set on new email/password sign-ups; the app holds them on the verify screen until verified), server migration marker `pushTokensMigrated` (legacy push-token document confirmed absent) |
 | `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration); optional `reservedForPartnerId` marks a partner's desk, bookable only by that partner's members (set from the Partners panel, rules-enforced) |
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |
 | `events` | Events with approval status, revision/everApproved metadata, attendees, waitlist, rejection reason, and venue (`requestedAmenityId`) |
 | `notifications` | In-app notifications written only by Cloud Functions; members read their own and may update only the `read` field |
-| `push_tokens` | Per-phone tokens at `push_tokens/{uid}/devices/{deviceId}`. Off/logout deletes this account's phone and legacy token documents. The shared browser subscription stays available for other accounts. The sender checks legacy tokens until an absent legacy doc sets `members.pushTokensMigrated`, then skips legacy reads. Local opt-in markers preserve intent for the next login. |
+| `push_tokens` | Per-phone tokens at `push_tokens/{uid}/devices/{deviceId}`; read only when `preferences.pushNotifications` is on. Device registration, Off and logout delete the legacy `push_tokens/{uid}` doc, which clients can no longer create/update. The sender sets `members.pushTokensMigrated` best effort after confirming legacy absence, then skips legacy reads. Off/logout also revoke this browser's subscription unless another signed-in account needs it; failed document cleanup forces revocation. Logged-out markers preserve next-login intent but cannot suppress revocation. Unrecoverable FCM errors prune every doc holding the invalid token. |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |

@@ -1,31 +1,50 @@
 # Per-device push cleanup
+**Phase**: — · **Deps**: —
 
 ## Goal
-Resolve [#182](https://github.com/sqrDAO/danang-hub-app/issues/182) while preserving per-phone opt-out and automatic registration after login.
+Resolve [#182](https://github.com/sqrDAO/danang-hub-app/issues/182), preserving per-phone opt-out and revocation on logout. Address the [#220 review](https://github.com/sqrDAO/danang-hub-app/pull/220#issuecomment-7037812103).
 
 ## Files
-- `src/services/pushNotifications.js` — remove shared browser token revocation and duplicate listener starts.
-- `src/utils/pushDeviceOptIn.js` — storage subscription and consolidated device ID lookup.
-- `src/contexts/AuthContext.jsx` — own listener lifecycle via reactive device opt-in.
-- `functions/index.js` — skip legacy reads after confirming legacy absence.
-- `test/pushDeviceOptIn.test.js` — marker event and ID regression checks.
-- `README.md` — token lifecycle and migration marker.
+- `src/services/pushNotifications.js` (edited) — revocation and listener lifecycle.
+- `src/services/pushForegroundListener.js` (new) — generation-aware listener ownership.
+- `src/services/pushTokenLifecycle.js` (new) — testable cleanup orchestration.
+- `src/utils/pushDeviceOptIn.js` (edited) — storage subscription and device ID lookup.
+- `src/contexts/AuthContext.jsx` (edited) — own listener lifecycle.
+- `functions/index.js` (edited) — use extracted token reader.
+- `functions/pushTokens.js` (edited) — best-effort legacy migration.
+- `firestore.rules` (edited) — legacy token documents are delete-only.
+- `test/pushDeviceOptIn.test.js` (edited) — marker events and ID checks.
+- `test/pushForegroundListener.test.js` (new) — stale and current listener generations.
+- `test/pushTokenLifecycle.test.js` (new) — cleanup failure and account-switch tests.
+- `test/pushTokens.test.js` (edited) — legacy migration failure regression.
+- `test/firestore-push-tokens.rules.test.js` (edited) — deny legacy writes.
+- `README.md` (edited) — token lifecycle and migration marker.
+- `docs/knowledge/data-flow.md` (edited) — logout and migration flow.
 
 ## Acceptance
-- [ ] Logout/off delete account token documents without revoking another account's shared browser token.
-- [ ] Existing markers preserve opt-in intent on next login.
-- [ ] Cross-tab marker changes update subscribers and listener lifecycle.
-- [ ] Device ID reads can avoid creating a new ID.
-- [ ] A member with a confirmed absent legacy token skips subsequent legacy reads.
+- [ ] Off/logout removes this phone's token documents.
+- [ ] Off/logout revokes its subscription when no other signed-in account needs it.
+- [ ] Failed document cleanup still revokes the subscription.
+- [ ] Offline document cleanup times out after five seconds so logout can finish.
+- [ ] Logged-out accounts' markers never suppress revocation.
+- [ ] A signed-in account awaiting legacy adoption is recognized as opted in.
+- [ ] Revocation never calls getToken or creates a subscription.
+- [ ] Registration waits for outstanding revocation.
+- [ ] Existing markers preserve next-login intent.
+- [ ] Cross-tab marker changes update listener lifecycle.
+- [ ] A stopped in-flight listener cannot suppress a new generation.
+- [ ] Migration bookkeeping failures cannot fail token delivery.
+- [ ] Clients cannot recreate legacy token documents after migration.
+- [ ] NOT: change account-wide preferences on Off/logout.
 
 ## Verify
-- App lint, Functions lint, build and unit tests pass.
-- Exercise marker subscription cleanup and storage changes in unit tests.
-- Verify server migration behavior with existing and absent legacy docs.
+- `npm run lint` → zero warnings/errors.
+- `npm run build` → production build succeeds.
+- `npm test` → all unit tests pass (emulator tests skip).
+- `cd functions && npm run lint` → zero errors.
+- `npm run test:rules` → all rules tests pass.
+- Real phone: force device deletion failure at logout, then sign in as another account; the old account must receive no notifications there.
+- Real phone: Off/On leaves a second phone enabled; re-login has no background-update shell; repeat on iOS home-screen app.
 
-## Results
-- Unit tests pass with 296 passed and 8 emulator-dependent skips.
-- Legacy-read matrix verified using the sender function with controlled database responses, covering migrated/unmigrated members and present/absent legacy tokens.
-- AuthContext exclusively starts the listener, reacting to same-tab and storage marker events; stale effect imports are cancelled before starting.
-- Browser subscriptions remain available after logout; account-specific token document deletion controls delivery. Markers retain login intent and no longer gate shared token revocation.
-- Real phone push delivery and account-switching verification remain pending.
+## Notes
+Native PushSubscription.unsubscribe revokes the browser endpoint without minting an FCM token. Firebase compares the next subscription's endpoint and keys with its cached token and replaces a stale token. Real-phone delivery checks remain required; deterministic tests cover cleanup ordering and failures.
