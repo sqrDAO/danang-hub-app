@@ -77,7 +77,7 @@ const fetchEventPage = async (startUrl, fetchImpl = fetch) => {
       const target = response.headers.get("location");
       url = parseImportUrl(target ? new URL(target, url).href : null);
       if (!url) {
-        throw importError("invalid-argument",
+        throw importError("unavailable",
             "Redirect to an unsupported address.");
       }
       continue;
