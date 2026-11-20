@@ -419,6 +419,7 @@
     "assignMember": "Member",
     "selectMember": "Select member...",
     "searchMember": "Search by name or email...",
+    "noMembersFound": "No members found.",
     "assignAmenity": "Amenity",
     "selectAmenity": "Select amenity...",
     "bookingType": "Booking Type",

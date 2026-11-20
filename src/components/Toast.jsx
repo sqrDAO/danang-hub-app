@@ -27,6 +27,7 @@ export const ToastContainer = () => {
   const host = useToastHost()
   const containerRef = useRef(null)
   const previousFocus = useRef(null)
+  const displayedToastIds = useRef(new Set())
 
   useLayoutEffect(() => {
     const container = containerRef.current
@@ -35,6 +36,7 @@ export const ToastContainer = () => {
     if (!container?.isConnected || !container.showPopover) return
     if (container.matches(':popover-open')) container.hidePopover()
     if (toasts.length) container.showPopover()
+    displayedToastIds.current = new Set(toasts.map(toast => toast.id))
   }, [toasts, host])
 
   useEffect(() => {
@@ -67,6 +69,8 @@ export const ToastContainer = () => {
         <div
           key={toast.id}
           className={`toast toast-${toast.type}`}
+          // A new portal host must not replay entry for an existing notification.
+          style={displayedToastIds.current.has(toast.id) ? { animation: 'none' } : undefined}
           onClick={event => removeToast(toast.id, event)}
         >
           <div className="toast-content">

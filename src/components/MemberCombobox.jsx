@@ -1,4 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import './MemberCombobox.css'
 
 // A top-layer popover uses viewport coordinates even inside a filtered dialog.
 const placeSuggestions = (input, list) => {
@@ -16,28 +18,51 @@ const placeSuggestions = (input, list) => {
   })
 }
 
-const useSuggestions = (open, inputRef, listRef) => {
+const watchSuggestions = (input, list, close) => {
+  const position = () => {
+    if (input.isConnected && list.isConnected) placeSuggestions(input, list)
+  }
+  const events = [
+    [document, 'scroll', true], [window, 'resize'],
+    [input.closest('dialog'), 'animationend'],
+    [window.visualViewport, 'resize'], [window.visualViewport, 'scroll']
+  ]
+  events.forEach(([target, name, capture]) => target?.addEventListener(name, position, capture))
+  const size = new ResizeObserver(position)
+  size.observe(input)
+  const visibility = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting || entry.intersectionRatio < 0.99) close(false)
+  }, { root: input.closest('.modal-body'), threshold: 1 })
+  visibility.observe(input)
+  position()
+  return () => {
+    events.forEach(([target, name, capture]) => target?.removeEventListener(name, position, capture))
+    size.disconnect()
+    visibility.disconnect()
+  }
+}
+
+const useSuggestions = ({ open, inputRef, listRef, count, close }) => {
   useLayoutEffect(() => {
     if (!open) return undefined
     const list = listRef.current
     if (!list?.isConnected) return undefined
     list.showPopover?.()
-    let frame
-    // Follow dialog entry animation, scroll, viewport resize and layout changes.
-    const position = () => {
-      if (!list.isConnected || !inputRef.current) return
-      placeSuggestions(inputRef.current, list)
-      frame = requestAnimationFrame(position)
-    }
-    position()
+    const stopWatching = watchSuggestions(inputRef.current, list, close)
     return () => {
-      cancelAnimationFrame(frame)
+      stopWatching()
       if (list.isConnected && list.matches(':popover-open')) list.hidePopover()
     }
-  }, [open, inputRef, listRef])
+  }, [open, inputRef, listRef, count, close])
 }
 
+const getSearchState = (open, disabled, count) => ({
+  expanded: open && !disabled && count > 0,
+  empty: open && !disabled && count === 0
+})
+
 const MemberCombobox = ({ members, memberId, onChange, disabled, label, placeholder }) => {
+  const { t } = useTranslation()
   const id = useId()
   const inputRef = useRef(null)
   const listRef = useRef(null)
@@ -47,9 +72,9 @@ const MemberCombobox = ({ members, memberId, onChange, disabled, label, placehol
   const selected = members.find(member => member.id === memberId)
   const matches = members.filter(member =>
     `${member.displayName || ''}\n${member.email || ''}`.toLowerCase().includes(query.toLowerCase()))
-  const expanded = open && !disabled && matches.length > 0
+  const { expanded, empty } = getSearchState(open, disabled, matches.length)
   const activeIndex = Math.min(active, matches.length - 1)
-  useSuggestions(expanded, inputRef, listRef)
+  useSuggestions({ open: expanded, inputRef, listRef, count: matches.length, close: setOpen })
 
   const select = (member) => {
     onChange(member.id)
@@ -68,7 +93,7 @@ const MemberCombobox = ({ members, memberId, onChange, disabled, label, placehol
     } else if (expanded && event.key === 'Enter') {
       event.preventDefault()
       select(matches[activeIndex])
-    } else if (open && event.key === 'Escape') {
+    } else if (expanded && event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)
@@ -85,7 +110,7 @@ const MemberCombobox = ({ members, memberId, onChange, disabled, label, placehol
       <input
         ref={inputRef} id={id} type="text" role="combobox" className="form-field"
         aria-autocomplete="list" aria-haspopup="listbox" aria-expanded={expanded}
-        aria-controls={`${id}-list`} aria-activedescendant={expanded ? `${id}-option-${activeIndex}` : undefined}
+        aria-controls={expanded ? `${id}-list` : undefined} aria-activedescendant={expanded ? `${id}-option-${activeIndex}` : undefined}
         placeholder={placeholder} autoComplete="off" disabled={disabled}
         value={query || selected?.displayName || selected?.email || ''}
         onChange={event => {
@@ -96,6 +121,9 @@ const MemberCombobox = ({ members, memberId, onChange, disabled, label, placehol
         }}
         onKeyDown={handleKeyDown} onBlur={() => setOpen(false)}
       />
+      {empty && (
+        <p className="member-combobox-empty" role="status">{t('adminBookings.noMembersFound')}</p>
+      )}
       {expanded && (
         <ul ref={listRef} id={`${id}-list`} role="listbox" aria-label={label}
           popover="manual" className="member-combobox-list"
