@@ -50,6 +50,7 @@ const {
 } = require("./monthlyHours");
 const {getNewlyPromoted} = require("./waitlist");
 const {buildEventStatusEmail} = require("./emailHtml");
+const {getTransporter} = require("./emailTransport");
 const {groupTokenEntries, decideMemberMarkers} = require("./pushTokens");
 
 const {nextRateLimitState} = require("./importRateLimit");
@@ -63,25 +64,6 @@ const db = getFirestore();
 // to set the public invoker IAM policy in other regions).
 const REGION = "us-central1";
 setGlobalOptions({region: REGION});
-
-// Transporter is created fresh each call so Secret Manager values
-// (injected into process.env at runtime) are always current.
-/**
- * Creates a Nodemailer SMTP transporter from environment config.
- * @return {object} Nodemailer transporter instance
- */
-function getTransporter() {
-  const nodemailer = require("nodemailer");
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_SMTP_HOST,
-    port: parseInt(process.env.EMAIL_SMTP_PORT || "465"),
-    secure: process.env.EMAIL_SMTP_SECURE !== "false",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-}
 
 /**
  * Returns the user's Firebase Auth email only when Firebase has verified it.
