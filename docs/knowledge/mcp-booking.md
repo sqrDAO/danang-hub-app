@@ -247,6 +247,11 @@ transactional enforcement onto every writer. The shared monthly-hour logic power
 creation. **Pending is not confirmation**: list bookings again for final status.
 Admins see an **AI agent** badge on `source: 'mcp'` bookings.
 
+The server sends these rules to clients as MCP `instructions` on `initialize`
+(`functions/mcpServer.js`): the list → check → confirm → create flow, Hub time,
+pending-is-not-confirmed, `nextCursor` paging and the request limit. Keep that
+string in step with this section when tool behavior changes.
+
 ## Limits and storage
 
 - 60 HTTP POST requests per token per minute, including initialization/discovery;
