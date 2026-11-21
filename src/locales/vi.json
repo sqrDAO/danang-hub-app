@@ -930,6 +930,10 @@
     "renewalFailed": "Không thể gửi yêu cầu gia hạn. Vui lòng thử lại."
   },
   "mcp": {
+    "setupGuide": "Thiết lập Claude hoặc xem khả năng hỗ trợ ChatGPT (hướng dẫn tiếng Anh, mở tab mới)",
+    "cooldownHelp": "Vui lòng chờ trước khi tạo token mới. Thu hồi token không làm mất thời gian chờ một phút.",
+    "generationHelp": "Bạn có thể tạo một token mỗi phút.",
+    "cooldownRemaining": "Có thể tạo token mới sau {{seconds}} giây.",
     "title": "Đặt chỗ qua trợ lý AI",
     "help": "Token cá nhân cho phép trợ lý xem lịch đặt chỗ của bạn, kiểm tra chỗ trống, tạo yêu cầu đặt chỗ và hủy lượt đặt riêng lẻ đang chờ duyệt. Token hết hạn sau 90 ngày. Giữ bí mật và thu hồi tại đây để ngắt kết nối.",
     "compatibility": "Dùng ứng dụng MCP hỗ trợ header Authorization: Bearer tùy chỉnh. Chưa hỗ trợ kết nối OAuth một chạm.",
