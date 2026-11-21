@@ -30,3 +30,17 @@ test('equivalent instants retain input order across representations and offsets'
   ]
   assert.deepEqual(members.sort(compareMembersCreatedAt).map(m => m.id), ['offset', 'timestamp', 'iso'])
 })
+
+test('orders distinct nanoseconds and preserves ties across offsets before the epoch', () => {
+  const older = '1970-01-01T06:59:59.999000100+07:00'
+  const newer = new Timestamp(-1, 999000101)
+  const equal = '1969-12-31T23:59:59.999000101Z'
+  const members = [older, newer, equal].map(createdAt => ({ createdAt }))
+  assert.deepEqual(members.sort(compareMembersCreatedAt).map(m => m.createdAt), [newer, equal, older])
+})
+
+test('rejects calendar overflow while accepting leap days and offsets crossing midnight', () => {
+  const dates = ['2026-02-30T12:00:00Z', '2025-02-29', '2024-02-29T23:30:00-02:00', '2026-03-01']
+  const members = dates.map(createdAt => ({ createdAt }))
+  assert.deepEqual(members.sort(compareMembersCreatedAt).map(m => m.createdAt), [dates[3], dates[2], dates[0], dates[1]])
+})
