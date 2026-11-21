@@ -16,37 +16,37 @@
   }
 }
 
-.dashboard-grid {
+:where(.member-dashboard) .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--spacing-lg);
   margin-bottom: var(--spacing-xl);
 }
 
-.dashboard-section {
+:where(.member-dashboard) .dashboard-section {
   padding: var(--spacing-lg);
 }
 
-[data-theme="light"] .dashboard-section.glass {
+[data-theme="light"] :where(.member-dashboard) .dashboard-section.glass {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow, none);
 }
 
-.section-title {
+:where(.member-dashboard) .section-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: var(--spacing-lg);
 }
 
-.booking-list,
-.event-list {
+:where(.member-dashboard) .booking-list,
+:where(.member-dashboard) .event-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
 }
 
-.section-title-row {
+:where(.member-dashboard) .section-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -55,27 +55,27 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.section-title-row .section-title {
+:where(.member-dashboard) .section-title-row .section-title {
   margin-bottom: 0;
 }
 
-.section-title-actions {
+:where(.member-dashboard) .section-title-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
 }
 
-.event-list-detailed {
+:where(.member-dashboard) .event-list-detailed {
   gap: var(--spacing-lg);
 }
 
-.empty-state {
+:where(.member-dashboard) .empty-state {
   color: var(--text-secondary);
   text-align: center;
   padding: var(--spacing-lg);
 }
 
-.dashboard-bookings-pagination {
+:where(.member-dashboard) .dashboard-bookings-pagination {
   margin-top: var(--spacing-md);
   display: flex;
   align-items: center;
@@ -85,7 +85,7 @@
   border-top: 1px solid var(--form-divider);
 }
 
-.dashboard-bookings-pagination-info {
+:where(.member-dashboard) .dashboard-bookings-pagination-info {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -94,20 +94,20 @@
   color: var(--text-secondary);
 }
 
-.dashboard-bookings-page {
+:where(.member-dashboard) .dashboard-bookings-page {
   font-weight: 600;
   color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
-  .dashboard-bookings-pagination {
+  :where(.member-dashboard) .dashboard-bookings-pagination {
     flex-direction: column;
     align-items: stretch;
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard-grid {
+  :where(.member-dashboard) .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,105 +1,105 @@
-.amenities-grid {
+:where(.admin-amenities-page) .amenities-grid {
   display: grid;
   gap: var(--spacing-lg);
 }
 
 @media (max-width: 480px) {
-  .amenities-grid {
+  :where(.admin-amenities-page) .amenities-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (min-width: 481px) and (max-width: 1023px) {
-  .amenities-grid {
+  :where(.admin-amenities-page) .amenities-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
-  .amenities-grid {
+  :where(.admin-amenities-page) .amenities-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.amenity-card {
+:where(.admin-amenities-page) .amenity-card {
   padding: var(--spacing-lg);
 }
 
-.amenity-header {
+:where(.admin-amenities-page) .amenity-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-md);
 }
 
-.amenity-name {
+:where(.admin-amenities-page) .amenity-name {
   font-size: 1.25rem;
   font-weight: 600;
 }
 
-.availability-badge {
+:where(.admin-amenities-page) .availability-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 99px;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
-.availability-badge.available {
+:where(.admin-amenities-page) .availability-badge.available {
   background: rgba(255, 230, 187, 0.2);
   color: var(--accent-secondary);
   border: 1px solid rgba(255, 230, 187, 0.3);
 }
 
 /* #C47B0D is ~3.3:1 on white; dark brand amber passes 4.5:1 (#167) */
-[data-theme="light"] .availability-badge.available {
+[data-theme="light"] :where(.admin-amenities-page) .availability-badge.available {
   color: #8f5200;
 }
 
-.availability-badge.unavailable {
+:where(.admin-amenities-page) .availability-badge.unavailable {
   background: var(--color-error-bg);
   color: var(--color-error-light);
   border: 1px solid var(--color-error-border);
 }
 
-.amenity-info {
+:where(.admin-amenities-page) .amenity-info {
   margin-bottom: var(--spacing-md);
 }
 
-.amenity-type,
-.amenity-capacity,
-.amenity-hours,
-.amenity-days,
-.amenity-slot {
+:where(.admin-amenities-page) .amenity-type,
+:where(.admin-amenities-page) .amenity-capacity,
+:where(.admin-amenities-page) .amenity-hours,
+:where(.admin-amenities-page) .amenity-days,
+:where(.admin-amenities-page) .amenity-slot {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 0.25rem;
 }
 
-.amenity-reserved {
+:where(.admin-amenities-page) .amenity-reserved {
   color: var(--color-primary);
   font-size: 0.9rem;
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
-.amenity-description {
+:where(.admin-amenities-page) .amenity-description {
   color: var(--text-secondary);
   font-size: 0.85rem;
   margin-top: var(--spacing-sm);
 }
 
-.amenity-actions {
+:where(.admin-amenities-page) .amenity-actions {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
 
-.amenity-actions .btn {
+:where(.admin-amenities-page) .amenity-actions .btn {
   width: 100%;
 }
 
 /* Form Sections */
-.form-section {
+:where(.admin-amenities-page) .form-section {
   margin: var(--spacing-lg) 0;
   padding: var(--spacing-md);
   background: var(--form-section-bg);
@@ -107,27 +107,27 @@
   border: 1px solid var(--form-section-border);
 }
 
-.form-section-title {
+:where(.admin-amenities-page) .form-section-title {
   font-size: 1rem;
   font-weight: 600;
   color: var(--accent-secondary);
   margin-bottom: var(--spacing-md);
 }
 
-.form-row {
+:where(.admin-amenities-page) .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-md);
 }
 
 /* Days Selector */
-.days-selector {
+:where(.admin-amenities-page) .days-selector {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
 }
 
-.day-checkbox {
+:where(.admin-amenities-page) .day-checkbox {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -143,50 +143,50 @@
   color: var(--text-secondary);
 }
 
-.day-checkbox input {
+:where(.admin-amenities-page) .day-checkbox input {
   display: none;
 }
 
-.day-checkbox:hover {
+:where(.admin-amenities-page) .day-checkbox:hover {
   background: var(--form-field-focus-bg);
 }
 
-.day-checkbox.selected {
+:where(.admin-amenities-page) .day-checkbox.selected {
   background: rgba(255, 230, 187, 0.2);
   border-color: rgba(255, 230, 187, 0.4);
   color: var(--accent-secondary);
 }
 
 /* Photo Upload Section */
-.photo-upload-section {
+:where(.admin-amenities-page) .photo-upload-section {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
 }
 
-.photo-input {
+:where(.admin-amenities-page) .photo-input {
   display: none;
 }
 
-.btn-upload {
+:where(.admin-amenities-page) .btn-upload {
   align-self: flex-start;
 }
 
-.upload-progress {
+:where(.admin-amenities-page) .upload-progress {
   color: var(--accent-secondary);
   font-size: 0.85rem;
   margin-top: var(--spacing-xs);
 }
 
-.photo-preview-grid {
+:where(.admin-amenities-page) .photo-preview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: var(--spacing-sm);
   margin-top: var(--spacing-md);
 }
 
-.photo-preview-item {
+:where(.admin-amenities-page) .photo-preview-item {
   position: relative;
   aspect-ratio: 1;
   border-radius: var(--border-radius);
@@ -195,13 +195,13 @@
   background: var(--card-bg);
 }
 
-.photo-preview-item img {
+:where(.admin-amenities-page) .photo-preview-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.photo-delete-btn {
+:where(.admin-amenities-page) .photo-delete-btn {
   position: absolute;
   top: 0.25rem;
   right: 0.25rem;
@@ -221,18 +221,18 @@
   padding: 0;
 }
 
-.photo-delete-btn:hover {
+:where(.admin-amenities-page) .photo-delete-btn:hover {
   background: rgba(239, 68, 68, 1);
   transform: scale(1.1);
 }
 
-.photo-delete-btn:disabled {
+:where(.admin-amenities-page) .photo-delete-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* Amenity Photo Preview in Cards */
-.amenity-photo-preview {
+:where(.admin-amenities-page) .amenity-photo-preview {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -242,13 +242,13 @@
   background: var(--card-bg);
 }
 
-.amenity-photo-preview img {
+:where(.admin-amenities-page) .amenity-photo-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.photo-count-badge {
+:where(.admin-amenities-page) .photo-count-badge {
   position: absolute;
   bottom: 0.5rem;
   right: 0.5rem;
@@ -262,15 +262,15 @@
 }
 
 @media (max-width: 768px) {
-  .form-row {
+  :where(.admin-amenities-page) .form-row {
     grid-template-columns: 1fr;
   }
   
-  .days-selector {
+  :where(.admin-amenities-page) .days-selector {
     justify-content: center;
   }
 
-  .photo-preview-grid {
+  :where(.admin-amenities-page) .photo-preview-grid {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   }
 }

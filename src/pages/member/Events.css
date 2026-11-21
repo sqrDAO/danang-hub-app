@@ -1,42 +1,42 @@
-.events-section {
+:where(.member-events-page) .events-section {
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-xl);
 }
 
-[data-theme="light"] .events-section.glass {
+[data-theme="light"] :where(.member-events-page) .events-section.glass {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow, none);
 }
 
-.events-grid {
+:where(.member-events-page) .events-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing-lg);
   margin-top: var(--spacing-lg);
 }
 
-.empty-state {
+:where(.member-events-page) .empty-state {
   text-align: center;
   color: var(--text-secondary);
   padding: var(--spacing-xl);
 }
 
-.event-actions {
+:where(.member-events-page) .event-actions {
   margin-top: auto;
 }
 
-.event-actions .btn {
+:where(.member-events-page) .event-actions .btn {
   width: 100%;
 }
 
-.event-actions .btn:disabled {
+:where(.member-events-page) .event-actions .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* Registered / waitlisted: a status line with a small text action. */
-.event-action-status {
+:where(.member-events-page) .event-action-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -47,7 +47,7 @@
 }
 
 /* Inline-block + 24px line box: a WCAG 2.5.8 tap target that looks unchanged. */
-.event-action-link {
+:where(.member-events-page) .event-action-link {
   display: inline-block;
   min-height: 24px;
   line-height: 24px;
@@ -62,36 +62,36 @@
   cursor: pointer;
 }
 
-.event-action-link:hover {
+:where(.member-events-page) .event-action-link:hover {
   color: var(--text-primary);
 }
 
-.event-action-link:disabled {
+:where(.member-events-page) .event-action-link:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.section-header {
+:where(.member-events-page) .section-header {
   margin-bottom: var(--spacing-lg);
 }
 
-.section-description {
+:where(.member-events-page) .section-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-top: var(--spacing-sm);
 }
 
-.btn-full-width {
+:where(.member-events-page) .btn-full-width {
   width: 100%;
 }
 
-.btn-large {
+:where(.member-events-page) .btn-large {
   padding: 1rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
 }
 
-.event-approved-note {
+:where(.member-events-page) .event-approved-note {
   color: var(--color-success);
   font-weight: 600;
   text-align: center;
@@ -99,7 +99,7 @@
 }
 
 /* Status Badges */
-.status-badge {
+:where(.member-events-page) .status-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 99px;
@@ -108,26 +108,26 @@
   text-transform: capitalize;
 }
 
-.status-badge.pending {
+:where(.member-events-page) .status-badge.pending {
   background: var(--color-warning-bg);
   color: var(--color-warning);
   border: 1px solid var(--color-warning-border);
 }
 
-.status-badge.approved {
+:where(.member-events-page) .status-badge.approved {
   background: var(--color-success-bg);
   color: var(--color-success);
   border: 1px solid var(--color-success-border);
 }
 
-.status-badge.rejected {
+:where(.member-events-page) .status-badge.rejected {
   background: var(--color-error-bg);
   color: var(--color-error);
   border: 1px solid var(--color-error-border);
 }
 
 /* Modal */
-.modal-description {
+:where(.member-events-page) .modal-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: var(--spacing-lg);
@@ -137,7 +137,7 @@
 }
 
 /* Form Checkbox */
-.form-checkbox {
+:where(.member-events-page) .form-checkbox {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -145,7 +145,7 @@
   color: var(--text-secondary);
 }
 
-.form-checkbox input[type="checkbox"] {
+:where(.member-events-page) .form-checkbox input[type="checkbox"] {
   width: 24px;
   height: 24px;
   min-width: 24px;
@@ -155,7 +155,7 @@
 
 @media (max-width: 768px) {
   
-  .events-grid {
+  :where(.member-events-page) .events-grid {
     grid-template-columns: 1fr;
   }
 }

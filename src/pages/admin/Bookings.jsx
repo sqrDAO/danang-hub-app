@@ -740,7 +740,7 @@ const AdminBookings = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-bookings-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -749,7 +749,7 @@ const AdminBookings = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-bookings-page">
         <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
           <div className="page-header-toolbar">

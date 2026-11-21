@@ -1,30 +1,30 @@
-.events-grid {
+:where(.admin-events-page) .events-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing-lg);
 }
 
-.event-actions {
+:where(.admin-events-page) .event-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
 }
 
-.event-actions .btn {
+:where(.admin-events-page) .event-actions .btn {
   flex: 1;
   min-width: 80px;
   flex-direction: row;
   white-space: nowrap;
 }
 
-.event-actions .btn > span {
+:where(.admin-events-page) .event-actions .btn > span {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
 }
 
 /* Status Badges */
-.status-badge {
+:where(.admin-events-page) .status-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 99px;
@@ -33,26 +33,26 @@
   text-transform: capitalize;
 }
 
-.status-badge.pending {
+:where(.admin-events-page) .status-badge.pending {
   background: var(--color-warning-bg);
   color: var(--color-warning);
   border: 1px solid var(--color-warning-border);
 }
 
-.status-badge.approved {
+:where(.admin-events-page) .status-badge.approved {
   background: var(--color-success-bg);
   color: var(--color-success);
   border: 1px solid var(--color-success-border);
 }
 
-.status-badge.rejected {
+:where(.admin-events-page) .status-badge.rejected {
   background: var(--color-error-bg);
   color: var(--color-error);
   border: 1px solid var(--color-error-border);
 }
 
 /* Pending Alert */
-.pending-alert {
+:where(.admin-events-page) .pending-alert {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -65,12 +65,12 @@
   font-weight: 500;
 }
 
-.alert-icon {
+:where(.admin-events-page) .alert-icon {
   font-size: 1.5rem;
 }
 
 /* Tabs */
-.tabs {
+:where(.admin-events-page) .tabs {
   display: flex;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
@@ -78,7 +78,7 @@
   padding-bottom: var(--spacing-sm);
 }
 
-.tab {
+:where(.admin-events-page) .tab {
   padding: 0.75rem 1.5rem;
   min-height: 44px;
   background: transparent;
@@ -91,19 +91,19 @@
   transition: var(--transition);
 }
 
-.tab:hover {
+:where(.admin-events-page) .tab:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.tab.active {
+:where(.admin-events-page) .tab.active {
   color: var(--accent-primary);
   background: rgba(255, 164, 6, 0.1);
   border-bottom: 2px solid var(--accent-primary);
 }
 
 /* Form styles */
-.form-checkbox {
+:where(.admin-events-page) .form-checkbox {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -111,7 +111,7 @@
   color: var(--text-secondary);
 }
 
-.form-checkbox input[type="checkbox"] {
+:where(.admin-events-page) .form-checkbox input[type="checkbox"] {
   width: 24px;
   height: 24px;
   min-width: 24px;
@@ -119,7 +119,7 @@
   cursor: pointer;
 }
 
-.form-hint {
+:where(.admin-events-page) .form-hint {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.75rem;
@@ -128,25 +128,25 @@
 }
 
 @media (max-width: 768px) {
-  .events-grid {
+  :where(.admin-events-page) .events-grid {
     grid-template-columns: 1fr;
   }
   
-  .tabs {
+  :where(.admin-events-page) .tabs {
     flex-wrap: wrap;
   }
   
-  .tab {
+  :where(.admin-events-page) .tab {
     flex: 1;
     text-align: center;
     padding: 0.5rem 1rem;
   }
   
-  .event-actions {
+  :where(.admin-events-page) .event-actions {
     flex-direction: column;
   }
   
-  .event-actions .btn {
+  :where(.admin-events-page) .event-actions .btn {
     width: 100%;
   }
 }
