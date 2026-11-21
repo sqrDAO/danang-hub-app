@@ -161,6 +161,8 @@ VITE_FIREBASE_VAPID_KEY=BLPUSH_PUBLIC_KEY_FROM_FIREBASE
 # VITE_EMULATOR_HOST=localhost
 ```
 
+To test the built app with Hosting headers, run `npm run emulators` and open the Hosting URL printed by the CLI. This command builds the app with emulator routing enabled and generates a local Hosting config for the same `VITE_EMULATOR_HOST` (default `localhost`). It uses the Firebase project selected by the CLI, so match that project to `VITE_FIREBASE_PROJECT_ID`.
+
 ### 4. Enable Firebase Services
 
 **Authentication** — Enable **Google** and **Email/Password** providers. Wallet sign-in uses Custom Tokens (no extra provider needed).
@@ -373,7 +375,7 @@ functions/
 | `firebase deploy --only functions` | Deploy Cloud Functions only |
 | `firebase deploy --only firestore:rules` | Deploy Firestore rules |
 | `firebase functions:log` | View real-time function logs |
-| `firebase emulators:start` | Start local emulators |
+| `npm run emulators` | Build and serve the app with local Hosting, Auth, Firestore, Functions and Storage |
 
 Vite loads `.env.local` in every mode. Do not put `VITE_SKIP_AUTH=true` there, or plain `npm run dev` will skip auth too — keep the flag in `.env.skipauth` only.
 

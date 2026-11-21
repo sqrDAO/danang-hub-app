@@ -14,7 +14,7 @@ Member portal for the Da Nang Blockchain Hub coworking space. React 18 + Vite (p
 - `npm run preview` — preview production build
 - `npm version minor|patch --no-git-tag-version` — bump the app version in a release PR; the deploy tags `v<version>` (README → Versions & Releases)
 - `firebase deploy --only functions|firestore:rules|storage` — partial deploys
-- `firebase emulators:start` — local emulators (client opts in via `VITE_USE_EMULATORS=true`)
+- `npm run emulators` — build and serve the app with local Firebase emulators
 - `firebase functions:log` — live function logs
 - `npm test` — `node --test` over `test/*.test.js` (thin: pure helpers only, no component or Firestore coverage)
 - `npm run test:rules` — Firestore rules tests (`test/*.rules.test.js`) against the emulator; needs Java. Runs in CI (`.github/workflows/rules-tests.yml`)
