@@ -1,0 +1,15 @@
+{
+  "sourceUrl": "https://www.eventbrite.com/e/coffee-crypto-money-basics-financial-literacy-the-digital-economy-tickets-2004547382181",
+  "retrievedAt": "2026-11-21",
+  "event": {
+    "@context": "https://schema.org",
+    "@type": "EducationEvent",
+    "name": "Coffee & Crypto | Money Basics, Financial Literacy & the Digital Economy",
+    "description": "Grab your favorite brew and dive into the",
+    "startDate": "2026-11-22T17:00:00-05:00",
+    "endDate": "2026-11-22T19:00:00-05:00",
+    "url": "https://www.eventbrite.com/e/coffee-crypto-money-basics-financial-literacy-the-digital-economy-tickets-2004547382181",
+    "image": "https://img.evbuc.com/https%3A%2F%2Fcdn.evbuc.com%2Fimages%2F1197537830%2F759480103893%2F1%2Foriginal.20261108-171409?crop=focalpoint&fit=crop&w=940&auto=format%2Ccompress&q=75&sharp=10&fp-x=0.5&fp-y=0.5&s=778519235cc93f158ce4b7cbd9a7f3a4"
+  },
+  "fixtureNote": "Relevant Event JSON-LD fields only; description truncated to eight words to minimize copied prose. Title and description total 23 words."
+}

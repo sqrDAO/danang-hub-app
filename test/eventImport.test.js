@@ -225,3 +225,62 @@ test('direct unsupported links retain useful feedback in both locales', () => {
     assert.notEqual(toast[unsupported.split('.')[1]], toast[failed.split('.')[1]])
   }
 })
+
+test('platform allowlist accepts canonical, verified regional and Meetup short hosts', () => {
+  for (const host of ['meetup.com', 'www.meetup.com', 'meetu.ps', 'eventbrite.com',
+    'www.eventbrite.com', 'eventbrite.co.uk', 'www.eventbrite.co.uk']) {
+    assert.equal(parseImportUrl(`https://${host}/event`)?.hostname, host)
+    for (const invalid of [`https://${host}.evil.com/event`, `https://not${host}/event`,
+      `http://${host}/event`, `https://user:pw@${host}/event`, `https://${host}:8443/event`]) {
+      assert.equal(parseImportUrl(invalid), null, invalid)
+    }
+  }
+  for (const host of ['api.meetup.com', 'custom.eventbrite.com', 'eventbrite.de', 'evb.gg']) {
+    assert.equal(parseImportUrl(`https://${host}/event`), null)
+  }
+})
+
+test('real Meetup and Eventbrite JSON-LD maps dates, duration, links and cover shapes', () => {
+  for (const [platform, date] of [['meetup', '2026-11-28T05:30:00.000Z'],
+    ['eventbrite', '2026-11-22T22:00:00.000Z']]) {
+    const fixture = require(`./fixtures/event-import/${platform}.json`)
+    const event = extractEventJsonLd(page(fixture.event))
+    const draft = toEventDraft(event, new URL(fixture.sourceUrl))
+    assert.equal(draft.title, fixture.event.name)
+    assert.equal(draft.description, fixture.event.description)
+    assert.equal(draft.date, date)
+    assert.equal(draft.duration, 120)
+    assert.equal(draft.eventLink, fixture.event.url)
+    assert.equal(draft.image, [].concat(fixture.event.image)[0])
+    assert.ok(parseImportUrl(draft.eventLink))
+  }
+})
+
+test('verified platform redirect shapes work without automatic redirect following', async () => {
+  const meetup = 'https://www.meetup.com/porto-wine-meetup-group/events/315836596/'
+  for (const [start, end] of [
+    ['https://meetu.ps/e/QbcsH/NJhBQ/i', meetup],
+    ['https://meetup.com/group/events/1/', 'https://www.meetup.com/group/events/1/'],
+    ['https://eventbrite.com/e/event-1', 'https://www.eventbrite.com/e/event-1'],
+    ['https://eventbrite.co.uk/e/event-1', 'https://www.eventbrite.co.uk/e/event-1']
+  ]) {
+    const { calls, fetchImpl } = fakeFetch({
+      [start]: () => redirect(end), [end]: () => htmlResponse('event')
+    })
+    assert.equal((await fetchEventPage(new URL(start), fetchImpl)).url.href, end)
+    assert.equal(calls.length, 2)
+    assert.ok(calls.every(call => call.options.redirect === 'manual'))
+  }
+})
+
+test('new platform redirects cannot escape to lookalike or private destinations', async () => {
+  for (const destination of ['https://meetup.com.evil.com/event',
+    'https://eventbrite.com.evil.com/event', 'https://127.0.0.1/private',
+    'http://www.meetup.com/event', 'https://user:pw@www.eventbrite.com/event']) {
+    const { calls, fetchImpl } = fakeFetch({
+      'https://meetu.ps/short': () => redirect(destination)
+    })
+    await assert.rejects(fetchEventPage(new URL('https://meetu.ps/short'), fetchImpl), /unsupported/)
+    assert.equal(calls.length, 1)
+  }
+})

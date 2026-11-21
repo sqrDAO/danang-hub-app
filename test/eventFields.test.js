@@ -101,6 +101,13 @@ test('known platforms and their subdomains raise no caution', () => {
   assert.equal(getUnfamiliarLinkHost(undefined), '')
 })
 
+test('admin review recognizes the Eventbrite UK hosts supported by the importer', () => {
+  const path = '/e/community-meetup-tickets-123456789'
+  assert.equal(getUnfamiliarLinkHost(`https://www.eventbrite.co.uk${path}`), '')
+  assert.equal(getUnfamiliarLinkHost(`https://eventbrite.co.uk${path}`), '')
+  assert.equal(getUnfamiliarLinkHost(`https://other.eventbrite.co.uk${path}`), 'other.eventbrite.co.uk')
+})
+
 test('unfamiliar sites are flagged by the host the browser loads', () => {
   assert.equal(getUnfamiliarLinkHost('https://evil.xyz/event'), 'evil.xyz')
   assert.equal(getUnfamiliarLinkHost('https://lu.ma.evil.com/x'), 'lu.ma.evil.com')

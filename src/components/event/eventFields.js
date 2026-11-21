@@ -60,9 +60,13 @@ export const KNOWN_EVENT_HOSTS = [
   'x.com', 'facebook.com', 'youtube.com'
 ]
 
-// An exact match or a subdomain. Never a substring check: `lu.ma.evil.com`
+// The importer accepts only these two Eventbrite UK hosts.
+const EVENTBRITE_UK_HOSTS = new Set(['eventbrite.co.uk', 'www.eventbrite.co.uk'])
+
+// Other known platforms accept an exact match or a subdomain. Never a substring check: `lu.ma.evil.com`
 // contains `lu.ma` but is not it.
 const isKnownHost = (host) =>
+  EVENTBRITE_UK_HOSTS.has(host) ||
   KNOWN_EVENT_HOSTS.some(known => host === known || host.endsWith(`.${known}`))
 
 // `value` read as a web link relative to `base`, or null. Resolved the way the

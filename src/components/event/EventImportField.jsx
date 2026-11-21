@@ -34,7 +34,7 @@ const importBanner = async (form, imageUrl) => {
   }
 }
 
-// Pre-fills the create form from a Luma link. It has no `name`, so the pasted
+// Pre-fills the create form from a supported event link. It has no `name`, so the pasted
 // link is never part of the submitted event.
 const EventImportField = ({ changeEventDuration, t }) => {
   const [url, setUrl] = useState('')
