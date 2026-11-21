@@ -1,4 +1,8 @@
 {
+  "memberEmail": {
+    "verified": "Đã xác minh",
+    "unverified": "Chưa xác minh"
+  },
   "nav": {
     "home": "Trang chủ",
     "amenities": "Tiện ích",
@@ -711,10 +715,10 @@
       "eventLinkLabel": "Liên kết sự kiện",
       "eventLinkPlaceholder": "vd: https://lu.ma/su-kien-cua-ban",
       "eventLinkHint": "Tuỳ chọn. Thêm liên kết tới trang sự kiện (ví dụ: Lu.ma, Eventbrite)",
-      "importLabel": "Nhập từ liên kết Luma",
+      "importLabel": "Nhập từ Luma, Meetup hoặc Eventbrite",
       "importButton": "Nhập",
       "importing": "Đang nhập...",
-      "importHint": "Tuỳ chọn. Dán liên kết sự kiện Luma công khai để điền tiêu đề, mô tả, ngày giờ, thời lượng, liên kết sự kiện và banner. Hãy kiểm tra lại trước khi gửi.",
+      "importHint": "Tuỳ chọn. Dán liên kết sự kiện công khai từ Luma, Meetup hoặc Eventbrite để điền tiêu đề, mô tả, ngày giờ, thời lượng, liên kết sự kiện và banner. Hãy kiểm tra lại trước khi gửi.",
       "requestHallLabel": "Sự kiện này sử dụng không gian của Hub",
       "hallRequirementsTitle": "Yêu cầu đối với Event Hall:",
       "hallRequirementsItem": "Cần thanh toán phí giữ xe cho mỗi lần đặt sự kiện.",
@@ -863,7 +867,7 @@
     "eventCreateFailed": "Không thể tạo sự kiện. Vui lòng thử lại.",
     "eventImported": "Đã nhập thông tin sự kiện. Hãy kiểm tra lại trước khi gửi.",
     "eventImportedNoBanner": "Đã nhập thông tin sự kiện nhưng chưa nhập được ảnh bìa. Vui lòng tự thêm banner.",
-    "eventImportUnsupported": "Chỉ có thể nhập liên kết Luma (lu.ma hoặc luma.com).",
+    "eventImportUnsupported": "Dùng liên kết sự kiện công khai từ Luma, Meetup (bao gồm meetu.ps) hoặc Eventbrite (.com / .co.uk). Với liên kết rút gọn hoặc tên miền khu vực khác, hãy mở sự kiện và sao chép URL đầy đủ được hỗ trợ.",
     "eventImportNoData": "Không tìm thấy thông tin sự kiện trên trang đó. Vui lòng điền biểu mẫu thủ công.",
     "eventImportRateLimited": "Bạn đã đạt giới hạn 10 lần nhập trong một giờ. Vui lòng thử lại sau.",
     "eventImportFailed": "Không thể nhập sự kiện. Vui lòng thử lại hoặc điền biểu mẫu thủ công.",

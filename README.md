@@ -32,7 +32,8 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Event Management
 - **Event Creation** — title, description, date, capacity, hosting project, banner image
-- **Import from Luma** — paste a public Luma link in the create form to pre-fill title, description, date/time, duration, event link and banner for review
+- **Import from Luma, Meetup or Eventbrite** — paste a supported public event link in the create form to pre-fill title, description, date/time, duration, event link and banner for review
+  - Supported page hosts: `lu.ma`, `luma.com`, `meetup.com`, `meetu.ps`, `eventbrite.com`, `eventbrite.co.uk` (also `www.`). Other regional domains, Eventbrite custom subdomains and unverified shorteners are rejected; use a supported canonical event URL. Login-only, blocked or metadata-free pages fall back to manual entry. Covers come only from `images.lumacdn.com`, `secure-content.meetupstatic.com` and `img.evbuc.com`; failed cover downloads require manual upload.
 - **Revisioned Approval Workflow** — organizers can revise future events; approved or
   rejected revisions return to pending review
 - **Venue** — one optional Hub venue per event (Event Hall hours and Hub closures apply);
@@ -53,7 +54,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Booking Interface** — calendar picker with live conflict checking
 - **Fixed Desk View** — see active fixed-desk subscriptions alongside ad-hoc bookings
 - **Event Registration** — browse, register, and manage waitlist position
-- **Profile Management** — edit personal info, upload avatar, display wallet address; the profile email is read-only and mirrors the sign-in email; new email/password sign-ups must verify it on a separate Verify email screen before using the hub, while for older accounts verifying is optional (linked next to the email on Profile) and lets the hub email them about events they submit; there is no email-notifications setting yet; wallet accounts have no sign-in email and type their own contact address
+- **Profile Management** — edit personal info, upload avatar, display wallet address; the profile email is read-only and mirrors the sign-in email; new email/password sign-ups must verify it on a separate Verify email screen before using the hub, while for older accounts verifying is optional (linked next to the email on Profile) and lets the hub email them about events they submit; there is no email-notifications setting yet; wallet accounts have no sign-in email and type their own contact address; shared member/contact displays label emails Verified or Unverified, with legacy records conservatively unverified until Auth sync
 
 ### Unified Calendar View
 - Combined bookings + events in one calendar
@@ -204,6 +205,56 @@ firebase deploy --only firestore:indexes
 firebase deploy --only storage
 ```
 
+#### New callable functions: owner invoker setup
+
+CI can update existing functions but cannot set the Cloud Run invoker IAM policy
+for a newly added callable. Its first deploy can fail with **“Failed to set the
+IAM Policy” / “Unable to set the invoker”**. Because Functions deploy before
+Hosting, that failure also skips Hosting; later merges may remain blocked until
+an owner fixes the affected service. Keep this setup manual rather than granting
+CI broader IAM permissions. Flag new functions in the PR checklist and arrange
+for a project owner to handle the first deployment.
+
+After merging a new callable, if this invoker error occurs:
+
+1. A project owner opens **Cloud Run** in project **danang-hub-app**, region
+   **us-central1**, and identifies the affected function's backing service from
+   the failed deploy log. Check the actual service name; do not assume it matches
+   the JavaScript export's capitalization.
+2. For a callable intended to be invoked by the browser, grant **Cloud Run
+   Invoker** (`roles/run.invoker`) to **allUsers** on that service. The console's
+   **Allow public access** option provides public invocation, or use the following
+   command as the owner, replacing `SERVICE_NAME` with the actual service name:
+
+   ```bash
+   gcloud run services add-iam-policy-binding SERVICE_NAME \
+     --project=danang-hub-app \
+     --region=us-central1 \
+     --member=allUsers \
+     --role=roles/run.invoker
+   ```
+
+   This is service-level invocation access, not access to Firestore or admin
+   actions. The handler must still enforce its intended Firebase Auth and
+   authorization checks; wallet sign-in endpoints instead validate their nonce
+   and signature. Do **not** apply this public binding to event-driven functions
+   or intentionally private HTTP endpoints. Those need their trigger/caller's
+   service identity permissions instead.
+3. In GitHub Actions, open the failed **Deploy to Firebase Hosting on merge**
+   run and choose **Re-run failed jobs**. Repeat the service-specific setup if
+   another new callable reports the same invoker error. Do not bypass the backend
+   failure by deploying Hosting alone.
+4. Confirm **Deploy Cloud Functions** and **Deploy to Firebase Hosting** succeed,
+   confirm the intended production revision is live, and exercise the new
+   callable's application flow (including its access checks). A successful PR
+   preview only verifies Hosting and does not prove a new function was deployed.
+
+Reference: [Google Cloud's function invocation IAM guidance](https://docs.cloud.google.com/functions/docs/securing/managing-access-iam)
+and [Cloud Run public access permissions](https://docs.cloud.google.com/run/docs/authenticating/public).
+The owner needs `run.services.setIamPolicy`; if an organization policy forbids
+public access, the project administrator must resolve that policy rather than
+repeatedly rerunning CI.
+
 ### 6. Configure Email (Nodemailer)
 
 The SMTP password is stored in Firebase Secret Manager:
@@ -249,7 +300,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
-| `importEventFromUrl` | Callable | Reads a public Luma event page (`lu.ma` / `luma.com` only) and returns a draft that pre-fills the create form; reserves one of 10 hourly import attempts in a server-only counter |
+| `importEventFromUrl` | Callable | Reads a public event page (Luma, Meetup / `meetu.ps`, Eventbrite `.com` / `.co.uk`; exact hosts only) and returns a draft that pre-fills the create form; reserves one of 10 hourly import attempts in a server-only counter |
 | `removePartner` | Callable | Admin-only partner removal: detaches its members, releases its desk and deletes it, then cancels the members' upcoming Partner Desk days (`partner-removed`) |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
@@ -355,7 +406,7 @@ functions/
 
 | Collection | Description |
 |------------|-------------|
-| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it), `email` (owners with a sign-in email may only set that; wallet accounts type their own), `emailVerificationRequired` (set on new email/password sign-ups; the app holds them on the verify screen until verified), server migration marker `pushTokensMigrated` (legacy push-token document confirmed absent) |
+| `members` | Profiles, membership type (admin/member), wallet address, admin-set `partnerId` (owners cannot set or change it), `email` (owners with a sign-in email may only set that; wallet accounts type their own), `verifiedEmail` (exact address proven by the owner’s verified Auth token; synced on profile load or verification, never inferred for legacy records), `emailVerificationRequired` (set on new email/password sign-ups; the app holds them on the verify screen until verified), server migration marker `pushTokensMigrated` (legacy push-token document confirmed absent) |
 | `partners` | Partner organizations (`name`, `deskAmenityId`); admin-written, readable by signed-in users |
 | `amenities` | Resources with custom availability (hours, days, slot duration); optional `reservedForPartnerId` marks a partner's desk, bookable only by that partner's members (set from the Partners panel, rules-enforced) |
 | `bookings` | Booking records with status workflow and desk plans (`planType`: `fixed-desk` or `partner-desk`); renewal days carry `renewalOf`, rejected ones `rejectionReason` |

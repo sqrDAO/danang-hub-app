@@ -1,4 +1,4 @@
-.stats-grid {
+:where(.admin-dashboard-page) .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--spacing-lg);
@@ -6,17 +6,17 @@
 }
 
 @media (min-width: 1200px) {
-  .stats-grid {
+  :where(.admin-dashboard-page) .stats-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-.stat-card {
+:where(.admin-dashboard-page) .stat-card {
   padding: var(--spacing-lg);
   text-align: center;
 }
 
-.stat-value {
+:where(.admin-dashboard-page) .stat-value {
   font-size: 3rem;
   font-weight: 700;
   background: var(--accent-gradient);
@@ -26,46 +26,46 @@
 }
 
 @media (max-width: 768px) {
-  .stat-value {
+  :where(.admin-dashboard-page) .stat-value {
     font-size: 2rem;
   }
 }
 
 @media (max-width: 480px) {
-  .stat-value {
+  :where(.admin-dashboard-page) .stat-value {
     font-size: 1.75rem;
   }
 }
 
-.stat-label {
+:where(.admin-dashboard-page) .stat-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.dashboard-grid {
+:where(.admin-dashboard-page) .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--spacing-lg);
 }
 
-.dashboard-section {
+:where(.admin-dashboard-page) .dashboard-section {
   padding: var(--spacing-lg);
 }
 
-[data-theme="light"] .dashboard-section.glass,
-[data-theme="light"] .stat-card.glass {
+[data-theme="light"] :where(.admin-dashboard-page) .dashboard-section.glass,
+[data-theme="light"] :where(.admin-dashboard-page) .stat-card.glass {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow, none);
 }
 
-.section-title {
+:where(.admin-dashboard-page) .section-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: var(--spacing-lg);
 }
 
-.section-title-row {
+:where(.admin-dashboard-page) .section-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -74,19 +74,19 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.section-title-row .section-title {
+:where(.admin-dashboard-page) .section-title-row .section-title {
   margin-bottom: 0;
 }
 
-.booking-list,
-.event-list {
+:where(.admin-dashboard-page) .booking-list,
+:where(.admin-dashboard-page) .event-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
   text-align: left;
 }
 
-.booking-item {
+:where(.admin-dashboard-page) .booking-item {
   padding: var(--spacing-md);
   background: var(--card-bg);
   border: 1px solid var(--card-border);
@@ -98,7 +98,7 @@
   box-shadow: var(--card-shadow, none);
 }
 
-.booking-info {
+:where(.admin-dashboard-page) .booking-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -109,7 +109,7 @@
   min-width: 0;
 }
 
-.booking-amenity {
+:where(.admin-dashboard-page) .booking-amenity {
   display: block;
   font-weight: 600;
   font-size: 1rem;
@@ -118,7 +118,7 @@
   width: 100%;
 }
 
-.booking-member {
+:where(.admin-dashboard-page) .booking-member {
   display: block;
   font-size: 0.875rem;
   color: var(--text-secondary);
@@ -126,7 +126,7 @@
   width: 100%;
 }
 
-.booking-right {
+:where(.admin-dashboard-page) .booking-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -134,7 +134,7 @@
   flex-shrink: 0;
 }
 
-.booking-time-info {
+:where(.admin-dashboard-page) .booking-time-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -142,30 +142,30 @@
   text-align: right;
 }
 
-.booking-time {
+:where(.admin-dashboard-page) .booking-time {
   color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 500;
 }
 
-.booking-time-small {
+:where(.admin-dashboard-page) .booking-time-small {
   color: var(--text-secondary);
   font-size: 0.8rem;
 }
 
-.event-list-detailed {
+:where(.admin-dashboard-page) .event-list-detailed {
   gap: var(--spacing-lg);
 }
 
 /* Status badges: see globals.css for base styles */
 
-.empty-state {
+:where(.admin-dashboard-page) .empty-state {
   color: var(--text-secondary);
   text-align: center;
   padding: var(--spacing-lg);
 }
 
-.dashboard-recent-pagination {
+:where(.admin-dashboard-page) .dashboard-recent-pagination {
   margin-top: var(--spacing-md);
   display: flex;
   align-items: center;
@@ -175,7 +175,7 @@
   border-top: 1px solid var(--form-divider);
 }
 
-.dashboard-recent-pagination-info {
+:where(.admin-dashboard-page) .dashboard-recent-pagination-info {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -184,34 +184,34 @@
   color: var(--text-secondary);
 }
 
-.dashboard-recent-page {
+:where(.admin-dashboard-page) .dashboard-recent-page {
   font-weight: 600;
   color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
-  .dashboard-recent-pagination {
+  :where(.admin-dashboard-page) .dashboard-recent-pagination {
     flex-direction: column;
     align-items: stretch;
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard-grid {
+  :where(.admin-dashboard-page) .dashboard-grid {
     grid-template-columns: 1fr;
   }
   
-  .stats-grid {
+  :where(.admin-dashboard-page) .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .booking-item {
+  :where(.admin-dashboard-page) .booking-item {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-md);
   }
 
-  .booking-time-info {
+  :where(.admin-dashboard-page) .booking-time-info {
     align-items: flex-start;
     width: 100%;
     text-align: left;
@@ -219,7 +219,7 @@
 }
 
 @media (max-width: 480px) {
-  .stats-grid {
+  :where(.admin-dashboard-page) .stats-grid {
     grid-template-columns: 1fr;
   }
 }

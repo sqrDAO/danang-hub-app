@@ -22,11 +22,11 @@
     radial-gradient(circle at 20% 80%, rgba(255, 164, 6, 0.15) 0%, transparent 40%),
     radial-gradient(circle at 80% 20%, rgba(255, 230, 187, 0.1) 0%, transparent 40%),
     radial-gradient(circle at 50% 50%, rgba(255, 164, 6, 0.05) 0%, transparent 50%);
-  animation: bgPulse 15s ease-in-out infinite;
+  animation: login-bgPulse 15s ease-in-out infinite;
   z-index: -1;
 }
 
-@keyframes bgPulse {
+@keyframes login-bgPulse {
   0%, 100% { transform: scale(1) rotate(0deg); }
   50% { transform: scale(1.1) rotate(5deg); }
 }
@@ -42,16 +42,16 @@
   background: linear-gradient(135deg, rgba(255, 164, 6, 0.2), rgba(255, 230, 187, 0.1));
   border-radius: 50%;
   filter: blur(80px);
-  animation: float 8s ease-in-out infinite;
+  animation: login-float 8s ease-in-out infinite;
   z-index: -1;
 }
 
-@keyframes float {
+@keyframes login-float {
   0%, 100% { transform: translateY(0) translateX(0); }
   50% { transform: translateY(-30px) translateX(20px); }
 }
 
-.login-card {
+:where(.login-container) .login-card {
   width: 100%;
   max-width: 440px;
   padding: var(--spacing-md) var(--spacing-lg);
@@ -64,16 +64,16 @@
   box-shadow: 
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  animation: cardSlideUp 0.5s ease-out;
+  animation: login-cardSlideUp 0.5s ease-out;
 }
 
-[data-theme="light"] .login-card {
+[data-theme="light"] :where(.login-container) .login-card {
   background: var(--surface-color);
   border: 1px solid var(--card-border);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-@keyframes cardSlideUp {
+@keyframes login-cardSlideUp {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -85,54 +85,54 @@
 }
 
 /* Logo */
-.login-logo {
+:where(.login-container) .login-logo {
   width: 220px;
   height: auto;
   margin: 0 auto var(--spacing-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: logoFloat 3s ease-in-out infinite;
+  animation: login-logoFloat 3s ease-in-out infinite;
 }
 
-@keyframes logoFloat {
+@keyframes login-logoFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
 }
 
-.login-logo img {
+:where(.login-container) .login-logo img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 4px 20px rgba(255, 164, 6, 0.3));
 }
 
-.login-header {
+:where(.login-container) .login-header {
   margin-bottom: var(--spacing-md);
 }
 
-.login-header h1 {
+:where(.login-container) .login-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
   letter-spacing: -0.02em;
 }
 
-.login-subtitle {
+:where(.login-container) .login-subtitle {
   color: var(--text-secondary);
   font-size: 0.95rem;
   margin: 0;
 }
 
 /* Form Styles */
-.login-form {
+:where(.login-container) .login-form {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
   text-align: left;
 }
 
-.form-group {
+:where(.login-container) .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -140,12 +140,12 @@
 
 /* cancels the margin-bottom from globals.css; .login-form uses gap instead.
    scoped to the card: this stylesheet outlives the page in a SPA session */
-.login-card .form-group {
+:where(.login-container) .login-card .form-group {
   margin-bottom: 0;
 }
 
 /* Sign-up only: password + confirm share a row */
-.password-row {
+:where(.login-container) .password-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-md);
@@ -153,7 +153,7 @@
   align-items: end;
 }
 
-.form-group label {
+:where(.login-container) .form-group label {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
@@ -161,13 +161,13 @@
   letter-spacing: 0.05em;
 }
 
-.input-wrapper {
+:where(.login-container) .input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-icon {
+:where(.login-container) .input-icon {
   position: absolute;
   left: 1rem;
   width: 20px;
@@ -177,7 +177,7 @@
   transition: color 0.2s ease;
 }
 
-.form-group input {
+:where(.login-container) .form-group input {
   width: 100%;
   padding: 0.9rem 1rem 0.9rem 3rem;
   min-height: 44px;
@@ -189,38 +189,38 @@
   transition: all 0.2s ease;
 }
 
-[data-theme="light"] .login-card .form-group input {
+[data-theme="light"] :where(.login-container) .login-card .form-group input {
   background: var(--form-field-bg);
   border: 1px solid var(--form-field-border);
 }
 
-.form-group input::placeholder {
+:where(.login-container) .form-group input::placeholder {
   color: var(--text-secondary);
   opacity: 0.8;
 }
 
-[data-theme="light"] .login-card .form-group input::placeholder {
+[data-theme="light"] :where(.login-container) .login-card .form-group input::placeholder {
   color: var(--text-secondary);
 }
 
-.form-group input:focus {
+:where(.login-container) .form-group input:focus {
   outline: none;
   border-color: var(--accent-primary);
   background: var(--form-field-focus-bg);
   box-shadow: 0 0 0 4px rgba(255, 164, 6, 0.1);
 }
 
-[data-theme="light"] .login-card .form-group input:focus {
+[data-theme="light"] :where(.login-container) .login-card .form-group input:focus {
   background: var(--form-field-focus-bg);
 }
 
-.form-group input:focus + .input-icon,
-.form-group:focus-within .input-icon {
+:where(.login-container) .form-group input:focus + .input-icon,
+:where(.login-container) .form-group:focus-within .input-icon {
   color: var(--accent-primary);
 }
 
 /* Error and Success Messages */
-.auth-error {
+:where(.login-container) .auth-error {
   background: var(--color-error-bg);
   border: 1px solid var(--color-error-border);
   color: var(--color-error);
@@ -234,11 +234,11 @@
   gap: 8px;
 }
 
-.auth-error::before {
+:where(.login-container) .auth-error::before {
   content: '⚠';
 }
 
-.auth-success {
+:where(.login-container) .auth-success {
   background: var(--color-success-bg);
   border: 1px solid var(--color-success-border);
   color: var(--color-success);
@@ -252,18 +252,18 @@
   gap: 8px;
 }
 
-.auth-success::before {
+:where(.login-container) .auth-success::before {
   content: '✓';
 }
 
 /* Forgot Password Link */
-.forgot-password-link {
+:where(.login-container) .forgot-password-link {
   text-align: right;
   margin-top: -4px;
 }
 
 /* Buttons */
-.login-button {
+:where(.login-container) .login-button {
   width: 100%;
   font-size: 0.95rem;
   font-weight: 600;
@@ -273,7 +273,7 @@
   overflow: hidden;
 }
 
-.login-button::before {
+:where(.login-container) .login-button::before {
   content: '';
   position: absolute;
   top: 0;
@@ -284,27 +284,27 @@
   transition: left 0.5s ease;
 }
 
-.login-button:hover::before {
+:where(.login-container) .login-button:hover::before {
   left: 100%;
 }
 
-.login-button:disabled {
+:where(.login-container) .login-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.login-button:disabled::before {
+:where(.login-container) .login-button:disabled::before {
   display: none;
 }
 
-.google-button {
+:where(.login-container) .google-button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
 }
 
-.google-button svg {
+:where(.login-container) .google-button svg {
   flex-shrink: 0;
   background: #fff;
   border-radius: 50%;
@@ -312,39 +312,39 @@
 }
 
 /* Secondary action: outlined so the Google button stays dominant */
-.email-submit-button {
+:where(.login-container) .email-submit-button {
   background: transparent;
   border: 1px solid var(--btn-secondary-border);
   color: var(--text-primary);
 }
 
-.email-submit-button:hover:not(:disabled) {
+:where(.login-container) .email-submit-button:hover:not(:disabled) {
   background: var(--btn-secondary-hover-bg);
   transform: translateY(-1px);
 }
 
 /* Divider */
-.auth-divider {
+:where(.login-container) .auth-divider {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
   margin: var(--spacing-md) 0;
 }
 
-.auth-divider::before,
-.auth-divider::after {
+:where(.login-container) .auth-divider::before,
+:where(.login-container) .auth-divider::after {
   content: '';
   flex: 1;
   height: 1px;
   background: var(--form-divider);
 }
 
-[data-theme="light"] .auth-divider::before,
-[data-theme="light"] .auth-divider::after {
+[data-theme="light"] :where(.login-container) .auth-divider::before,
+[data-theme="light"] :where(.login-container) .auth-divider::after {
   background: linear-gradient(90deg, transparent, var(--form-divider), transparent);
 }
 
-.auth-divider span {
+:where(.login-container) .auth-divider span {
   color: var(--text-secondary);
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -353,19 +353,19 @@
 }
 
 /* Footer */
-.auth-footer {
+:where(.login-container) .auth-footer {
   margin-top: var(--spacing-md);
   padding-top: var(--spacing-md);
   border-top: 1px solid var(--form-divider);
   text-align: center;
 }
 
-.auth-footer p {
+:where(.login-container) .auth-footer p {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.auth-link {
+:where(.login-container) .auth-link {
   background: none;
   border: none;
   color: var(--accent-secondary);
@@ -376,18 +376,18 @@
   transition: all 0.2s ease;
 }
 
-.auth-link:hover {
+:where(.login-container) .auth-link:hover {
   color: var(--accent-primary);
 }
 
 /* Wallet Buttons — tertiary action, side by side and smaller than the rest */
-.wallet-buttons {
+:where(.login-container) .wallet-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-sm);
 }
 
-.wallet-buttons .login-button {
+:where(.login-container) .wallet-buttons .login-button {
   min-height: 40px;
   padding: 0.55rem 0.75rem;
   font-size: 0.875rem;
@@ -395,7 +395,7 @@
 }
 
 /* Wallet error — takes the wallet row's place; clicking it dismisses the error */
-.wallet-error {
+:where(.login-container) .wallet-error {
   width: 100%;
   min-height: 40px;
   display: flex;
@@ -415,17 +415,17 @@
   transition: border-color 0.2s ease;
 }
 
-.wallet-error:hover {
+:where(.login-container) .wallet-error:hover {
   border-color: var(--color-error);
 }
 
-.wallet-error-close {
+:where(.login-container) .wallet-error-close {
   flex-shrink: 0;
   opacity: 0.7;
 }
 
 /* Wallet brand colors — intentional exceptions to warm palette (external brand identity) */
-.evm-wallet-button {
+:where(.login-container) .evm-wallet-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,13 +436,13 @@
   font-weight: 500;
 }
 
-.evm-wallet-button:hover {
+:where(.login-container) .evm-wallet-button:hover {
   background: rgba(98, 126, 234, 0.1);
   border-color: var(--wallet-evm-color);
   transform: translateY(-1px);
 }
 
-.solana-button {
+:where(.login-container) .solana-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -453,14 +453,14 @@
   font-weight: 500;
 }
 
-.solana-button:hover {
+:where(.login-container) .solana-button:hover {
   background: rgba(153, 69, 255, 0.1);
   border-color: var(--wallet-solana-color);
   transform: translateY(-1px);
 }
 
 /* Wallet Picker */
-.wallet-picker {
+:where(.login-container) .wallet-picker {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -471,12 +471,12 @@
   border-radius: 12px;
 }
 
-[data-theme="light"] .wallet-picker {
+[data-theme="light"] :where(.login-container) .wallet-picker {
   background: var(--surface-color);
   border-color: var(--card-border);
 }
 
-.wallet-option {
+:where(.login-container) .wallet-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -493,43 +493,43 @@
   text-align: left;
 }
 
-.wallet-option:hover {
+:where(.login-container) .wallet-option:hover {
   background: rgba(255, 164, 6, 0.1);
   border-color: rgba(255, 164, 6, 0.3);
 }
 
-.wallet-option img {
+:where(.login-container) .wallet-option img {
   border-radius: 4px;
   flex-shrink: 0;
 }
 
 /* Responsive */
 @media (max-width: 480px) {
-  .login-card {
+  :where(.login-container) .login-card {
     padding: var(--spacing-lg);
     border-radius: 20px;
     margin: var(--spacing-md);
   }
 
-  .login-logo {
+  :where(.login-container) .login-logo {
     width: 180px;
     height: auto;
   }
 
-  .login-header h1 {
+  :where(.login-container) .login-header h1 {
     font-size: 1.35rem;
   }
 
-  .wallet-buttons,
-  .password-row {
+  :where(.login-container) .wallet-buttons,
+  :where(.login-container) .password-row {
     grid-template-columns: 1fr;
   }
 
-  .form-group input {
+  :where(.login-container) .form-group input {
     padding: 0.8rem 1rem 0.8rem 2.75rem;
   }
 
-  .input-icon {
+  :where(.login-container) .input-icon {
     width: 18px;
     height: 18px;
   }

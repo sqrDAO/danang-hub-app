@@ -1,4 +1,4 @@
-.members-search-pill {
+:where(.admin-members-page) .members-search-pill {
   position: relative;
   display: flex;
   align-items: center;
@@ -12,12 +12,12 @@
   min-width: 280px;
 }
 
-.members-search-pill:focus-within {
+:where(.admin-members-page) .members-search-pill:focus-within {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(255, 164, 6, 0.15), 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-.members-search-icon {
+:where(.admin-members-page) .members-search-icon {
   width: 15px;
   height: 15px;
   color: var(--text-secondary);
@@ -26,11 +26,11 @@
   transition: color 0.2s;
 }
 
-.members-search-pill:focus-within .members-search-icon {
+:where(.admin-members-page) .members-search-pill:focus-within .members-search-icon {
   color: var(--accent-primary);
 }
 
-.members-search-input {
+:where(.admin-members-page) .members-search-input {
   flex: 1;
   background: transparent;
   border: none;
@@ -42,16 +42,16 @@
   min-width: 0;
 }
 
-.members-search-input::placeholder {
+:where(.admin-members-page) .members-search-input::placeholder {
   color: var(--text-secondary);
 }
 
-.members-search-input::-webkit-search-cancel-button {
+:where(.admin-members-page) .members-search-input::-webkit-search-cancel-button {
   opacity: 0.5;
   cursor: pointer;
 }
 
-.members-search-count {
+:where(.admin-members-page) .members-search-count {
   font-size: 0.75rem;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.08);
@@ -61,23 +61,23 @@
   flex-shrink: 0;
 }
 
-.members-no-results {
+:where(.admin-members-page) .members-no-results {
   text-align: center;
   color: var(--text-secondary);
   padding: var(--spacing-lg);
 }
 
-.members-table-container {
+:where(.admin-members-page) .members-table-container {
   padding: var(--spacing-lg);
   overflow-x: auto;
 }
 
-.members-table {
+:where(.admin-members-page) .members-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.members-table th {
+:where(.admin-members-page) .members-table th {
   text-align: left;
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--card-border);
@@ -86,25 +86,25 @@
   font-size: 0.9rem;
 }
 
-.members-table td {
+:where(.admin-members-page) .members-table td {
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--card-border);
 }
 
-.member-cell {
+:where(.admin-members-page) .member-cell {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
 
-.member-avatar {
+:where(.admin-members-page) .member-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   border: 1px solid var(--btn-secondary-border);
 }
 
-.membership-badge {
+:where(.admin-members-page) .membership-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 99px;
@@ -113,51 +113,51 @@
   text-transform: uppercase;
 }
 
-.membership-badge.member {
+:where(.admin-members-page) .membership-badge.member {
   background: rgba(255, 230, 187, 0.2);
   color: var(--accent-secondary);
   border: 1px solid rgba(255, 230, 187, 0.3);
 }
 
-.membership-badge.admin {
+:where(.admin-members-page) .membership-badge.admin {
   background: rgba(255, 164, 6, 0.2);
   color: var(--accent-primary);
   border: 1px solid rgba(255, 164, 6, 0.3);
 }
 
-.btn-view-profile {
+:where(.admin-members-page) .btn-view-profile {
   background: rgba(255, 230, 187, 0.15);
   border: 1px solid rgba(255, 230, 187, 0.4);
   color: var(--accent-secondary);
 }
 
-.btn-view-profile:hover {
+:where(.admin-members-page) .btn-view-profile:hover {
   background: rgba(255, 230, 187, 0.25);
   border-color: rgba(255, 230, 187, 0.6);
   color: var(--accent-secondary);
 }
 
-[data-theme="light"] .btn-view-profile {
+[data-theme="light"] :where(.admin-members-page) .btn-view-profile {
   background: rgba(255, 164, 6, 0.1);
   border-color: rgba(255, 164, 6, 0.35);
 }
 
-[data-theme="light"] .btn-view-profile:hover {
+[data-theme="light"] :where(.admin-members-page) .btn-view-profile:hover {
   background: rgba(255, 164, 6, 0.18);
   border-color: rgba(255, 164, 6, 0.55);
 }
 
-[data-theme="light"] .membership-badge.member {
+[data-theme="light"] :where(.admin-members-page) .membership-badge.member {
   background: rgba(255, 164, 6, 0.1);
   border-color: rgba(255, 164, 6, 0.3);
 }
 
 /* Mobile Card Layout */
-.member-card-mobile {
+:where(.admin-members-page) .member-card-mobile {
   display: none;
 }
 
-.member-card-mobile {
+:where(.admin-members-page) .member-card-mobile {
   padding: var(--spacing-md);
   background: var(--card-bg);
   border-radius: var(--border-radius);
@@ -166,31 +166,31 @@
   box-shadow: var(--card-shadow, none);
 }
 
-.member-card-mobile-header {
+:where(.admin-members-page) .member-card-mobile-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-md);
 }
 
-.member-card-mobile-info {
+:where(.admin-members-page) .member-card-mobile-info {
   flex: 1;
 }
 
-.member-card-mobile-name {
+:where(.admin-members-page) .member-card-mobile-name {
   font-weight: 600;
   font-size: 1.1rem;
   color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
-.member-card-mobile-field {
+:where(.admin-members-page) .member-card-mobile-field {
   display: flex;
   flex-direction: column;
   margin-bottom: var(--spacing-sm);
 }
 
-.member-card-mobile-label {
+:where(.admin-members-page) .member-card-mobile-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -198,12 +198,12 @@
   margin-bottom: 0.25rem;
 }
 
-.member-card-mobile-value {
+:where(.admin-members-page) .member-card-mobile-value {
   color: var(--text-primary);
   font-size: 0.9rem;
 }
 
-.member-card-mobile-actions {
+:where(.admin-members-page) .member-card-mobile-actions {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -212,24 +212,24 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.member-card-mobile-actions .btn {
+:where(.admin-members-page) .member-card-mobile-actions .btn {
   width: 100%;
 }
 
 @media (max-width: 768px) {
-  .members-table-container {
+  :where(.admin-members-page) .members-table-container {
     padding: 0;
   }
 
-  .members-table {
+  :where(.admin-members-page) .members-table {
     display: none;
   }
 
-  .member-card-mobile {
+  :where(.admin-members-page) .member-card-mobile {
     display: block;
   }
 
-  .members-search-pill {
+  :where(.admin-members-page) .members-search-pill {
     min-width: 0;
     width: 100%;
   }
@@ -237,22 +237,22 @@
 
 
 /* Partner organizations */
-.partners-panel {
+:where(.admin-members-page) .partners-panel {
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
 }
 
-.partners-panel-header {
+:where(.admin-members-page) .partners-panel-header {
   margin-bottom: var(--spacing-md);
 }
 
-.partners-panel-description,
-.partners-empty {
+:where(.admin-members-page) .partners-panel-description,
+:where(.admin-members-page) .partners-empty {
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
-.partners-list {
+:where(.admin-members-page) .partners-list {
   list-style: none;
   margin: 0 0 var(--spacing-md);
   padding: 0;
@@ -261,7 +261,7 @@
   gap: var(--spacing-sm);
 }
 
-.partner-row {
+:where(.admin-members-page) .partner-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -270,7 +270,7 @@
   border-radius: 12px;
 }
 
-.partner-row-info {
+:where(.admin-members-page) .partner-row-info {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -278,39 +278,39 @@
   min-width: 0;
 }
 
-.partner-row-name {
+:where(.admin-members-page) .partner-row-name {
   font-weight: 600;
 }
 
-.partner-row-meta {
+:where(.admin-members-page) .partner-row-meta {
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
-.partner-row-actions,
-.partner-row-change {
+:where(.admin-members-page) .partner-row-actions,
+:where(.admin-members-page) .partner-row-change {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
 
 /* Fixed width: an auto select is as wide as its longest option. */
-.partner-desk-select {
+:where(.admin-members-page) .partner-desk-select {
   width: 14rem;
   max-width: 100%;
 }
 
-.partners-add-form {
+:where(.admin-members-page) .partners-add-form {
   display: flex;
   gap: var(--spacing-sm);
 }
 
-.partners-add-form .form-field {
+:where(.admin-members-page) .partners-add-form .form-field {
   flex: 1;
   min-width: 0;
 }
 
-.membership-badge.partner {
+:where(.admin-members-page) .membership-badge.partner {
   margin-left: 0.375rem;
   text-transform: none;
   background: rgba(99, 179, 237, 0.15);
@@ -319,25 +319,25 @@
 }
 
 @media (max-width: 600px) {
-  .partners-add-form {
+  :where(.admin-members-page) .partners-add-form {
     flex-direction: column;
   }
 
-  .partner-row {
+  :where(.admin-members-page) .partner-row {
     flex-wrap: wrap;
   }
 
   /* Actions and the desk changer drop to their own full-width line. */
-  .partner-row-actions,
-  .partner-row-change {
+  :where(.admin-members-page) .partner-row-actions,
+  :where(.admin-members-page) .partner-row-change {
     flex: 1 1 100%;
   }
 
-  .partner-row-change .partner-desk-select {
+  :where(.admin-members-page) .partner-row-change .partner-desk-select {
     flex: 1;
   }
 
-  .partners-add-form .partner-desk-select {
+  :where(.admin-members-page) .partners-add-form .partner-desk-select {
     width: 100%;
   }
 }

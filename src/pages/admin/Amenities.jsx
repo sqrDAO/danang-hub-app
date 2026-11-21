@@ -755,7 +755,7 @@ const AdminAmenities = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-amenities-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -764,7 +764,7 @@ const AdminAmenities = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-amenities-page">
         <div className="page-header">
           <h1 className="page-title">{t('adminAmenities.title')}</h1>
           <button className="btn btn-primary" onClick={handleCreate}>

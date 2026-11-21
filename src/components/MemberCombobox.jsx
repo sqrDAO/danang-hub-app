@@ -1,3 +1,4 @@
+import MemberEmail from './MemberEmail'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import './MemberCombobox.css'
@@ -135,8 +136,8 @@ const MemberCombobox = ({ members, memberId, onChange, disabled, label, placehol
               className={`member-combobox-option${index === activeIndex ? ' selected' : ''}`}
               onClick={() => select(member)}
             >
-              <span className="member-combobox-name">{member.displayName || member.email}</span>
-              {member.displayName && member.email && <span className="member-combobox-email">{member.email}</span>}
+              <span className="member-combobox-name">{member.displayName || <MemberEmail member={member} />}</span>
+              {member.displayName && member.email && <span className="member-combobox-email"><MemberEmail member={member} /></span>}
             </li>
           ))}
         </ul>

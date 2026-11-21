@@ -1,3 +1,4 @@
+import MemberEmail from '../../components/MemberEmail'
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -353,9 +354,7 @@ const HostProfileContact = ({ member }) => (
       <div className="profile-detail-item">
         <span className="detail-label">Email</span>
         <span className="detail-value">
-          <a href={`mailto:${member.email}`} className="profile-link">
-            {member.email}
-          </a>
+          <MemberEmail member={member} link className="profile-link" />
         </span>
       </div>
     )}
@@ -527,7 +526,7 @@ const AdminEvents = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-events-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -536,7 +535,7 @@ const AdminEvents = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-events-page">
         <div className="page-header">
           <h1 className="page-title">{t('adminEvents.title')}</h1>
           <button className="btn btn-primary" onClick={handleCreate}>

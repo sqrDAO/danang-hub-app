@@ -1,5 +1,7 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { storage } from './firebase'
+import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { isImportedBannerUrl } from '../utils/importedBanner'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -161,9 +163,17 @@ const BANNER_FETCH_TIMEOUT_MS = 15000
  * @returns {Promise<File>}
  */
 export const fetchBannerFile = async (imageUrl) => {
+  // The local fixture supplies an embedded PNG; production only permits the
+  // same verified CDN hosts as the callable's draft mapper.
+  const localImage = LOCAL_DEV_MODE && imageUrl?.startsWith('data:image/png;base64,')
+  if (!localImage && !isImportedBannerUrl(imageUrl)) throw new Error('Unsupported cover host')
   // Without this Accept the image host may answer with AVIF, which the banner rejects.
   // The timeout also covers reading the body, so a slow host cannot leave the import hanging.
   const response = await fetch(imageUrl, {
+    mode: 'cors',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    redirect: 'error',
     headers: { Accept: 'image/jpeg,image/png,image/webp' },
     signal: AbortSignal.timeout(BANNER_FETCH_TIMEOUT_MS)
   })

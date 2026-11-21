@@ -1,3 +1,4 @@
+import MemberEmail from '../../components/MemberEmail'
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -9,9 +10,10 @@ import Avatar from '../../components/Avatar'
 import EventDetailModal from '../../components/event/EventDetailModal'
 import EventCard from '../../components/event/EventCard'
 import EventFormModal from '../../components/event/EventFormModal'
-import { getEventVenueId, getEventFormPayload, hasEventPage, openEventLink } from '../../components/event/eventFields'
+import { getEventVenueId, getEventFormPayload, hasEventPage } from '../../components/event/eventFields'
 import { useEventHallCheck } from '../../components/event/useEventHallCheck'
 import {
+  getEvent,
   getApprovedEvents,
   getUpcomingEvents,
   getMyEvents,
@@ -30,6 +32,7 @@ import { showToast } from '../../utils/toast'
 import { isPendingFor, pendingTargetId } from '../../utils/mutationTarget'
 import { promptPushOptInAfterSuccess } from '../../utils/pushOptInPrompt'
 import { parseHubDateTime } from '../../utils/timezone'
+import { EVENT_LIST_KEYS, isEventFull, registerFromEventCard, runFreshRegistration } from '../../utils/eventRegistrationAction'
 import { consumeCreateAction } from '../../utils/consumeCreateAction'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
@@ -37,10 +40,6 @@ import './Profile.css'
 
 const isEventRegistered = (event, uid) => {
   return event.attendees?.includes(uid) || false
-}
-
-const isEventFull = (event) => {
-  return event.capacity && event.attendees?.length >= event.capacity
 }
 
 const isOnEventWaitlist = (event, uid) => {
@@ -102,19 +101,41 @@ const resolveRedirectEvent = (eventId, upcomingEventsData, approvedEvents) => {
   return { event, missing }
 }
 
-// Home links here after opening an event's own page. Home's data can be stale,
-// so a full event with a page is re-checked here and records nothing, as on
-// this page's Register.
-const runRegisterAction = (event, payload, ctx) => {
+// Home already opened the external page synchronously. Bypass both React Query
+// and Firestore's offline cache before recording a redirect registration.
+const runRegisterAction = async (eventId, ctx, isActive) => {
   const { currentUser, t, searchParams, setSearchParams } = ctx
-  if (hasEventPage(event) && isEventFull(event)) {
-    clearActionParams(searchParams, setSearchParams)
-  } else if (!event.attendees?.includes(currentUser.uid)) {
-    ctx.registerMutation.mutate(payload)
-  } else {
-    showToast(t('toast.alreadyRegistered'), 'info')
-    clearActionParams(searchParams, setSearchParams)
-  }
+  const outcome = await runFreshRegistration({
+    eventId, memberId: currentUser.uid, queryClient: ctx.queryClient,
+    loadEvent: id => getEvent(id, { source: 'server' }),
+    isActive,
+    register: payload => ctx.actions.registerMutation.mutate(payload)
+  })
+  if (!isActive() || outcome === 'registered') return
+  const message = {
+    missing: 'toast.eventNotFound', unavailable: 'toast.eventNotAvailable',
+    full: 'memberEvents.eventFull', alreadyRegistered: 'toast.alreadyRegistered',
+    failed: 'toast.eventRegisterFailed'
+  }[outcome]
+  if (message) showToast(t(message), outcome === 'failed' ? 'error' : 'info')
+  clearActionParams(searchParams, setSearchParams)
+}
+
+const useRegisterRedirect = (ctx) => {
+  const queryClient = useQueryClient()
+  const latest = useRef()
+  latest.current = { ...ctx, queryClient }
+  const action = ctx.searchParams.get('action')
+  const eventId = ctx.searchParams.get('eventId')
+  const uid = ctx.currentUser?.uid
+  useEffect(() => {
+    if (action !== 'register' || !eventId || !uid) return undefined
+    let active = true
+    void runRegisterAction(eventId, latest.current, () => active)
+    // Reads cannot be aborted by Firestore; ignore late results on navigation,
+    // account changes and StrictMode's setup/cleanup replay.
+    return () => { active = false }
+  }, [action, eventId, uid])
 }
 
 const runRedirectAction = (action, event, ctx) => {
@@ -125,10 +146,6 @@ const runRedirectAction = (action, event, ctx) => {
     return
   }
   const payload = { eventId: event.id, memberId: currentUser.uid }
-  if (action === 'register') {
-    runRegisterAction(event, payload, ctx)
-    return
-  }
   if (action === 'unregister') {
     if (window.confirm(t('memberEvents.confirmUnregister'))) {
       ctx.unregisterMutation.mutate(payload)
@@ -237,12 +254,6 @@ const useEventFormMutations = ({ t, setIsModalOpen, setIsSubmitting, uid }) => {
 
   return { createMutation, deleteMutation, editMutation }
 }
-
-// Caches holding the full event objects a register/waitlist click can change.
-// Full key arrays, not prefixes: setQueryData matches the hashed key exactly,
-// Stay in sync with the queryKey of every live list showing these events —
-// currently useEventsQueries above and member/Dashboard.jsx.
-const EVENT_LIST_KEYS = [['approvedEvents'], ['upcomingEvents']]
 
 const withMember = (list, memberId) =>
   (list || []).includes(memberId) ? (list || []) : [...(list || []), memberId]
@@ -357,9 +368,7 @@ const useEventActionMutations = ({
   // A full event with its own page still opens it; the Hub just records nothing.
   const handleRegister = async (event) => {
     if (isPendingFor(registerMutation, event.id)) return
-    openEventLink(event.eventLink)
-    if (hasEventPage(event) && isEventFull(event)) return
-    await registerMutation.mutateAsync({ eventId: event.id, memberId: currentUser.uid })
+    await registerFromEventCard(event, currentUser.uid, registerMutation.mutateAsync)
   }
 
   const handleUnregister = async (eventId) => {
@@ -705,9 +714,7 @@ const HostContactSection = ({ member }) => (
       <div className="profile-detail-item">
         <span className="detail-label">Email</span>
         <span className="detail-value">
-          <a href={`mailto:${member.email}`} className="profile-link">
-            {member.email}
-          </a>
+          <MemberEmail member={member} link className="profile-link" />
         </span>
       </div>
     )}
@@ -939,6 +946,7 @@ const useMemberEventQueryActions = ({
   currentUser, searchParams, setSearchParams, openCreateForAmenity, handleOpenCreateModal, t,
   isLoadingEvents, isLoadingAmenities, upcomingEventsData, approvedEvents, processedActionRef, actions
 }) => {
+  useRegisterRedirect({ currentUser, searchParams, setSearchParams, t, actions })
   useEffect(() => {
     consumeCreateAction({
       searchParams, currentUser, openCreateForAmenity, handleOpenCreateModal, setSearchParams,
@@ -949,7 +957,7 @@ const useMemberEventQueryActions = ({
   useEffect(() => {
     const action = searchParams.get('action')
     const eventId = searchParams.get('eventId')
-    if (!action || !eventId || !currentUser || action === 'create') {
+    if (!action || !eventId || !currentUser || action === 'create' || action === 'register') {
       processedActionRef.current = null
       return
     }
@@ -1058,7 +1066,7 @@ const MemberEvents = () => {
 
   return (
     <Layout>
-      <div className="container">
+      <div className="container member-events-page">
         <div className="page-header">
           <div className="page-header-content">
             <h1 className="page-title">{t('memberEvents.title')}</h1>

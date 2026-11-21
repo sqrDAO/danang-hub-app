@@ -39,6 +39,12 @@ Google popup, email+password (sign-up / sign-in / reset), EVM wallet, Solana wal
 exposed from one context. Every method funnels through `createUserProfile()`, which
 auto-creates `members/{uid}` on first login with `membershipType: 'member'`.
 
+Profile load and successful verification reload sync `email` and `verifiedEmail`.
+The ID token is refreshed before that background write; rules accept a new
+verified address only from its owner's verified Auth token. Contact displays
+require `verifiedEmail === email`, so changed addresses, wallet contact emails
+and legacy records without proof are unverified. No production backfill is run.
+
 ### Wallet auth = custom-token flow — `src/services/walletAuth.js` + `functions/index.js`
 
 1. `discoverEIP6963Wallets()` / `discoverSolanaWallets()` enumerate installed wallets
@@ -282,7 +288,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `getAmenityBookingRanges` | callable (auth required) | Busy `startTime`/`endTime`/`status` ranges for an amenity over a window of at most 60 days, with no member identity. The booking calendar's only source for other members' bookings (§5) |
 | `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content |
 | `reviewEvent` | callable (admin) | Revision-aware approve/reject; status only |
-| `importEventFromUrl` | callable (any member) | Fetch a public Luma page (host allowlist, redirects re-checked) and return a form draft from its `Event` JSON-LD; transactionally reserves one of 10 hourly attempts before fetching |
+| `importEventFromUrl` | callable (any member) | Fetch a public Luma, Meetup or Eventbrite page (exact host allowlist, each redirect re-checked) and return a form draft from its `Event` JSON-LD; transactionally reserves one of 10 hourly attempts before fetching |
 | `removePartner` | callable (admin) | Detach the partner's members, release its desk and delete it in one transaction, then cancel their unstarted Partner Desk days (`partner-removed`); `{daysPending: true}` if that last step fails |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
@@ -306,7 +312,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 
 | Collection | Read | Write |
 |---|---|---|
-| `members` | owner or admin | owner create/update (**cannot set or change `membershipType` or `partnerId`**); admin anything |
+| `members` | owner or admin | owner create/update (**cannot set or change `membershipType` or `partnerId`**); admin edits allowed; new `verifiedEmail` proof requires the owner's matching verified Auth token, even for admin writes |
 | `partners` | any signed-in user | admin only |
 | `amenities` | public | admin only (`reservedForPartnerId` marks a partner's desk; see `bookings`) |
 | `bookings` | owner or admin | owner create (status `pending`; **a desk reserved for a partner takes bookings only from that partner's members**; none of the admin/server-written fields, `pd_*` ids, `partner-desk` plans or `partner_*` plan groups; `renewalOf` only on a `fixed-desk` day with a `planGroupId`); owner update **only `status` and `updatedAt`**, with `status` either unchanged or `cancelled` from `pending` (or from `approved` on a `fixed-desk`/`partner-desk` day); owner delete only while `pending`; admin anything |
@@ -348,3 +354,25 @@ those live in the callable / client and are advisory.
 | `projects` | admin (rules allow; no write service yet) | none yet (`src/services/projects.js` kept for planned project linking) |
 
 Field-level details are in [`README.md` § Firestore Collections](../../README.md#firestore-collections).
+
+### Event import source boundaries
+
+`functions/eventImport.js` accepts HTTPS on `lu.ma`, `luma.com`, `meetup.com`,
+`meetu.ps`, `eventbrite.com` and `eventbrite.co.uk` (plus `www.`). No wildcard
+subdomains or other regional domains/shorteners are accepted. A blocked page or
+one without usable Event JSON-LD falls back to manual entry; a platform may
+publish only a short description. The existing 8-second / 1 MB / 3-redirect
+limits and shared 10-attempt hourly quota remain unchanged.
+
+The draft mapper and browser cover validator permit `images.lumacdn.com`,
+`secure-content.meetupstatic.com` and `img.evbuc.com`. The browser downloads with
+CORS, no credentials/referrer and no redirects; unsupported or failed covers keep
+the manual-upload fallback. Report-only CSP includes these exact connect hosts.
+Nothing is uploaded or saved until the user reviews and submits the form.
+
+Live checks on 2026-11-21 found Event JSON-LD on Meetup and Eventbrite US/UK
+pages under 1 MB and CORS `*` on the two added cover CDNs. Minimal source fixtures
+and provenance are in `test/fixtures/event-import/`. Meetup short links redirected
+to `www.meetup.com`; bare platform domains redirected to their `www.` counterparts.
+Cloud Functions egress may receive different responses; a production import still
+needs to be checked after deployment.

@@ -1292,7 +1292,7 @@ const MemberBookings = () => {
 
   return (
     <Layout hideChatbot={form.isModalOpen || !!passBooking}>
-      <div className="container">
+      <div className="container member-bookings-page">
         <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('memberBookings.title')}</h1>
           <HubClosureNotice />

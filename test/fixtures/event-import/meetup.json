@@ -1,0 +1,19 @@
+{
+  "sourceUrl": "https://www.meetup.com/andersen-it-community-technology-meetup-group/events/317267755/",
+  "retrievedAt": "2026-11-21",
+  "notes": "Minimal Event JSON-LD fields from raw HTTP 200 response (108251 bytes); description truncated to first 10 whitespace-separated words for fixture. Source description itself is a shortened excerpt with Markdown, no HTML tags/entities. Image CDN GET with app Origin returns ACAO * and image/webp.",
+  "event": {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    "name": "Java Meetup: Every Java Object Pays a Tax",
+    "url": "https://www.meetup.com/andersen-it-community-technology-meetup-group/events/317267755/",
+    "description": "**☕💻 Java Under the Hood: Less Memory, No Code Changes**",
+    "startDate": "2026-11-28T11:00:00+05:30",
+    "endDate": "2026-11-28T13:00:00+05:30",
+    "image": [
+      "https://secure-content.meetupstatic.com/images/classic-events/536957406/676x676.jpg",
+      "https://secure-content.meetupstatic.com/images/classic-events/536957406/676x507.jpg",
+      "https://secure-content.meetupstatic.com/images/classic-events/536957406/676x380.jpg"
+    ]
+  }
+}

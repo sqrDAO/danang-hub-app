@@ -1,10 +1,15 @@
 // Reads a public event page and maps its schema.org Event JSON-LD block to a
 // draft for the event form. Only the hosts below are ever requested, which is
 // the guard against the callable being pointed at internal addresses.
-const IMPORT_HOSTS = ["lu.ma", "luma.com"];
-// Where Luma serves cover images. The browser downloads the cover itself, so
+const IMPORT_HOSTS = [
+  "lu.ma", "luma.com", "meetup.com", "meetu.ps",
+  "eventbrite.com", "eventbrite.co.uk",
+];
+// Verified public cover CDNs. The browser downloads the cover itself, so
 // this only decides which image addresses the form is ever handed.
-const IMAGE_HOSTS = ["images.lumacdn.com"];
+const IMAGE_HOSTS = [
+  "images.lumacdn.com", "secure-content.meetupstatic.com", "img.evbuc.com",
+];
 const MAX_REDIRECTS = 3;
 const MAX_PAGE_BYTES = 1000000;
 const FETCH_TIMEOUT_MS = 8000;
@@ -39,7 +44,8 @@ const parseImageUrl = (image) => {
     return null;
   }
   const allowed = url.protocol === "https:" &&
-      IMAGE_HOSTS.includes(url.hostname) && !url.port;
+      IMAGE_HOSTS.includes(url.hostname) && !url.port &&
+      !url.username && !url.password;
   return allowed ? url.href : null;
 };
 
@@ -61,8 +67,8 @@ const importError = (callableCode, message) =>
   Object.assign(new Error(message), {callableCode});
 
 // Redirects are followed by hand so each hop is re-checked against the
-// allowlist (lu.ma answers with a redirect to luma.com). Unread bodies are
-// cancelled so the connection is released right away.
+// allowlist (e.g. lu.ma to luma.com, meetu.ps to www.meetup.com).
+// Unread bodies are cancelled so the connection is released right away.
 const fetchEventPage = async (startUrl, fetchImpl = fetch) => {
   const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
   let url = startUrl;

@@ -75,4 +75,48 @@ if (!hasEmulator) {
     const adminDb = memberDb('admin-a', 'admin@hub.dev')
     await assertSucceeds(updateDoc(doc(adminDb, 'members', 'google-a'), { displayName: 'A' }))
   })
+
+  test('verified owners may bind proof only to their own Auth and profile address', async () => {
+    await assertSucceeds(updateDoc(member('google-a', 'a@hub.dev'), { verifiedEmail: 'a@hub.dev' }))
+    await assertFails(updateDoc(member('google-a', 'a@hub.dev'), { verifiedEmail: 'victim@hub.dev' }))
+    await assertFails(updateDoc(member('legacy-b', 'real@hub.dev'), { verifiedEmail: 'real@hub.dev' }))
+    await assertSucceeds(updateDoc(member('legacy-b', 'real@hub.dev'), { email: 'real@hub.dev', verifiedEmail: 'real@hub.dev' }))
+  })
+
+  test('unverified owners and wallet accounts cannot forge proof on create or update', async () => {
+    const unverified = testEnv.authenticatedContext('unverified', { email: 'u@hub.dev', email_verified: false }).firestore()
+    await assertFails(setDoc(doc(unverified, 'members', 'unverified'), {
+      membershipType: 'member', email: 'u@hub.dev', verifiedEmail: 'u@hub.dev'
+    }))
+    await assertSucceeds(setDoc(doc(unverified, 'members', 'unverified'), {
+      membershipType: 'member', email: 'u@hub.dev', verifiedEmail: ''
+    }))
+    await assertFails(updateDoc(doc(unverified, 'members', 'unverified'), { verifiedEmail: 'u@hub.dev' }))
+    await assertFails(updateDoc(member('wallet-a'), { email: 'typed@hub.dev', verifiedEmail: 'typed@hub.dev' }))
+    await assertFails(setDoc(member('new-wallet-liar'), {
+      membershipType: 'member', email: 'typed@hub.dev', verifiedEmail: 'typed@hub.dev'
+    }))
+    await assertSucceeds(setDoc(member('new-verified', 'verified@hub.dev'), {
+      membershipType: 'member', email: 'verified@hub.dev', verifiedEmail: 'verified@hub.dev'
+    }))
+  })
+
+  test('admin edits cannot forge another member verification', async () => {
+    const target = doc(memberDb('admin-a', 'admin@hub.dev'), 'members', 'google-a')
+    await assertFails(updateDoc(target, { email: 'victim@hub.dev', verifiedEmail: 'victim@hub.dev' }))
+    await assertFails(updateDoc(target, { email: 'admin@hub.dev', verifiedEmail: 'admin@hub.dev' }))
+    await assertSucceeds(updateDoc(target, { displayName: 'Safe edit' }))
+    await assertSucceeds(updateDoc(target, { verifiedEmail: '' }))
+  })
+
+  test('owners can clear proof and edit unrelated fields without fresh verification', async () => {
+    await seed('old-proof', { membershipType: 'member', email: 'old@hub.dev', verifiedEmail: 'old@hub.dev' })
+    const owner = doc(testEnv.authenticatedContext('old-proof', {
+      email: 'old@hub.dev', email_verified: false
+    }).firestore(), 'members', 'old-proof')
+    await assertSucceeds(updateDoc(owner, { bio: 'still editable' }))
+    await assertSucceeds(updateDoc(owner, { verifiedEmail: '' }))
+    await assertFails(updateDoc(owner, { verifiedEmail: 'old@hub.dev' }))
+  })
+
 }

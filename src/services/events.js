@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -100,10 +101,10 @@ export const getEvents = async (filters = {}) => {
   }))
 }
 
-export const getEvent = async (id) => {
+export const getEvent = async (id, { source } = {}) => {
   if (LOCAL_DEV_MODE) return getLocalEvent(id)
   const eventRef = doc(db, EVENTS_COLLECTION, id)
-  const snapshot = await getDoc(eventRef)
+  const snapshot = await (source === 'server' ? getDocFromServer(eventRef) : getDoc(eventRef))
   if (snapshot.exists()) {
     const data = snapshot.data()
     return { 
