@@ -71,15 +71,13 @@ export function formatEventDate(date) {
 /**
  * Format time only for display in hub timezone.
  */
-export function formatEventTime(date) {
+export function formatEventTime(date, locale = 'en-US') {
   if (!date) return 'N/A'
   const d = date instanceof Date ? date : new Date(date)
-  const locale = 'en-US'
   return d.toLocaleTimeString(locale, {
     timeZone: HUB_TIMEZONE,
     hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
+    minute: '2-digit'
   })
 }
 

@@ -1,3 +1,4 @@
+import { appLocale } from '../../utils/appLocale'
 import { useTranslation } from 'react-i18next'
 import Modal from '../Modal'
 import {
@@ -51,19 +52,22 @@ const AttendeesFact = ({ event, onShowRegistrants, t }) => (
   />
 )
 
-const EventFacts = ({ event, fields, onShowHost, onShowRegistrants, t }) => (
-  <div className="event-detail-facts">
-    {fields.has('date') && (
-      <Fact
-        label={t('eventDetails.when')}
-        value={event.date ? getWhenText(event) : null}
-        sub={event.duration ? t('eventDetails.durationValue', { minutes: event.duration }) : null}
-      />
-    )}
-    <HostFact event={event} fields={fields} onShowHost={onShowHost} t={t} />
-    {fields.has('attendees') && <AttendeesFact event={event} onShowRegistrants={onShowRegistrants} t={t} />}
-  </div>
-)
+const EventFacts = ({ event, fields, onShowHost, onShowRegistrants, t }) => {
+  const { i18n } = useTranslation()
+  return (
+    <div className="event-detail-facts">
+      {fields.has('date') && (
+        <Fact
+          label={t('eventDetails.when')}
+          value={event.date ? getWhenText(event, appLocale(i18n.language)) : null}
+          sub={event.duration ? t('eventDetails.durationValue', { minutes: event.duration }) : null}
+        />
+      )}
+      <HostFact event={event} fields={fields} onShowHost={onShowHost} t={t} />
+      {fields.has('attendees') && <AttendeesFact event={event} onShowRegistrants={onShowRegistrants} t={t} />}
+    </div>
+  )
+}
 
 // With `linkCheck` (admin), a link off the known platforms shows its host
 // under the button and asks before opening.

@@ -7,7 +7,7 @@ import { getMembers } from '../../services/members'
 import { getBookings, getCompletedBookingsCount } from '../../services/bookings'
 import { getEvents, getCompletedEventsCount } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
-import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { formatDateDDMMYYYY, formatEventTime } from '../../utils/timezone'
 import { appLocale } from '../../utils/appLocale'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
@@ -220,10 +220,7 @@ const AdminDashboard = () => {
                             {booking.startTime ? formatDateDDMMYYYY(booking.startTime) : 'N/A'}
                           </span>
                           <span className="booking-time-small">
-                            {booking.startTime ? new Date(booking.startTime).toLocaleTimeString(locale, {
-                              hour: 'numeric',
-                              minute: '2-digit'
-                            }) : ''}
+                            {booking.startTime ? formatEventTime(booking.startTime, locale) : ''}
                           </span>
                         </div>
                       </div>
