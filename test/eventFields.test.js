@@ -115,23 +115,42 @@ test('unfamiliar sites are flagged by the host the browser loads', () => {
   assert.equal(getUnfamiliarLinkHost('https://lu.ma@evil.com/x'), 'evil.com')
 })
 
-test('a known host that forwards to a link in its query is flagged', () => {
-  assert.equal(getUnfamiliarLinkHost('https://l.facebook.com/l.php?u=https%3A%2F%2Fevil.com'), 'l.facebook.com')
-  assert.equal(getUnfamiliarLinkHost('https://www.youtube.com/redirect?q=http://evil.com'), 'www.youtube.com')
-  assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=//evil.com'), 'lu.ma')
+test('a known forwarding host warns about its unfamiliar destination', () => {
+  assert.equal(getUnfamiliarLinkHost('https://l.facebook.com/l.php?u=https%3A%2F%2Fevil.com'), 'evil.com')
+  assert.equal(getUnfamiliarLinkHost('https://www.youtube.com/redirect?q=http://evil.com'), 'evil.com')
+  assert.equal(getUnfamiliarLinkHost('https://lu.ma/x?next=//evil.com'), 'evil.com')
 })
 
 test('odd spellings of a forwarded link are flagged where the browser would go', () => {
   const fb = 'https://l.facebook.com/l.php?u='
   for (const value of ['/\\evil.com', '\\\\evil.com', 'https:\\\\evil.com', '%20https://evil.com', 'ht%09tps://evil.com', '/%09/evil.com']) {
-    assert.equal(getUnfamiliarLinkHost(fb + value), 'l.facebook.com', value)
+    assert.equal(getUnfamiliarLinkHost(fb + value), 'evil.com', value)
   }
 })
 
 test('a forwarded link is followed through known hops', () => {
   const fb = 'https://l.facebook.com/l.php?u='
-  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent(fb + 'https://evil.com')), 'l.facebook.com')
+  assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent(fb + 'https://evil.com')), 'evil.com')
   assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent('https://lu.ma/x')), '')
+})
+
+test('nested forwarding through familiar platforms names the unfamiliar destination', () => {
+  const target = 'https://www.youtube.com/redirect?q=https://destination.example/event'
+  assert.equal(getUnfamiliarLinkHost('https://l.facebook.com/l.php?u=' + encodeURIComponent(target)), 'destination.example')
+})
+
+test('a sponsor URL on the unfamiliar event page cannot replace its host in the warning', () => {
+  const eventPage = 'https://organizer.example/event?sponsor=https://sponsor.example'
+  const forwarded = 'https://l.facebook.com/l.php?u=' + encodeURIComponent(eventPage)
+  assert.equal(getUnfamiliarLinkHost(forwarded), 'organizer.example')
+})
+
+test('deep known forwarding chains stay conservatively flagged at the hop limit', () => {
+  let target = 'https://lu.ma/event'
+  for (let hop = 0; hop < 3; hop++) target = 'https://l.facebook.com/l.php?u=' + encodeURIComponent(target)
+  assert.equal(getUnfamiliarLinkHost(target), '')
+  target = 'https://l.facebook.com/l.php?u=' + encodeURIComponent(target)
+  assert.equal(getUnfamiliarLinkHost(target), 'lu.ma')
 })
 
 test('a query linking to another known platform stays known', () => {
