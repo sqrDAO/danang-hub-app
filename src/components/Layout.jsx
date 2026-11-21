@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
+import EmailVerificationReminder from './EmailVerificationReminder'
 import './Layout.css'
 
 const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatbot = false, flush = false }) => {
@@ -13,6 +14,7 @@ const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatb
     <div className={`layout${isPublic ? ' layout--public' : ''}${isApp ? ' layout--app' : ''}${flush ? ' layout--flush' : ''}`}>
       <Header isAdmin={isAdmin} public={isPublic} />
       <main className="main-content">
+        {!isPublic && <EmailVerificationReminder isAdmin={isAdmin} />}
         {children}
       </main>
       <Footer />

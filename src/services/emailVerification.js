@@ -31,10 +31,25 @@ export const sendVerificationEmail = async (language, continuePath) => {
 // Firebase restores emailVerified from its cache, so a link clicked in another
 // tab only shows up after a reload of the Auth user. Resolves to the uid that
 // is now verified, or null, so a caller can't credit a different account.
-export const reloadEmailVerified = async () => {
-  if (LOCAL_DEV_MODE || !auth.currentUser) return null
+let verificationReload = null
+let verificationUser = null
+
+export const reloadEmailVerified = () => {
   const user = auth.currentUser
+  if (LOCAL_DEV_MODE || !user) return Promise.resolve(null)
+  // Profile and the shared reminder can request the same refresh on focus.
+  if (verificationUser === user && verificationReload) return verificationReload
+  verificationUser = user
+  const pending = refreshVerifiedUser(user).finally(() => {
+    if (verificationReload === pending) verificationReload = null
+  })
+  verificationReload = pending
+  return pending
+}
+
+const refreshVerifiedUser = async (user) => {
   await user.reload()
+  if (auth.currentUser !== user) return null
   if (user.emailVerified) syncMemberEmail(user, { email: user.email })
   return user.emailVerified ? user.uid : null
 }
