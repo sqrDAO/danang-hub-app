@@ -13,7 +13,7 @@ npm run preview      # Preview production build
 firebase deploy                        # Deploy everything (rules + functions)
 firebase deploy --only functions       # Deploy Cloud Functions only
 firebase deploy --only firestore:rules
-firebase emulators:start               # Run all local emulators
+npm run emulators                      # Build and serve with local emulators
 
 # Cloud Functions (/functions directory)
 npm run serve        # Start functions emulator only
