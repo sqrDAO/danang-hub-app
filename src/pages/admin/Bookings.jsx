@@ -15,7 +15,7 @@ import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import './Bookings.css'
-import { formatDateDDMMYYYY, formatHubDate } from '../../utils/timezone'
+import { formatBookingDateTime } from '../../utils/timezone'
 import { appLocale } from '../../utils/appLocale'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
 import { deskPlanBadgeKey, isDeskPlan } from '../../utils/deskPlans'
@@ -842,8 +842,8 @@ const AdminBookings = () => {
                     )}
                     <ClosureBadge booking={booking} t={t} />
                   </td>
-                  <td>{booking.startTime ? `${formatDateDDMMYYYY(booking.startTime)} ${formatHubDate(booking.startTime, locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
-                  <td>{booking.endTime ? `${formatDateDDMMYYYY(booking.endTime)} ${formatHubDate(booking.endTime, locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
+                  <td>{formatBookingDateTime(booking.startTime, locale) || t('common.na')}</td>
+                  <td>{formatBookingDateTime(booking.endTime, locale) || t('common.na')}</td>
                   <td>
                     <span className={`status-badge ${booking.status}`}>
                       {t(`status.${booking.status || 'pending'}`)}
@@ -890,17 +890,13 @@ const AdminBookings = () => {
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.startTime')}</div>
                   <div className="booking-card-mobile-value">
-                    {booking.startTime
-                      ? `${formatDateDDMMYYYY(booking.startTime)} ${formatHubDate(booking.startTime, locale, { hour: '2-digit', minute: '2-digit' })}`
-                      : t('common.na')}
+                    {formatBookingDateTime(booking.startTime, locale) || t('common.na')}
                   </div>
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.endTime')}</div>
                   <div className="booking-card-mobile-value">
-                    {booking.endTime
-                      ? `${formatDateDDMMYYYY(booking.endTime)} ${formatHubDate(booking.endTime, locale, { hour: '2-digit', minute: '2-digit' })}`
-                      : t('common.na')}
+                    {formatBookingDateTime(booking.endTime, locale) || t('common.na')}
                   </div>
                 </div>
                 <div className="booking-card-mobile-actions">

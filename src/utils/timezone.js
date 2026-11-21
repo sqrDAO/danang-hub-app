@@ -61,6 +61,14 @@ export function formatDateDDMMYYYY(date) {
   })
 }
 
+export function formatBookingDateTime(value, locale) {
+  if (!value && value !== 0) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const time = formatHubDate(date, locale, { hour: '2-digit', minute: '2-digit' })
+  return `${formatDateDDMMYYYY(date)} ${time}`
+}
+
 /**
  * Format date only for display in hub timezone.
  */

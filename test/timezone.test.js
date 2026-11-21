@@ -12,6 +12,7 @@ import {
   addHubDays,
   addHubMonths,
   formatHubDate,
+  formatBookingDateTime,
   formatEventTime,
   getHubDayOfMonth,
   getHubDayOfWeek,
@@ -114,4 +115,11 @@ test('Hub times use the selected locale across midnight outside Vietnam', () => 
   assert.equal(formatHubDate(date, 'vi-VN', { hour: '2-digit', minute: '2-digit' }), '00:05')
   assert.equal(formatHubDate(date, 'en-US', { hour: '2-digit', minute: '2-digit' }), '12:05 AM')
   assert.equal(formatEventTime(null, 'vi-VN'), 'N/A')
+})
+
+test('booking timestamps can fall back independently when stored data is invalid', () => {
+  for (const value of [null, undefined, '', 'bad date', new Date(NaN)]) {
+    assert.equal(formatBookingDateTime(value, 'vi-VN'), '')
+  }
+  assert.equal(formatBookingDateTime('2026-11-20T17:05:00Z', 'vi-VN'), '21/11/2026 00:05')
 })
