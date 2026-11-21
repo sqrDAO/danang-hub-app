@@ -1,0 +1,59 @@
+name: Setup Node and dependencies
+description: >-
+  Sets up Node.js and restores node_modules (root and functions/) from cache,
+  running npm ci in both only on a cache miss. Optionally caches the npx
+  package cache (~/.npm/_npx) for jobs that run firebase-tools through npx.
+
+inputs:
+  npx-cache:
+    description: >-
+      Name for this job's npx cache (e.g. firebase-tools@15.25.1). Empty skips
+      it. Each job gets its own key, so jobs that npx different versions don't
+      race to save one entry. A key that names an unpinned tool also carries
+      the month, so npx's own update check refreshes it at least monthly.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      id: node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    # Exact key only, no restore-keys: a partial node_modules restore followed
+    # by a skipped npm ci would leave stale or missing packages.
+    - name: Cache node_modules
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          functions/node_modules
+        key: node-modules-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json', 'functions/package-lock.json') }}
+
+    - name: Install app dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
+
+    - name: Install Functions dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: functions
+      run: npm ci
+
+    - name: Month for npx cache key
+      id: month
+      if: inputs.npx-cache != ''
+      shell: bash
+      run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache npx packages
+      if: inputs.npx-cache != ''
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm/_npx
+        key: npx-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ inputs.npx-cache }}-${{ contains(inputs.npx-cache, '@') && 'pinned' || steps.month.outputs.month }}
