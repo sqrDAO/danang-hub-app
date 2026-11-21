@@ -193,6 +193,56 @@ firebase deploy --only firestore:indexes
 firebase deploy --only storage
 ```
 
+#### New callable functions: owner invoker setup
+
+CI can update existing functions but cannot set the Cloud Run invoker IAM policy
+for a newly added callable. Its first deploy can fail with **“Failed to set the
+IAM Policy” / “Unable to set the invoker”**. Because Functions deploy before
+Hosting, that failure also skips Hosting; later merges may remain blocked until
+an owner fixes the affected service. Keep this setup manual rather than granting
+CI broader IAM permissions. Flag new functions in the PR checklist and arrange
+for a project owner to handle the first deployment.
+
+After merging a new callable, if this invoker error occurs:
+
+1. A project owner opens **Cloud Run** in project **danang-hub-app**, region
+   **us-central1**, and identifies the affected function's backing service from
+   the failed deploy log. Check the actual service name; do not assume it matches
+   the JavaScript export's capitalization.
+2. For a callable intended to be invoked by the browser, grant **Cloud Run
+   Invoker** (`roles/run.invoker`) to **allUsers** on that service. The console's
+   **Allow public access** option provides public invocation, or use the following
+   command as the owner, replacing `SERVICE_NAME` with the actual service name:
+
+   ```bash
+   gcloud run services add-iam-policy-binding SERVICE_NAME \
+     --project=danang-hub-app \
+     --region=us-central1 \
+     --member=allUsers \
+     --role=roles/run.invoker
+   ```
+
+   This is service-level invocation access, not access to Firestore or admin
+   actions. The handler must still enforce its intended Firebase Auth and
+   authorization checks; wallet sign-in endpoints instead validate their nonce
+   and signature. Do **not** apply this public binding to event-driven functions
+   or intentionally private HTTP endpoints. Those need their trigger/caller's
+   service identity permissions instead.
+3. In GitHub Actions, open the failed **Deploy to Firebase Hosting on merge**
+   run and choose **Re-run failed jobs**. Repeat the service-specific setup if
+   another new callable reports the same invoker error. Do not bypass the backend
+   failure by deploying Hosting alone.
+4. Confirm **Deploy Cloud Functions** and **Deploy to Firebase Hosting** succeed,
+   confirm the intended production revision is live, and exercise the new
+   callable's application flow (including its access checks). A successful PR
+   preview only verifies Hosting and does not prove a new function was deployed.
+
+Reference: [Google Cloud's function invocation IAM guidance](https://docs.cloud.google.com/functions/docs/securing/managing-access-iam)
+and [Cloud Run public access permissions](https://docs.cloud.google.com/run/docs/authenticating/public).
+The owner needs `run.services.setIamPolicy`; if an organization policy forbids
+public access, the project administrator must resolve that policy rather than
+repeatedly rerunning CI.
+
 ### 6. Configure Email (Nodemailer)
 
 The SMTP password is stored in Firebase Secret Manager:
