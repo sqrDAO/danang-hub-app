@@ -166,7 +166,7 @@ test('cancellation rejects foreign, approved and plan bookings', async () => {
 })
 
 test('schemas reject protected fields, malformed IDs and timezone-less times', () => {
-  const schema = toolDefinitions.find(d => d[0] === 'create_booking')[2]
+  const schema = toolDefinitions.find(d => d[0] === 'create_booking')[3]
   assert.equal(schema.safeParse({ ...slot(), status: 'approved' }).success, false)
   assert.equal(schema.safeParse({ ...slot(), amenityId: '../secret' }).success, false)
   assert.equal(schema.safeParse({ ...slot(), startTime: '2026-12-01T09:00:00' }).success, false)
@@ -191,7 +191,24 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   const client = new Client({ name: 'test', version: '1.0.0' })
   await client.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: 'Bearer ' + secret } } }))
   t.after(() => client.close())
-  assert.equal((await client.listTools()).tools.length, 6)
+  const { tools } = await client.listTools()
+  assert.equal(tools.length, 6)
+  assert.match(client.getInstructions(), /list_amenities.*check_availability.*confirm.*create_booking/s)
+  assert.match(client.getInstructions(), /Asia\/Ho_Chi_Minh/)
+  assert.match(client.getInstructions(), /never report pending as confirmed/)
+  assert.match(client.getInstructions(), /nextCursor/)
+  assert.match(client.getInstructions(), /get_my_hours_left first/)
+  assert.match(client.getInstructions(), /60 requests per minute/)
+  for (const tool of tools) {
+    assert.ok(tool.title, `${tool.name} has a title`)
+    assert.notEqual(tool.title, tool.name.replaceAll('_', ' '))
+    assert.equal(tool.annotations.destructiveHint, tool.name === 'cancel_booking')
+  }
+  const inputs = Object.fromEntries(tools.map(tool => [tool.name, tool.inputSchema.properties]))
+  for (const [name, field] of [['check_availability', 'amenityId'], ['cancel_booking', 'bookingId'],
+    ['get_my_hours_left', 'month'], ['list_my_bookings', 'limit'], ['list_my_bookings', 'cursor']]) {
+    assert.ok(inputs[name][field].description, `${name}.${field} has a description`)
+  }
   const list = await client.callTool({ name: 'list_amenities', arguments: {} })
   assert.equal(list.structuredContent.items[0].name, 'Desk')
   const bad = await client.callTool({ name: 'create_booking', arguments: { ...slot(), memberId: 'other' } })

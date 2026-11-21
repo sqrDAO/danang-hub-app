@@ -7,40 +7,71 @@ const {HttpsError} = require("firebase-functions/v2/https");
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const time = z.string().datetime({offset: true})
     .describe("ISO-8601 with offset, e.g. 2026-12-01T09:00:00+07:00.");
-const slot = {amenityId: id, startTime: time, endTime: time};
-const pagination = {limit: z.number().int().min(1).max(50).default(20),
-  cursor: id.optional().describe("nextCursor from the previous page.")};
+const amenityId = id.describe("Amenity ID from list_amenities.");
+const slot = {amenityId, startTime: time, endTime: time};
+const pagination = {
+  limit: z.number().int().min(1).max(50).default(20)
+      .describe("Max items per page, 1-50 (default 20). Pages can be " +
+          "short or empty while nextCursor is set."),
+  cursor: id.optional().describe("nextCursor from the previous page."),
+};
+const instructions = "Da Nang Blockchain Hub booking for the member who " +
+  "owns this token. To book: list_amenities for IDs and hours, " +
+  "check_availability for the slot, confirm amenity and time with the " +
+  "member, then create_booking with a new requestId (reuse it only to " +
+  "retry the same slot). For desks, call get_my_hours_left first: the " +
+  "monthly ad-hoc desk allowance is enforced after creation and can " +
+  "reject the booking. New bookings are pending until the Hub approves " +
+  "them, so never report pending as confirmed; list_my_bookings shows the " +
+  "current status. Hub time is Asia/Ho_Chi_Minh: send times with an " +
+  "explicit offset such as +07:00. List tools page by ID, not date: follow " +
+  "nextCursor until it is null, even after a short or empty page. " +
+  "cancel_booking only cancels the member's own " +
+  "pending individual bookings; event spaces, desk plans and admin " +
+  "actions stay in the Hub portal. Limit: 60 requests per minute; on a " +
+  "rate-limit error wait a minute instead of retrying.";
+// [name, title, description, input schema, readOnly]
 const toolDefinitions = [
-  ["list_amenities", "List bookable amenities with Hub hours and IDs.",
-    z.object(pagination).strict(), true],
-  ["check_availability", "Check one slot; returns availability and anonymous " +
-    "busy ranges. A check does not reserve the slot.",
-  z.object(slot).strict(), true],
-  ["get_my_hours_left", "Your remaining monthly ad-hoc desk hours; plans " +
-    "are excluded. Month uses Asia/Ho_Chi_Minh.",
-  z.object({month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)})
-      .strict(), true],
-  ["list_my_bookings", "List only your bookings, paginated by ID. " +
-    "Returns IDs, dates, status and source; not other members' details.",
+  ["list_amenities", "List Hub amenities", "List bookable amenities with " +
+    "IDs, type, capacity and opening hours. Event spaces and other " +
+    "partners' reserved desks are omitted.",
   z.object(pagination).strict(), true],
-  ["create_booking", "Create your pending individual booking after " +
-    "checking availability. Ask the member to confirm the slot first. " +
-    "Reuse requestId on retries; approval/monthly limits run afterwards.",
-  z.object({...slot, requestId: id.describe("Unique key; reuse on retry.")})
+  ["check_availability", "Check a slot", "Check one slot; returns " +
+    "availability and anonymous busy ranges. A check does not reserve " +
+    "the slot.",
+  z.object(slot).strict(), true],
+  ["get_my_hours_left", "My desk hours left", "Your used and remaining " +
+    "monthly ad-hoc desk hours; desk plans are excluded.",
+  z.object({month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+      .describe("Month as YYYY-MM, in Asia/Ho_Chi_Minh time.")})
+      .strict(), true],
+  ["list_my_bookings", "List my bookings", "List only your bookings, " +
+    "paginated by ID (not date). Returns IDs, times, status and source.",
+  z.object(pagination).strict(), true],
+  ["create_booking", "Book a slot", "Create your pending individual " +
+    "booking after checking availability. Ask the member to confirm the " +
+    "slot first. Reuse requestId on retries; approval/monthly limits run " +
+    "afterwards.",
+  z.object({...slot, requestId: id.describe(
+      "Unique key you choose; reuse only to retry this exact slot.")})
       .strict(), false],
-  ["cancel_booking", "Cancel only your own pending individual booking. " +
-    "Approved bookings and desk plans cannot be cancelled here.",
-  z.object({bookingId: id}).strict(), false],
+  ["cancel_booking", "Cancel my booking", "Cancel only your own pending " +
+    "individual booking. Approved bookings and desk plans cannot be " +
+    "cancelled here.",
+  z.object({bookingId: id.describe("Booking ID from list_my_bookings.")})
+      .strict(), false],
 ];
 
 const createServer = (principal, handlers) => {
   const server = new McpServer({
-    name: "danang-hub-mcp-server", version: "1.0.0",
-  });
-  for (const [name, description, schema, readOnly] of toolDefinitions) {
+    name: "danang-hub-mcp-server", version: "1.1.0",
+  }, {instructions});
+  for (const [name, title, description, schema, readOnly] of
+    toolDefinitions) {
     server.registerTool(name, {
-      title: name.replaceAll("_", " "), description, inputSchema: schema,
-      annotations: {readOnlyHint: readOnly, destructiveHint: !readOnly,
+      title, description, inputSchema: schema,
+      annotations: {readOnlyHint: readOnly,
+        destructiveHint: name === "cancel_booking",
         idempotentHint: readOnly || name === "create_booking",
         openWorldHint: false},
     }, async (args) => {
@@ -101,4 +132,5 @@ const createHttpHandler = (authenticate, handlers, origins) =>
     }
   };
 
-module.exports = {createServer, createHttpHandler, toolDefinitions};
+module.exports = {createServer, createHttpHandler, toolDefinitions,
+  instructions};
