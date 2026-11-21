@@ -77,16 +77,21 @@ const toWebUrl = (value, base) => {
   }
 }
 
-// A known host can still forward anywhere through its query
-// (`l.facebook.com/l.php?u=https://evil.com`), also through another known hop
-// (`?u=https://l.facebook.com/l.php?u=…`), so each hop is followed. A chain
-// longer than MAX_HOPS counts as forwarding.
+// A known host can forward through query links. Return the destination found
+// in the first flagged chain, rather than naming its familiar forwarding host.
+// Beyond MAX_HOPS, warn about the last inspected host even if it is known.
 const MAX_HOPS = 3
-const carriesLink = (url, hops = 1) => [...url.searchParams.values()].some(value => {
-  const target = toWebUrl(value, url)
-  if (!target) return false
-  return hops > MAX_HOPS || !isKnownHost(target.hostname) || carriesLink(target, hops + 1)
-})
+const getForwardedHost = (url, hops = 1) => {
+  for (const value of url.searchParams.values()) {
+    const target = toWebUrl(value, url)
+    if (!target) continue
+    if (hops > MAX_HOPS) return target.hostname
+    const nestedHost = getForwardedHost(target, hops + 1)
+    if (nestedHost) return nestedHost
+    if (!isKnownHost(target.hostname)) return target.hostname
+  }
+  return ''
+}
 
 // The host to warn the admin about, or '' for no link or a known platform.
 // Uses the parsed hostname, the site the browser actually loads: the raw text
@@ -96,7 +101,7 @@ export const getUnfamiliarLinkHost = (url) => {
   if (!url) return ''
   const parsed = isWebLink(url) && toWebUrl(url)
   if (!parsed) return url
-  return isKnownHost(parsed.hostname) && !carriesLink(parsed) ? '' : parsed.hostname
+  return isKnownHost(parsed.hostname) ? getForwardedHost(parsed) : parsed.hostname
 }
 
 // New tab without `window.opener`, so the event site cannot redirect this tab.
