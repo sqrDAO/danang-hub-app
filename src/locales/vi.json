@@ -270,6 +270,7 @@
     "verifyEmailHelp": "Xác minh là không bắt buộc. Nếu chưa xác minh, hub không thể gửi email cho bạn, kể cả về sự kiện bạn gửi. Chúng tôi sẽ gửi cho bạn một liên kết để xác nhận.",
     "verifyEmailRequired": "Xác nhận email để bắt đầu sử dụng hub. Chúng tôi sẽ gửi cho bạn một liên kết để xác nhận.",
     "emailVerified": "Đã xác minh",
+    "verifyEmailReminder": "Email của bạn chưa được xác minh. Hãy xác nhận để Hub có thể gửi email về các sự kiện bạn đăng ký tổ chức.",
     "verifyEmailTitle": "Xác minh email",
     "verifyEmailDone": "Email của bạn đã được xác minh. Hub sẽ gửi email cho bạn về các sự kiện bạn gửi.",
     "verifyEmailNotVerified": "Chưa xác minh",

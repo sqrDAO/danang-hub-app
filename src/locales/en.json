@@ -270,6 +270,7 @@
     "verifyEmailHelp": "Verifying is optional. Without it, the hub can't email you, not even about events you submit. We'll send you a link to confirm it.",
     "verifyEmailRequired": "Confirm your email to start using the hub. We'll send you a link to confirm it.",
     "emailVerified": "Verified",
+    "verifyEmailReminder": "Your email is not verified yet. Confirm it so the Hub can email you about events you submit.",
     "verifyEmailTitle": "Verify your email",
     "verifyEmailDone": "Your email is verified. The hub will email you about events you submit.",
     "verifyEmailNotVerified": "Not verified",
