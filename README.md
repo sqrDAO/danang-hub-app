@@ -175,6 +175,15 @@ To test the built app with Hosting headers, run `npm run emulators` and open the
 
 ### 5. Deploy Firebase Resources
 
+**Required for a different Firebase project:** Before deploying Hosting, update the `Content-Security-Policy` header in `firebase.json` to match the Firebase settings used to build the app. Hosting serves this header literally. Changing the Vite environment variables alone leaves the original origins in place.
+
+| Directive | Replace this origin | Use this project's origin |
+|---|---|---|
+| `connect-src` | `https://us-central1-danang-hub-app.cloudfunctions.net` | `https://us-central1-<VITE_FIREBASE_PROJECT_ID>.cloudfunctions.net` |
+| `connect-src` and `frame-src` | `https://danang-hub-app.firebaseapp.com` | `https://<VITE_FIREBASE_AUTH_DOMAIN>` |
+
+Substitute the actual values, including your custom Auth domain if configured. Keep each entry an exact HTTPS origin. On the Hosting preview, check the `Content-Security-Policy` response header on `/login`, then test Google sign-in and a booking availability check.
+
 ```bash
 # Deploy Firestore rules, Storage rules, and Cloud Functions
 firebase deploy
