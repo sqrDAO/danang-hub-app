@@ -1,3 +1,4 @@
+import MemberEmail from '../../components/MemberEmail'
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -705,9 +706,7 @@ const HostContactSection = ({ member }) => (
       <div className="profile-detail-item">
         <span className="detail-label">Email</span>
         <span className="detail-value">
-          <a href={`mailto:${member.email}`} className="profile-link">
-            {member.email}
-          </a>
+          <MemberEmail member={member} link className="profile-link" />
         </span>
       </div>
     )}
@@ -1058,7 +1057,7 @@ const MemberEvents = () => {
 
   return (
     <Layout>
-      <div className="container">
+      <div className="container member-events-page">
         <div className="page-header">
           <div className="page-header-content">
             <h1 className="page-title">{t('memberEvents.title')}</h1>

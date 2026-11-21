@@ -1,0 +1,14 @@
+.member-email {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.member-email-status {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 400;
+}

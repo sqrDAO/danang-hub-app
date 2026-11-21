@@ -1,3 +1,4 @@
+import { appLocale } from '../../utils/appLocale'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import OrganizerName from './OrganizerName'
@@ -67,16 +68,19 @@ const RevisionLine = ({ event, t }) => {
   )
 }
 
-const CardRows = ({ event, fields, onShowHost, onShowRegistrants, t }) => (
-  <div className="ecard-rows">
-    {fields.has('date') && event.date && <p className="ecard-row ecard-row-date">{getWhenText(event)}</p>}
-    <HostLine event={event} fields={fields} onShowHost={onShowHost} t={t} />
-    {fields.has('attendees') && <AttendeesLine event={event} onShowRegistrants={onShowRegistrants} t={t} />}
-    {fields.has('rejection') && <RejectionLine event={event} t={t} />}
-    {fields.has('revision') && <RevisionLine event={event} t={t} />}
-    {fields.has('description') && event.description && <p className="ecard-teaser">{event.description}</p>}
-  </div>
-)
+const CardRows = ({ event, fields, onShowHost, onShowRegistrants, t }) => {
+  const { i18n } = useTranslation()
+  return (
+    <div className="ecard-rows">
+      {fields.has('date') && event.date && <p className="ecard-row ecard-row-date">{getWhenText(event, appLocale(i18n.language))}</p>}
+      <HostLine event={event} fields={fields} onShowHost={onShowHost} t={t} />
+      {fields.has('attendees') && <AttendeesLine event={event} onShowRegistrants={onShowRegistrants} t={t} />}
+      {fields.has('rejection') && <RejectionLine event={event} t={t} />}
+      {fields.has('revision') && <RevisionLine event={event} t={t} />}
+      {fields.has('description') && event.description && <p className="ecard-teaser">{event.description}</p>}
+    </div>
+  )
+}
 
 const getCardClassName = ({ status, showStatus, past, compact }) => [
   'ecard',

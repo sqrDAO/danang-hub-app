@@ -15,7 +15,7 @@ import { getMembers } from '../../services/members'
 import { getAmenities } from '../../services/amenities'
 import { checkBookingConflicts } from '../../services/functions'
 import './Bookings.css'
-import { formatDateDDMMYYYY } from '../../utils/timezone'
+import { formatBookingDateTime } from '../../utils/timezone'
 import { appLocale } from '../../utils/appLocale'
 import { rangeOverlapsClosure, getUpcomingHubClosures } from '../../utils/hubClosures'
 import { deskPlanBadgeKey, isDeskPlan } from '../../utils/deskPlans'
@@ -740,7 +740,7 @@ const AdminBookings = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-bookings-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -749,7 +749,7 @@ const AdminBookings = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-bookings-page">
         <div className="page-header page-header-stacked">
           <h1 className="page-title">{t('adminBookings.title')}</h1>
           <div className="page-header-toolbar">
@@ -842,8 +842,8 @@ const AdminBookings = () => {
                     )}
                     <ClosureBadge booking={booking} t={t} />
                   </td>
-                  <td>{booking.startTime ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
-                  <td>{booking.endTime ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}` : t('common.na')}</td>
+                  <td>{formatBookingDateTime(booking.startTime, locale) || t('common.na')}</td>
+                  <td>{formatBookingDateTime(booking.endTime, locale) || t('common.na')}</td>
                   <td>
                     <span className={`status-badge ${booking.status}`}>
                       {t(`status.${booking.status || 'pending'}`)}
@@ -890,17 +890,13 @@ const AdminBookings = () => {
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.startTime')}</div>
                   <div className="booking-card-mobile-value">
-                    {booking.startTime
-                      ? `${formatDateDDMMYYYY(booking.startTime)} ${new Date(booking.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
-                      : t('common.na')}
+                    {formatBookingDateTime(booking.startTime, locale) || t('common.na')}
                   </div>
                 </div>
                 <div className="booking-card-mobile-field">
                   <div className="booking-card-mobile-label">{t('adminBookings.endTime')}</div>
                   <div className="booking-card-mobile-value">
-                    {booking.endTime
-                      ? `${formatDateDDMMYYYY(booking.endTime)} ${new Date(booking.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
-                      : t('common.na')}
+                    {formatBookingDateTime(booking.endTime, locale) || t('common.na')}
                   </div>
                 </div>
                 <div className="booking-card-mobile-actions">

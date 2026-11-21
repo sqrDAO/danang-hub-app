@@ -31,11 +31,11 @@ export const getVisibleFields = (viewName) => {
   return new Set(EVENT_FIELDS.filter(field => isAllowed(field, view)))
 }
 
-export const getWhenText = (event) => {
-  const start = `${formatEventDate(event.date)} · ${formatEventTime(event.date)}`
+export const getWhenText = (event, locale = 'en-US') => {
+  const start = `${formatEventDate(event.date)} · ${formatEventTime(event.date, locale)}`
   if (!event.duration) return start
   const end = new Date(new Date(event.date).getTime() + event.duration * 60 * 1000)
-  return `${start} – ${formatEventTime(end)}`
+  return `${start} – ${formatEventTime(end, locale)}`
 }
 
 export const getHostNames = (hostingProjects) => hostingProjects || ''
