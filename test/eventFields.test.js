@@ -127,9 +127,15 @@ test('a forwarded link is followed through known hops', () => {
   assert.equal(getUnfamiliarLinkHost(fb + encodeURIComponent('https://lu.ma/x')), '')
 })
 
-test('nested forwarding names the final unfamiliar query destination', () => {
-  const target = 'https://forwarder.example/go?next=https://destination.example/event'
+test('nested forwarding through familiar platforms names the unfamiliar destination', () => {
+  const target = 'https://www.youtube.com/redirect?q=https://destination.example/event'
   assert.equal(getUnfamiliarLinkHost('https://l.facebook.com/l.php?u=' + encodeURIComponent(target)), 'destination.example')
+})
+
+test('a sponsor URL on the unfamiliar event page cannot replace its host in the warning', () => {
+  const eventPage = 'https://organizer.example/event?sponsor=https://sponsor.example'
+  const forwarded = 'https://l.facebook.com/l.php?u=' + encodeURIComponent(eventPage)
+  assert.equal(getUnfamiliarLinkHost(forwarded), 'organizer.example')
 })
 
 test('deep known forwarding chains stay conservatively flagged at the hop limit', () => {

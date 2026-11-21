@@ -77,18 +77,17 @@ const toWebUrl = (value, base) => {
   }
 }
 
-// A known host can forward through query links. Return the destination found
-// in the first flagged chain, rather than naming its familiar forwarding host.
+// Follow query links through known hosts until the first unfamiliar site.
+// Its query can contain unrelated URLs, such as a sponsor link.
 // Beyond MAX_HOPS, warn about the last inspected host even if it is known.
 const MAX_HOPS = 3
 const getForwardedHost = (url, hops = 1) => {
   for (const value of url.searchParams.values()) {
     const target = toWebUrl(value, url)
     if (!target) continue
-    if (hops > MAX_HOPS) return target.hostname
+    if (!isKnownHost(target.hostname) || hops > MAX_HOPS) return target.hostname
     const nestedHost = getForwardedHost(target, hops + 1)
     if (nestedHost) return nestedHost
-    if (!isKnownHost(target.hostname)) return target.hostname
   }
   return ''
 }
