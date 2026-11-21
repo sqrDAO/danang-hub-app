@@ -13,14 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-deps
 
       - name: Build
         run: npm run build
@@ -33,10 +27,6 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-
-      - name: Install Functions dependencies
-        run: npm ci
-        working-directory: functions
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2

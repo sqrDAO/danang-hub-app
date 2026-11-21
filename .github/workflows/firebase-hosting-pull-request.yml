@@ -13,21 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            functions/package-lock.json
-
-      - name: Install app dependencies
-        run: npm ci
-
-      - name: Install Functions dependencies
-        run: npm ci
-        working-directory: functions
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-deps
 
       - name: Lint app
         run: npm run lint
@@ -39,8 +26,9 @@ jobs:
         run: npm run lint
         working-directory: functions
 
+  # Runs in parallel with checks (no `needs`), so a PR that fails lint still
+  # gets a throwaway preview channel; merge stays gated on both checks.
   build_and_preview:
-    needs: checks
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
@@ -51,14 +39,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-deps
 
       - name: Build
         run: npm run build

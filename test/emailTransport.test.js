@@ -80,14 +80,23 @@ async function startStallingServer(t) {
   return { state, port: server.address().port }
 }
 
+// Production waits 20s for a silent socket; the test shortens that to 500ms
+// (same retry path, no 20s wait) after checking the getter asked for 20000.
+const TEST_SOCKET_TIMEOUT = 500
+
 test('a stalled reused SMTP socket retries on a fresh connection within the function budget',
-  { timeout: 45000 }, async t => {
+  { timeout: 10000 }, async t => {
     const { state, port } = await startStallingServer(t)
-    const getTransporter = createTransporterGetter(nodemailer.createTransport, {
+    let requested
+    const getTransporter = createTransporterGetter(options => {
+      requested = options
+      return nodemailer.createTransport({ ...options, socketTimeout: TEST_SOCKET_TIMEOUT })
+    }, {
       EMAIL_SMTP_HOST: '127.0.0.1', EMAIL_SMTP_PORT: String(port),
       EMAIL_SMTP_SECURE: 'false',
     })
     const transporter = getTransporter()
+    assert.equal(requested.socketTimeout, 20000, 'production keeps the 20s socket budget')
     t.after(() => transporter.close())
     const message = { from: 'sender@example.test', to: 'member@example.test', text: 'test' }
     await transporter.sendMail(message)
@@ -99,5 +108,6 @@ test('a stalled reused SMTP socket retries on a fresh connection within the func
     assert.equal(state.delivered, 3)
     assert.equal(state.connections, 2, 'retry opened one fresh connection')
     assert.deepEqual(result.accepted, ['member@example.test'])
-    assert.ok(Date.now() - start < 45000)
+    assert.ok(Date.now() - start >= TEST_SOCKET_TIMEOUT, 'retry waited for the socket timeout')
+    assert.ok(Date.now() - start < 5000)
   })

@@ -22,11 +22,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-deps
 
       # The Firestore emulator is a Java program.
       - name: Setup Java
@@ -40,13 +37,6 @@ jobs:
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-15.25.1
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Functions dependencies
-        run: npm ci
-        working-directory: functions
 
       - name: Run Firestore rules tests
         run: npm run test:rules
