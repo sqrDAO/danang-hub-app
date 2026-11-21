@@ -11,9 +11,10 @@ if (new URL(`http://${host}`).hostname !== host.toLowerCase() || host.includes('
 const origin = service => `http://${host}:${config.emulators[service].port}`
 const connections = ['auth', 'firestore', 'functions', 'storage'].map(origin).join(' ')
 const csp = config.hosting.headers.flatMap(rule => rule.headers)
-  .find(header => header.key === 'Content-Security-Policy')
+  .find(header => ['Content-Security-Policy', 'Content-Security-Policy-Report-Only'].includes(header.key))
 csp.value = csp.value
   .replace('connect-src ', `connect-src ${connections} `)
+  .replace('img-src ', `img-src ${origin('storage')} `)
   .replace('frame-src ', `frame-src ${origin('auth')} `)
 
 // Keep the local bundle outside the directory used by firebase deploy.
