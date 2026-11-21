@@ -1,19 +1,19 @@
-.bookings-table-container {
+:where(.admin-bookings-page) .bookings-table-container {
   padding: var(--spacing-lg);
   overflow-x: auto;
 }
 
-.page-actions {
+:where(.admin-bookings-page) .page-actions {
   display: flex;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
 }
 
-.page-header-stacked > .page-filters {
+:where(.admin-bookings-page) .page-header-stacked > .page-filters {
   flex: 1 1 100%;
 }
 
-.page-filters {
+:where(.admin-bookings-page) .page-filters {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -24,18 +24,18 @@
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
 }
 
-.page-filters .form-field {
+:where(.admin-bookings-page) .page-filters .form-field {
   background-color: var(--form-field-bg);
   border-radius: 999px;
   border: 1px solid var(--form-field-border);
   padding-inline: 1rem;
 }
 
-.filter-input {
+:where(.admin-bookings-page) .filter-input {
   min-width: 220px;
 }
 
-.show-past-toggle {
+:where(.admin-bookings-page) .show-past-toggle {
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -45,7 +45,7 @@
   white-space: nowrap;
 }
 
-.show-past-toggle input[type="checkbox"] {
+:where(.admin-bookings-page) .show-past-toggle input[type="checkbox"] {
   width: 14px;
   height: 14px;
 }
@@ -53,28 +53,28 @@
 @media (max-width: 768px) {
   /* .page-header goes column + flex-start on mobile (globals.css), so these
      wrappers must opt in to full width or they shrink to content width. */
-  .page-actions,
-  .page-filters {
+  :where(.admin-bookings-page) .page-actions,
+  :where(.admin-bookings-page) .page-filters {
     width: 100%;
   }
 
-  .page-actions {
+  :where(.admin-bookings-page) .page-actions {
     flex-direction: column;
   }
 
-  .page-filters {
+  :where(.admin-bookings-page) .page-filters {
     flex-direction: column;
     align-items: stretch;
     border-radius: var(--border-radius);
   }
 }
 
-.bookings-table {
+:where(.admin-bookings-page) .bookings-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.bookings-table th {
+:where(.admin-bookings-page) .bookings-table th {
   text-align: left;
   padding: var(--spacing-md);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -83,7 +83,7 @@
   font-size: 0.9rem;
 }
 
-.bookings-table td {
+:where(.admin-bookings-page) .bookings-table td {
   padding: var(--spacing-md);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -91,11 +91,11 @@
 /* Status badges: see globals.css for base styles */
 
 /* Mobile Card Layout */
-.booking-card-mobile {
+:where(.admin-bookings-page) .booking-card-mobile {
   display: none;
 }
 
-.booking-card-mobile {
+:where(.admin-bookings-page) .booking-card-mobile {
   padding: var(--spacing-md);
   background: var(--card-bg);
   border-radius: var(--border-radius);
@@ -104,7 +104,7 @@
   box-shadow: var(--card-shadow, none);
 }
 
-.booking-card-mobile-header {
+:where(.admin-bookings-page) .booking-card-mobile-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -112,20 +112,20 @@
   gap: var(--spacing-sm);
 }
 
-.booking-card-mobile-title {
+:where(.admin-bookings-page) .booking-card-mobile-title {
   font-weight: 600;
   font-size: 1.1rem;
   color: var(--text-primary);
   flex: 1;
 }
 
-.booking-card-mobile-field {
+:where(.admin-bookings-page) .booking-card-mobile-field {
   display: flex;
   flex-direction: column;
   margin-bottom: var(--spacing-sm);
 }
 
-.booking-card-mobile-label {
+:where(.admin-bookings-page) .booking-card-mobile-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -133,12 +133,12 @@
   margin-bottom: 0.25rem;
 }
 
-.booking-card-mobile-value {
+:where(.admin-bookings-page) .booking-card-mobile-value {
   color: var(--text-primary);
   font-size: 0.9rem;
 }
 
-.booking-card-mobile-actions {
+:where(.admin-bookings-page) .booking-card-mobile-actions {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -147,11 +147,11 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.booking-card-mobile-actions .btn {
+:where(.admin-bookings-page) .booking-card-mobile-actions .btn {
   width: 100%;
 }
 
-.bookings-pagination {
+:where(.admin-bookings-page) .bookings-pagination {
   margin-top: var(--spacing-md);
   display: flex;
   align-items: center;
@@ -161,7 +161,7 @@
   border-top: 1px solid var(--form-divider);
 }
 
-.bookings-pagination .pagination-info {
+:where(.admin-bookings-page) .bookings-pagination .pagination-info {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -170,44 +170,44 @@
   color: var(--text-secondary);
 }
 
-.bookings-pagination .pagination-page {
+:where(.admin-bookings-page) .bookings-pagination .pagination-page {
   font-weight: 600;
   color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
   /* Compact horizontal row: Prev · page info · Next */
-  .bookings-pagination {
+  :where(.admin-bookings-page) .bookings-pagination {
     gap: var(--spacing-sm);
   }
 
-  .bookings-pagination .pagination-range {
+  :where(.admin-bookings-page) .bookings-pagination .pagination-range {
     font-size: 0.7rem;
   }
 }
 
-.empty-state {
+:where(.admin-bookings-page) .empty-state {
   text-align: center;
   color: var(--text-secondary);
   padding: var(--spacing-xl);
 }
 
 @media (max-width: 768px) {
-  .bookings-table-container {
+  :where(.admin-bookings-page) .bookings-table-container {
     padding: 0;
   }
 
-  .bookings-table {
+  :where(.admin-bookings-page) .bookings-table {
     display: none;
   }
 
-  .booking-card-mobile {
+  :where(.admin-bookings-page) .booking-card-mobile {
     display: block;
   }
 }
 
 /* ── Fixed Desk Badge (Admin) ── */
-.fixed-desk-badge-admin {
+:where(.admin-bookings-page) .fixed-desk-badge-admin {
   display: inline-block;
   margin-left: 0.5rem;
   padding: 0.15rem 0.5rem;
@@ -225,7 +225,7 @@
 /* ── Member Searchable Combobox ── */
 
 
-.booking-step .conflict-error {
+:where(.admin-bookings-page) .booking-step .conflict-error {
   margin-top: var(--spacing-md);
   padding: var(--spacing-md);
   background: var(--color-error-bg);
@@ -233,14 +233,14 @@
   border-radius: var(--border-radius);
 }
 
-.booking-step .conflict-error .error-message {
+:where(.admin-bookings-page) .booking-step .conflict-error .error-message {
   margin: 0;
   color: var(--color-error-light);
   font-weight: 500;
 }
 
 /* ── Hub Closure Badge (Admin) ── */
-.closure-badge-admin {
+:where(.admin-bookings-page) .closure-badge-admin {
   display: inline-block;
   margin-left: 0.5rem;
   padding: 0.15rem 0.5rem;
@@ -256,12 +256,12 @@
 }
 
 /* Fixed Desk renewals waiting for review */
-.renewals-panel {
+:where(.admin-bookings-page) .renewals-panel {
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
 }
 
-.renewals-list {
+:where(.admin-bookings-page) .renewals-list {
   list-style: none;
   margin: var(--spacing-md) 0 0;
   padding: 0;
@@ -270,7 +270,7 @@
   gap: var(--spacing-sm);
 }
 
-.renewal-row {
+:where(.admin-bookings-page) .renewal-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -280,20 +280,20 @@
   border-radius: 12px;
 }
 
-.renewal-row-info {
+:where(.admin-bookings-page) .renewal-row-info {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
   min-width: 0;
 }
 
-.renewal-row-info span {
+:where(.admin-bookings-page) .renewal-row-info span {
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
 @media (max-width: 600px) {
-  .renewal-row {
+  :where(.admin-bookings-page) .renewal-row {
     flex-direction: column;
     align-items: stretch;
   }

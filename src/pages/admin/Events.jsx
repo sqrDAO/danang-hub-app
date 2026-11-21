@@ -527,7 +527,7 @@ const AdminEvents = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-events-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -536,7 +536,7 @@ const AdminEvents = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-events-page">
         <div className="page-header">
           <h1 className="page-title">{t('adminEvents.title')}</h1>
           <button className="btn btn-primary" onClick={handleCreate}>

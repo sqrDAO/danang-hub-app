@@ -353,7 +353,7 @@ const AdminMembers = () => {
   if (isLoading) {
     return (
       <Layout isAdmin>
-        <div className="container">
+        <div className="container admin-members-page">
           <div className="spinner"></div>
         </div>
       </Layout>
@@ -362,7 +362,7 @@ const AdminMembers = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-members-page">
         <div className="page-header">
           <h1 className="page-title">{t('adminMembers.title')}</h1>
           <div className="members-search-pill">

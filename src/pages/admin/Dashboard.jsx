@@ -163,7 +163,7 @@ const AdminDashboard = () => {
 
   return (
     <Layout isAdmin>
-      <div className="container">
+      <div className="container admin-dashboard-page">
         <h1 className="page-title">{t('adminDashboard.title')}</h1>
         
         <div className="stats-grid">

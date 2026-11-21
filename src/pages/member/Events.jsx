@@ -1058,7 +1058,7 @@ const MemberEvents = () => {
 
   return (
     <Layout>
-      <div className="container">
+      <div className="container member-events-page">
         <div className="page-header">
           <div className="page-header-content">
             <h1 className="page-title">{t('memberEvents.title')}</h1>
