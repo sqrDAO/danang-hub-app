@@ -52,6 +52,30 @@ test('token lifecycle stores only hash, revokes previous secret, and rejects dis
     .manage(request('create')), /disabled/)
 })
 
+test('revocation preserves cooldown and regeneration succeeds after it expires', async () => {
+  const { db, data } = makeStore()
+  const service = createTokenService(db, auth)
+  const request = action => ({ auth: { uid }, data: { action } })
+  const created = await service.manage(request('create'))
+  const revoked = await service.manage(request('revoke'))
+  assert.equal(revoked.active, false)
+  assert.ok(revoked.retryAfterMs > 0 && revoked.retryAfterMs <= 60000)
+  assert.equal((await service.manage(request('status'))).createdAt, created.createdAt)
+  await assert.rejects(service.manage(request('create')), error => {
+    assert.equal(error.code, 'resource-exhausted')
+    assert.ok(error.details.retryAfterMs > 0 && error.details.retryAfterMs <= 60000)
+    return true
+  })
+  await assert.rejects(service.authenticate('Bearer ' + created.token), /Invalid/)
+  const owner = data.get(`mcpTokenOwners/${uid}`)
+  owner.createdAt = Date.now() - 60000
+  assert.equal((await service.manage(request('status'))).retryAfterMs, 0)
+  const replacement = await service.manage(request('create'))
+  assert.notEqual(replacement.token, created.token)
+  assert.equal((await service.authenticate('Bearer ' + replacement.token)).uid, uid)
+  await assert.rejects(service.authenticate('Bearer ' + created.token), /Invalid/)
+})
+
 test('MCP checks trusted profile age for unverified emails at issuance and on every token use', async () => {
   const account = { email: 'member@example.org', emailVerified: false }
   const currentAuth = { getUser: async () => account }

@@ -10,10 +10,13 @@ const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 const activeToken = (data, now = Date.now()) =>
   Boolean(data && !data.revoked && data.expiresAt > now);
+const retryAfterMs = (data, now = Date.now()) =>
+  data && data.createdAt ? Math.max(0, data.createdAt + 60000 - now) : 0;
 const tokenMetadata = (data) => ({
   active: activeToken(data),
   createdAt: data ? data.createdAt : null,
   expiresAt: data ? data.expiresAt : null,
+  retryAfterMs: retryAfterMs(data),
 });
 const reserveRequest = (data, now) => {
   if (!activeToken(data, now)) {
@@ -61,14 +64,15 @@ const createTokenService = (db, auth) => {
     return db.runTransaction(async (tx) => {
       const owner = (await tx.get(ownerRef)).data();
       if (action === "create" && owner && now - owner.createdAt < 60000) {
-        throw new HttpsError("resource-exhausted", "Wait one minute.");
+        throw new HttpsError("resource-exhausted", "Wait one minute.",
+            {retryAfterMs: retryAfterMs(owner, now)});
       }
       if (owner && owner.hash) {
         tx.delete(db.collection("mcpTokens").doc(owner.hash));
       }
       if (action === "revoke") {
         tx.set(ownerRef, {...owner, revoked: true});
-        return {active: false};
+        return tokenMetadata({...owner, revoked: true});
       }
       const data = {uid, createdAt: now, expiresAt: now + 90 * 86400000};
       tx.set(db.collection("mcpTokens").doc(hash), data);
