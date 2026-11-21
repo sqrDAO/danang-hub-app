@@ -24,6 +24,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-deps
+        with:
+          # Keep in step with test:rules in package.json and the emulator cache below.
+          npx-cache: firebase-tools@15.25.1
 
       # The Firestore emulator is a Java program.
       - name: Setup Java

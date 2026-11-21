@@ -15,6 +15,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-deps
+        with:
+          # npx firebase-tools (unpinned) for rules/functions, plus the hosting action.
+          npx-cache: firebase-deploy
 
       - name: Build
         run: npm run build

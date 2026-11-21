@@ -1,7 +1,18 @@
 name: Setup Node and dependencies
 description: >-
   Sets up Node.js and restores node_modules (root and functions/) from cache,
-  running npm ci in both only on a cache miss.
+  running npm ci in both only on a cache miss. Optionally caches the npx
+  package cache (~/.npm/_npx) for jobs that run firebase-tools through npx.
+
+inputs:
+  npx-cache:
+    description: >-
+      Name for this job's npx cache (e.g. firebase-tools@15.25.1). Empty skips
+      it. Each job gets its own key, so jobs that npx different versions don't
+      race to save one entry. A key that names an unpinned tool also carries
+      the month, so npx's own update check refreshes it at least monthly.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -33,3 +44,16 @@ runs:
       shell: bash
       working-directory: functions
       run: npm ci
+
+    - name: Month for npx cache key
+      id: month
+      if: inputs.npx-cache != ''
+      shell: bash
+      run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache npx packages
+      if: inputs.npx-cache != ''
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm/_npx
+        key: npx-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-${{ inputs.npx-cache }}-${{ contains(inputs.npx-cache, '@') && 'pinned' || steps.month.outputs.month }}

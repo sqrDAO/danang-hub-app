@@ -1,12 +1,13 @@
 # Faster PR CI: short SMTP test timeout, parallel jobs, cached node_modules
 **Phase**: — · **Deps**: —
+**Issue**: https://github.com/sqrDAO/danang-hub-app/issues/258
 
 ## Goal
 PR CI takes 85-125s because one unit test waits out a real 20s SMTP socket timeout, the PR workflow runs its two jobs in series, and every job re-runs `npm ci` (#258). Shorten that test's timeout, run the PR jobs in parallel, and cache `node_modules` so PR CI drops to roughly 45-55s.
 
 ## Files
 - `test/emailTransport.test.js` (edited) — stalled-socket test overrides `socketTimeout` to 500ms and asserts production still passes 20000
-- `.github/actions/setup-deps/action.yml` (new) — composite action: setup-node 22, cache `node_modules` + `functions/node_modules`, `npm ci` only on a miss
+- `.github/actions/setup-deps/action.yml` (new) — composite action: setup-node 22, cache `node_modules` + `functions/node_modules`, `npm ci` only on a miss; optional per-job `~/.npm/_npx` cache
 - `.github/workflows/firebase-hosting-pull-request.yml` (edited) — both jobs use setup-deps; `build_and_preview` drops `needs: checks`
 - `.github/workflows/rules-tests.yml` (edited) — uses setup-deps
 - `.github/workflows/firebase-hosting-merge.yml` (edited) — `build_and_deploy` uses setup-deps
@@ -21,6 +22,9 @@ PR CI takes 85-125s because one unit test waits out a real 20s SMTP socket timeo
 - [ ] On a cache hit, no job runs `npm ci`
 - [ ] On a cache miss, both the root and `functions/` installs run `npm ci`
 - [ ] Every workflow job that installs deps uses `.github/actions/setup-deps`
+- [ ] Jobs that run firebase-tools through npx (rules tests, preview deploy, merge deploy) restore `~/.npm/_npx` from their own cache key
+- [ ] A warm "Firestore rules tests" run takes no longer than the 40-53s baseline
+- [ ] The stalled-socket test passes when the pooled socket idles out between sends
 - [ ] NOT: `functions/emailTransport.js` timeouts change
 - [ ] NOT: the merge workflow's build and deploy steps change
 - [ ] NOT: any secret is added or changed
@@ -37,4 +41,4 @@ PR CI takes 85-125s because one unit test waits out a real 20s SMTP socket timeo
 ## Notes
 - No `restore-keys`: a partial `node_modules` restore followed by a skipped `npm ci` would leave stale or missing packages.
 - Accepted cost of parallel jobs: a PR that fails lint still deploys a throwaway preview channel. Merge stays gated on both checks.
-- setup-node `cache: 'npm'` is dropped: on a miss `npm ci` refills from the network, and on a hit it is never used.
+- setup-node `cache: 'npm'` is dropped: it also held `~/.npm/_npx`, where npx keeps firebase-tools, so that is cached separately per job (one key per job avoids jobs racing to save one shared entry).
