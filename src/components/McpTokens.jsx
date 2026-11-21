@@ -64,6 +64,8 @@ function McpTokenPanel({ uid }) {
       <h2 id="mcp-title">{t('mcp.title')}</h2>
       <p>{t('mcp.help')}</p>
       <p>{t('mcp.compatibility')}</p>
+      <p><a href="https://github.com/sqrDAO/danang-hub-app/blob/main/docs/knowledge/mcp-booking.md#choose-your-client"
+        target="_blank" rel="noopener noreferrer">{t('mcp.setupGuide')}</a></p>
       <label className="form-label" htmlFor="mcp-endpoint">{t('mcp.endpoint')}</label>
       <input id="mcp-endpoint" className="form-field" readOnly value={mcpEndpoint} />
       {LOCAL_DEV_MODE && <p>{t('mcp.preview')}</p>}

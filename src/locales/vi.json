@@ -929,6 +929,7 @@
     "renewalFailed": "Không thể gửi yêu cầu gia hạn. Vui lòng thử lại."
   },
   "mcp": {
+    "setupGuide": "Thiết lập Claude hoặc xem khả năng hỗ trợ ChatGPT (hướng dẫn tiếng Anh, mở tab mới)",
     "cooldownHelp": "Vui lòng chờ trước khi tạo token mới. Thu hồi token không làm mất thời gian chờ một phút.",
     "generationHelp": "Bạn có thể tạo một token mỗi phút.",
     "cooldownRemaining": "Có thể tạo token mới sau {{seconds}} giây.",

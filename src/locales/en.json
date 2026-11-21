@@ -931,6 +931,7 @@
     "renewalFailed": "Failed to request the renewal. Please try again."
   },
   "mcp": {
+    "setupGuide": "Set up Claude or check ChatGPT compatibility (English guide, opens in new tab)",
     "cooldownHelp": "Please wait before generating another token. Revoking a token does not reset the one-minute wait.",
     "generationHelp": "You can generate one token per minute.",
     "cooldownRemaining": "Generate a new token in {{seconds}} seconds.",
