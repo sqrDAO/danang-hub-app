@@ -23,6 +23,104 @@ Revocation prevents new requests; an already completed request is not undone.
 The server also rejects disabled/deleted Firebase accounts on every request
 and honors the profile’s required-email-verification gate.
 
+## Choose your client
+
+Client documentation checked **2026-11-21**. These instructions describe documented
+compatibility; they are not a claim that each signed-in client has been tested.
+
+| Client | Current Hub connection |
+| --- | --- |
+| Claude web / Desktop, individual account | Remote connector with a personal request header; steps below |
+| Claude Code | HTTP server with an environment-backed bearer header; steps below |
+| Claude Team / Enterprise shared connector | Do not install a member's personal token as an organization-wide credential |
+| ChatGPT custom MCP app/plugin | Not compatible with this personal-token server yet; OAuth support is required |
+
+### Claude web and Claude Desktop
+
+Use the remote connector settings, not Desktop's local-server JSON file.
+
+1. Open **Customize → Connectors → + Add → Add custom connector**.
+2. Name it **Da Nang Hub** and enter
+   `https://us-central1-danang-hub-app.cloudfunctions.net/mcp`.
+3. Review the detected authentication settings and continue if prompted. Choose
+   **No sign in** (the Hub uses a token, not OAuth). Under **Request headers**,
+   add `Authorization` with value
+   `Bearer YOUR_PERSONAL_TOKEN`, replacing the placeholder with your saved token.
+4. Finish adding it. In a conversation, use **+ → Connectors** to enable Da Nang Hub.
+5. Ask: “Use Da Nang Hub to list amenities. Do not create a booking.”
+
+Availability and settings depend on your account. Anthropic currently lists Free
+(one custom connector), Pro, Max, Ultra, Team and Enterprise. Workspace installation
+requires an authorized owner/admin. **Do not put your personal Hub token in a
+shared workspace connector:** its users would act as you. Use a personal account
+or Claude Code instead. Replacing a connector's header may require removing and
+re-adding it.
+
+Source: [Anthropic's remote connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+### Claude Code
+
+Install and sign in to Claude Code first. In macOS/Linux **bash**, read the token
+without placing it in shell history, then register an HTTP server in user scope:
+
+```bash
+read -r -s -p 'Hub token: ' DANANG_HUB_TOKEN
+printf '\n'
+export DANANG_HUB_TOKEN
+claude mcp add --transport http --scope user danang-hub \
+  https://us-central1-danang-hub-app.cloudfunctions.net/mcp \
+  --header 'Authorization: Bearer ${DANANG_HUB_TOKEN}'
+claude
+```
+
+The single quotes deliberately save an environment-variable reference, not the
+secret. Set `DANANG_HUB_TOKEN` in each new shell before starting Claude Code, or
+inject it through your own secret manager. Do not commit the token or put it in
+shared shell configuration. In Claude Code, open `/mcp`, check `danang-hub`, and
+try the read-only amenities prompt above. If organization policy blocks custom
+servers, ask your administrator. Revoke in the Hub to invalidate a token;
+`claude mcp remove danang-hub --scope user` only removes the local connection.
+
+Source: [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp).
+
+### ChatGPT
+
+**The current Hub server cannot be connected directly in ChatGPT.** OpenAI's
+custom MCP flow supports OAuth or unauthenticated servers, and its authentication
+documentation says ChatGPT cannot supply custom API keys. Our server requires a
+personal bearer token and does not offer OAuth. Selecting “No authentication”
+will not bypass Hub authentication. Do not paste your token into a chat or URL.
+
+ChatGPT's current entry point is **Plugins → + → Add custom MCP server**, subject
+to account/workspace permissions; legacy interfaces may show **Settings → Apps →
+Create**. These menus alone do not make this Hub server compatible. Use Claude's
+personal-header flow or Claude Code above for now. A future Hub OAuth integration
+needs separate implementation and verification before ChatGPT setup can work.
+
+Sources: [OpenAI connection instructions](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
+and [authentication requirements](https://developers.openai.com/plugins/build/auth).
+
+## Verify and troubleshoot
+
+Start with read-only requests: “List my Hub bookings” or “Check desk availability
+tomorrow from 09:00 to 12:00 in Da Nang time; do not book.” Confirm the date and
+amenity before requesting a booking. **Pending is not confirmed**: ask for the
+booking status again after submission.
+
+| Symptom | What to do |
+| --- | --- |
+| Generate fails soon after revoking | Wait until 60 seconds after the previous generation, then retry. Revoking does not reset this cooldown. |
+| 401 / invalid or expired token | Check the `Bearer ` prefix and token, with no extra quotes. Tokens expire after 90 days; revoked tokens cannot be restored. |
+| Replacement token still fails | Update the client's saved header/environment, then reconnect or restart it. Only one token is active per member. |
+| Verify-email / incomplete-profile error | Sign in to the Hub, complete required verification and profile fields, then retry. |
+| 429 / too many requests | Pause at least one minute; avoid automatic retry loops. |
+| No tools / connection error | Confirm the exact HTTPS endpoint, HTTP transport, credential support and workspace permission. A browser GET of the endpoint is not an MCP test. |
+
+Keep the token in the client's credential settings or your secret manager, never
+in prompts, screenshots or source control. If lost or exposed, revoke it in
+Profile, wait out any generation cooldown, generate a replacement and update
+each client that used it. Disconnecting a client does not revoke the Hub token.
+
 ## Tool behavior
 
 | Tool | Input | Result |
