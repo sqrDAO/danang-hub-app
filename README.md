@@ -32,7 +32,8 @@ Live app: **https://app.danangblockchainhub.com**
 
 ### Event Management
 - **Event Creation** — title, description, date, capacity, hosting project, banner image
-- **Import from Luma** — paste a public Luma link in the create form to pre-fill title, description, date/time, duration, event link and banner for review
+- **Import from Luma, Meetup or Eventbrite** — paste a supported public event link in the create form to pre-fill title, description, date/time, duration, event link and banner for review
+  - Supported page hosts: `lu.ma`, `luma.com`, `meetup.com`, `meetu.ps`, `eventbrite.com`, `eventbrite.co.uk` (also `www.`). Other regional domains, Eventbrite custom subdomains and unverified shorteners are rejected; use a supported canonical event URL. Login-only, blocked or metadata-free pages fall back to manual entry. Covers come only from `images.lumacdn.com`, `secure-content.meetupstatic.com` and `img.evbuc.com`; failed cover downloads require manual upload.
 - **Revisioned Approval Workflow** — organizers can revise future events; approved or
   rejected revisions return to pending review
 - **Venue** — one optional Hub venue per event (Event Hall hours and Hub closures apply);
@@ -238,7 +239,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
 | `reviewEvent` | Callable | Admin-only revision-aware approval/rejection; changes status only |
-| `importEventFromUrl` | Callable | Reads a public Luma event page (`lu.ma` / `luma.com` only) and returns a draft that pre-fills the create form; reserves one of 10 hourly import attempts in a server-only counter |
+| `importEventFromUrl` | Callable | Reads a public event page (Luma, Meetup / `meetu.ps`, Eventbrite `.com` / `.co.uk`; exact hosts only) and returns a draft that pre-fills the create form; reserves one of 10 hourly import attempts in a server-only counter |
 | `removePartner` | Callable | Admin-only partner removal: detaches its members, releases its desk and deletes it, then cancels the members' upcoming Partner Desk days (`partner-removed`) |
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |

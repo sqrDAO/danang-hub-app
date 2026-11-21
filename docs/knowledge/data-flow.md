@@ -282,7 +282,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `getAmenityBookingRanges` | callable (auth required) | Busy `startTime`/`endTime`/`status` ranges for an amenity over a window of at most 60 days, with no member identity. The booking calendar's only source for other members' bookings (§5) |
 | `editOwnEvent` | callable (organizer) | Validate a future-event revision; resubmit approved/rejected content |
 | `reviewEvent` | callable (admin) | Revision-aware approve/reject; status only |
-| `importEventFromUrl` | callable (any member) | Fetch a public Luma page (host allowlist, redirects re-checked) and return a form draft from its `Event` JSON-LD; transactionally reserves one of 10 hourly attempts before fetching |
+| `importEventFromUrl` | callable (any member) | Fetch a public Luma, Meetup or Eventbrite page (exact host allowlist, each redirect re-checked) and return a form draft from its `Event` JSON-LD; transactionally reserves one of 10 hourly attempts before fetching |
 | `removePartner` | callable (admin) | Detach the partner's members, release its desk and delete it in one transaction, then cancel their unstarted Partner Desk days (`partner-removed`); `{daysPending: true}` if that last step fails |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
@@ -348,3 +348,25 @@ those live in the callable / client and are advisory.
 | `projects` | admin (rules allow; no write service yet) | none yet (`src/services/projects.js` kept for planned project linking) |
 
 Field-level details are in [`README.md` § Firestore Collections](../../README.md#firestore-collections).
+
+### Event import source boundaries
+
+`functions/eventImport.js` accepts HTTPS on `lu.ma`, `luma.com`, `meetup.com`,
+`meetu.ps`, `eventbrite.com` and `eventbrite.co.uk` (plus `www.`). No wildcard
+subdomains or other regional domains/shorteners are accepted. A blocked page or
+one without usable Event JSON-LD falls back to manual entry; a platform may
+publish only a short description. The existing 8-second / 1 MB / 3-redirect
+limits and shared 10-attempt hourly quota remain unchanged.
+
+The draft mapper and browser cover validator permit `images.lumacdn.com`,
+`secure-content.meetupstatic.com` and `img.evbuc.com`. The browser downloads with
+CORS, no credentials/referrer and no redirects; unsupported or failed covers keep
+the manual-upload fallback. Report-only CSP includes these exact connect hosts.
+Nothing is uploaded or saved until the user reviews and submits the form.
+
+Live checks on 2026-11-21 found Event JSON-LD on Meetup and Eventbrite US/UK
+pages under 1 MB and CORS `*` on the two added cover CDNs. Minimal source fixtures
+and provenance are in `test/fixtures/event-import/`. Meetup short links redirected
+to `www.meetup.com`; bare platform domains redirected to their `www.` counterparts.
+Cloud Functions egress may receive different responses; a production import still
+needs to be checked after deployment.
