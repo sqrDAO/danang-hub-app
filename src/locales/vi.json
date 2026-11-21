@@ -923,5 +923,20 @@
     "renewalRequested": "Đã yêu cầu gia hạn — {{count}} ngày đang chờ duyệt.",
     "renewalNone": "Không tạo được ngày gia hạn nào — bàn đã kín hoặc Hub đóng cửa.",
     "renewalFailed": "Không thể gửi yêu cầu gia hạn. Vui lòng thử lại."
+  },
+  "mcp": {
+    "title": "Đặt chỗ qua trợ lý AI",
+    "help": "Token cá nhân cho phép trợ lý xem lịch đặt chỗ của bạn, kiểm tra chỗ trống, tạo yêu cầu đặt chỗ và hủy lượt đặt riêng lẻ đang chờ duyệt. Token hết hạn sau 90 ngày. Giữ bí mật và thu hồi tại đây để ngắt kết nối.",
+    "compatibility": "Dùng ứng dụng MCP hỗ trợ header Authorization: Bearer tùy chỉnh. Chưa hỗ trợ kết nối OAuth một chạm.",
+    "endpoint": "URL máy chủ MCP",
+    "preview": "Không thể tạo token trong bản xem trước cục bộ.",
+    "active": "Token đang hoạt động · hết hạn {{date}} (giờ Hub)",
+    "once": "Lưu token an toàn ngay bây giờ. Token chỉ hiển thị một lần và không thể xem lại.",
+    "token": "Token truy cập cá nhân",
+    "hide": "Ẩn token",
+    "create": "Tạo token",
+    "revoke": "Thu hồi token",
+    "error": "Không thể cập nhật token. Kiểm tra kết nối, đợi một phút rồi thử lại.",
+    "source": "Trợ lý AI"
   }
 }

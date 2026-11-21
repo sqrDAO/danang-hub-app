@@ -8,6 +8,7 @@ import { useInvalidateQueries } from '../../hooks/useInvalidateQueries'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import Layout from '../../components/Layout'
+import McpTokens from '../../components/McpTokens'
 import Avatar from '../../components/Avatar'
 import PushInstallHelp from '../../components/PushInstallHelp'
 import { updateMember, updateMemberPreferences, getMemberStats } from '../../services/members'
@@ -806,6 +807,7 @@ const MemberProfile = () => {
             />
           )}
         </div>
+        <McpTokens />
       </div>
     </Layout>
   )

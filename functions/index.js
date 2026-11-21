@@ -1,5 +1,5 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
   onDocumentCreated, onDocumentUpdated,
@@ -219,10 +219,12 @@ function isWithinBusinessHours(startTime, endTime) {
  * @param {string} params.startTime ISO string
  * @param {string} params.endTime ISO string
  * @param {string} [params.excludeBookingId] Booking id to ignore (e.g. self)
+ * @param {Function} [params.readQuery] Transactional reader for MCP writes
  * @return {Promise<{hasConflicts: boolean, conflicts: Array}>}
  */
 async function computeBookingAvailability({
   amenityId, amenity, startTime, endTime, excludeBookingId,
+  readQuery = (query) => query.get(),
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
@@ -232,7 +234,7 @@ async function computeBookingAvailability({
       .where("amenityId", "==", amenityId)
       .where("status", "in", ["pending", "approved", "checked-in"]);
 
-  const snapshot = await bookingsQuery.get();
+  const snapshot = await readQuery(bookingsQuery);
   const conflicts = [];
   const newStart = new Date(startTime);
   const newEnd = new Date(endTime);
@@ -3005,4 +3007,25 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
         console.error("Error auto-promoting waitlist:", error);
         return null;
       }
+    });
+
+// Lazy SDK loading keeps unrelated functions free of MCP cold-start cost.
+const mcpTokenService = () => require("./mcpTokens")
+    .createTokenService(db, getAuth());
+exports.manageMcpToken = onCall(
+    (request) => mcpTokenService().manage(request));
+exports.mcp = onRequest(
+    {cors: false, timeoutSeconds: 60, maxInstances: 10},
+    async (req, res) => {
+      const {createBookingTools} = require("./mcpBookings");
+      const {createHttpHandler} = require("./mcpServer");
+      const handlers = createBookingTools(db, {
+        computeBookingAvailability, isWithinAmenityHours,
+      });
+      const origins = ["https://app.danangblockchainhub.com",
+        "https://danang-hub-app.web.app",
+        "https://danang-hub-app.firebaseapp.com"];
+      const handle = createHttpHandler(
+          mcpTokenService().authenticate, handlers, origins);
+      await handle(req, res);
     });
