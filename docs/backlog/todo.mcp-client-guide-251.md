@@ -3,7 +3,7 @@
 
 ## Goal
 Resolve #251 with current, client-specific setup instructions linked from Profile.
-Make bearer-token compatibility and unsupported ChatGPT flows explicit.
+Make bearer-token compatibility and unsupported ChatGPT flows explicit. Include separate Claude Desktop/Code, OpenClaw and NousResearch Hermes Agent setup paths.
 
 ## Files
 - `docs/knowledge/mcp-booking.md` (edited) — client setup, troubleshooting and sources
@@ -13,6 +13,8 @@ Make bearer-token compatibility and unsupported ChatGPT flows explicit.
 
 ## Acceptance
 - [ ] Claude web/Desktop and Claude Code instructions match current official docs.
+- [ ] OpenClaw and Hermes examples match official configuration schemas and distinguish documented support from live testing.
+- [ ] Claude Desktop remote connectors are distinguished from local stdio configuration.
 - [ ] ChatGPT limitations and supported alternatives are explicit.
 - [ ] Personal credentials are never recommended for shared organization connectors.
 - [ ] Profile links to setup instructions in EN and VI.
