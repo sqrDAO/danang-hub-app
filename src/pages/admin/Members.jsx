@@ -1,3 +1,4 @@
+import MemberEmail from '../../components/MemberEmail'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -105,7 +106,7 @@ const MemberProfileHeader = ({ member, t }) => (
     </div>
     <div className="profile-info">
       <h2 className="profile-name">{member.displayName || t('common.na')}</h2>
-      <p className="profile-email">{member.email || t('common.na')}</p>
+      <p className="profile-email"><MemberEmail member={member} fallback={t('common.na')} /></p>
       <span className={`membership-badge ${member.membershipType}`}>
         {t(`status.${member.membershipType || 'member'}`)}
       </span>
@@ -122,7 +123,7 @@ const MemberBasicInfoSection = ({ member, t }) => (
     </div>
     <div className="profile-detail-item">
       <span className="detail-label">{t('profile.email')}</span>
-      <span className="detail-value">{member.email || '—'}</span>
+      <span className="detail-value"><MemberEmail member={member} /></span>
     </div>
     <div className="profile-detail-item">
       <span className="detail-label">{t('profile.phone')}</span>
@@ -416,7 +417,7 @@ const AdminMembers = () => {
                       <span>{member.displayName || t('common.na')}</span>
                     </div>
                   </td>
-                  <td>{member.email || t('common.na')}</td>
+                  <td><MemberEmail member={member} fallback={t('common.na')} /></td>
                   <td>
                     <span className={`membership-badge ${member.membershipType}`}>
                       {t(`status.${member.membershipType || 'member'}`)}
@@ -475,7 +476,7 @@ const AdminMembers = () => {
                 </div>
                 <div className="member-card-mobile-field">
                   <div className="member-card-mobile-label">{t('adminMembers.email')}</div>
-                  <div className="member-card-mobile-value">{member.email || t('common.na')}</div>
+                  <div className="member-card-mobile-value"><MemberEmail member={member} fallback={t('common.na')} /></div>
                 </div>
                 <div className="member-card-mobile-field">
                   <div className="member-card-mobile-label">{t('adminMembers.created')}</div>

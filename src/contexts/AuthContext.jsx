@@ -10,7 +10,8 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
 import { setAuthEmailLanguage } from '../services/emailVerification'
-import { updateMember } from '../services/members'
+import { syncMemberEmail } from '../services/members'
+import { memberEmailFields } from '../utils/memberEmail'
 import i18n from '../i18n'
 import {
   signInWithEVMWallet as walletAuthSignInWithEVMWallet,
@@ -23,23 +24,6 @@ import { resetPushOptInPrompt } from '../utils/pushOptInPrompt'
 import { isDeviceOptedIn, subscribeDeviceOptIn, shouldAttemptLaunchPushRefresh } from '../utils/pushDeviceOptIn'
 import { AuthContext } from '../hooks/useAuth'
 import { missingProfileFields } from '../utils/profileFields'
-
-// members.email mirrors the Auth email for an account that has one, so this
-// brings an older, typed-in address in line;
-// functions/scripts/sync-member-emails.cjs did the same for every profile once.
-// A wallet account has no Auth email and types its own contact address.
-// Not awaited: a Firestore write resolves only once the server acknowledges
-// it, so waiting would hold sign-in on a dropped connection. The returned
-// profile already shows the Auth email, which is the true value either way.
-// The rules compare against the email in the ID token, which can predate an
-// email change for up to an hour, so the token is refreshed first.
-const withAuthEmail = (user, profile) => {
-  if (!user.email || profile.email === user.email) return profile
-  user.getIdToken(true)
-    .then(() => updateMember(user.uid, { email: user.email }))
-    .catch((error) => console.warn('Unable to sync the profile email:', error))
-  return { ...profile, email: user.email }
-}
 
 // A new email/password sign-up must verify its email before using the app
 // (ProtectedRoute sends it to the verify screen). Profiles created before this
@@ -63,7 +47,7 @@ export const AuthProvider = ({ children }) => {
       const baseProfile = {
         uid: user.uid,
         displayName: user.displayName || '',
-        email: user.email || '',
+        ...memberEmailFields(user),
         photoURL: user.photoURL || '',
         membershipType: 'member',
         preferences: {
@@ -74,6 +58,7 @@ export const AuthProvider = ({ children }) => {
         ...verificationRequirement(user),
         ...(extraFields.walletAddress && { walletAddress: extraFields.walletAddress }),
       }
+      await user.getIdToken(true)
       await setDoc(userRef, baseProfile)
       setUserProfile(baseProfile)
       return baseProfile
@@ -83,12 +68,12 @@ export const AuthProvider = ({ children }) => {
     // (handles race where onAuthStateChanged created the doc before the wallet method ran)
     if (extraFields.walletAddress) {
       await updateDoc(userRef, { walletAddress: extraFields.walletAddress })
-      const profileData = withAuthEmail(user, { ...userSnap.data(), walletAddress: extraFields.walletAddress })
+      const profileData = syncMemberEmail(user, { ...userSnap.data(), walletAddress: extraFields.walletAddress })
       setUserProfile(profileData)
       return profileData
     }
 
-    const profileData = withAuthEmail(user, userSnap.data())
+    const profileData = syncMemberEmail(user, userSnap.data())
     setUserProfile(profileData)
     return profileData
   }
@@ -210,7 +195,7 @@ export const AuthProvider = ({ children }) => {
       const userRef = doc(db, 'members', currentUser.uid)
       const userSnap = await getDoc(userRef)
       if (userSnap.exists()) {
-        setUserProfile(withAuthEmail(currentUser, userSnap.data()))
+        setUserProfile(syncMemberEmail(currentUser, userSnap.data()))
       }
     }
   }
@@ -222,7 +207,7 @@ export const AuthProvider = ({ children }) => {
         const userRef = doc(db, 'members', user.uid)
         const userSnap = await getDoc(userRef)
         if (userSnap.exists()) {
-          setUserProfile(withAuthEmail(user, userSnap.data()))
+          setUserProfile(syncMemberEmail(user, userSnap.data()))
         } else {
           await createUserProfile(user)
         }

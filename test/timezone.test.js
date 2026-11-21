@@ -12,6 +12,8 @@ import {
   addHubDays,
   addHubMonths,
   formatHubDate,
+  formatBookingDateTime,
+  formatEventTime,
   getHubDayOfMonth,
   getHubDayOfWeek,
   getHubStartOfDay,
@@ -103,4 +105,21 @@ test('adds hub calendar months, clamping the day and keeping the hub time', () =
 test('formats hub midnight as 00, not 24', () => {
   assert.equal(toDatetimeLocalHub(parseHubDateTime('2026-01-31T00:30')), '2026-01-31T00:30')
   assert.equal(addHubMonths(parseHubDateTime('2026-01-31T00:30'), 1).toISOString(), '2026-02-27T17:30:00.000Z')
+})
+
+
+test('Hub times use the selected locale across midnight outside Vietnam', () => {
+  const date = '2026-11-20T17:05:00Z'
+  assert.equal(formatEventTime(date), '12:05 AM')
+  assert.equal(formatEventTime(date, 'vi-VN'), '0:05')
+  assert.equal(formatHubDate(date, 'vi-VN', { hour: '2-digit', minute: '2-digit' }), '00:05')
+  assert.equal(formatHubDate(date, 'en-US', { hour: '2-digit', minute: '2-digit' }), '12:05 AM')
+  assert.equal(formatEventTime(null, 'vi-VN'), 'N/A')
+})
+
+test('booking timestamps can fall back independently when stored data is invalid', () => {
+  for (const value of [null, undefined, '', 'bad date', new Date(NaN)]) {
+    assert.equal(formatBookingDateTime(value, 'vi-VN'), '')
+  }
+  assert.equal(formatBookingDateTime('2026-11-20T17:05:00Z', 'vi-VN'), '21/11/2026 00:05')
 })

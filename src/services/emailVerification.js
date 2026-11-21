@@ -1,5 +1,6 @@
 import { sendEmailVerification, verifyBeforeUpdateEmail } from 'firebase/auth'
 import { auth } from './firebase'
+import { syncMemberEmail } from './members'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { recordVerifySent } from '../utils/emailVerification'
 
@@ -17,7 +18,10 @@ export const sendVerificationEmail = async (language, continuePath) => {
   if (LOCAL_DEV_MODE) return true
   const user = auth.currentUser
   await user.reload()
-  if (user.emailVerified) return false
+  if (user.emailVerified) {
+    syncMemberEmail(user, { email: user.email })
+    return false
+  }
   setAuthEmailLanguage(language)
   await sendEmailVerification(user, { url: `${window.location.origin}${continuePath}` })
   recordVerifySent(user.uid)
@@ -31,6 +35,7 @@ export const reloadEmailVerified = async () => {
   if (LOCAL_DEV_MODE || !auth.currentUser) return null
   const user = auth.currentUser
   await user.reload()
+  if (user.emailVerified) syncMemberEmail(user, { email: user.email })
   return user.emailVerified ? user.uid : null
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_VIEWS, getVisibleFields, isWebLink, hasEventPage, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload, getImportedFormValues } from '../src/components/event/eventFields.js'
+import { getWhenText, EVENT_VIEWS, getVisibleFields, isWebLink, hasEventPage, getUnfamiliarLinkHost, getEventVenueId, getVenuePayload, getEventFormPayload, getImportedFormValues } from '../src/components/event/eventFields.js'
 
 test('admin view shows every field, restricted ones included', () => {
   const fields = getVisibleFields('admin')
@@ -143,4 +143,12 @@ test('a known host with an ordinary query stays known', () => {
 test('a link with no web host is flagged as typed', () => {
   assert.equal(getUnfamiliarLinkHost('javascript:alert(1)'), 'javascript:alert(1)')
   assert.equal(getUnfamiliarLinkHost('https://'), 'https://')
+})
+
+
+test('event ranges localize both times and retain the Hub calendar date', () => {
+  const event = { date: '2026-11-20T11:00:00Z', duration: 90 }
+  assert.equal(getWhenText(event), '20/11/2026 · 6:00 PM – 7:30 PM')
+  assert.equal(getWhenText(event, 'vi-VN'), '20/11/2026 · 18:00 – 19:30')
+  assert.equal(getWhenText({ date: event.date }, 'vi-VN'), '20/11/2026 · 18:00')
 })
