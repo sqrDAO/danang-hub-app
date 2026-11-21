@@ -1,4 +1,8 @@
 {
+  "memberEmail": {
+    "verified": "Verified",
+    "unverified": "Unverified"
+  },
   "nav": {
     "home": "Home",
     "amenities": "Amenities",

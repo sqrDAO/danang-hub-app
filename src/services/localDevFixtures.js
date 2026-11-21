@@ -84,6 +84,7 @@ export const buildLocalDevMembers = () => {
       uid: 'member-alice',
       displayName: 'Alice Nguyen',
       email: 'alice@dananghub.dev',
+      verifiedEmail: 'alice@dananghub.dev',
       photoURL: '',
       company: 'Solana Labs VN',
       jobTitle: 'Smart Contract Dev',

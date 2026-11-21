@@ -1,4 +1,8 @@
 {
+  "memberEmail": {
+    "verified": "Đã xác minh",
+    "unverified": "Chưa xác minh"
+  },
   "nav": {
     "home": "Trang chủ",
     "amenities": "Tiện ích",
