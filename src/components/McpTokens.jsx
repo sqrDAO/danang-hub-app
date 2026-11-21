@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { manageMcpToken, mcpEndpoint } from '../services/mcpTokens'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { useMcpTokenCooldown } from '../hooks/useMcpTokenCooldown'
 import { useAuth } from '../hooks/useAuth'
 import './McpTokens.css'
 
@@ -11,7 +12,7 @@ const TokenError = ({ failed }) => {
   return failed ? <p role="alert">{t('mcp.error')}</p> : null
 }
 
-const useTokenActions = (refresh) => {
+const useTokenActions = (refresh, wait) => {
   const [secret, setSecret] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
@@ -23,8 +24,12 @@ const useTokenActions = (refresh) => {
       const result = await manageMcpToken(action)
       setSecret(result.token || '')
       await refresh()
-    } catch {
-      setError(true)
+    } catch (failure) {
+      if (failure.code === 'functions/resource-exhausted') {
+        wait(failure.details?.retryAfterMs || 60000)
+      } else {
+        setError(true)
+      }
     } finally {
       setBusy(false)
     }
@@ -32,12 +37,27 @@ const useTokenActions = (refresh) => {
   return { secret, busy, error, run, hide: () => setSecret('') }
 }
 
+function TokenControls({ disabled, active, cooldown, run }) {
+  const { t } = useTranslation()
+  return <>
+      <p id="mcp-cooldown" role="status">{t(cooldown.seconds > 0 ? 'mcp.cooldownHelp' : 'mcp.generationHelp')}</p>
+      {cooldown.seconds > 0 && <p role="timer" aria-live="off">{t('mcp.cooldownRemaining', { seconds: cooldown.seconds })}</p>}
+      <div className="mcp-actions">
+        <button type="button" className="btn btn-primary" disabled={disabled || active || cooldown.seconds > 0}
+          aria-describedby="mcp-cooldown" onClick={() => run('create')}>{t('mcp.create')}</button>
+        <button type="button" className="btn btn-secondary" disabled={disabled || !active}
+          onClick={() => run('revoke')}>{t('mcp.revoke')}</button>
+      </div>
+  </>
+}
+
 function McpTokenPanel({ uid }) {
   const { t, i18n } = useTranslation()
   const query = useQuery({ queryKey: ['mcpToken', uid],
     queryFn: () => manageMcpToken('status'), enabled: !LOCAL_DEV_MODE,
     staleTime: 30000 })
-  const state = useTokenActions(query.refetch)
+  const cooldown = useMcpTokenCooldown(query.data, query.dataUpdatedAt)
+  const state = useTokenActions(query.refetch, cooldown.wait)
   const disabled = LOCAL_DEV_MODE || query.isLoading || state.busy || query.isError
   return (
     <section className="profile-card glass mcp-access" aria-labelledby="mcp-title">
@@ -59,12 +79,7 @@ function McpTokenPanel({ uid }) {
         <button type="button" className="btn btn-secondary" onClick={state.hide}>{t('mcp.hide')}</button>
       </div>}
       <TokenError failed={state.error || query.isError} />
-      <div className="mcp-actions">
-        <button type="button" className="btn btn-primary" disabled={disabled || query.data?.active}
-          onClick={() => state.run('create')}>{t('mcp.create')}</button>
-        <button type="button" className="btn btn-secondary" disabled={disabled || !query.data?.active}
-          onClick={() => state.run('revoke')}>{t('mcp.revoke')}</button>
-      </div>
+      <TokenControls disabled={disabled} active={query.data?.active} cooldown={cooldown} run={state.run} />
     </section>
   )
 }

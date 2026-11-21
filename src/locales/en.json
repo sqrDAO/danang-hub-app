@@ -931,6 +931,9 @@
     "renewalFailed": "Failed to request the renewal. Please try again."
   },
   "mcp": {
+    "cooldownHelp": "Please wait before generating another token. Revoking a token does not reset the one-minute wait.",
+    "generationHelp": "You can generate one token per minute.",
+    "cooldownRemaining": "Generate a new token in {{seconds}} seconds.",
     "title": "Book with your AI agent",
     "help": "A personal token lets your agent read your bookings, check availability, create pending bookings and cancel your pending individual bookings. It expires after 90 days. Keep it private; revoke it here to disconnect your agent.",
     "compatibility": "Use an MCP client that supports a custom Authorization: Bearer header. One-click OAuth connections are not supported yet.",
