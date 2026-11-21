@@ -929,5 +929,20 @@
     "renewalRequested": "Renewal requested — {{count}} day(s) sent for approval.",
     "renewalNone": "No renewal days could be created — the desk is full or the Hub is closed.",
     "renewalFailed": "Failed to request the renewal. Please try again."
+  },
+  "mcp": {
+    "title": "Book with your AI agent",
+    "help": "A personal token lets your agent read your bookings, check availability, create pending bookings and cancel your pending individual bookings. It expires after 90 days. Keep it private; revoke it here to disconnect your agent.",
+    "compatibility": "Use an MCP client that supports a custom Authorization: Bearer header. One-click OAuth connections are not supported yet.",
+    "endpoint": "MCP server URL",
+    "preview": "Token creation is unavailable in this local preview.",
+    "active": "Active token · expires {{date}} (Hub time)",
+    "once": "Save this token securely now. It is shown only once and cannot be retrieved later.",
+    "token": "Personal access token",
+    "hide": "Hide token",
+    "create": "Generate token",
+    "revoke": "Revoke token",
+    "error": "Could not update token access. Check your connection, wait one minute and try again.",
+    "source": "AI agent"
   }
 }

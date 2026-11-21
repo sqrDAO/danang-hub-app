@@ -1,5 +1,5 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
   onDocumentCreated, onDocumentUpdated,
@@ -48,6 +48,7 @@ const {
   monthOverLimit,
   monthWindow,
 } = require("./monthlyHours");
+const {updatePendingBooking} = require("./bookingStatus");
 const {getNewlyPromoted} = require("./waitlist");
 const {buildEventStatusEmail} = require("./emailHtml");
 const {getTransporter} = require("./emailTransport");
@@ -219,10 +220,12 @@ function isWithinBusinessHours(startTime, endTime) {
  * @param {string} params.startTime ISO string
  * @param {string} params.endTime ISO string
  * @param {string} [params.excludeBookingId] Booking id to ignore (e.g. self)
+ * @param {Function} [params.readQuery] Transactional reader for MCP writes
  * @return {Promise<{hasConflicts: boolean, conflicts: Array}>}
  */
 async function computeBookingAvailability({
   amenityId, amenity, startTime, endTime, excludeBookingId,
+  readQuery = (query) => query.get(),
 }) {
   const amenityType = amenity && amenity.type ? amenity.type : null;
 
@@ -232,7 +235,7 @@ async function computeBookingAvailability({
       .where("amenityId", "==", amenityId)
       .where("status", "in", ["pending", "approved", "checked-in"]);
 
-  const snapshot = await bookingsQuery.get();
+  const snapshot = await readQuery(bookingsQuery);
   const conflicts = [];
   const newStart = new Date(startTime);
   const newEnd = new Date(endTime);
@@ -2318,7 +2321,7 @@ exports.sendBookingConfirmation = onDocumentCreated(
  * @param {Object} booking New booking data
  * @param {string} bookingId Booking document id
  * @param {Object} snap Booking document snapshot
- * @return {Promise<boolean>} Whether the booking was cancelled
+ * @return {Promise<boolean>} Whether the monthly limit was exceeded
  */
 async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
   // The member's bookings in the month(s) this one touches. Same shape as
@@ -2346,7 +2349,7 @@ async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
       new Map(amenities.docs.map((d) => [d.id, d.data()])),
   );
   if (!over) return false;
-  await snap.ref.update({
+  await updatePendingBooking(db, snap.ref, {
     status: "cancelled",
     cancelledReason: MONTHLY_HOURS_LIMIT_REASON,
     limitHoursLeft: over.hoursLeft,
@@ -2362,7 +2365,7 @@ async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
  * @param {Object} booking New booking data
  * @param {string} bookingId Booking document id
  * @param {Object} snap Booking document snapshot
- * @return {Promise<boolean>} Whether the booking was cancelled
+ * @return {Promise<boolean>} Whether the monthly limit was exceeded
  */
 async function enforceMonthlyHours(booking, bookingId, snap) {
   try {
@@ -2426,7 +2429,7 @@ exports.autoApproveDeskBooking = onDocumentCreated(
           });
 
           if (!hasConflicts) {
-            await snap.ref.update({
+            await updatePendingBooking(db, snap.ref, {
               status: "approved",
               updatedAt: new Date().toISOString(),
             });
@@ -3005,4 +3008,25 @@ exports.autoPromoteWaitlist = onDocumentUpdated(
         console.error("Error auto-promoting waitlist:", error);
         return null;
       }
+    });
+
+// Lazy SDK loading keeps unrelated functions free of MCP cold-start cost.
+const mcpTokenService = () => require("./mcpTokens")
+    .createTokenService(db, getAuth());
+exports.manageMcpToken = onCall(
+    (request) => mcpTokenService().manage(request));
+exports.mcp = onRequest(
+    {cors: false, timeoutSeconds: 60, maxInstances: 10},
+    async (req, res) => {
+      const {createBookingTools} = require("./mcpBookings");
+      const {createHttpHandler} = require("./mcpServer");
+      const handlers = createBookingTools(db, {
+        computeBookingAvailability, isWithinAmenityHours,
+      });
+      const origins = ["https://app.danangblockchainhub.com",
+        "https://danang-hub-app.web.app",
+        "https://danang-hub-app.firebaseapp.com"];
+      const handle = createHttpHandler(
+          mcpTokenService().authenticate, handlers, origins);
+      await handle(req, res);
     });

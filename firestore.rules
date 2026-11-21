@@ -130,8 +130,10 @@ service cloud.firestore {
       // reserved for a partner takes bookings only from that partner's members.
       // Fields only an admin or the server writes cannot be set at create
       // either, and the pd_ ids and partner_ plan groups the sync uses for
-      // Partner Desk days are the server's alone.
+      // Partner Desk days are the server's alone. The MCP server stamps
+      // source through the Admin SDK. Client writes must preserve its origin.
       allow create: if isAuthenticated() && isOwner(request.resource.data.memberId) &&
+                       !('source' in request.resource.data) &&
                        (!('status' in request.resource.data) ||
                         request.resource.data.status == 'pending') &&
                        !bookingId.matches('^pd_.*') &&
@@ -156,6 +158,7 @@ service cloud.firestore {
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
       allow create: if isAdmin() &&
+                       !('source' in request.resource.data) &&
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));
@@ -180,8 +183,9 @@ service cloud.firestore {
                            resource.data.get('planType', null) in ['fixed-desk', 'partner-desk'])))) &&
                        request.resource.data.diff(resource.data)
                            .affectedKeys().hasOnly(['status', 'updatedAt']);
-      // Admins can update any booking; planGroupId format still enforced when set
+      // Admins can update any booking while preserving its source.
       allow update: if isAdmin() &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['source']) &&
                        (!('planGroupId' in request.resource.data) ||
                         (request.resource.data.planGroupId is string &&
                          request.resource.data.planGroupId.matches('^[A-Za-z0-9_-]{1,64}$')));

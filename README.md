@@ -22,6 +22,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Monthly desk-hours limit** — members can book up to 40 hours of ordinary desk time per calendar month (hub time); Fixed/Partner Desk days and admins are exempt. The booking page shows hours used and blocks over-limit bookings, and the server cancels any that slip through
 - **Fixed Desk Renewal** — members renew from 7 days before a plan ends to 7 days after; renewals wait for admin approval (approved or rejected as one plan) and don't hold the desk meanwhile; a reminder goes out 3 days before the end
 - **Partner Desks** — members of a partner organization (e.g. 9AM Games, DiiD) are booked on the partner's desk every working day, four weeks ahead, for as long as they stay attached; they can skip single days
+- **AI Agent Booking** — personal access tokens and six MCP booking tools; [setup and first deployment](docs/knowledge/mcp-booking.md). Requires a client supporting bearer headers; OAuth is not included.
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
 - **Recurring Bookings** — weekly recurring reservations
 - **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
@@ -296,6 +297,8 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 
 | Function | Type | Description |
 |----------|------|-------------|
+| `mcp` | HTTPS request | Stateless MCP endpoint; bearer-token auth, rate limits, six member booking tools |
+| `manageMcpToken` | Callable | Issue, inspect and revoke the signed-in member’s one personal token (90-day expiry) |
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
@@ -415,6 +418,9 @@ functions/
 | `push_tokens` | Per-phone tokens at `push_tokens/{uid}/devices/{deviceId}`; read only when `preferences.pushNotifications` is on. Device registration, Off and logout delete the legacy `push_tokens/{uid}` doc, which clients can no longer create/update. The sender sets `members.pushTokensMigrated` best effort after confirming legacy absence, then skips legacy reads. Off/logout invalidate in-flight registration and revoke this browser's subscription. Registration is serialized so a late cancelled operation is cleaned up before another account registers. A successful revoke keeps Off even if document cleanup fails; logout retains the marker for next-login intent. Unrecoverable FCM errors prune every doc holding the invalid token. |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `importRateLimits` | Server-only per-account import counters (`windowStart` in milliseconds and `count`), allowing 10 attempts per hour, including failed page fetches |
+| `mcpTokens` | Server-only SHA-256 token-hash IDs, member ID, expiry and per-minute request counter; raw tokens are never stored |
+| `mcpTokenOwners` | Server-only per-member token metadata/index; one token per member, one generation per minute |
+| `mcpBookingLocks` | Server-only per-amenity transaction serialization documents for MCP creates |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 

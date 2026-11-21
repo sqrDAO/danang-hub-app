@@ -840,6 +840,7 @@ const AdminBookings = () => {
                     {isDeskPlan(booking.planType) && (
                       <span className="fixed-desk-badge-admin">{t(deskPlanBadgeKey(booking.planType))}</span>
                     )}
+                    <McpSource booking={booking} />
                     <ClosureBadge booking={booking} t={t} />
                   </td>
                   <td>{formatBookingDateTime(booking.startTime, locale) || t('common.na')}</td>
@@ -877,6 +878,7 @@ const AdminBookings = () => {
                     {isDeskPlan(booking.planType) && (
                       <span className="fixed-desk-badge-admin">{t(deskPlanBadgeKey(booking.planType))}</span>
                     )}
+                    <McpSource booking={booking} />
                     <ClosureBadge booking={booking} t={t} />
                   </div>
                   <span className={`status-badge ${booking.status}`}>
@@ -965,3 +967,8 @@ const AdminBookings = () => {
 }
 
 export default AdminBookings
+
+function McpSource({ booking }) {
+  const { t } = useTranslation()
+  return booking.source === 'mcp' ? <span className="fixed-desk-badge-admin">{t('mcp.source')}</span> : null
+}

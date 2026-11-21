@@ -1,0 +1,15 @@
+.mcp-access {
+  display: grid;
+  gap: 1rem;
+  margin-block-start: 1.5rem;
+}
+
+.mcp-access .form-label {
+  margin: 0;
+}
+
+.mcp-access .mcp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
