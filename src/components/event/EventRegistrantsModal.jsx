@@ -1,3 +1,4 @@
+import MemberEmail from '../MemberEmail'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../Modal'
@@ -21,7 +22,7 @@ const copyEmails = async (rows, t) => {
 
 const Contact = ({ member }) => (
   <div className="registrant-contact">
-    {member.email && <a href={`mailto:${member.email}`} className="registrant-link">{member.email}</a>}
+    {member.email && <MemberEmail member={member} link className="registrant-link" />}
     {member.phone && <a href={`tel:${member.phone}`} className="registrant-link">{member.phone}</a>}
   </div>
 )

@@ -33,7 +33,7 @@ service cloud.firestore {
     }
     
     // Members collection
-    // Profile fields: uid, displayName, email, photoURL, membershipType,
+    // Profile fields: uid, displayName, email, verifiedEmail, photoURL, membershipType,
     // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
     // locale ('en'|'vi', mirrors the UI language so Cloud Functions can
     // localize push copy), createdAt, updatedAt.
@@ -53,6 +53,17 @@ service cloud.firestore {
       return authEmail == '' || email == authEmail || email == before;
     }
 
+    // Only the owner's verified Auth token can assert proof for an address.
+    // Keeping old proof is safe: the UI requires it to match the current email.
+    // Admins may clear proof, but cannot verify someone else's typed address.
+    function verifiedEmailAllowed(userId, before) {
+      let verifiedEmail = request.resource.data.get('verifiedEmail', '');
+      return verifiedEmail == before || verifiedEmail == '' ||
+             (isOwner(userId) && request.auth.token.get('email_verified', false) == true &&
+              verifiedEmail == request.auth.token.get('email', '') &&
+              verifiedEmail == request.resource.data.get('email', ''));
+    }
+
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
@@ -63,19 +74,21 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
                        request.resource.data.get('membershipType', null) == 'member' &&
                        !('partnerId' in request.resource.data) &&
-                       ownerEmailAllowed('');
+                       ownerEmailAllowed('') && verifiedEmailAllowed(userId, '');
       // Users can update their own profile (except membershipType and partnerId,
       // which they may not change or remove, and email, which follows their
       // Auth email when they have one)
       allow update: if isOwner(userId) &&
                        request.resource.data.get('membershipType', null) == resource.data.get('membershipType', null) &&
                        request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null) &&
-                       ownerEmailAllowed(resource.data.get('email', ''));
+                       ownerEmailAllowed(resource.data.get('email', '')) &&
+                       verifiedEmailAllowed(userId, resource.data.get('verifiedEmail', ''));
       // Only admins can update membershipType or any member. A profile with no
       // membershipType (legacy) reads as 'member' here, so admins can still
       // edit its other fields.
       allow update: if isAdmin() &&
-                       request.resource.data.get('membershipType', 'member') in ['member', 'admin'];
+                       request.resource.data.get('membershipType', 'member') in ['member', 'admin'] &&
+                       verifiedEmailAllowed(userId, resource.data.get('verifiedEmail', ''));
       // Only admins can delete members
       allow delete: if isAdmin();
     }

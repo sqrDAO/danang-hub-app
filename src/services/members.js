@@ -11,6 +11,7 @@ import { getBookings } from './bookings'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { getLocalMember, listLocalMembers, updateLocalMember } from './localDevStore'
 import { getEvents } from './events'
+import { memberEmailFields } from '../utils/memberEmail'
 
 const MEMBERS_COLLECTION = 'members'
 
@@ -44,6 +45,17 @@ export const updateMember = async (uid, data) => {
     ...data,
     updatedAt: new Date().toISOString()
   })
+}
+
+// Do not hold sign-in on an offline Firestore write. Refresh the ID token so
+// rules see current Auth proof; other viewers stay conservative until it saves.
+export const syncMemberEmail = (user, profile) => {
+  const fields = memberEmailFields(user, profile)
+  if (profile.email === fields.email && profile.verifiedEmail === fields.verifiedEmail) return profile
+  user.getIdToken(true)
+    .then(() => updateMember(user.uid, fields))
+    .catch((error) => console.warn('Unable to sync profile email verification:', error))
+  return { ...profile, ...fields }
 }
 
 // Writes each preference as its own field path, so a save never puts back a
