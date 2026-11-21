@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment
 } from '@firebase/rules-unit-testing'
-import { doc, setDoc, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, setDoc, updateDoc } from 'firebase/firestore'
 
 const hasEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST)
 const projectId = process.env.GCLOUD_PROJECT || 'danang-hub-booking-fields-rules'
@@ -44,6 +44,18 @@ if (!hasEmulator) {
 
   test('a plain member booking can still be created', async () => {
     await assertSucceeds(setDoc(doc(memberDb(), 'bookings', 'plain'), booking()))
+  })
+
+  test('only the server can assign or remove booking source attribution', async () => {
+    const adminDb = testEnv.authenticatedContext('admin-a').firestore()
+    await seed('bookings', 'portal-source', booking())
+    await seed('bookings', 'mcp-source', booking({ source: 'mcp' }))
+    for (const db of [memberDb(), adminDb]) {
+      await assertFails(setDoc(doc(db, 'bookings', 'claimed-source'), booking({ source: 'mcp' })))
+      await assertFails(updateDoc(doc(db, 'bookings', 'portal-source'), { source: 'mcp' }))
+      await assertFails(updateDoc(doc(db, 'bookings', 'mcp-source'), { source: deleteField() }))
+    }
+    await assertSucceeds(updateDoc(doc(adminDb, 'bookings', 'mcp-source'), { status: 'approved' }))
   })
 
   // These are written only by admins or the server; set at create they would

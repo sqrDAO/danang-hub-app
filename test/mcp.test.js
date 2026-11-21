@@ -46,13 +46,36 @@ test('token lifecycle stores only hash, revokes previous secret, and rejects dis
   assert.equal((await service.authenticate('Bearer ' + created.token)).uid, uid)
   assert.equal((await service.manage(request('status'))).token, undefined)
   await assert.rejects(service.manage(request('create')), /Wait one minute/)
-  data.set(`members/${uid}`, { emailVerificationRequired: true })
-  await assert.rejects(service.authenticate('Bearer ' + created.token), /Verify your email/)
-  data.delete(`members/${uid}`)
   await service.manage(request('revoke'))
   await assert.rejects(service.authenticate('Bearer ' + created.token), /Invalid/)
   await assert.rejects(createTokenService(db, { getUser: async () => ({ disabled: true }) })
     .manage(request('create')), /disabled/)
+})
+
+test('MCP checks trusted profile age for unverified emails at issuance and on every token use', async () => {
+  const account = { email: 'member@example.org', emailVerified: false }
+  const currentAuth = { getUser: async () => account }
+  const request = { auth: { uid }, data: { action: 'create' } }
+  const profilePath = `members/${uid}`
+  const tokenPath = `mcpTokens/${hash}`
+  const token = { uid, expiresAt: Date.now() + 86400000 }
+
+  for (const profile of [undefined, {}, { emailVerificationRequired: false, createdAt: '2020-01-01' }]) {
+    const { db } = makeStore({ [tokenPath]: token, ...(profile && { [profilePath]: profile }) })
+    const service = createTokenService(db, currentAuth)
+    await assert.rejects(service.manage(request), /Verify your email/)
+    await assert.rejects(service.authenticate('Bearer ' + secret), /Verify your email/)
+  }
+
+  const { db } = makeStore({ [profilePath]: member }, Date.parse('2026-11-01T00:00:00Z'))
+  const legacy = createTokenService(db, currentAuth)
+  const created = await legacy.manage(request)
+  assert.equal((await legacy.authenticate('Bearer ' + created.token)).uid, uid)
+
+  const current = createTokenService(fixture().db, currentAuth)
+  account.emailVerified = true
+  const verified = await current.manage(request)
+  assert.equal((await current.authenticate('Bearer ' + verified.token)).uid, uid)
 })
 
 test('rate reservation is bounded, expiry fails closed, concurrent requests cannot overspend', async () => {
@@ -81,6 +104,18 @@ test('create is pending, owner-bound, source-tagged and idempotent; competing cr
   assert.equal(own.items.length, 1)
   await f.handlers.cancel_booking(f.principal, { bookingId: results[0].id })
   assert.equal(f.data.get('bookings/' + results[0].id).status, 'cancelled')
+})
+
+test('event spaces are omitted from discovery and rejected by availability and booking', async () => {
+  const f = fixture()
+  f.data.set('amenities/event-hall', { name: 'Event Hall', type: 'event-space', isAvailable: true })
+  const listed = await f.handlers.list_amenities(f.principal, { limit: 20 })
+  assert.deepEqual(listed.items.map(item => item.id), ['desk'])
+
+  const args = { ...slot(), amenityId: 'event-hall' }
+  await assert.rejects(f.handlers.check_availability(f.principal, args), /Use Events/)
+  await assert.rejects(f.handlers.create_booking(f.principal, args), /Use Events/)
+  assert.equal([...f.data.keys()].some(key => key.startsWith('bookings/mcp_')), false)
 })
 
 test('incomplete, reserved, missing, revoked and failed checks never create bookings', async () => {

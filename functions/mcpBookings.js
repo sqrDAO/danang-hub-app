@@ -15,6 +15,9 @@ const assertComplete = (member) => {
 };
 const assertAmenity = (amenity, member) => {
   if (!amenity || amenity.isAvailable === false) fail("Amenity unavailable.");
+  if (amenity.type === "event-space") {
+    fail("Use Events in the Hub portal to reserve an event space.");
+  }
   if (amenity.reservedForPartnerId &&
       amenity.reservedForPartnerId !== member.partnerId) {
     fail("This amenity is reserved for another partner.");
@@ -78,18 +81,9 @@ const createBookingTools = (db, availability) => {
     const amenity = (await tx.get(db.collection("amenities")
         .doc(args.amenityId))).data();
     assertAmenity(amenity, member);
-    const hours = {...amenity};
-    if (amenity.type === "event-space") {
-      const hubDate = new Date(Date.parse(args.startTime) + 7 * 3600000);
-      const day = hubDate.getUTCDay();
-      hours.availableDays = amenity.availableDays || [0, 1, 2, 3, 4, 5, 6];
-      hours.startHour = [0, 6].includes(day) ? amenity.startHour ?? 9 :
-        amenity.weekdayStartHour ?? 18;
-      hours.endHour = amenity.endHour ?? 22;
-    }
     if (rangeOverlapsClosure(args.startTime, args.endTime) ||
         !availability.isWithinAmenityHours(args.startTime,
-            args.endTime, hours)) {
+            args.endTime, amenity)) {
       return {available: false, reason: "Outside Hub or amenity hours."};
     }
     // Use the same overlap/capacity and renewal logic as the portal callables.
@@ -161,6 +155,7 @@ const createBookingTools = (db, availability) => {
       const member = await db.runTransaction((tx) => memberFor(tx, p));
       const result = await page(db.collection("amenities"), args, (d) => {
         const a = d.data();
+        if (a.type === "event-space") return null;
         return a.reservedForPartnerId &&
           a.reservedForPartnerId !== member.partnerId ? null : amenityView(d);
       });

@@ -1,6 +1,11 @@
 const crypto = require("node:crypto");
 const {HttpsError} = require("firebase-functions/v2/https");
 
+// Production hosting rollout of the new-profile verification requirement (#199,
+// Actions run 43383405662). Firestore assigns createTime independently of
+// editable profile data, including createdAt and emailVerificationRequired.
+const verificationRollout = Date.parse("2026-11-13T07:09:51Z");
+
 const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 const activeToken = (data, now = Date.now()) =>
@@ -26,12 +31,16 @@ const createTokenService = (db, auth) => {
   const requireUser = async (uid) => {
     if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
     const user = await auth.getUser(uid);
-    const member = (await db.collection("members").doc(uid).get()).data();
-    if (member && member.emailVerificationRequired && !user.emailVerified) {
-      throw new HttpsError("unauthenticated", "Verify your email first.");
-    }
     if (user.disabled) {
       throw new HttpsError("unauthenticated", "Account is disabled.");
+    }
+    if (user.email && !user.emailVerified) {
+      const member = await db.collection("members").doc(uid).get();
+      const legacyProfile = member.createTime &&
+        member.createTime.toMillis() < verificationRollout;
+      if (!legacyProfile || member.data().emailVerificationRequired === true) {
+        throw new HttpsError("unauthenticated", "Verify your email first.");
+      }
     }
   };
   const manage = async (request) => {

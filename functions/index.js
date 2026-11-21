@@ -48,6 +48,7 @@ const {
   monthOverLimit,
   monthWindow,
 } = require("./monthlyHours");
+const {updatePendingBooking} = require("./bookingStatus");
 const {getNewlyPromoted} = require("./waitlist");
 const {buildEventStatusEmail} = require("./emailHtml");
 const {getTransporter} = require("./emailTransport");
@@ -2320,7 +2321,7 @@ exports.sendBookingConfirmation = onDocumentCreated(
  * @param {Object} booking New booking data
  * @param {string} bookingId Booking document id
  * @param {Object} snap Booking document snapshot
- * @return {Promise<boolean>} Whether the booking was cancelled
+ * @return {Promise<boolean>} Whether the monthly limit was exceeded
  */
 async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
   // The member's bookings in the month(s) this one touches. Same shape as
@@ -2348,7 +2349,7 @@ async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
       new Map(amenities.docs.map((d) => [d.id, d.data()])),
   );
   if (!over) return false;
-  await snap.ref.update({
+  await updatePendingBooking(db, snap.ref, {
     status: "cancelled",
     cancelledReason: MONTHLY_HOURS_LIMIT_REASON,
     limitHoursLeft: over.hoursLeft,
@@ -2364,7 +2365,7 @@ async function cancelIfOverMonthlyHours(booking, bookingId, snap) {
  * @param {Object} booking New booking data
  * @param {string} bookingId Booking document id
  * @param {Object} snap Booking document snapshot
- * @return {Promise<boolean>} Whether the booking was cancelled
+ * @return {Promise<boolean>} Whether the monthly limit was exceeded
  */
 async function enforceMonthlyHours(booking, bookingId, snap) {
   try {
@@ -2428,7 +2429,7 @@ exports.autoApproveDeskBooking = onDocumentCreated(
           });
 
           if (!hasConflicts) {
-            await snap.ref.update({
+            await updatePendingBooking(db, snap.ref, {
               status: "approved",
               updatedAt: new Date().toISOString(),
             });

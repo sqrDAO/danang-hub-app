@@ -1,7 +1,12 @@
 // Isolated Firestore-shaped repository. Writes commit only after callback success.
-export const makeStore = (initial = {}) => {
+export const makeStore = (initial = {}, createdAt = Date.now()) => {
   const data = new Map(Object.entries(initial))
-  const snapshot = (path) => ({ id: path.split('/').at(-1), exists: data.has(path), data: () => data.get(path) })
+  const snapshot = (path) => ({
+    id: path.split('/').at(-1),
+    exists: data.has(path),
+    data: () => data.get(path),
+    createTime: data.has(path) ? { toMillis: () => createdAt } : undefined
+  })
   const ref = (path) => ({ path, get: async () => snapshot(path) })
   const query = (name, filters = [], max = Infinity, cursor = '') => ({
     doc: (id) => ref(`${name}/${id}`),
