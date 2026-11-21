@@ -11,6 +11,7 @@ import { getBookings } from './bookings'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { getLocalMember, listLocalMembers, updateLocalMember } from './localDevStore'
 import { getEvents } from './events'
+import { compareMembersCreatedAt } from '../utils/memberSort'
 import { memberEmailFields } from '../utils/memberEmail'
 
 const MEMBERS_COLLECTION = 'members'
@@ -25,7 +26,7 @@ export const getMembers = async () => {
   const snapshot = await getDocs(membersRef)
   return snapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .sort(compareMembersCreatedAt)
 }
 
 export const getMember = async (uid) => {
