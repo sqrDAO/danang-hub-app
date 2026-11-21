@@ -197,7 +197,10 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   assert.match(client.getInstructions(), /Asia\/Ho_Chi_Minh/)
   assert.match(client.getInstructions(), /never report pending as confirmed/)
   assert.match(client.getInstructions(), /nextCursor/)
+  assert.match(client.getInstructions(), /get_my_hours_left first/)
+  assert.match(client.getInstructions(), /60 requests per minute/)
   for (const tool of tools) {
+    assert.ok(tool.title, `${tool.name} has a title`)
     assert.notEqual(tool.title, tool.name.replaceAll('_', ' '))
     assert.equal(tool.annotations.destructiveHint, tool.name === 'cancel_booking')
   }

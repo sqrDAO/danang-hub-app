@@ -11,19 +11,22 @@ const amenityId = id.describe("Amenity ID from list_amenities.");
 const slot = {amenityId, startTime: time, endTime: time};
 const pagination = {
   limit: z.number().int().min(1).max(50).default(20)
-      .describe("Page size, 1-50 (default 20)."),
+      .describe("Max items per page, 1-50 (default 20). Pages can be " +
+          "short or empty while nextCursor is set."),
   cursor: id.optional().describe("nextCursor from the previous page."),
 };
 const instructions = "Da Nang Blockchain Hub booking for the member who " +
   "owns this token. To book: list_amenities for IDs and hours, " +
   "check_availability for the slot, confirm amenity and time with the " +
   "member, then create_booking with a new requestId (reuse it only to " +
-  "retry the same slot). New bookings are pending until the Hub approves " +
+  "retry the same slot). For desks, call get_my_hours_left first: the " +
+  "monthly ad-hoc desk allowance is enforced after creation and can " +
+  "reject the booking. New bookings are pending until the Hub approves " +
   "them, so never report pending as confirmed; list_my_bookings shows the " +
   "current status. Hub time is Asia/Ho_Chi_Minh: send times with an " +
   "explicit offset such as +07:00. List tools page by ID, not date: follow " +
-  "nextCursor until it is null. get_my_hours_left shows the monthly " +
-  "ad-hoc desk allowance. cancel_booking only cancels the member's own " +
+  "nextCursor until it is null, even after a short or empty page. " +
+  "cancel_booking only cancels the member's own " +
   "pending individual bookings; event spaces, desk plans and admin " +
   "actions stay in the Hub portal. Limit: 60 requests per minute; on a " +
   "rate-limit error wait a minute instead of retrying.";
