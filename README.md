@@ -298,6 +298,8 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | Function | Type | Description |
 |----------|------|-------------|
 | `mcp` | HTTPS request | Stateless MCP endpoint; bearer-token auth, rate limits, six member booking tools |
+| `oauth` | HTTPS request | OAuth 2.1 authorization server for MCP connectors (#263), served through Hosting rewrites on `app.danangblockchainhub.com`: protected-resource and authorization-server metadata, dynamic client registration (Claude, ChatGPT and loopback callbacks only), authorize, token (PKCE S256, rotating refresh tokens) and revoke. Not advertised by `mcp` yet |
+| `oauthConsent` | Callable | Describe, approve or deny a pending OAuth sign-in request for the signed-in member; approval creates the grant and a 60 s single-use code (consent page ships in phase 3) |
 | `manageMcpToken` | Callable | Issue, inspect and revoke the signed-in member’s one personal token (90-day expiry) |
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
 | `checkSlotAvailability` | Callable | Public slot availability check |
@@ -421,6 +423,12 @@ functions/
 | `mcpTokens` | Server-only SHA-256 token-hash IDs, member ID, expiry and per-minute request counter; raw tokens are never stored |
 | `mcpTokenOwners` | Server-only per-member token metadata/index; one token per member, one generation per minute |
 | `mcpBookingLocks` | Server-only per-amenity transaction serialization documents for MCP creates |
+| `oauthClients` | Server-only OAuth clients from dynamic registration (public, no secret); expire 1 day after registration unless used, then 30 days after each token exchange (`expiresAt` TTL) |
+| `oauthRequests` | Server-only pending authorization requests, 10-minute TTL, consumed once on approve or deny |
+| `oauthCodes` | Server-only SHA-256 hashes of authorization codes (60 s, single use; a replay revokes the grant) |
+| `oauthGrants` | Server-only per-member app connections (client, redirect URI, scope, revoked flag), 90-day cap |
+| `oauthTokens` | Server-only SHA-256 hashes of `dha_` access (1 h) and `dhr_` refresh (30 days sliding, rotated on use) tokens with grant, member and audience |
+| `oauthRateLimits` | Server-only registration counters: global hourly cap for hosted callbacks, per-IP hourly cap for loopback, unused-client buckets |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |
 | `projects` | Hosting project info linked to events |
 

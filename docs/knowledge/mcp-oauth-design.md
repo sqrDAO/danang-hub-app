@@ -137,7 +137,9 @@ connection anyway, and the page is the only phishing defense.
   (`token_endpoint_auth_method: "none"`, no secret issued). Redirect URIs must
   match the **allowlist**: the two Claude callbacks, the two ChatGPT forms
   (`connector_platform_oauth_redirect`, `connector/oauth/[A-Za-z0-9_-]+`), and
-  loopback `http://localhost|127.0.0.1:<port>/callback`. Anything else →
+  loopback `http://localhost|127.0.0.1:<port>/callback` (also
+  `/oauth/callback` and `/oauth/callback/debug`, which MCP Inspector uses for
+  the phase 3 check). Anything else →
   `invalid_redirect_uri` (decision 2). `client_name` ≤ 64 chars, stored
   as untrusted text. **No per-IP limit for hosted clients**: Claude registers
   from Anthropic's shared egress (160.79.104.0/21) and makes a new client per

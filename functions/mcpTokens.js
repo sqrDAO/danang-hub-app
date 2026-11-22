@@ -105,7 +105,7 @@ const createTokenService = (db, auth) => {
     });
     return {uid: token.uid, hash};
   };
-  return {manage, authenticate};
+  return {manage, authenticate, requireUser};
 };
 
 module.exports = {createTokenService, hashToken, activeToken, reserveRequest};

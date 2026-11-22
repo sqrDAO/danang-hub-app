@@ -7,6 +7,7 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { initializeApp } from 'firebase/app'
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw'
 import { firebaseConfig } from '../src/services/firebaseConfig.js'
+import { NAVIGATION_DENYLIST } from '../src/utils/navigationDenylist.js'
 
 self.skipWaiting()
 clientsClaim()
@@ -16,7 +17,7 @@ cleanupOutdatedCaches()
 // If the network fails or takes over 5 s, answer with the precached app shell, like
 // Hosting's `**` rewrite, so deep links and reloads work offline. The shell is looked
 // up per request: a missing one falls through to the network instead of breaking the
-// SW (and push) at startup. Firebase-reserved /__/ paths (Auth popup) never get it.
+// SW (and push) at startup. Denylisted paths (src/utils/navigationDenylist.js) never get it.
 const PAGE_NETWORK_TIMEOUT_MS = 5000
 
 const networkOrShell = async ({ request }) => {
@@ -29,11 +30,6 @@ const networkOrShell = async ({ request }) => {
     return (await matchPrecache('index.html')) || fromNetwork
   }
 }
-
-// OAuth endpoints and discovery docs are served by Cloud Functions through Hosting
-// rewrites: a cold function past the timeout must not get the app shell instead.
-// /oauth/consent is a real SPA route, so it keeps the fallback.
-const NAVIGATION_DENYLIST = [/^\/__\//, /^\/\.well-known\//, /^\/oauth\/(?!consent(?:[/?#]|$))/]
 
 registerRoute(new NavigationRoute(networkOrShell, { denylist: NAVIGATION_DENYLIST }))
 
