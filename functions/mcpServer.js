@@ -3,6 +3,7 @@ const {StreamableHTTPServerTransport} =
   require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const {z} = require("zod");
 const {HttpsError} = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const time = z.string().datetime({offset: true})
@@ -89,7 +90,27 @@ const createServer = (principal, handlers) => {
   return server;
 };
 
-const createHttpHandler = (authenticate, handlers, origins) =>
+// One structured line per 401: why, and the header's shape. Never the token,
+// any part of it past the scheme word, or its hash.
+const authFailureLog = (req, error) => {
+  const header = req.headers.authorization;
+  const present = typeof header === "string" && header.length > 0;
+  const word = present ? header.split(" ")[0] : "";
+  const scheme = !present ? "none" : word === "Bearer" ? "Bearer" :
+    word.toLowerCase() === "bearer" ? "bearer-case" : "other";
+  const reason = (error.details && error.details.reason) ||
+    (error.code === "auth/user-not-found" ? "user-not-found" : "other");
+  return {
+    message: "MCP request refused with 401",
+    reason,
+    userAgent: String(req.headers["user-agent"] || "").slice(0, 200),
+    authorizationPresent: present,
+    authorizationLength: present ? header.length : 0,
+    authorizationScheme: scheme,
+  };
+};
+
+const createHttpHandler = (authenticate, handlers, origins, log = logger) =>
   async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const origin = req.headers.origin;
@@ -126,11 +147,14 @@ const createHttpHandler = (authenticate, handlers, origins) =>
       error.code === "auth/user-not-found";
       const status = limited ? 429 : denied ? 401 : 503;
       if (limited) res.setHeader("Retry-After", "60");
-      if (denied) res.setHeader("WWW-Authenticate", "Bearer realm=\"Hub MCP\"");
+      if (denied) {
+        log.warn(authFailureLog(req, error));
+        res.setHeader("WWW-Authenticate", "Bearer realm=\"Hub MCP\"");
+      }
       res.status(status).json({error: limited ? "Rate limit exceeded" :
       denied ? "Invalid or expired token" : "Service unavailable"});
     }
   };
 
-module.exports = {createServer, createHttpHandler, toolDefinitions,
-  instructions};
+module.exports = {createServer, createHttpHandler, authFailureLog,
+  toolDefinitions, instructions};
