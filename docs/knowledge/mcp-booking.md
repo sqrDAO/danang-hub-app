@@ -97,8 +97,8 @@ you share and out of source control. After rotating the token, edit `HUB_AUTH` a
 restart Desktop. If you previously added a Hub remote connector under
 **Customize → Connectors**, remove it to avoid a duplicate that fails.
 
-Sources: [mcp-remote custom headers](https://github.com/geelen/mcp-remote#custom-headers)
-and [MCP's Claude Desktop local server guide](https://modelcontextprotocol.io/quickstart/user).
+Sources: [mcp-remote custom headers](https://github.com/punkpeye/mcp-remote#custom-headers)
+and [MCP's Claude Desktop local server guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
 
 ### Claude Code
 
