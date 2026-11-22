@@ -46,8 +46,10 @@ Canonical resource: `https://app.danangblockchainhub.com/mcp`. Issuer:
 The consent UI is the SPA route `/oauth/consent` (served by the catch-all).
 Why not the raw `cloudfunctions.net/mcp` URL: its origin cannot serve
 `/.well-known/*`, and a branded URL survives a future region move. The raw URL
-keeps working for `dhm_` tokens; its 401 points at metadata whose `resource`
-is the raw URL only if we decide to support OAuth there too (open question 1).
+keeps working for `dhm_` tokens only (decision 1). The same `mcp` function
+serves both URLs, so it adds `resource_metadata` to a 401 only when the request
+arrived through Hosting (`x-forwarded-host` is `app.danangblockchainhub.com`);
+on the raw URL the 401 stays as today, and `dha_` tokens are rejected there.
 Hosting forwards `Authorization` and POST bodies; all responses keep
 `Cache-Control: no-store` so the CDN never caches them. Hosting rewrites cap at
 60 s, same as the `mcp` timeout.
@@ -136,7 +138,7 @@ connection anyway, and the page is the only phishing defense.
   match the **allowlist**: the two Claude callbacks, the two ChatGPT forms
   (`connector_platform_oauth_redirect`, `connector/oauth/[A-Za-z0-9_-]+`), and
   loopback `http://localhost|127.0.0.1:<port>/callback`. Anything else →
-  `invalid_redirect_uri` (open question 2). `client_name` ≤ 64 chars, stored
+  `invalid_redirect_uri` (decision 2). `client_name` ≤ 64 chars, stored
   as untrusted text. **No per-IP limit for hosted clients**: Claude registers
   from Anthropic's shared egress (160.79.104.0/21) and makes a new client per
   fresh connection, and ChatGPT also registers from shared IPs, so a per-IP
@@ -246,13 +248,13 @@ in the deploy runbook). README Firestore collections table updated.
 3. **Switch on**: consent page, `oauthConsent` callable, `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). Verified end to end with Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403).
 4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect).
 
-## Open questions for a human
+## Decisions (2026-11-22, all recommendations accepted by the repo owner)
 
-1. **Raw function URL and OAuth**: OAuth only at `app.danangblockchainhub.com/mcp` (recommended; raw URL stays `dhm_`-only), or also advertise OAuth on the raw URL?
-2. **Redirect URI policy**: allowlist only Claude, ChatGPT and loopback (recommended), or open DCR to any HTTPS redirect URI so other MCP clients (Cursor, VS Code, etc.) work, at a phishing cost?
-3. **Lifetimes**: access 1 h, refresh 30 days sliding, grant hard cap 90 days (re-consent quarterly, matching `dhm_`)? Or no hard cap?
-4. **Who may connect**: the real `dhm_` gate is `requireUser` in `functions/mcpTokens.js`: it rejects disabled accounts and, **only when the account has an email**, an unverified email (with the legacy-profile exemption). Profile completeness is enforced in the UI only, so wallet members without an email pass. Keep exactly that gate for OAuth (the wallet acceptance bullet relies on it), add a server-side profile-complete check for both `dhm_` and OAuth, or exclude some roles?
-5. **Cold start**: the token endpoint has a 10 s budget in Claude. `functions/index.js` is ~3,000 lines and loads shared modules at top level, so the `oauth` function's cold start depends on keeping its own requires lazy (inside the handler, like `mcp` does). Accept cold starts (lean lazy function, measured in phase 2), or pay for `minInstances: 1` on `oauth`?
-6. **Scopes**: one `bookings` scope (recommended, matches today's six tools), or split `bookings:read` / `bookings:write` now?
-7. **Rate limit scope**: per grant (recommended, like per `dhm_` token) or one shared 60/min budget per member across all clients?
-8. **Directory listing**: is a public Claude directory / ChatGPT app store listing a goal? It changes nothing in phases 1 to 4 but would add review requirements.
+1. **OAuth origin**: only at `https://app.danangblockchainhub.com/mcp`. The raw `cloudfunctions.net/mcp` URL stays `dhm_`-only and never advertises `resource_metadata`.
+2. **Redirect URIs**: allowlist only the Claude and ChatGPT callbacks and loopback (`localhost`/`127.0.0.1`). Other HTTPS redirect URIs are rejected at registration.
+3. **Lifetimes**: access token 1 h; refresh token 30 days sliding; grant hard cap 90 days, after which the member consents again (same as `dhm_`).
+4. **Who may connect**: the same gate as `dhm_`: `requireUser` (not disabled; email verified only when the account has an email). No server-side profile-complete check, no role exclusions.
+5. **Cold start**: accept cold starts. Keep the `oauth` function's requires lazy and measure the token endpoint in phase 2; revisit `minInstances: 1` only if it misses Claude's 10 s budget.
+6. **Scopes**: one `bookings` scope covering all six tools.
+7. **Rate limit**: 60 requests/min per grant, like per `dhm_` token.
+8. **Directory listing**: not a goal for now; phases 1 to 4 stay as designed.

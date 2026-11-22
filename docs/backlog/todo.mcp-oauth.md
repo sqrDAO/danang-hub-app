@@ -5,7 +5,7 @@
 Resolve #263: let members connect Claude web/Desktop/mobile custom connectors and ChatGPT apps to the Hub MCP server by signing in with their Hub account (OAuth 2.1 per MCP authorization 2025-11-25), with no pasted token. Personal `dhm_` tokens keep working unchanged. Design: `docs/knowledge/mcp-oauth-design.md`.
 
 ## Files
-- `docs/knowledge/mcp-oauth-design.md` (new) — architecture, client requirements, threats, phases, open questions.
+- `docs/knowledge/mcp-oauth-design.md` (new) — architecture, client requirements, threats, phases, decisions.
 - `public/sw.js` (edited, phase 1) — `NavigationRoute` denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`.
 - `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
 - `functions/oauth/` (new) — metadata, `register`, `authorize`, `token`, `revoke`, `oauthConsent` callable logic.
@@ -54,7 +54,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 
 ## Notes
 - Delivered in the phases listed in the design doc, one PR each; each PR ticks its bullets here, and the final PR renames this spec.
-- Open questions in the design doc need a human answer before phase 2.
+- Open questions were decided on 2026-11-22 (all recommendations); see Decisions in the design doc.
 - Hosting rewrite order matters: specific rewrites before `**`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.
