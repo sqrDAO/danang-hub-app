@@ -30,7 +30,12 @@ const networkOrShell = async ({ request }) => {
   }
 }
 
-registerRoute(new NavigationRoute(networkOrShell, { denylist: [/^\/__\//] }))
+// OAuth endpoints and discovery docs are served by Cloud Functions through Hosting
+// rewrites: a cold function past the timeout must not get the app shell instead.
+// /oauth/consent is a real SPA route, so it keeps the fallback.
+const NAVIGATION_DENYLIST = [/^\/__\//, /^\/\.well-known\//, /^\/oauth\/(?!consent(?:[/?#]|$))/]
+
+registerRoute(new NavigationRoute(networkOrShell, { denylist: NAVIGATION_DENYLIST }))
 
 // After the page route: Workbox uses the first match, and the precache maps `/` to
 // index.html, so registered first it would answer the app's start URL cache first.
