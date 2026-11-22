@@ -30,8 +30,8 @@ compatibility; they are not a claim that each signed-in client has been tested.
 
 | Client | Current Hub connection |
 | --- | --- |
-| Claude web, individual account | Remote connector with a personal request header |
-| Claude Desktop, individual account | Same remote connector through Customize; not a local stdio server |
+| Claude web, individual account | **No working path yet.** The remote connector's request-header option is rejected; OAuth support is tracked in [#263](https://github.com/sqrDAO/danang-hub-app/issues/263) |
+| Claude Desktop, individual account | Local `mcp-remote` bridge in `claude_desktop_config.json`; steps below. The remote request-header connector does not work yet |
 | Claude Code | HTTP server with an environment-backed bearer header; steps below |
 | OpenClaw (current native MCP registry) | Streamable HTTP with an environment-backed header |
 | Hermes Agent (NousResearch) | Remote HTTP with an environment-backed header |
@@ -40,43 +40,65 @@ compatibility; they are not a claim that each signed-in client has been tested.
 
 ### Claude web
 
-Use a personal account for this personal Hub token.
+**The Hub cannot be connected from Claude web today.** A custom connector set to
+**No sign in** with an `Authorization: Bearer …` request header looks valid but
+fails with "Couldn't reach": the connector's requests are rejected (checked
+2026-11-22, [#261](https://github.com/sqrDAO/danang-hub-app/issues/261)). OAuth
+sign-in, which would make the connector work, is tracked in
+[#263](https://github.com/sqrDAO/danang-hub-app/issues/263). Until then, use
+Claude Code or Claude Desktop with the local bridge below.
 
-1. Open **Customize → Connectors → + Add → Add custom connector**.
-2. Name it **Da Nang Hub** and enter
-   `https://us-central1-danang-hub-app.cloudfunctions.net/mcp`.
-3. Review the detected authentication settings and continue if prompted. Choose
-   **No sign in** (the Hub uses a token, not OAuth). Under **Request headers**,
-   add `Authorization` with value
-   `Bearer YOUR_PERSONAL_TOKEN`, replacing the placeholder with your saved token.
-4. Finish adding it. In a conversation, use **+ → Connectors** to enable Da Nang Hub.
-5. Ask: “Use Da Nang Hub to list amenities. Do not create a booking.”
-
-Availability and settings depend on your account. Anthropic currently lists Free
-(one custom connector), Pro, Max, Ultra, Team and Enterprise. Workspace installation
-requires an authorized owner/admin. **Do not put your personal Hub token in a
-shared workspace connector:** its users would act as you. Use a personal account
-or Claude Code instead. Replacing a connector's header may require removing and
-re-adding it.
-
-Source: [Anthropic's remote connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+**Do not put your personal Hub token in a shared workspace connector:** its users
+would act as you.
 
 ### Claude Desktop
 
-1. Open the Claude Desktop app and sign in to your personal Claude account.
-2. Open **Customize → Connectors** and follow the Claude web steps above, including
-   **No sign in** and the `Authorization: Bearer …` request header.
-3. Enable **Da Nang Hub** from **+ → Connectors** in the conversation and run the
-   read-only amenities prompt. If already added on the web, enable that connector
-   rather than creating a duplicate.
+The remote connector under **Customize → Connectors** fails the same way as on
+Claude web. Instead, run the open-source `mcp-remote` bridge locally: Desktop
+starts it as a local server, and it forwards each request to the Hub with your
+header. It needs Node.js 18 or newer on your system (Desktop uses the system Node).
 
-This is a **remote connector**, reached through Anthropic's cloud. Do not paste
-this HTTPS URL into `claude_desktop_config.json` as a local executable: Desktop's
-local stdio-server setup is a different path. No local bridge is needed for the
-remote-header flow. If your Desktop build lacks these controls, use Claude web
-or Claude Code; do not assume the local JSON supports the same fields.
+1. Open the Desktop config file, creating it if missing (**Settings → Developer →
+   Edit Config** opens it):
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+2. Add the `danang-hub` entry under `mcpServers` (merge with existing entries),
+   replacing `dhm_YOUR_TOKEN` with your saved token:
 
-Source: [Anthropic's remote connector and Desktop distinction](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+```json
+{
+  "mcpServers": {
+    "danang-hub": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://us-central1-danang-hub-app.cloudfunctions.net/mcp",
+        "--header",
+        "Authorization:${HUB_AUTH}"
+      ],
+      "env": {
+        "HUB_AUTH": "Bearer dhm_YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+3. Fully quit Claude Desktop (**Cmd+Q** on macOS, or quit from the tray on
+   Windows; closing the window is not enough) and reopen it.
+4. Check that **danang-hub** appears under **+ → Connectors** (or the tools menu)
+   and ask: “Use danang-hub to list amenities. Do not create a booking.”
+
+There is deliberately **no space** after `Authorization:` in `args`: some clients
+split arguments on spaces, so the space lives in the `HUB_AUTH` value instead.
+The token is stored **in plaintext** in this file: keep it private, out of backups
+you share and out of source control. After rotating the token, edit `HUB_AUTH` and
+restart Desktop. If you previously added a Hub remote connector under
+**Customize → Connectors**, remove it to avoid a duplicate that fails.
+
+Sources: [mcp-remote custom headers](https://github.com/geelen/mcp-remote#custom-headers)
+and [MCP's Claude Desktop local server guide](https://modelcontextprotocol.io/quickstart/user).
 
 ### Claude Code
 
@@ -100,7 +122,7 @@ shared shell configuration. In Claude Code, open `/mcp`, check `danang-hub`, and
 try the read-only amenities prompt above. `claude mcp list` lists configured
 servers and `claude mcp get danang-hub` inspects this entry; do not share output
 that could contain credentials. This terminal configuration is separate from
-Claude Desktop's remote connector settings. If organization policy blocks custom
+Claude Desktop's settings. If organization policy blocks custom
 servers, ask your administrator. Revoke in the Hub to invalidate a token;
 `claude mcp remove danang-hub --scope user` only removes the local connection.
 
@@ -192,9 +214,10 @@ will not bypass Hub authentication. Do not paste your token into a chat or URL.
 
 ChatGPT's current entry point is **Plugins → + → Add custom MCP server**, subject
 to account/workspace permissions; legacy interfaces may show **Settings → Apps →
-Create**. These menus alone do not make this Hub server compatible. Use Claude's
-personal-header flow or Claude Code above for now. A future Hub OAuth integration
-needs separate implementation and verification before ChatGPT setup can work.
+Create**. These menus alone do not make this Hub server compatible. Use Claude
+Code or Claude Desktop with the `mcp-remote` bridge above for now. Hub OAuth
+support ([#263](https://github.com/sqrDAO/danang-hub-app/issues/263)) is needed
+before ChatGPT setup can work.
 
 Sources: [OpenAI connection instructions](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
 and [authentication requirements](https://developers.openai.com/plugins/build/auth).
