@@ -73,7 +73,7 @@ header. It needs Node.js 18 or newer on your system (Desktop uses the system Nod
       "args": [
         "-y",
         "mcp-remote",
-        "https://us-central1-danang-hub-app.cloudfunctions.net/mcp",
+        "https://app.danangblockchainhub.com/mcp",
         "--header",
         "Authorization:${HUB_AUTH}"
       ],
@@ -110,7 +110,7 @@ read -r -s -p 'Hub token: ' DANANG_HUB_TOKEN
 printf '\n'
 export DANANG_HUB_TOKEN
 claude mcp add --transport http --scope user danang-hub \
-  https://us-central1-danang-hub-app.cloudfunctions.net/mcp \
+  https://app.danangblockchainhub.com/mcp \
   --header 'Authorization: Bearer ${DANANG_HUB_TOKEN}'
 claude
 ```
@@ -141,7 +141,7 @@ version's documented MCPorter path or update before using these commands.
 2. Save a definition containing the variable reference, not the secret:
 
 ```bash
-openclaw mcp set danang-hub '{"transport":"streamable-http","url":"https://us-central1-danang-hub-app.cloudfunctions.net/mcp","headers":{"Authorization":"Bearer ${DANANG_HUB_TOKEN}"}}'
+openclaw mcp set danang-hub '{"transport":"streamable-http","url":"https://app.danangblockchainhub.com/mcp","headers":{"Authorization":"Bearer ${DANANG_HUB_TOKEN}"}}'
 openclaw mcp doctor danang-hub
 ```
 
@@ -169,7 +169,7 @@ with existing entries):
 ```yaml
 mcp_servers:
   danang-hub:
-    url: "https://us-central1-danang-hub-app.cloudfunctions.net/mcp"
+    url: "https://app.danangblockchainhub.com/mcp"
     headers:
       Authorization: "Bearer ${DANANG_HUB_TOKEN}"
     skip_preflight: true
@@ -301,8 +301,10 @@ both new functions with their normal authenticated Firebase CLI identity:
 firebase deploy --project danang-hub-app --only functions:mcp,functions:manageMcpToken
 ```
 
-The runtime endpoint is
-`https://us-central1-danang-hub-app.cloudfunctions.net/mcp`.
+The endpoint is `https://app.danangblockchainhub.com/mcp`, a Firebase Hosting
+rewrite (`firebase.json`) to the `mcp` function. The raw function URL
+`https://us-central1-danang-hub-app.cloudfunctions.net/mcp` keeps working with
+the same tokens, so existing client configs need no change.
 Cloud Run/Functions must permit invocation so the function can perform bearer
 validation itself. This is not anonymous booking access. If invoker setup fails,
 follow the owner IAM recovery runbook from #234/#245; do not grant broad project
