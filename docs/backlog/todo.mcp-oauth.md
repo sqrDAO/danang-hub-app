@@ -6,6 +6,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 
 ## Files
 - `docs/knowledge/mcp-oauth-design.md` (new) — architecture, client requirements, threats, phases, open questions.
+- `public/sw.js` (edited, phase 1) — `NavigationRoute` denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`.
 - `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
 - `functions/oauth/` (new) — metadata, `register`, `authorize`, `token`, `revoke`, `oauthConsent` callable logic.
 - `functions/index.js` (edited) — export `oauth` and `oauthConsent`; `mcp` 401 adds `resource_metadata` and `scope`.
@@ -22,6 +23,11 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [ ] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp`.
 - [ ] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
 - [ ] DCR rejects a redirect URI outside the allowlist with `invalid_redirect_uri`.
+- [ ] DCR for Claude/ChatGPT callbacks is not limited per IP, only by a global hourly cap.
+- [ ] DCR with a loopback redirect is limited to 10 per IP per hour.
+- [ ] Unused clients expire by TTL, and registration returns 503 above the unused-client ceiling.
+- [ ] With the PWA installed, a navigation to `/oauth/authorize` or `/.well-known/*` never gets the cached SPA shell.
+- [ ] A signed-out or email-pending member returns to the same consent request after login or verification.
 - [ ] `/oauth/authorize` with an unregistered redirect URI shows an error page and does not redirect.
 - [ ] `/oauth/authorize` without S256 PKCE is rejected.
 - [ ] Consent page shows the redirect hostname and a warning for loopback redirects.
@@ -41,7 +47,8 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `npm run lint && npm run build && npm --prefix functions run lint && npm test` → green.
 - `npm run test:rules` → `oauth*` deny-all cases pass.
 - `curl -si -X POST https://app.danangblockchainhub.com/mcp` → 401 with `resource_metadata`.
-- `npx @modelcontextprotocol/inspector` against the Hosting URL → OAuth flow completes, `list_amenities` works.
+- MCP Inspector via its proxy (`npx @modelcontextprotocol/inspector`, proxy transport; direct browser mode sends an `Origin` that `/mcp` rejects with 403) against the Hosting URL → OAuth flow completes, `list_amenities` works.
+- Installed PWA, cold `oauth` function: open an `/oauth/authorize` link → function response, not the SPA shell.
 - Claude web: Customize → Connectors → Add custom connector with the Hosting URL → sign-in, consent, tools listed.
 - regression: Claude Code with `dhm_` header still lists amenities; Profile token generate/revoke still works.
 
@@ -49,3 +56,5 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Delivered in the phases listed in the design doc, one PR each; each PR ticks its bullets here, and the final PR renames this spec.
 - Open questions in the design doc need a human answer before phase 2.
 - Hosting rewrite order matters: specific rewrites before `**`.
+- Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
+- New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.

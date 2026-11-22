@@ -100,12 +100,18 @@ for every auth failure (missing, malformed, expired, revoked, wrong audience).
    redirect**. Other errors → redirect with `error`, `state`, `iss`.
 2. On success it stores `oauthRequests/{random id}` (10 min TTL, params only)
    and 302s to `/oauth/consent?request=<id>`.
-3. The SPA consent page (`src/pages/oauth/Consent.jsx`, lazy route, not
-   behind `requireProfileComplete` so the redirect isn't lost; it shows the
-   profile/email-verification blocker inline). Signed-out members go to
-   `/login?redirect=/oauth/consent?request=…` (already validated by
-   `toSafeRedirectPath`); email, Google and wallet sign-in all end in a
-   Firebase session, so wallet members need nothing new.
+3. The SPA consent page (`src/pages/oauth/Consent.jsx`, lazy route) sits
+   **outside `ProtectedRoute`** and does its own sign-in check.
+   `ProtectedRoute`'s `firstStopPath` sends email-pending members to
+   `/{member|admin}/verify-email` and would drop the request id; changing it
+   to carry a return path would touch every protected route for one page.
+   Instead the consent page shows the verify-email blocker inline (with a
+   resend link) and keeps the request id in its own URL; the server-side
+   `requireUser` gate in step 5 is authoritative anyway. Signed-out members
+   go to `` `/login?redirect=${encodeURIComponent(`/oauth/consent?request=${id}`)}` ``
+   (always `encodeURIComponent`, so the inner `?`/`&` survive;
+   `toSafeRedirectPath` accepts the decoded path). Email, Google and wallet
+   sign-in all end in a Firebase session, so wallet members need nothing new.
 4. Page calls callable `oauthConsent` `{action: "describe"}` → client name
    (marked as self-declared), redirect URI **hostname**, loopback warning,
    scope text, and the signed-in account (email or short wallet address).
@@ -131,8 +137,20 @@ connection anyway, and the page is the only phishing defense.
   (`connector_platform_oauth_redirect`, `connector/oauth/[A-Za-z0-9_-]+`), and
   loopback `http://localhost|127.0.0.1:<port>/callback`. Anything else →
   `invalid_redirect_uri` (open question 2). `client_name` ≤ 64 chars, stored
-  as untrusted text. Rate limit 10 registrations / IP / hour; clients unused
-  for 30 days expire via Firestore TTL.
+  as untrusted text. **No per-IP limit for hosted clients**: Claude registers
+  from Anthropic's shared egress (160.79.104.0/21) and makes a new client per
+  fresh connection, and ChatGPT also registers from shared IPs, so a per-IP
+  cap would lock out every member after a few connections. Instead:
+  - Registrations whose redirect URIs are all known Claude/ChatGPT callbacks
+    share a **global** cap of 500 per hour (well above member count; alerts
+    in logs at 50 %), counted in `oauthRateLimits/dcr-hosted-<hour>`.
+  - Registrations with a loopback redirect (Claude Code, local tools) are
+    limited to 10 per IP per hour (`oauthRateLimits/dcr-ip-<ip hash>-<hour>`).
+  - Unused clients expire: `expiresAt` is set to 1 day after registration and
+    pushed to 30 days after each successful token exchange; Firestore TTL
+    deletes the rest.
+  - Ceiling: when more than 5,000 never-used clients exist (counter doc),
+    registration returns `503` with `Retry-After` until TTL catches up.
 - **CIMD (phase 4).** Accept URL `client_id`s only from an allowlist
   (`https://chatgpt.com/oauth/client.json`,
   `https://claude.ai/oauth/claude-code-client-metadata`, plus Claude's hosted
@@ -148,13 +166,17 @@ connection anyway, and the page is the only phishing defense.
 | Access | `dha_<64 hex>` opaque | 1 h | `oauthTokens/{sha256}` `{type, grantId, uid, aud, scope, expiresAt}` |
 | Refresh | `dhr_<64 hex>` opaque | 30 days sliding, grant capped at 90 days (same as `dhm_`) | `oauthTokens/{sha256}` |
 
+All new `expiresAt` fields are Firestore **Timestamps** (required for TTL
+policies), unlike `mcpTokens`, which stores `expiresAt` as epoch ms and has no
+TTL. Do not copy the `mcpTokens` pattern here.
+
 Opaque, not JWT: the resource server and AS share Firestore, revocation is
 immediate, and there is no signing key to manage. Only SHA-256 hashes are
 stored. Refresh rotates on every use; a refresh token presented twice (reuse)
 revokes the whole grant (OAuth 2.1 §4.3.1). Dead refresh → `invalid_grant`.
 Refresh tokens are issued whether or not `offline_access` is requested
 (ChatGPT may not ask). Expired docs are removed by a Firestore TTL policy on
-`expiresAt` (Timestamp field).
+`expiresAt`.
 
 Audience binding: `aud` is set from the validated `resource`; `mcp` rejects
 any `dha_` token whose `aud` is not its canonical URL (401). `mcp` never
@@ -175,6 +197,16 @@ OAuth metadata, register, token and revoke endpoints send
 `Access-Control-Allow-Origin: *` without credentials (public clients, no
 cookies), so browser-based tools like MCP Inspector work. `/oauth/authorize`
 is a top-level navigation and needs no CORS.
+
+### 6a. PWA service worker
+
+`public/sw.js` routes every navigation network-first with a 5 s fallback to
+the precached `index.html`; only `/^\/__\//` is denylisted. `/oauth/authorize`
+is a top-level navigation on the app origin, so with the PWA installed a cold
+`oauth` function (>5 s) would get the SPA shell instead of the flow. Phase 1
+extends the `NavigationRoute` denylist with `/^\/\.well-known\//` and
+`/^\/oauth\/(?!consent(?:[/?#]|$))/`, so only `/oauth/consent` (a real SPA
+route) stays on the shell fallback. `/mcp` is never a navigation (POST only).
 
 ### 7. Member controls
 
@@ -203,15 +235,15 @@ in the deploy runbook). README Firestore collections table updated.
 - Token theft: hashed storage, 1 h access tokens, rotating refresh with reuse detection, revocation in Profile.
 - Cross-resource token use: `aud` check; `dhm_` and `dha_` namespaces distinct.
 - Clickjacking consent: existing `frame-ancestors 'self'`.
-- DCR spam / Firestore cost: IP rate limit, TTL expiry, allowlist.
+- DCR spam / Firestore cost: global cap for hosted callbacks, per-IP cap for loopback only, TTL expiry, unused-client ceiling, allowlist.
 - CSRF on consent: approval only through a Firebase-authenticated callable bound to the stored request id; request is single use.
 
 ## Phased delivery (one PR each)
 
 0. **This PR**: design + spec.
-1. **Hosting origin**: `/mcp` rewrite; Profile and docs show the new URL; `dhm_` works through Hosting. No OAuth advertised yet.
+1. **Hosting origin**: `/mcp` rewrite; service worker denylist for `/oauth/*` (except consent) and `/.well-known/*`; Profile and docs show the new URL; `dhm_` works through Hosting. No OAuth advertised yet.
 2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed but `mcp` 401 not yet pointing at them.
-3. **Switch on**: consent page, `oauthConsent` callable, `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). Verified end to end with Claude web, Claude Desktop, Claude Code and MCP Inspector.
+3. **Switch on**: consent page, `oauthConsent` callable, `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). Verified end to end with Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403).
 4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect).
 
 ## Open questions for a human
@@ -219,8 +251,8 @@ in the deploy runbook). README Firestore collections table updated.
 1. **Raw function URL and OAuth**: OAuth only at `app.danangblockchainhub.com/mcp` (recommended; raw URL stays `dhm_`-only), or also advertise OAuth on the raw URL?
 2. **Redirect URI policy**: allowlist only Claude, ChatGPT and loopback (recommended), or open DCR to any HTTPS redirect URI so other MCP clients (Cursor, VS Code, etc.) work, at a phishing cost?
 3. **Lifetimes**: access 1 h, refresh 30 days sliding, grant hard cap 90 days (re-consent quarterly, matching `dhm_`)? Or no hard cap?
-4. **Who may connect**: same gate as `dhm_` (any member with complete profile and verified email), or members only / admins excluded?
-5. **Cold start**: the token endpoint has a 10 s budget in Claude. Accept cold starts (lean function, measured in phase 2), or pay for `minInstances: 1` on `oauth`?
+4. **Who may connect**: the real `dhm_` gate is `requireUser` in `functions/mcpTokens.js`: it rejects disabled accounts and, **only when the account has an email**, an unverified email (with the legacy-profile exemption). Profile completeness is enforced in the UI only, so wallet members without an email pass. Keep exactly that gate for OAuth (the wallet acceptance bullet relies on it), add a server-side profile-complete check for both `dhm_` and OAuth, or exclude some roles?
+5. **Cold start**: the token endpoint has a 10 s budget in Claude. `functions/index.js` is ~3,000 lines and loads shared modules at top level, so the `oauth` function's cold start depends on keeping its own requires lazy (inside the handler, like `mcp` does). Accept cold starts (lean lazy function, measured in phase 2), or pay for `minInstances: 1` on `oauth`?
 6. **Scopes**: one `bookings` scope (recommended, matches today's six tools), or split `bookings:read` / `bookings:write` now?
 7. **Rate limit scope**: per grant (recommended, like per `dhm_` token) or one shared 60/min budget per member across all clients?
 8. **Directory listing**: is a public Claude directory / ChatGPT app store listing a goal? It changes nothing in phases 1 to 4 but would add review requirements.
