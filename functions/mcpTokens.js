@@ -10,6 +10,11 @@ const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 const activeToken = (data, now = Date.now()) =>
   Boolean(data && !data.revoked && data.expiresAt > now);
+// Why a token doc is not active; logged on 401 (never the token itself).
+const inactiveReason = (data) =>
+  !data ? "unknown" : data.revoked ? "revoked" : "expired";
+const denied = (message, reason) =>
+  new HttpsError("unauthenticated", message, {reason});
 const retryAfterMs = (data, now = Date.now()) =>
   data && data.createdAt ? Math.max(0, data.createdAt + 60000 - now) : 0;
 const tokenMetadata = (data) => ({
@@ -20,7 +25,7 @@ const tokenMetadata = (data) => ({
 });
 const reserveRequest = (data, now) => {
   if (!activeToken(data, now)) {
-    throw new HttpsError("unauthenticated", "Invalid or expired token.");
+    throw denied("Invalid or expired token.", inactiveReason(data));
   }
   const window = Math.floor(now / 60000);
   const count = data.window === window ? data.count || 0 : 0;
@@ -35,14 +40,14 @@ const createTokenService = (db, auth) => {
     if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
     const user = await auth.getUser(uid);
     if (user.disabled) {
-      throw new HttpsError("unauthenticated", "Account is disabled.");
+      throw denied("Account is disabled.", "disabled");
     }
     if (user.email && !user.emailVerified) {
       const member = await db.collection("members").doc(uid).get();
       const legacyProfile = member.createTime &&
         member.createTime.toMillis() < verificationRollout;
       if (!legacyProfile || member.data().emailVerificationRequired === true) {
-        throw new HttpsError("unauthenticated", "Verify your email first.");
+        throw denied("Verify your email first.", "unverified");
       }
     }
   };
@@ -81,15 +86,17 @@ const createTokenService = (db, auth) => {
     });
   };
   const authenticate = async (header) => {
-    if (typeof header !== "string" ||
-        !/^Bearer dhm_[a-f0-9]{64}$/.test(header)) {
-      throw new HttpsError("unauthenticated", "Supply a bearer token.");
+    if (typeof header !== "string" || !header) {
+      throw denied("Supply a bearer token.", "missing");
+    }
+    if (!/^Bearer dhm_[a-f0-9]{64}$/.test(header)) {
+      throw denied("Supply a bearer token.", "malformed");
     }
     const hash = hashToken(header.slice(7));
     const ref = db.collection("mcpTokens").doc(hash);
     const token = (await ref.get()).data();
     if (!activeToken(token)) {
-      throw new HttpsError("unauthenticated", "Invalid or expired token.");
+      throw denied("Invalid or expired token.", inactiveReason(token));
     }
     await requireUser(token.uid);
     await db.runTransaction(async (tx) => {
