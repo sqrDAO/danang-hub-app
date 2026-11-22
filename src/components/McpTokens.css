@@ -13,3 +13,14 @@
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+
+.mcp-access a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mcp-access a:hover,
+.mcp-access a:focus-visible {
+  text-decoration-thickness: 2px;
+}
