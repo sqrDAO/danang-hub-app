@@ -5,7 +5,7 @@ import { makeStore } from './helpers/mcpStore.js'
 const require = createRequire(new URL('../functions/package.json', import.meta.url))
 const { createTokenService, hashToken, reserveRequest } = require('./mcpTokens')
 const { createBookingTools, assertRange } = require('./mcpBookings')
-const { createHttpHandler, toolDefinitions } = require('./mcpServer')
+const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js')
 const express = require('express')
@@ -227,4 +227,63 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   assert.equal(cancel.structuredContent.status, 'cancelled')
   f.data.delete(`mcpTokens/${hash}`)
   await assert.rejects(client.listTools())
+})
+
+test('authenticate tags each 401 with a reason code', async () => {
+  const f = fixture()
+  const service = createTokenService(f.db, auth)
+  const reason = async (header, svc = service) => {
+    const error = await svc.authenticate(header).then(() => null, e => e)
+    assert.equal(error.code, 'unauthenticated')
+    return error.details.reason
+  }
+  assert.equal(await reason(undefined), 'missing')
+  assert.equal(await reason(''), 'missing')
+  assert.equal(await reason('bearer ' + secret), 'malformed')
+  assert.equal(await reason('Bearer ' + secret + ' '), 'malformed')
+  assert.equal(await reason('Bearer dhm_' + 'b'.repeat(64)), 'unknown')
+  f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: Date.now() + 86400000, revoked: true })
+  assert.equal(await reason('Bearer ' + secret), 'revoked')
+  f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: Date.now() - 1 })
+  assert.equal(await reason('Bearer ' + secret), 'expired')
+  f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: Date.now() + 86400000 })
+  const disabled = createTokenService(f.db, { getUser: async () => ({ disabled: true }) })
+  assert.equal(await reason('Bearer ' + secret, disabled), 'disabled')
+  assert.throws(() => reserveRequest({ uid, revoked: true }, Date.now()), e => e.details.reason === 'revoked')
+})
+
+test('401 logs one structured line with the reason and header shape, never token material', async t => {
+  const f = fixture()
+  f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: Date.now() - 1 })
+  const service = createTokenService(f.db, auth)
+  const lines = []
+  const app = express()
+  app.use(express.json({ limit: '16kb' }))
+  app.all('/mcp', createHttpHandler(service.authenticate, f.handlers, [], { warn: (...args) => lines.push(args) }))
+  const listener = app.listen(0, '127.0.0.1')
+  await new Promise(resolve => listener.once('listening', resolve))
+  t.after(() => listener.close())
+  const url = `http://127.0.0.1:${listener.address().port}/mcp`
+  const post = headers => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'probe/1', ...headers }, body: '{}' })
+  const cases = [
+    [{}, { reason: 'missing', authorizationPresent: false, authorizationLength: 0, authorizationScheme: 'none' }],
+    [{ Authorization: 'bearer ' + secret }, { reason: 'malformed', authorizationPresent: true, authorizationLength: 75, authorizationScheme: 'bearer-case' }],
+    [{ Authorization: 'Basic ' + secret }, { reason: 'malformed', authorizationScheme: 'other' }],
+    [{ Authorization: 'Bearer ' + secret }, { reason: 'expired', authorizationScheme: 'Bearer', userAgent: 'probe/1' }],
+  ]
+  for (const [headers, expected] of cases) {
+    const response = await post(headers)
+    assert.equal(response.status, 401)
+    assert.equal(response.headers.get('www-authenticate'), 'Bearer realm="Hub MCP"')
+    assert.deepEqual(await response.json(), { error: 'Invalid or expired token' })
+    const [args] = lines.splice(0)
+    assert.equal(args.length, 1)
+    assert.deepEqual({ ...args[0], ...expected }, args[0])
+    const text = JSON.stringify(args)
+    for (const needle of [secret, secret.slice(4), secret.slice(0, 12), hash, hash.slice(0, 12)]) {
+      assert.equal(text.includes(needle), false, 'log leaks token material')
+    }
+  }
+  const missingUser = authFailureLog({ headers: {} }, { code: 'auth/user-not-found' })
+  assert.equal(missingUser.reason, 'user-not-found')
 })
