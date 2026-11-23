@@ -9,7 +9,10 @@ const { initializeApp, deleteApp } = require('firebase-admin/app')
 const { getFirestore } = require('firebase-admin/firestore')
 const { createBookingTools } = require('./mcpBookings')
 
-test('MCP secrets, owner indexes and locks deny all client access', {
+const SERVER_ONLY = ['mcpTokens', 'mcpTokenOwners', 'mcpBookingLocks', 'oauthClients',
+  'oauthRequests', 'oauthCodes', 'oauthGrants', 'oauthTokens', 'oauthRateLimits']
+
+test('MCP and OAuth secrets, owner indexes and locks deny all client access', {
   skip: !process.env.FIRESTORE_EMULATOR_HOST
 }, async () => {
   const env = await initializeTestEnvironment({ projectId: 'demo-mcp-rules',
@@ -17,12 +20,12 @@ test('MCP secrets, owner indexes and locks deny all client access', {
   try {
     await env.withSecurityRulesDisabled(async c => {
       await setDoc(doc(c.firestore(), 'members/admin'), { membershipType: 'admin' })
-      for (const collection of ['mcpTokens', 'mcpTokenOwners', 'mcpBookingLocks']) {
+      for (const collection of SERVER_ONLY) {
         await setDoc(doc(c.firestore(), collection, 'owner'), { uid: 'owner' })
       }
     })
     for (const c of [env.authenticatedContext('owner'), env.authenticatedContext('other'), env.authenticatedContext('admin'), env.unauthenticatedContext()]) {
-      for (const collection of ['mcpTokens', 'mcpTokenOwners', 'mcpBookingLocks']) {
+      for (const collection of SERVER_ONLY) {
         const ref = doc(c.firestore(), collection, 'owner')
         await assertFails(getDoc(ref))
         await assertFails(setDoc(ref, { uid: 'owner' }))

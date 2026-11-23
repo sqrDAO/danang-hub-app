@@ -40,6 +40,55 @@
         }
       },
       {
+        "source": "/.well-known/oauth-protected-resource",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/.well-known/oauth-protected-resource/mcp",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/.well-known/oauth-authorization-server",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/oauth/register",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/oauth/authorize",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/oauth/token",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/oauth/revoke",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

@@ -2999,3 +2999,16 @@ exports.mcp = onRequest(
           mcpTokenService().authenticate, handlers, origins);
       await handle(req, res);
     });
+
+// OAuth 2.1 authorization server for MCP connectors (#263). Reached through
+// Hosting rewrites on app.danangblockchainhub.com; requires stay lazy so the
+// token endpoint's cold start stays low. `mcp` does not advertise it yet.
+exports.oauth = onRequest(
+    {cors: false, timeoutSeconds: 30, maxInstances: 10},
+    (req, res) => require("./oauth/http").createOauthHandler(db)(req, res));
+exports.oauthConsent = onCall((request) => {
+  const tokenService = mcpTokenService();
+  return require("./oauth/consent")
+      .createConsentService(db, getAuth(), tokenService.requireUser)
+      .handle(request);
+});
