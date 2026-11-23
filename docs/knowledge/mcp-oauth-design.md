@@ -1,6 +1,6 @@
 # MCP OAuth sign-in: design
 
-Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: proposed, not built.
+Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: phases 0–3 built; phase 4 (CIMD, ChatGPT verification) open.
 
 Goal: a member adds `https://app.danangblockchainhub.com/mcp` as a Claude
 (web, Desktop, mobile) custom connector or a ChatGPT app, signs in with their
@@ -42,6 +42,7 @@ Canonical resource: `https://app.danangblockchainhub.com/mcp`. Issuer:
 | `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` | function `oauth` |
 | `/.well-known/oauth-authorization-server` | function `oauth` |
 | `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke` | function `oauth` |
+| `/oauth/consent-action` (consent page's POST, phase 3) | function `oauth` |
 
 The consent UI is the SPA route `/oauth/consent` (served by the catch-all).
 Why not the raw `cloudfunctions.net/mcp` URL: its origin cannot serve
@@ -101,7 +102,14 @@ for every auth failure (missing, malformed, expired, revoked, wrong audience).
    echoed. Invalid client or redirect URI → plain error page, **never a
    redirect**. Other errors → redirect with `error`, `state`, `iss`.
 2. On success it stores `oauthRequests/{random id}` (10 min TTL, params only)
-   and 302s to `/oauth/consent?request=<id>`.
+   and 302s to `/oauth/consent?request=<id>`. The same response binds the
+   request to the browser (`functions/oauth/browser.js`): it sets a random
+   per-browser id in `__session` (`Max-Age=600; Path=/oauth; Secure; HttpOnly;
+   SameSite=Lax`, reused if the browser already has one, so concurrent
+   sign-ins in one browser share it) and stores only its SHA-256 as
+   `browserHash` on the request. `__session` is the only cookie Firebase
+   Hosting forwards to functions; every `oauth` response is
+   `Cache-Control: private, no-store`.
 3. The SPA consent page (`src/pages/oauth/Consent.jsx`, lazy route) sits
    **outside `ProtectedRoute`** and does its own sign-in check.
    `ProtectedRoute`'s `firstStopPath` sends email-pending members to
@@ -114,11 +122,19 @@ for every auth failure (missing, malformed, expired, revoked, wrong audience).
    (always `encodeURIComponent`, so the inner `?`/`&` survive;
    `toSafeRedirectPath` accepts the decoded path). Email, Google and wallet
    sign-in all end in a Firebase session, so wallet members need nothing new.
-4. Page calls callable `oauthConsent` `{action: "describe"}` → client name
+4. Page POSTs `{action: "describe", request, idToken}` to
+   `/oauth/consent-action` (same origin, Hosting rewrite to `oauth`, so the
+   cookie arrives; a callable on `cloudfunctions.net` never sees it). The
+   server checks the `Origin`, verifies the Firebase ID token, runs
+   `requireUser`, then requires `SHA256(cookie) == browserHash`; otherwise
+   403 `reason: browser` and the page says the link was opened in a different
+   browser. On success → client name
    (marked as self-declared), redirect URI **hostname**, loopback warning,
    scope text, and the signed-in account (email or short wallet address).
-5. Approve/Deny → `oauthConsent {action: "approve"|"deny", request}`.
-   Server: `requireUser(uid)` (disabled, email-verification gates as today),
+5. Approve/Deny → the same endpoint with `action: "approve"|"deny"`.
+   Server: the step 4 checks (Origin, ID token, `requireUser`, browser
+   binding inside the transaction before any write, so a refused browser does
+   not consume the request), then
    consumes the request in a transaction (single use), creates the grant and a
    code, returns the full redirect URL (`code`, `state`, `iss`). The SPA does
    `window.location.assign(url)`. JS navigation avoids the CSP `form-action
@@ -198,8 +214,11 @@ forwards tokens anywhere (no passthrough).
 
 `authenticate(header)` dispatches on prefix: `dhm_` → existing path unchanged;
 `dha_` → hash lookup, `type == "access"`, not expired, `aud` matches, grant
-not revoked, `requireUser(uid)`, then rate limit. Principal stays `{uid}`, so
-`mcpBookings.js` is untouched. Rate limit: 60 req/min per grant, same
+not revoked, `requireUser(uid)`, then rate limit. A `dha_` principal is
+`{uid, grantId}`. Phase 3 correction: booking transactions re-check the
+credential, so `memberFor` in `mcpBookings.js` reads `oauthGrants/{grantId}`
+for `dha_` principals (`mcpTokens/{hash}` for `dhm_`); tool behavior is
+unchanged (owner-approved 2026-11-23). Rate limit: 60 req/min per grant, same
 transactional counter as `mcpTokens` (stored on `oauthGrants/{id}`), plus
 `lastUsedAt` (written at most once per minute).
 
@@ -248,14 +267,15 @@ in the deploy runbook). README Firestore collections table updated.
 - Cross-resource token use: `aud` check; `dhm_` and `dha_` namespaces distinct.
 - Clickjacking consent: existing `frame-ancestors 'self'`.
 - DCR spam / Firestore cost: global cap for hosted callbacks, per-IP cap for loopback only, TTL expiry, unused-client ceiling, allowlist.
-- CSRF on consent: approval only through a Firebase-authenticated callable bound to the stored request id; request is single use.
+- CSRF on consent: approval needs the member's Firebase ID token in the POST body (a cross-site page cannot obtain it), the `Origin` must be `https://app.danangblockchainhub.com`, and the binding cookie is `SameSite=Lax`; the request is single use.
+- Consent link forwarding (found in phase 3 review): an attacker starts a sign-in from their own connector (for example their ChatGPT callback, which the allowlist accepts) and sends the member the `/oauth/consent?request=<id>` link; approving would send the code and the attacker's `state` to the attacker's callback. Mitigation: the request is bound to the browser that hit `/oauth/authorize` (HttpOnly `__session` cookie, SHA-256 on the request), and describe, approve and deny from any other browser fail with 403 without consuming the request. Sign-in and email verification inside the same browser keep the cookie. Residual: someone who controls a `danangblockchainhub.com` subdomain could toss a cookie (a `__Host-` name would stop that, but Hosting forwards only `__session`); and a verification link opened in another browser (for example the phone's mail app) lands there, so the member returns to the original tab.
 
 ## Phased delivery (one PR each)
 
 0. **This PR**: design + spec.
 1. **Hosting origin**: `/mcp` rewrite; service worker denylist for `/oauth/*` (except consent) and `/.well-known/*`; Profile and docs show the new URL; `dhm_` works through Hosting. No OAuth advertised yet.
 2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed, but all three metadata paths (`/.well-known/oauth-protected-resource`, `.../oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`) return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) and `mcp` 401 does not point at them: a client that found the protected-resource document, or fell back to the origin's AS metadata (MCP 2025-03-26), would start a sign-in that dead-ends on the missing consent page. Without the rewrites the SPA catch-all would answer 200 HTML.
-3. **Switch on**: `DISCOVERY_ENABLED = true`, consent page, `oauthConsent` callable, `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). Verified end to end with Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403).
+3. **Switch on**: `DISCOVERY_ENABLED = true`, consent page with browser binding (`/oauth/consent-action` on `oauth`; the `oauthConsent` callable is retired to a stub), `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). To verify right after deploy (the browser-bound consent path cannot run on preview channels or emulators, whose origin `/oauth/consent-action` refuses): Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403). If consent fails for everyone, set `DISCOVERY_ENABLED = false` to switch sign-in back off.
 4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect).
 
 ## Decisions (2026-11-22, all recommendations accepted by the repo owner)

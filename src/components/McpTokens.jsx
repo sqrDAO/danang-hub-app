@@ -5,6 +5,7 @@ import { manageMcpToken, mcpEndpoint } from '../services/mcpTokens'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
 import { useMcpTokenCooldown } from '../hooks/useMcpTokenCooldown'
 import { useAuth } from '../hooks/useAuth'
+import ConnectedApps from './ConnectedApps'
 import './McpTokens.css'
 
 const TokenError = ({ failed }) => {
@@ -82,6 +83,7 @@ function McpTokenPanel({ uid }) {
       </div>}
       <TokenError failed={state.error || query.isError} />
       <TokenControls disabled={disabled} active={query.data?.active} cooldown={cooldown} run={state.run} />
+      <ConnectedApps uid={uid} />
     </section>
   )
 }

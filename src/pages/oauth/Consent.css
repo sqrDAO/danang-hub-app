@@ -1,0 +1,135 @@
+.consent-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  background: var(--bg-color);
+  color: var(--text-primary);
+}
+
+.consent-card {
+  width: 100%;
+  max-width: 480px;
+  display: grid;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+}
+
+.consent-logo {
+  height: 40px;
+  justify-self: center;
+}
+
+.consent-title {
+  font-size: 1.5rem;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.consent-subtitle {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.consent-card p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.consent-facts {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin: 0;
+  padding: var(--spacing-md);
+  border: 1px solid var(--form-section-border);
+  border-radius: var(--border-radius);
+  background: var(--form-section-bg);
+}
+
+.consent-facts div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.consent-facts dt {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.consent-facts dd {
+  margin: 0;
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+/* Self-declared by the app: shown as plain data, never as Hub wording. */
+.consent-client {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.consent-host {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.consent-card .consent-hint {
+  font-size: 0.85rem;
+}
+
+.consent-warning,
+.consent-error {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+.consent-card .consent-warning {
+  color: var(--text-primary);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+.consent-card .consent-error {
+  color: var(--text-primary);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+}
+
+.consent-scopes {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.consent-actions .btn {
+  flex: 1 1 10rem;
+}
+
+.consent-wide {
+  justify-self: stretch;
+  text-align: center;
+}
+
+.consent-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-primary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.consent-spinner {
+  display: grid;
+  place-items: center;
+  min-height: 6rem;
+}

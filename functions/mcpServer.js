@@ -4,6 +4,7 @@ const {StreamableHTTPServerTransport} =
 const {z} = require("zod");
 const {HttpsError} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
+const {isHostedRequest, challenge} = require("./oauth/resource");
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const time = z.string().datetime({offset: true})
@@ -107,6 +108,7 @@ const authFailureLog = (req, error) => {
     authorizationPresent: present,
     authorizationLength: present ? header.length : 0,
     authorizationScheme: scheme,
+    hosted: isHostedRequest(req),
   };
 };
 
@@ -129,8 +131,12 @@ const createHttpHandler = (authenticate, handlers, origins, log = logger) =>
       return;
     }
     let server;
+    // Through Hosting on the canonical origin, OAuth (dha_) is accepted and
+    // the 401 points at the protected-resource metadata (oauth/resource.js).
+    const hosted = isHostedRequest(req);
     try {
-      const principal = await authenticate(req.headers.authorization);
+      const principal = await authenticate(req.headers.authorization,
+          {hosted});
       server = createServer(principal, handlers);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined, enableJsonResponse: true,
@@ -149,7 +155,7 @@ const createHttpHandler = (authenticate, handlers, origins, log = logger) =>
       if (limited) res.setHeader("Retry-After", "60");
       if (denied) {
         log.warn(authFailureLog(req, error));
-        res.setHeader("WWW-Authenticate", "Bearer realm=\"Hub MCP\"");
+        res.setHeader("WWW-Authenticate", challenge(hosted));
       }
       res.status(status).json({error: limited ? "Rate limit exceeded" :
       denied ? "Invalid or expired token" : "Service unavailable"});

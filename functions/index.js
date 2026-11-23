@@ -3002,13 +3002,28 @@ exports.mcp = onRequest(
 
 // OAuth 2.1 authorization server for MCP connectors (#263). Reached through
 // Hosting rewrites on app.danangblockchainhub.com; requires stay lazy so the
-// token endpoint's cold start stays low. `mcp` does not advertise it yet.
+// token endpoint's cold start stays low. `mcp` advertises it in its 401 and
+// accepts its dha_ access tokens only for requests that came through Hosting
+// on that origin (functions/oauth/resource.js).
+// It also serves the consent page's POST /oauth/consent-action, which needs
+// the browser-binding cookie that only a Hosting rewrite forwards.
+const oauthConsentDeps = () => ({
+  // checkRevoked: a member whose sessions were revoked cannot approve with a
+  // still-unexpired ID token.
+  verifyIdToken: (idToken) => getAuth().verifyIdToken(idToken, true),
+  service: () => require("./oauth/consent").createConsentService(
+      db, getAuth(), mcpTokenService().requireUser),
+});
 exports.oauth = onRequest(
     {cors: false, timeoutSeconds: 30, maxInstances: 10},
-    (req, res) => require("./oauth/http").createOauthHandler(db)(req, res));
-exports.oauthConsent = onCall((request) => {
-  const tokenService = mcpTokenService();
-  return require("./oauth/consent")
-      .createConsentService(db, getAuth(), tokenService.requireUser)
-      .handle(request);
+    (req, res) => require("./oauth/http")
+        .createOauthHandler(db, {consent: oauthConsentDeps})(req, res));
+// Retired: consent moved to /oauth/consent-action above, because a callable
+// on cloudfunctions.net never sees the app-domain browser-binding cookie.
+// The export stays so the deploy does not try to delete a live function
+// (non-interactive deploys refuse that); it approves nothing. Remove it after
+// `firebase functions:delete oauthConsent --region us-central1`.
+exports.oauthConsent = onCall(() => {
+  throw new HttpsError("failed-precondition",
+      "Reload the consent page and try again.");
 });

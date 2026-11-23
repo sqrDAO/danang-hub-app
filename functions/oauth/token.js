@@ -1,5 +1,5 @@
 // POST /oauth/token and /oauth/revoke, plus access-token validation for the
-// resource server (wired into `mcp` in phase 3). Only SHA-256 hashes of
+// resource server (`mcp`, via mcpTokens.js). Only SHA-256 hashes of
 // codes and tokens are stored.
 const {LIFETIME, RESOURCE} = require("./config");
 const {sha256, randomHex, ts, millis, expired, verifyPkce} =
@@ -20,7 +20,8 @@ const grantTokensQuery = (db, grantId) =>
   tokens(db).where("grantId", "==", grantId);
 
 // Reads first (Firestore transactions require it), then returns a writer
-// that marks the grant revoked and deletes all of its tokens.
+// that marks the grant revoked and deletes all of its tokens. mcpBookings
+// re-checks the grant, so in-flight booking transactions fail too.
 const prepareRevokeGrant = async (tx, db, grantId) => {
   const grantRef = db.collection("oauthGrants").doc(grantId);
   const grant = await tx.get(grantRef);
@@ -210,7 +211,7 @@ const revoke = async (db, params, {now = Date.now(), headers} = {}) => {
   return {status: 200, body: {}};
 };
 
-// For `mcp` (phase 3): resolve a dha_ bearer token to {uid, grantId} or
+// For `mcp`: resolve a dha_ bearer token to {uid, grantId} or
 // return the reason it is rejected. The audience must be the MCP URL.
 const validateAccessToken = async (db, value, {now = Date.now(),
   audience = RESOURCE} = {}) => {

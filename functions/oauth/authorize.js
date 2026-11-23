@@ -2,8 +2,9 @@
 // consent page. Nothing redirects before the client and redirect URI pass.
 const {ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, LIFETIME, LIMITS} =
   require("./config");
-const {randomHex, ts, expired, redirectMatches, CHALLENGE} =
+const {sha256, randomHex, ts, expired, redirectMatches, CHALLENGE} =
   require("./util");
+const {readBrowserId, browserCookie} = require("./browser");
 
 const CLIENT_ID = /^dhc_[a-f0-9]{32}$/;
 
@@ -63,7 +64,8 @@ const requestError = (query) => {
   return null;
 };
 
-const authorize = async (db, query, {now = Date.now()} = {}) => {
+// `cookie` is the request's Cookie header (browser binding, ./browser.js).
+const authorize = async (db, query, {now = Date.now(), cookie} = {}) => {
   const q = query || {};
   const client = await loadClient(db, q.client_id, now);
   if (!client) return errorPage("Unknown or expired client_id.");
@@ -76,6 +78,7 @@ const authorize = async (db, query, {now = Date.now()} = {}) => {
       q.state : undefined, ...failure);
   }
   const id = randomHex(16);
+  const browserId = readBrowserId(cookie) || randomHex(32);
   const ref = db.collection("oauthRequests").doc(id);
   await db.runTransaction(async (tx) => {
     tx.set(ref, {
@@ -83,10 +86,11 @@ const authorize = async (db, query, {now = Date.now()} = {}) => {
       codeChallenge: q.code_challenge, resource: RESOURCE,
       scope: checkScope(q.scope), state: q.state === undefined ?
         null : q.state,
+      browserHash: sha256(browserId),
       createdAt: now, expiresAt: ts(now + LIFETIME.request),
     });
   });
-  return {status: 302,
+  return {status: 302, headers: {"Set-Cookie": browserCookie(browserId)},
     location: `${ISSUER}/oauth/consent?request=${id}`};
 };
 

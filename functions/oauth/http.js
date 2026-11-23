@@ -42,13 +42,18 @@ const sendResult = (res, result, cors) => {
   }
 };
 
-const route = (db, req, now) => {
+// Same-origin browser endpoints: no CORS headers.
+const NO_CORS = ["/oauth/authorize", "/oauth/consent-action"];
+
+const route = (db, req, now, consent) => {
   const options = {now, headers: req.headers};
   const handlers = {
     "POST /oauth/register": () => require("./register")
         .registerClient(db, req.body, {ip: clientIp(req), now}),
     "GET /oauth/authorize": () => require("./authorize")
-        .authorize(db, req.query, {now}),
+        .authorize(db, req.query, {now, cookie: req.headers.cookie}),
+    "POST /oauth/consent-action": () => require("./consent")
+        .consentAction(consent(), req, now),
     "POST /oauth/token": () => require("./token")
         .token(db, req.body, options),
     "POST /oauth/revoke": () => require("./token")
@@ -57,14 +62,17 @@ const route = (db, req, now) => {
   return handlers[`${req.method} ${req.path}`];
 };
 
-// `discovery` defaults to DISCOVERY_ENABLED; tests pass true to check the
-// documents phase 3 will publish.
+// `discovery` defaults to DISCOVERY_ENABLED; tests pass false to check the
+// dark (404) mode that phase 2 shipped. `consent` lazily returns
+// {verifyIdToken, service} for /oauth/consent-action.
 const createOauthHandler = (db, {now = () => Date.now(),
-  discovery = DISCOVERY_ENABLED} = {}) =>
+  discovery = DISCOVERY_ENABLED, consent} = {}) =>
   async (req, res) => {
-    res.set("Cache-Control", "no-store");
+    // private: Hosting's CDN must neither cache a response nor drop the
+    // __session cookie that authorize sets.
+    res.set("Cache-Control", "private, no-store");
     const path = req.path;
-    const cors = path !== "/oauth/authorize";
+    const cors = !NO_CORS.includes(path);
     if (req.method === "OPTIONS" && cors) {
       res.set(CORS).status(204).end();
       return;
@@ -74,7 +82,7 @@ const createOauthHandler = (db, {now = () => Date.now(),
       else res.set(CORS).status(404).json({error: "not_found"});
       return;
     }
-    const handler = route(db, req, now());
+    const handler = route(db, req, now(), consent);
     if (!handler) {
       sendResult(res, {status: 404, body: {error: "not_found"}}, cors);
       return;

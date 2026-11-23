@@ -287,3 +287,28 @@ test('401 logs one structured line with the reason and header shape, never token
   const missingUser = authFailureLog({ headers: {} }, { code: 'auth/user-not-found' })
   assert.equal(missingUser.reason, 'user-not-found')
 })
+
+test('401 advertises resource_metadata and scope only for requests through Hosting', async t => {
+  const f = fixture()
+  const service = createTokenService(f.db, auth)
+  const lines = []
+  const app = express()
+  app.use(express.json({ limit: '16kb' }))
+  app.all('/mcp', createHttpHandler(service.authenticate, f.handlers, [], { warn: (...args) => lines.push(args) }))
+  const listener = app.listen(0, '127.0.0.1')
+  await new Promise(resolve => listener.once('listening', resolve))
+  t.after(() => listener.close())
+  const url = `http://127.0.0.1:${listener.address().port}/mcp`
+  const post = headers => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: '{}' })
+  const hosted = await post({ 'X-Forwarded-Host': 'app.danangblockchainhub.com' })
+  assert.equal(hosted.status, 401)
+  assert.equal(hosted.headers.get('www-authenticate'), 'Bearer resource_metadata="https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp", scope="bookings"')
+  assert.equal(lines.at(-1)[0].hosted, true)
+  const raw = await post({})
+  assert.equal(raw.status, 401)
+  assert.equal(raw.headers.get('www-authenticate'), 'Bearer realm="Hub MCP"')
+  const rawAccess = await post({ Authorization: 'Bearer dha_' + 'a'.repeat(64) })
+  assert.equal(rawAccess.status, 401)
+  assert.equal(lines.at(-1)[0].reason, 'not-hosted')
+  assert.equal(rawAccess.headers.get('www-authenticate'), 'Bearer realm="Hub MCP"')
+})

@@ -1,55 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import useEmailStatus from '../../hooks/useEmailStatus'
 import Layout from '../../components/Layout'
-import { changeSignInEmail, sendVerificationEmail } from '../../services/emailVerification'
-import {
-  changeEmailErrorKey,
-  formatCooldown,
-  readVerifySentAt,
-  verifyCooldownSecondsLeft,
-  verifyErrorKey
-} from '../../utils/emailVerification'
+import useSendVerificationLink from '../../hooks/useSendVerificationLink'
+import { changeSignInEmail } from '../../services/emailVerification'
+import { changeEmailErrorKey, formatCooldown } from '../../utils/emailVerification'
 import { showToast } from '../../utils/toast'
 import './Profile.css'
-
-// The last send time lives in session storage, so leaving this screen and
-// coming back can't reset the cooldown or forget that a link went out.
-const useSendLink = (uid, onAlreadyVerified) => {
-  const { pathname } = useLocation()
-  const { t, i18n } = useTranslation()
-  const [sending, setSending] = useState(false)
-  const [sentAt, setSentAt] = useState(() => readVerifySentAt(uid))
-  const [now, setNow] = useState(Date.now)
-  const secondsLeft = verifyCooldownSecondsLeft(sentAt, now)
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return undefined
-    const timer = setTimeout(() => setNow(Date.now()), 1000)
-    return () => clearTimeout(timer)
-  }, [secondsLeft, now])
-
-  const send = async () => {
-    setSending(true)
-    try {
-      if (await sendVerificationEmail(i18n.language, pathname)) {
-        setSentAt(Date.now())
-      } else {
-        onAlreadyVerified()
-      }
-      setNow(Date.now())
-    } catch (error) {
-      console.error('Error sending verification email:', error)
-      showToast(t(verifyErrorKey(error)), 'error')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return { send, secondsLeft, sent: sentAt > 0, busy: sending || secondsLeft > 0 }
-}
 
 // One layout for every state: title, intro, the address with a status tag,
 // then the state's own action. Built from Profile's card and detail row.
@@ -69,7 +28,8 @@ const VerifyCard = ({ title, intro, email, tag, children }) => (
 
 const SendLinkCard = ({ uid, email, onAlreadyVerified, introKey, footer }) => {
   const { t } = useTranslation()
-  const link = useSendLink(uid, onAlreadyVerified)
+  const { pathname } = useLocation()
+  const link = useSendVerificationLink(uid, pathname, onAlreadyVerified)
   if (link.sent) {
     return (
       <VerifyCard

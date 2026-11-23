@@ -21,6 +21,7 @@ const MemberBookings = lazy(() => import('./pages/member/Bookings'))
 const MemberEvents = lazy(() => import('./pages/member/Events'))
 const MemberProfile = lazy(() => import('./pages/member/Profile'))
 const VerifyEmail = lazy(() => import('./pages/member/VerifyEmail'))
+const OauthConsent = lazy(() => import('./pages/oauth/Consent'))
 
 const RouteFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -56,6 +57,9 @@ function App() {
             </>
           )}
         />
+        {/* MCP OAuth consent: outside ProtectedRoute, it checks sign-in itself
+            and keeps ?request= across login and email verification */}
+        <Route path="/oauth/consent" element={<OauthConsent />} />
         
         {/* Admin Routes (require Company + Role for profile completion) */}
         <Route

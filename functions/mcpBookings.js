@@ -2,7 +2,7 @@ const {HttpsError} = require("firebase-functions/v2/https");
 const {Timestamp, FieldPath} = require("firebase-admin/firestore");
 const {rangeOverlapsClosure} = require("./hubClosures");
 const {usageByMonth, MONTHLY_DESK_HOURS} = require("./monthlyHours");
-const {activeToken, hashToken} = require("./mcpTokens");
+const {activeToken, hashToken, liveGrant} = require("./mcpTokens");
 
 const fail = (message) => {
   throw new HttpsError("failed-precondition", message);
@@ -56,10 +56,14 @@ const amenityView = (doc) => {
 };
 
 const createBookingTools = (db, availability) => {
+  // OAuth (dha_) principals re-check their grant; dhm_ their token doc.
   const memberFor = async (tx, principal) => {
-    const token = (await tx.get(db.collection("mcpTokens")
-        .doc(principal.hash))).data();
-    if (!activeToken(token) || token.uid !== principal.uid) {
+    const ref = principal.grantId ?
+      db.collection("oauthGrants").doc(principal.grantId) :
+      db.collection("mcpTokens").doc(principal.hash);
+    const token = (await tx.get(ref)).data();
+    const live = principal.grantId ? liveGrant(token) : activeToken(token);
+    if (!live || token.uid !== principal.uid) {
       throw new HttpsError("unauthenticated", "Token revoked or expired.");
     }
     const member = (await tx.get(db.collection("members")

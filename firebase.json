@@ -75,6 +75,13 @@
         }
       },
       {
+        "source": "/oauth/consent-action",
+        "function": {
+          "functionId": "oauth",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/oauth/token",
         "function": {
           "functionId": "oauth",
