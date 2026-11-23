@@ -781,7 +781,18 @@
     "adminHint": "Bookings already made on these dates are flagged below — cancel them if the closure stands.",
     "badge": "Hub closed",
     "independenceDay2026": "Vietnam's Independence Day",
-    "cultureDay2026": "Vietnamese Culture Day"
+    "cultureDay2026": "Vietnamese Culture Day",
+    "newYear": "New Year's Day",
+    "newYearInLieu": "New Year's Day (day in lieu)",
+    "lunarNewYear": "Lunar New Year (Tết)",
+    "hungKings": "Hung Kings Commemoration Day",
+    "reunificationDay": "Reunification Day",
+    "labourDay": "International Labour Day",
+    "labourDayInLieu": "International Labour Day (day in lieu)",
+    "reunificationLabourDay": "Reunification Day and International Labour Day",
+    "martyrsDay": "War Invalids and Martyrs Day",
+    "nationalDay": "National Day",
+    "cultureDay": "Vietnamese Culture Day"
   },
   "fixedDesk": {
     "title": "Fixed Desk Plans",

@@ -779,7 +779,18 @@
     "adminHint": "Các lượt đặt chỗ đã tạo trong những ngày này được đánh dấu bên dưới — hãy huỷ nếu Hub vẫn đóng cửa.",
     "badge": "Hub đóng cửa",
     "independenceDay2026": "Quốc khánh Việt Nam",
-    "cultureDay2026": "Ngày Văn hóa Việt Nam"
+    "cultureDay2026": "Ngày Văn hóa Việt Nam",
+    "newYear": "Tết Dương lịch",
+    "newYearInLieu": "Tết Dương lịch (nghỉ bù)",
+    "lunarNewYear": "Tết Nguyên đán",
+    "hungKings": "Giỗ Tổ Hùng Vương",
+    "reunificationDay": "Ngày Chiến thắng 30/4",
+    "labourDay": "Ngày Quốc tế Lao động 1/5",
+    "labourDayInLieu": "Ngày Quốc tế Lao động (nghỉ bù)",
+    "reunificationLabourDay": "Ngày Chiến thắng 30/4 và Quốc tế Lao động 1/5",
+    "martyrsDay": "Ngày Thương binh, Liệt sĩ 27/7",
+    "nationalDay": "Quốc khánh",
+    "cultureDay": "Ngày Văn hóa Việt Nam"
   },
   "fixedDesk": {
     "title": "Gói Bàn Cố Định",
