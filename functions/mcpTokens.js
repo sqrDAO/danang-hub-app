@@ -1,6 +1,5 @@
 const crypto = require("node:crypto");
 const {HttpsError} = require("firebase-functions/v2/https");
-const {grantCredentialId} = require("./oauth/credential");
 
 // Production hosting rollout of the new-profile verification requirement (#199,
 // Actions run 43383405662). Firestore assigns createTime independently of
@@ -157,10 +156,8 @@ const createTokenService = (db, auth) => {
       const grant = (await tx.get(ref)).data();
       tx.update(ref, reserveGrantRequest(grant, Date.now()));
     });
-    // mcpBookings re-checks mcpTokens/{hash} in each booking transaction;
-    // the grant's mirror doc there (oauth/credential.js) answers it.
-    return {uid: result.uid, grantId: result.grantId,
-      hash: grantCredentialId(result.grantId)};
+    // mcpBookings re-checks the grant in each booking transaction.
+    return {uid: result.uid, grantId: result.grantId};
   };
   const authenticate = async (header, {hosted = false} = {}) => {
     if (typeof header !== "string" || !header) {

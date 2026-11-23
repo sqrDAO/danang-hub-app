@@ -11,7 +11,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (`oauthConsent` logic), `http` (router).
 - `functions/index.js` (edited) — export `oauth` and `oauthConsent`; `mcp` 401 adds `resource_metadata` and `scope`.
 - `functions/oauth/resource.js` (new, phase 3) — Hosting-vs-raw detection (`X-Forwarded-Host`) and the 401 challenge; `functions/mcpServer.js` (edited) uses it.
-- `functions/oauth/credential.js` (new, phase 3) — `mcpTokens/oauth_<grantId>` mirror so `mcpBookings.js`'s in-transaction credential check covers grants unchanged; created by `consent.js`, deleted by `token.js` revoke.
+- `functions/mcpBookings.js` (edited, phase 3) — `memberFor` re-checks `oauthGrants/{grantId}` for `dha_` principals inside each booking transaction; tool behavior unchanged.
 - `functions/mcpTokens.js` (edited) — accept `dha_` access tokens with audience check; `listGrants`/`revokeGrant` actions.
 - `src/pages/oauth/Consent.jsx`, `Consent.css`, `src/App.jsx`, `src/services/mcpTokens.js`, `src/utils/oauthConsent.js` (new/edited) — consent route, helpers and service calls.
 - `src/hooks/useSendVerificationLink.js` (new), `src/pages/member/VerifyEmail.jsx` (edited) — verification-link hook shared with the consent page's inline verify step.
@@ -50,7 +50,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [ ] Claude web and Claude Desktop connect via sign-in with no request header.
 - [x] NOT: store raw codes or tokens.
 - [x] NOT: support `plain` PKCE, implicit, password or `client_credentials` grants.
-- [x] NOT: change MCP tool behavior or `mcpBookings.js`.
+- [x] NOT: change MCP tool behavior; in `mcpBookings.js` only `memberFor`'s access check changes (owner-approved 2026-11-23).
 
 ## Verify
 - `npm run lint && npm run build && npm --prefix functions run lint && npm test` → green.
@@ -68,5 +68,5 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Phase 3 flips `DISCOVERY_ENABLED` in `functions/oauth/config.js`. Keep the well-known rewrites even while dark: without them `**` answers 200 `index.html`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
 - Phase 3: `mcp` treats a request as Hosting when the last `X-Forwarded-Host` entry is `app.danangblockchainhub.com`; forging it on the raw URL only changes the forger's own response, and `dha_` stays audience-bound.
-- Phase 3: `mcpBookings.js` re-checks `mcpTokens/{principal.hash}` in every booking transaction, so a `dha_` principal carries `hash: oauth_<grantId>`, a mirror doc kept in step with the grant (the design's "principal stays `{uid}`" missed this).
+- Phase 3: booking transactions re-check the credential (`memberFor`), so a `dha_` principal is `{uid, grantId}` and `memberFor` reads its grant; the design's "`mcpBookings.js` untouched" missed this.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.

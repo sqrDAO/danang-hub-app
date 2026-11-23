@@ -198,11 +198,11 @@ forwards tokens anywhere (no passthrough).
 
 `authenticate(header)` dispatches on prefix: `dhm_` → existing path unchanged;
 `dha_` → hash lookup, `type == "access"`, not expired, `aud` matches, grant
-not revoked, `requireUser(uid)`, then rate limit. `mcpBookings.js` is
-untouched. Phase 3 correction: its booking transactions re-check
-`mcpTokens/{principal.hash}`, so a `dha_` principal is `{uid, grantId, hash:
-"oauth_<grantId>"}` and each grant keeps a mirror doc there
-(`functions/oauth/credential.js`), created on approve and deleted on revoke. Rate limit: 60 req/min per grant, same
+not revoked, `requireUser(uid)`, then rate limit. A `dha_` principal is
+`{uid, grantId}`. Phase 3 correction: booking transactions re-check the
+credential, so `memberFor` in `mcpBookings.js` reads `oauthGrants/{grantId}`
+for `dha_` principals (`mcpTokens/{hash}` for `dhm_`); tool behavior is
+unchanged (owner-approved 2026-11-23). Rate limit: 60 req/min per grant, same
 transactional counter as `mcpTokens` (stored on `oauthGrants/{id}`), plus
 `lastUsedAt` (written at most once per minute).
 

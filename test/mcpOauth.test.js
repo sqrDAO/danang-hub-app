@@ -551,7 +551,7 @@ test('mcp accepts a dha_ access token through Hosting, with the dhm_ requireUser
   const principal = await service.authenticate('Bearer ' + access, { hosted: true })
   assert.equal(principal.uid, uid)
   assert.equal(principal.grantId, grantId)
-  // Booking tools re-check the credential inside their transactions.
+  // Booking tools re-check the grant inside their transactions.
   const tools = createBookingTools(store.db, { isWithinAmenityHours: () => true, computeBookingAvailability: async () => ({}) })
   assert.deepEqual((await tools.list_amenities(principal, { limit: 20 })).items.map((a) => a.id), ['desk'])
   assert.equal(await reasonOf(service.authenticate('Bearer ' + access)), 'not-hosted', 'raw URL stays dhm_-only')
@@ -615,11 +615,10 @@ test('Connected apps: listGrants shows the member\'s live grants only; revokeGra
   // Another member cannot disconnect it, and ids are validated.
   await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: first.grantId }, 'member-b'), /Unknown app/)
   await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: '../x' }), /Unknown app/)
-  assert.equal(store.data.has(`mcpTokens/oauth_${first.grantId}`), true, 'approve creates the booking-check mirror')
+  assert.equal(docs(store.data, 'mcpTokens').length, 0, 'grants need no mcpTokens doc')
   assert.deepEqual(await manageAs(service, { action: 'revokeGrant', grantId: first.grantId }), { revoked: true })
   assert.equal(store.data.get(`oauthGrants/${first.grantId}`).revoked, true)
   assert.equal(docs(store.data, 'oauthTokens').some(([, d]) => d.grantId === first.grantId), false, 'tokens deleted')
-  assert.equal(store.data.has(`mcpTokens/oauth_${first.grantId}`), false, 'mirror deleted')
   assert.deepEqual((await manageAs(service, { action: 'listGrants' })).grants.map((g) => g.id), [second.grantId])
   assert.equal((await refresh(store.db, first.clientId, first.refresh, Date.now())).body.error, 'invalid_grant')
 })
@@ -633,4 +632,39 @@ test('after Disconnect, the grant\'s next MCP request and in-flight booking call
   assert.equal(await reasonOf(service.authenticate('Bearer ' + access, { hosted: true })), 'unknown')
   const tools = createBookingTools(store.db, { isWithinAmenityHours: () => true, computeBookingAvailability: async () => ({}) })
   await assert.rejects(tools.list_amenities(principal, { limit: 20 }), (e) => e.code === 'unauthenticated')
+})
+
+const bookingTools = (store) => createBookingTools(store.db, { isWithinAmenityHours: () => true, computeBookingAvailability: async () => ({ hasConflicts: false, conflicts: [] }) })
+const nextWeekSlot = () => {
+  const date = new Date(Date.now() + 7 * 86400000)
+  date.setUTCHours(2, 0, 0, 0)
+  return { amenityId: 'desk', startTime: date.toISOString(), endTime: new Date(+date + 3600000).toISOString(), requestId: 'oauth-key' }
+}
+
+test('booking tools: a dha_ principal books against its grant, not an mcpTokens doc', async () => {
+  const store = memberStore()
+  const { access } = await connected(store)
+  const principal = await createTokenService(store.db, auth).authenticate('Bearer ' + access, { hosted: true })
+  assert.equal(principal.hash, undefined)
+  const booking = await bookingTools(store).create_booking(principal, nextWeekSlot())
+  assert.equal(store.data.get(`bookings/${booking.id}`).memberId, uid)
+  assert.equal(docs(store.data, 'mcpTokens').length, 0)
+})
+
+test('booking tools: a grant revoked after authenticate, expired, or owned by another uid fails the call', async () => {
+  const store = memberStore()
+  const { access, grantId } = await connected(store)
+  const principal = await createTokenService(store.db, auth).authenticate('Bearer ' + access, { hosted: true })
+  const tools = bookingTools(store)
+  const grantPath = `oauthGrants/${grantId}`
+  const grant = store.data.get(grantPath)
+  const unauthenticated = (e) => e.code === 'unauthenticated' && /revoked or expired/.test(e.message)
+  store.data.set(grantPath, { ...grant, revoked: true })
+  await assert.rejects(tools.create_booking(principal, nextWeekSlot()), unauthenticated)
+  store.data.set(grantPath, { ...grant, expiresAt: { toMillis: () => Date.now() - 1 } })
+  await assert.rejects(tools.create_booking(principal, nextWeekSlot()), unauthenticated)
+  store.data.set(grantPath, grant)
+  await assert.rejects(tools.create_booking({ uid: 'member-b', grantId }, nextWeekSlot()), unauthenticated)
+  await assert.rejects(tools.list_amenities({ uid, grantId: 'f'.repeat(32) }, { limit: 20 }), unauthenticated)
+  assert.equal(docs(store.data, 'bookings').length, 0, 'no booking created')
 })

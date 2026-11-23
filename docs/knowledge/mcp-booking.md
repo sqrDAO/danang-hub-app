@@ -309,9 +309,8 @@ string in step with this section when tool behavior changes.
 - Tokens use 256 bits of randomness; only SHA-256 hashes and metadata are stored.
   `mcpTokens`, `mcpTokenOwners` and `mcpBookingLocks` remain default-deny to all
   Firestore clients, including admins. Do not add client-side rules for them.
-  Each sign-in grant also has a mirror doc `mcpTokens/oauth_<grantId>` (`{uid,
-  grantId, expiresAt}` in epoch ms) that the booking tools' in-transaction
-  credential check reads; Disconnect and grant revocation delete it.
+  Sign-in grants live in `oauthGrants`; the booking tools re-check the grant
+  inside each booking transaction, so Disconnect fails in-flight calls too.
 - Token creation responses stay in React component state, never query caches or
   persistent browser storage. Status queries contain metadata only. No token/body
   logging is added. Old token documents are deleted on replacement/revocation.
