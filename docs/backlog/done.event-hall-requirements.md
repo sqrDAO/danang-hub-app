@@ -7,7 +7,7 @@ Resolve #277: the event form still tells hosts to pay a 100,000 VND parking fee,
 ## Files
 - `src/components/event/EventFormModal.jsx` (edited) — the notice lists `HALL_REQUIREMENTS` instead of the parking-fee line.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — new `memberEvents.modal.hallRequirementLuma|Setup|Fees`; unused parking-fee and deposit keys removed.
-- `docs/backlog/todo.event-hall-requirements.md` (new) — this spec.
+- `docs/backlog/done.event-hall-requirements.md` (new) — this spec.
 
 ## Acceptance
 - [ ] The Event Hall notice no longer mentions a parking fee amount.
