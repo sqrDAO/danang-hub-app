@@ -106,6 +106,10 @@ html {
   /* Floating Telegram button — Telegram brand colors, identical in both themes */
   --tg-float-bg: #229ED9;
   --tg-float-icon: #ffffff;
+
+  /* Floating WhatsApp button — WhatsApp brand colors, identical in both themes */
+  --wa-float-bg: #25D366;
+  --wa-float-icon: #ffffff;
 }
 
 [data-theme="light"] {

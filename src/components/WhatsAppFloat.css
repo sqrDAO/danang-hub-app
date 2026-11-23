@@ -1,0 +1,60 @@
+/* Matches danang-hub-landing's .wa-float: stacked one button (56px + 12px gap)
+   above the Telegram button in Layout.css. */
+.wa-float {
+  --wa-float-base: calc(1.75rem + var(--safe-area-inset-bottom));
+  --wa-float-stack: 68px;
+  position: fixed;
+  bottom: calc(var(--wa-float-base) + var(--wa-float-stack));
+  right: 1.75rem;
+  z-index: 9999;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--wa-float-bg);
+  color: var(--wa-float-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+
+.wa-float--solo {
+  --wa-float-stack: 0px;
+}
+
+.wa-float:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wa-float:hover {
+    transform: scale(1.08);
+  }
+}
+
+.wa-float:focus-visible {
+  outline: 3px solid var(--text-primary);
+  outline-offset: 4px;
+}
+
+.wa-float svg {
+  display: block;
+}
+
+/* Mobile: the Telegram button shrinks to 48px and clears the bottom nav. */
+@media (max-width: 768px) {
+  .wa-float {
+    --wa-float-base: calc(var(--bottom-nav-height) + var(--safe-area-inset-bottom) + 0.75rem);
+    --wa-float-stack: 60px;
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+  }
+
+  .wa-float--solo {
+    --wa-float-base: calc(1rem + var(--safe-area-inset-bottom));
+    --wa-float-stack: 0px;
+  }
+}
