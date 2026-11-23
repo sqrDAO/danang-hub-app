@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { consentErrorKind, consentLoginPath, consentPath, isConsentRequestId } from '../src/utils/oauthConsent.js'
+import { consentError, consentErrorKind, consentLoginPath, consentPath, isConsentRequestId } from '../src/utils/oauthConsent.js'
 import { toSafeRedirectPath } from '../src/utils/safeRedirect.js'
 
 const id = 'a1'.repeat(16)
@@ -19,11 +19,15 @@ test('only 32-hex request ids reach the callable', () => {
   for (const bad of [null, '', 'A1'.repeat(16), id + '0', '../x', id.slice(1)]) assert.equal(isConsentRequestId(bad), false)
 })
 
-test('callable errors map to what the consent page shows', () => {
-  assert.equal(consentErrorKind({ code: 'functions/unauthenticated', details: { reason: 'unverified' } }), 'unverified')
-  assert.equal(consentErrorKind({ code: 'functions/unauthenticated', details: { reason: 'disabled' } }), 'failed')
-  assert.equal(consentErrorKind({ code: 'functions/unauthenticated' }), 'signIn')
-  assert.equal(consentErrorKind({ code: 'functions/not-found' }), 'expired')
-  assert.equal(consentErrorKind({ code: 'functions/invalid-argument' }), 'invalid')
-  assert.equal(consentErrorKind(new Error('offline')), 'failed')
+test('consent-action errors map to what the consent page shows', () => {
+  const kind = (body) => consentErrorKind(consentError(body))
+  assert.equal(kind({ error: 'unauthenticated', reason: 'unverified' }), 'unverified')
+  assert.equal(kind({ error: 'unauthenticated', reason: 'disabled' }), 'failed')
+  assert.equal(kind({ error: 'unauthenticated' }), 'signIn')
+  assert.equal(kind({ error: 'permission-denied', reason: 'browser' }), 'otherBrowser')
+  assert.equal(kind({ error: 'permission-denied', reason: 'origin' }), 'failed')
+  assert.equal(kind({ error: 'not-found' }), 'expired')
+  assert.equal(kind({ error: 'invalid-argument' }), 'invalid')
+  assert.equal(kind({}), 'failed', 'a non-JSON error page')
+  assert.equal(consentErrorKind(new TypeError('Failed to fetch')), 'failed')
 })

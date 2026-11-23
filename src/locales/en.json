@@ -992,6 +992,8 @@
       "invalid": "Go back to your AI app and connect the Hub again.",
       "expiredTitle": "This sign-in request expired",
       "expired": "Requests last 10 minutes and work once. Go back to your AI app and connect the Hub again.",
+      "otherBrowserTitle": "This sign-in link belongs to another browser",
+      "otherBrowser": "This sign-in link was opened in a different browser. Start the connection again from your app.",
       "failedTitle": "Something went wrong",
       "failed": "Could not complete the request. Check your connection and try again.",
       "signIn": "Your session ended. Sign in again to continue.",

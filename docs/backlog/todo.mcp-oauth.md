@@ -8,15 +8,16 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `docs/knowledge/mcp-oauth-design.md` (new) — architecture, client requirements, threats, phases, decisions.
 - `public/sw.js` (edited, phase 1) — `NavigationRoute` denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`.
 - `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
-- `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (`oauthConsent` logic), `http` (router).
-- `functions/index.js` (edited) — export `oauth` and `oauthConsent`; `mcp` 401 adds `resource_metadata` and `scope`.
+- `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (consent logic and the `POST /oauth/consent-action` handler), `http` (router).
+- `functions/oauth/browser.js` (new, phase 3) — consent browser binding: `__session` cookie set by `/oauth/authorize`, SHA-256 stored on the request, checked on describe/approve/deny.
+- `functions/index.js` (edited) — export `oauth` (also serving `/oauth/consent-action`) and a retired `oauthConsent` stub that approves nothing; `mcp` 401 adds `resource_metadata` and `scope`.
 - `functions/oauth/resource.js` (new, phase 3) — Hosting-vs-raw detection (`X-Forwarded-Host`) and the 401 challenge; `functions/mcpServer.js` (edited) uses it.
 - `functions/mcpBookings.js` (edited, phase 3) — `memberFor` re-checks `oauthGrants/{grantId}` for `dha_` principals inside each booking transaction; tool behavior unchanged.
 - `functions/mcpTokens.js` (edited) — accept `dha_` access tokens with audience check; `listGrants`/`revokeGrant` actions.
 - `src/pages/oauth/Consent.jsx`, `Consent.css`, `src/App.jsx`, `src/services/mcpTokens.js`, `src/utils/oauthConsent.js` (new/edited) — consent route, helpers and service calls.
 - `src/hooks/useSendVerificationLink.js` (new), `src/pages/member/VerifyEmail.jsx` (edited) — verification-link hook shared with the consent page's inline verify step.
 - `src/components/McpTokens.jsx`, `McpTokens.css` (edited), `src/components/ConnectedApps.jsx` (new) — Connected apps list with Disconnect (native `<dialog>` via `Modal`).
-- `test/oauthConsent.test.js` (new, phase 3) — login redirect round trip, request id and error mapping.
+- `test/oauthConsent.test.js` (new, phase 3) — login redirect round trip, request id and error mapping (including the other-browser state).
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — consent and connected-apps strings.
 - `firestore.rules`, `test/firestore-mcp.rules.test.js` (edited) — deny-all for `oauthClients`, `oauthRequests`, `oauthCodes`, `oauthGrants`, `oauthTokens`, `oauthRateLimits`.
 - `test/mcpOauth.test.js` (new, phase 2) — PKCE, redirect matching, DCR limits, code single use, refresh rotation and reuse, audience.
@@ -38,6 +39,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [x] `/oauth/authorize` without S256 PKCE is rejected.
 - [x] Consent page shows the redirect hostname and a warning for loopback redirects.
 - [x] A wallet-signed-in member can approve consent.
+- [x] Consent describe, approve and deny are refused (403 `reason: browser`) from a browser without the `/oauth/authorize` binding cookie, without consuming the request.
 - [x] Authorization codes expire after 60 s and work once.
 - [x] A code exchange rejected for a wrong `client_id`, `redirect_uri` or `resource` can be retried; a failed PKCE check burns the code; only a replay of a successfully exchanged code revokes the grant.
 - [x] DCR strips control, bidi, zero-width and blank-rendering (Hangul filler, Braille blank) characters from `client_name` and caps each redirect URI at 256 chars.
@@ -70,3 +72,4 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Phase 3: `mcp` treats a request as Hosting when the last `X-Forwarded-Host` entry is `app.danangblockchainhub.com`; forging it on the raw URL only changes the forger's own response, and `dha_` stays audience-bound.
 - Phase 3: booking transactions re-check the credential (`memberFor`), so a `dha_` principal is `{uid, grantId}` and `memberFor` reads its grant; the design's "`mcpBookings.js` untouched" missed this.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.
+- Phase 3 review: consent moved from the `oauthConsent` callable to `POST /oauth/consent-action` on `oauth`, because only a Hosting rewrite forwards the `__session` binding cookie. The callable stays exported as a stub so the deploy does not try to delete a live function; drop it after `firebase functions:delete oauthConsent`.

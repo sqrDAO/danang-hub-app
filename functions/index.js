@@ -3005,12 +3005,23 @@ exports.mcp = onRequest(
 // token endpoint's cold start stays low. `mcp` advertises it in its 401 and
 // accepts its dha_ access tokens only for requests that came through Hosting
 // on that origin (functions/oauth/resource.js).
+// It also serves the consent page's POST /oauth/consent-action, which needs
+// the browser-binding cookie that only a Hosting rewrite forwards.
+const oauthConsentDeps = () => ({
+  verifyIdToken: (idToken) => getAuth().verifyIdToken(idToken),
+  service: () => require("./oauth/consent").createConsentService(
+      db, getAuth(), mcpTokenService().requireUser),
+});
 exports.oauth = onRequest(
     {cors: false, timeoutSeconds: 30, maxInstances: 10},
-    (req, res) => require("./oauth/http").createOauthHandler(db)(req, res));
-exports.oauthConsent = onCall((request) => {
-  const tokenService = mcpTokenService();
-  return require("./oauth/consent")
-      .createConsentService(db, getAuth(), tokenService.requireUser)
-      .handle(request);
+    (req, res) => require("./oauth/http")
+        .createOauthHandler(db, {consent: oauthConsentDeps})(req, res));
+// Retired: consent moved to /oauth/consent-action above, because a callable
+// on cloudfunctions.net never sees the app-domain browser-binding cookie.
+// The export stays so the deploy does not try to delete a live function
+// (non-interactive deploys refuse that); it approves nothing. Remove it after
+// `firebase functions:delete oauthConsent --region us-central1`.
+exports.oauthConsent = onCall(() => {
+  throw new HttpsError("failed-precondition",
+      "Reload the consent page and try again.");
 });

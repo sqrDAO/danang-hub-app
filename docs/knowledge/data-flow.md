@@ -78,8 +78,8 @@ One route sits outside `ProtectedRoute` on purpose: `/oauth/consent` (MCP OAuth 
 sign-in and email verification itself: signed-out members go to
 `/login?redirect=<encodeURIComponent('/oauth/consent?request=…')>` (Login honors it via
 `toSafeRedirectPath`), and email-pending members verify inline with a link whose Continue URL is
-the same consent request. The `oauthConsent` callable re-runs `requireUser`, so the page's checks
-are UX only. Design: `docs/knowledge/mcp-oauth-design.md`.
+the same consent request. The server (`POST /oauth/consent-action` on `oauth`) re-runs `requireUser`
+and checks the request's browser binding, so the page's checks are UX only. Design: `docs/knowledge/mcp-oauth-design.md`.
 
 ---
 

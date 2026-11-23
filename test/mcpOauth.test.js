@@ -49,13 +49,15 @@ const authorizeQuery = (clientId, extra = {}) => ({
   response_type: 'code', client_id: clientId, redirect_uri: CLAUDE, code_challenge: challenge,
   code_challenge_method: 'S256', resource: RESOURCE, scope: 'bookings', state: 'st-1', ...extra
 })
+// The browser id that authorize's Set-Cookie gives the browser.
+const browserOf = (result) => /^__session=([a-f0-9]{64});/.exec(result.headers['Set-Cookie'])[1]
+const requestOf = (result) => new URL(result.location).searchParams.get('request')
 // Register, authorize, approve: returns everything a token request needs.
 const approved = async (store, now = Date.now()) => {
   const client = (await register(store.db, [CLAUDE], { now })).body
   const started = await authorize(store.db, authorizeQuery(client.client_id), { now })
-  const requestId = new URL(started.location).searchParams.get('request')
   const consent = createConsentService(store.db, auth, allow)
-  const { redirectUrl } = await consent.handle({ auth: { uid }, data: { action: 'approve', request: requestId } }, now)
+  const { redirectUrl } = await consent.handle(uid, { action: 'approve', request: requestOf(started), browser: browserOf(started) }, now)
   const url = new URL(redirectUrl)
   return { clientId: client.client_id, code: url.searchParams.get('code'), url }
 }
@@ -92,7 +94,7 @@ test('discovery is on: metadata documents return 200 with the canonical resource
     assert.deepEqual(res.body, { resource: RESOURCE, authorization_servers: [ISSUER],
       scopes_supported: ['bookings'], bearer_methods_supported: ['header'] })
     assert.equal(res.headers['Access-Control-Allow-Origin'], '*')
-    assert.equal(res.headers['Cache-Control'], 'no-store')
+    assert.equal(res.headers['Cache-Control'], 'private, no-store')
   }
   const as = (await call(db, { method: 'GET', path: WELL_KNOWN[2] }, on)).body
   assert.equal(as.issuer, ISSUER)
@@ -300,21 +302,129 @@ test('authorize stores the request (10 min TTL) and sends the member to consent'
 test('consent describes the redirect host, flags loopback, and deny returns access_denied', async () => {
   const { db } = makeStore()
   const { client_id: clientId } = (await register(db, ['http://127.0.0.1/callback'])).body
-  const start = async () => new URL((await authorize(db, authorizeQuery(clientId,
-    { redirect_uri: 'http://127.0.0.1:9999/callback' }))).location).searchParams.get('request')
+  const start = async () => {
+    const result = await authorize(db, authorizeQuery(clientId, { redirect_uri: 'http://127.0.0.1:9999/callback' }))
+    return { request: requestOf(result), browser: browserOf(result) }
+  }
   const consent = createConsentService(db, { getUser: async () => ({}) }, allow)
-  const request = await start()
-  const described = await consent.handle({ auth: { uid: 'eth_0x1234567890abcdef' }, data: { action: 'describe', request } })
+  const { request, browser } = await start()
+  const described = await consent.handle('eth_0x1234567890abcdef', { action: 'describe', request, browser })
   assert.equal(described.redirectHost, '127.0.0.1:9999')
   assert.equal(described.loopback, true)
   assert.equal(described.clientName, 'Claude')
   assert.equal(described.account, '0x1234…cdef')
-  const denied = new URL((await consent.handle({ auth: { uid }, data: { action: 'deny', request } })).redirectUrl)
+  const denied = new URL((await consent.handle(uid, { action: 'deny', request, browser })).redirectUrl)
   assert.equal(denied.searchParams.get('error'), 'access_denied')
   assert.equal(denied.searchParams.get('iss'), ISSUER)
-  await assert.rejects(consent.handle({ auth: { uid }, data: { action: 'approve', request } }), /expired/)
+  await assert.rejects(consent.handle(uid, { action: 'approve', request, browser }), /expired/)
   const blocked = createConsentService(db, auth, async () => { throw new Error('Verify your email first.') })
-  await assert.rejects(blocked.handle({ auth: { uid }, data: { action: 'approve', request: await start() } }), /Verify/)
+  await assert.rejects(blocked.handle(uid, { action: 'approve', ...(await start()) }), /Verify/)
+})
+
+const otherBrowser = { code: 'permission-denied', details: { reason: 'browser' } }
+
+test('authorize binds the request to the browser: HttpOnly __session cookie, private no-store, hash only', async () => {
+  const { db, data } = makeStore()
+  const { client_id: clientId } = (await register(db)).body
+  const res = await call(db, { method: 'GET', path: '/oauth/authorize', query: authorizeQuery(clientId) })
+  assert.equal(res.statusCode, 302)
+  const cookie = res.headers['Set-Cookie']
+  assert.match(cookie, /^__session=[a-f0-9]{64}; Max-Age=600; Path=\/oauth; Secure; HttpOnly; SameSite=Lax$/)
+  assert.match(res.headers['Cache-Control'], /\bprivate\b/)
+  assert.match(res.headers['Cache-Control'], /\bno-store\b/)
+  assert.equal(res.headers['Access-Control-Allow-Origin'], undefined)
+  const browser = /^__session=([a-f0-9]{64});/.exec(cookie)[1]
+  const stored = data.get(`oauthRequests/${requestOf({ location: res.headers.Location })}`)
+  assert.equal(stored.browserHash, hash(browser))
+  assert.equal(JSON.stringify(stored).includes(browser), false, 'the raw browser id is not stored')
+  // A returning browser keeps its id (other cookies around it are ignored); a malformed one gets a new id.
+  const again = await authorize(db, authorizeQuery(clientId), { cookie: `a=1; __session=${browser}; b=2` })
+  assert.equal(browserOf(again), browser)
+  const fresh = await authorize(db, authorizeQuery(clientId), { cookie: '__session=not-an-id' })
+  assert.notEqual(browserOf(fresh), browser)
+  const errored = await authorize(db, authorizeQuery(clientId, { scope: 'admin' }))
+  assert.equal(errored.headers, undefined, 'error redirects set no cookie')
+})
+
+test('consent refuses another browser for describe, approve and deny, and the request survives for the right one', async () => {
+  const { db, data } = makeStore()
+  const { client_id: clientId } = (await register(db)).body
+  const started = await authorize(db, authorizeQuery(clientId))
+  const request = requestOf(started)
+  const consent = createConsentService(db, auth, allow)
+  for (const browser of [null, undefined, 'f'.repeat(64), browserOf(started).slice(1) + '0']) {
+    for (const action of ['describe', 'approve', 'deny']) {
+      await assert.rejects(consent.handle(uid, { action, request, browser }), otherBrowser, `${action} ${browser}`)
+    }
+  }
+  assert.equal(data.has(`oauthRequests/${request}`), true, 'a refused decision does not consume the request')
+  assert.equal(docs(data, 'oauthGrants').length + docs(data, 'oauthCodes').length, 0)
+  const { redirectUrl } = await consent.handle(uid, { action: 'approve', request, browser: browserOf(started) })
+  assert.ok(new URL(redirectUrl).searchParams.get('code'))
+  await assert.rejects(consent.handle(uid, { action: 'approve', request, browser: browserOf(started) }), /expired/)
+  // A request stored without a binding (none in production) is refused too.
+  const legacy = requestOf(await authorize(db, authorizeQuery(clientId)))
+  const { browserHash, ...unbound } = data.get(`oauthRequests/${legacy}`)
+  data.set(`oauthRequests/${legacy}`, unbound)
+  await assert.rejects(consent.handle(uid, { action: 'approve', request: legacy, browser: browserHash }), otherBrowser)
+})
+
+test('two concurrent sign-ins in one browser both complete', async () => {
+  const store = makeStore()
+  const { client_id: clientId } = (await register(store.db)).body
+  const first = await authorize(store.db, authorizeQuery(clientId, { state: 'one' }))
+  const browser = browserOf(first)
+  const second = await authorize(store.db, authorizeQuery(clientId, { state: 'two' }), { cookie: `__session=${browser}` })
+  assert.equal(browserOf(second), browser)
+  const consent = createConsentService(store.db, auth, allow)
+  const decide = async (started) => new URL((await consent.handle(uid,
+    { action: 'approve', request: requestOf(started), browser })).redirectUrl)
+  const [two, one] = [await decide(second), await decide(first)]
+  assert.deepEqual([one.searchParams.get('state'), two.searchParams.get('state')], ['one', 'two'])
+  for (const url of [one, two]) {
+    assert.equal((await exchange(store.db, clientId, url.searchParams.get('code'))).status, 200)
+  }
+})
+
+test('POST /oauth/consent-action: Hub Origin, ID token and binding cookie required; no CORS', async () => {
+  const { db, data } = makeStore()
+  const { client_id: clientId } = (await register(db)).body
+  const started = await authorize(db, authorizeQuery(clientId))
+  const request = requestOf(started)
+  const consent = () => ({
+    verifyIdToken: async (token) => { if (token !== 'id-token') throw new Error('bad token'); return { uid } },
+    service: () => createConsentService(db, auth, allow)
+  })
+  const post = (action, { origin = ISSUER, cookie = `__session=${browserOf(started)}`, idToken = 'id-token' } = {}) =>
+    call(db, { method: 'POST', path: '/oauth/consent-action', headers: { origin, cookie },
+      body: { action, request, idToken } }, { consent })
+  for (const origin of [null, 'https://evil.example', 'https://danang-hub-app.web.app']) {
+    const res = await post('approve', { origin })
+    assert.equal(res.statusCode, 403, String(origin))
+    assert.equal(res.body.reason, 'origin')
+  }
+  for (const idToken of [null, 'forged']) {
+    const res = await post('approve', { idToken })
+    assert.equal(res.statusCode, 401)
+    assert.deepEqual([res.body.error, res.body.reason], ['unauthenticated', undefined])
+  }
+  const elsewhere = await post('approve', { cookie: `__session=${'e'.repeat(64)}` })
+  assert.equal(elsewhere.statusCode, 403)
+  assert.deepEqual([elsewhere.body.error, elsewhere.body.reason], ['permission-denied', 'browser'])
+  assert.match(elsewhere.body.message, /opened in a different browser/)
+  assert.equal((await post('deny', { cookie: '' })).statusCode, 403)
+  assert.equal(data.has(`oauthRequests/${request}`), true)
+  const described = await post('describe')
+  assert.equal(described.statusCode, 200)
+  assert.equal(described.body.redirectHost, 'claude.ai')
+  const res = await post('approve')
+  assert.equal(res.statusCode, 200)
+  assert.equal(new URL(res.body.redirectUrl).searchParams.get('state'), 'st-1')
+  assert.equal(res.headers['Access-Control-Allow-Origin'], undefined)
+  assert.equal(res.headers['Cache-Control'], 'private, no-store')
+  assert.equal((await post('approve')).statusCode, 404, 'single use')
+  assert.equal((await call(db, { method: 'OPTIONS', path: '/oauth/consent-action' }, { consent })).statusCode, 404,
+    'no CORS preflight')
 })
 
 test('code exchange: PKCE, single use, 60 s expiry, no raw secrets stored', async () => {

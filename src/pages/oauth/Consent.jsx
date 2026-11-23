@@ -12,8 +12,9 @@ import './Consent.css'
 
 // MCP OAuth consent (#263). Outside ProtectedRoute: it does its own sign-in
 // and email checks and keeps the request id in its URL, so a member who
-// signs in or verifies comes back to this same request. The oauthConsent
-// callable re-checks the account (requireUser) and is authoritative.
+// signs in or verifies comes back to this same request. The server
+// (POST /oauth/consent-action) re-checks the account (requireUser) and the
+// browser binding from /oauth/authorize, and is authoritative.
 
 const ConsentShell = ({ children }) => {
   const { theme } = useTheme()

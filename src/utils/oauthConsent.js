@@ -9,15 +9,22 @@ export const consentPath = (id) => `/oauth/consent?request=${encodeURIComponent(
 // survives the trip through /login (Login runs it through toSafeRedirectPath).
 export const consentLoginPath = (id) => `/login?redirect=${encodeURIComponent(consentPath(id))}`
 
-// Maps an oauthConsent callable error to what the page shows.
+// Same-origin endpoint on the `oauth` function (firebase.json rewrite).
+export const CONSENT_ACTION_PATH = '/oauth/consent-action'
+
+// An error response body ({ error, reason, message }) as a thrown Error.
+export const consentError = (body) =>
+  Object.assign(new Error(body?.message || 'Consent request failed'), { code: body?.error, reason: body?.reason })
+
+// Maps a consent-action error to what the page shows.
 export const consentErrorKind = (error) => {
-  if (error?.code === 'functions/unauthenticated') {
+  if (error?.code === 'unauthenticated') {
     // requireUser: no reason = signed out; 'disabled' is not fixable here.
-    const reason = error.details?.reason
-    if (reason === 'unverified') return 'unverified'
-    return reason ? 'failed' : 'signIn'
+    if (error.reason === 'unverified') return 'unverified'
+    return error.reason ? 'failed' : 'signIn'
   }
-  if (error?.code === 'functions/not-found') return 'expired'
-  if (error?.code === 'functions/invalid-argument') return 'invalid'
+  if (error?.code === 'permission-denied' && error.reason === 'browser') return 'otherBrowser'
+  if (error?.code === 'not-found') return 'expired'
+  if (error?.code === 'invalid-argument') return 'invalid'
   return 'failed'
 }

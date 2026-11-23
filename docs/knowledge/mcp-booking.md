@@ -254,6 +254,7 @@ booking status again after submission.
 | 401 / invalid or expired token | Check the `Bearer ` prefix and token, with no extra quotes. Tokens expire after 90 days; revoked tokens cannot be restored. |
 | Sign-in connector says it can't connect, or asks to sign in again | Use the exact Hosting URL (`app.danangblockchainhub.com/mcp`, not the raw function URL). After Disconnect, or 90 days after approving, reconnect and approve again. |
 | Consent page says the request expired | Requests last 10 minutes and work once: start the connection again from the AI app. |
+| Consent page says the link was opened in a different browser | The consent page only works in the browser that started the sign-in (it was redirected there by the AI app). Don't copy the link to another browser or device; if you verified your email in another app, go back to the original tab. Otherwise start the connection again from the AI app. |
 | Replacement token still fails | Update the client's saved header/environment, then reconnect or restart it. Only one token is active per member. |
 | Verify-email / incomplete-profile error | Sign in to the Hub, complete required verification and profile fields, then retry. |
 | 429 / too many requests | Pause at least one minute; avoid automatic retry loops. |
@@ -344,10 +345,15 @@ first; production smoke bookings require appropriate test data and cleanup.
 
 ### OAuth sign-in (#263 phases 2 and 3)
 
-The `oauth` function and `oauthConsent` callable serve the authorization
-server; both must be publicly invokable and do their own validation. Hosting
-rewrites send `/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke`
-to `oauth`; `/oauth/consent` is the SPA consent page. Discovery is on
+The `oauth` function serves the authorization server; it must be publicly
+invokable and does its own validation. Hosting rewrites send
+`/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke|consent-action`
+to `oauth`; `/oauth/consent` is the SPA consent page, which POSTs to
+`/oauth/consent-action` with the member's ID token. `/oauth/authorize` binds
+each request to the browser with an HttpOnly `__session` cookie, and
+consent-action refuses any other browser (403 `reason: browser`). The
+`oauthConsent` callable is a retired stub that approves nothing; it stays
+exported only so a deploy does not try to delete it. Discovery is on
 (`DISCOVERY_ENABLED` in `functions/oauth/config.js`); setting it to `false`
 returns the three metadata paths to JSON 404 and drops `resource_metadata`
 from the 401 without touching issued grants.

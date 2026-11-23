@@ -990,6 +990,8 @@
       "invalid": "Quay lại ứng dụng AI và kết nối Hub lại.",
       "expiredTitle": "Yêu cầu đăng nhập đã hết hạn",
       "expired": "Mỗi yêu cầu có hiệu lực 10 phút và chỉ dùng một lần. Quay lại ứng dụng AI và kết nối Hub lại.",
+      "otherBrowserTitle": "Liên kết đăng nhập này thuộc về trình duyệt khác",
+      "otherBrowser": "Liên kết đăng nhập này đã được mở trong một trình duyệt khác. Hãy bắt đầu kết nối lại từ ứng dụng của bạn.",
       "failedTitle": "Đã xảy ra lỗi",
       "failed": "Không thể hoàn tất yêu cầu. Kiểm tra kết nối rồi thử lại.",
       "signIn": "Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.",

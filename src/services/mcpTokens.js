@@ -1,7 +1,8 @@
 import { httpsCallable } from 'firebase/functions'
-import { functions } from './firebase'
+import { auth, functions } from './firebase'
 import { firebaseConfig } from './firebaseConfig'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { CONSENT_ACTION_PATH, consentError } from '../utils/oauthConsent'
 
 // Production serves /mcp through a Hosting rewrite on the branded origin (the OAuth
 // resource URL); other projects use the raw function URL, which also takes dhm_ tokens.
@@ -39,8 +40,19 @@ export const disconnectApp = async (grantId) => {
 
 // OAuth consent: describe a stored authorization request, or approve/deny it.
 // Approve and deny resolve to { redirectUrl } for the AI app's callback.
+// Same-origin POST to the `oauth` function (Hosting rewrite), so the
+// browser-binding cookie set by /oauth/authorize goes along; the ID token
+// in the body identifies the member.
 export const oauthConsent = async (action, request) => {
   if (LOCAL_DEV_MODE) return action === 'describe' ? LOCAL_CONSENT : { redirectUrl: '/member/profile' }
-  const result = await httpsCallable(functions, 'oauthConsent')({ action, request })
-  return result.data
+  const idToken = await auth.currentUser?.getIdToken()
+  const response = await fetch(CONSENT_ACTION_PATH, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, request, idToken })
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw consentError(body)
+  return body
 }
