@@ -308,7 +308,6 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | `generateWalletNonce` | Callable | Generates a 32-byte hex nonce for wallet sign-in (5-min expiry) |
 | `verifyWalletSignature` | Callable | Verifies EVM or Solana signature → returns Firebase custom token |
 | `autoCheckoutExpiredBookings` | Scheduled (hourly) | Auto-completes bookings past their end time or booking date, then syncs Partner Desk days (books attached members on their partner's desk 28 days ahead, cancels days of detached members); cancels unapproved renewal days instead of completing them, and sends Fixed Desk ending reminders 3 days ahead |
-| `sendBookingConfirmation` | Firestore trigger (onCreate) | Logs booking confirmation details for future email delivery |
 | `autoApproveDeskBooking` | Firestore trigger (onCreate) | Cancels a member's single desk booking that would go over 40 desk hours that month (`monthly-hours-limit`), otherwise auto-approves available single desk bookings (never desk plans) or notifies admins of manual review work; booking review push follows the same path for opted-in admins |
 | `notifyBookingApproval` | Firestore trigger (onUpdate) | Writes a member in-app notification when a booking is approved, or cancelled for them by an admin/script (`cancelledReason` set), and sends the matching push for opted-in members |
 | `notifyEventPendingReview` | Firestore trigger (onCreate) | Writes admin in-app notifications for a new pending event request and sends review push for opted-in admins |
