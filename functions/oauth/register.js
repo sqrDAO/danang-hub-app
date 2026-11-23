@@ -137,5 +137,6 @@ const registerClient = async (db, body, {ip, now = Date.now()} = {}) => {
 };
 
 module.exports = {
-  registerClient, validateMetadata, unusedCount, UNUSED_DOC, GRANTS,
+  registerClient, validateMetadata, unusedCount, cleanName, UNUSED_DOC,
+  GRANTS,
 };

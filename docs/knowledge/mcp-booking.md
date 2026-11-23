@@ -45,18 +45,18 @@ post-deploy checks (Claude web, Claude Desktop) confirm the sign-in rows.
 | OpenClaw (current native MCP registry) | Streamable HTTP with an environment-backed header |
 | Hermes Agent (NousResearch) | Remote HTTP with an environment-backed header |
 | Claude Team / Enterprise shared connector | Do not install a member's personal token as an organization-wide credential |
-| ChatGPT custom MCP app/plugin | **Sign in** (OAuth). End-to-end verification with ChatGPT is #263 phase 4 |
+| ChatGPT custom MCP app/plugin | **Sign in** (OAuth); steps below |
 
 ### Claude web
 
 1. In Claude, open **Customize → Connectors → Add custom connector** (wording may
    vary by plan).
 2. Name it `danang-hub` and enter `https://app.danangblockchainhub.com/mcp`. Leave
-   the advanced OAuth client fields and request headers empty: Claude registers
-   itself with the Hub.
+   the advanced OAuth client fields and request headers empty: Claude identifies
+   itself with its hosted client metadata document (or registers itself).
 3. Click **Connect**. The Hub portal opens: sign in (email, Google or wallet),
    verify your email if asked, then check the consent page. It shows the app's
-   self-declared name and where it sends you back (`claude.ai`). **Approve**.
+   name and where it sends you back (`claude.ai`). **Approve**.
 4. Back in Claude, enable the connector in a chat and ask: “Use danang-hub to
    list amenities. Do not create a booking.”
 
@@ -232,11 +232,13 @@ ChatGPT's custom MCP flow supports OAuth, which the Hub now offers at
 `https://app.danangblockchainhub.com/mcp`. Add it under **Plugins → + → Add
 custom MCP server** (legacy: **Settings → Apps → Create**), subject to
 account/workspace permissions, choose OAuth, and sign in and approve in the Hub
-as for Claude web. ChatGPT registers itself; do not paste a personal token (it
-cannot send custom API keys). End-to-end verification with ChatGPT, including
-its stable callback, is phase 4 of
-[#263](https://github.com/sqrDAO/danang-hub-app/issues/263); until then, use Claude
-if the ChatGPT connection fails.
+as for Claude web. Leave any client ID or secret fields empty: ChatGPT
+identifies itself with its client metadata document
+(`https://chatgpt.com/oauth/client.json`) and returns to
+`chatgpt.com/connector_platform_oauth_redirect`; the consent page shows
+**ChatGPT** and `chatgpt.com`. Do not paste a personal token (ChatGPT cannot
+send custom API keys). If the connection fails, use Claude and report it on
+[#263](https://github.com/sqrDAO/danang-hub-app/issues/263).
 
 Sources: [OpenAI connection instructions](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
 and [authentication requirements](https://developers.openai.com/plugins/build/auth).
@@ -343,7 +345,7 @@ behavior. Approved desk bookings intentionally cannot be cancelled through MCP.
 Never include the secret in screenshots or test reports. Run this in emulators
 first; production smoke bookings require appropriate test data and cleanup.
 
-### OAuth sign-in (#263 phases 2 and 3)
+### OAuth sign-in (#263 phases 2 to 4)
 
 The `oauth` function serves the authorization server; it must be publicly
 invokable and does its own validation. Hosting rewrites send
@@ -357,6 +359,29 @@ exported only so a deploy does not try to delete it. Discovery is on
 (`DISCOVERY_ENABLED` in `functions/oauth/config.js`); setting it to `false`
 returns the three metadata paths to JSON 404 and drops `resource_metadata`
 from the 401 without touching issued grants.
+
+Clients identify themselves in one of two ways. Dynamic registration
+(`/oauth/register`, `dhc_` ids in `oauthClients`) is the fallback every client
+supports. Client ID Metadata Documents (CIMD, phase 4): a `client_id` that is
+one of three exact URLs (ChatGPT, Claude web/Desktop/mobile, Claude Code; the
+list and its sources are in `functions/oauth/cimd.js` and the design doc) is
+fetched by the `oauth` function (3 s, 16 KB, no redirects, cached 1 h per
+instance) and validated; any other URL `client_id` is refused without a
+fetch. If the host later answers 403, 408, 429 or 5xx or times out, the last
+validated document keeps serving for up to 24 h (log: `oauth: CIMD serving
+stale client metadata`), and the failure is remembered 30 s. CIMD clients have no `oauthClients` doc: their validated name is
+stored on the request and then the grant, so Connected apps and Disconnect
+work as for DCR. If a document cannot be fetched, `/oauth/authorize` shows an
+error page (503) and `/oauth/token` answers 503 `temporarily_unavailable`;
+an invalid document gets 400 / 401 `invalid_client`. Refusals are logged as
+`oauth: CIMD client refused` with the reason.
+
+To roll back CIMD, set `CIMD_ADVERTISED = false` in
+`functions/oauth/config.js` and deploy `oauth`: new connections register
+through DCR, and existing CIMD grants keep refreshing because the allowlist
+still accepts their URLs. Do not remove a URL from the allowlist instead:
+clients keep sending it while CIMD is advertised, so new sign-ins fail and
+that client's existing grants stop refreshing.
 
 `mcp` tells Hosting requests from raw ones by `X-Forwarded-Host` (last entry)
 equal to `app.danangblockchainhub.com` (`functions/oauth/resource.js`): only
@@ -383,7 +408,9 @@ Smoke checks after deploy (no member data involved):
 `curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`
 returns 200 with `"resource":"https://app.danangblockchainhub.com/mcp"`, and
 `.../.well-known/oauth-authorization-server` lists
-`code_challenge_methods_supported: ["S256"]`; a registration
+`code_challenge_methods_supported: ["S256"]`,
+`authorization_response_iss_parameter_supported: true` and
+`client_id_metadata_document_supported: true`; a registration
 with `{"redirect_uris":["https://evil.example/cb"]}` posted to `/oauth/register`
 returns 400 `invalid_redirect_uri`. Time a cold `POST /oauth/token` (decision
 5: Claude allows 10 s).

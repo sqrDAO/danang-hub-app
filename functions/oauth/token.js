@@ -4,7 +4,8 @@
 const {LIFETIME, RESOURCE} = require("./config");
 const {sha256, randomHex, ts, millis, expired, verifyPkce} =
   require("./util");
-const {loadClient, checkScope} = require("./authorize");
+const {resolveClient, checkScope} = require("./authorize");
+const {isUrlClientId} = require("./cimd");
 const {UNUSED_DOC, GRANTS} = require("./register");
 
 const ACCESS = /^dha_[a-f0-9]{64}$/;
@@ -52,7 +53,9 @@ const writeTokens = (tx, db, grantId, grant, now) => {
 
 // Every token exchange keeps a client alive 30 more days; the first one
 // also takes it off the unused-client ceiling.
+// A CIMD client has no oauthClients doc to keep alive.
 const prepareClientUse = async (tx, db, clientId) => {
+  if (isUrlClientId(clientId)) return () => {};
   const clientRef = db.collection("oauthClients").doc(clientId);
   const unusedRef = db.collection("oauthRateLimits").doc(UNUSED_DOC);
   const client = (await tx.get(clientRef)).data();
@@ -160,14 +163,21 @@ const GRANT_HANDLERS = new Map([
 const isForm = (headers) => /^application\/x-www-form-urlencoded\b/i
     .test((headers && headers["content-type"]) || "");
 
-const token = async (db, params, {now = Date.now(), headers} = {}) => {
+const token = async (db, params, {now = Date.now(), headers,
+  fetchCimd} = {}) => {
   if (!isForm(headers)) {
     return fail("invalid_request",
         "Use application/x-www-form-urlencoded.");
   }
   const p = params || {};
-  const client = await loadClient(db, p.client_id, now);
-  if (!client) return fail("invalid_client", "Unknown client_id.", 401);
+  const {client, error} = await resolveClient(db, p.client_id,
+      {now, fetchCimd});
+  if (error && error.kind === "unavailable") {
+    return {status: 503, headers: {"Retry-After": "30"}, body: {
+      error: "temporarily_unavailable",
+      error_description: error.description}};
+  }
+  if (error) return fail("invalid_client", error.description, 401);
   const handler = GRANT_HANDLERS.get(p.grant_type);
   if (!handler) {
     return fail("unsupported_grant_type",

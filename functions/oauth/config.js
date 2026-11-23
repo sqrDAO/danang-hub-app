@@ -12,6 +12,13 @@ const REQUEST_SCOPES = [SCOPE, "offline_access"];
 // Setting this back to false turns sign-in discovery off again without
 // touching issued grants (existing dha_ tokens keep working until revoked).
 const DISCOVERY_ENABLED = true;
+// Phase 4: advertise CIMD (client_id_metadata_document_supported). This is
+// the CIMD rollback switch: set it to false and new connections from Claude
+// and ChatGPT use dynamic registration again, while the allowlist in
+// ./cimd.js keeps accepting the URLs so existing CIMD grants still refresh.
+// Do not roll back by emptying the allowlist: clients keep sending the URL
+// while this is advertised, and existing CIMD grants would fail at refresh.
+const CIMD_ADVERTISED = true;
 
 const SECOND = 1000;
 const HOUR = 3600 * SECOND;
@@ -42,8 +49,9 @@ const protectedResourceMetadata = () => ({
   bearer_methods_supported: ["header"],
 });
 
-// client_id_metadata_document_supported is added in phase 4 (CIMD).
-const authorizationServerMetadata = () => ({
+// Phase 4: CIMD for the allowlisted client_id URLs in ./cimd.js; RFC 9207
+// `iss` is on every authorization response (authorize.js redirectWith).
+const authorizationServerMetadata = ({cimd = CIMD_ADVERTISED} = {}) => ({
   issuer: ISSUER,
   authorization_endpoint: `${ISSUER}/oauth/authorize`,
   token_endpoint: `${ISSUER}/oauth/token`,
@@ -56,10 +64,12 @@ const authorizationServerMetadata = () => ({
   revocation_endpoint_auth_methods_supported: ["none"],
   scopes_supported: REQUEST_SCOPES,
   authorization_response_iss_parameter_supported: true,
+  ...(cimd ? {client_id_metadata_document_supported: true} : {}),
 });
 
 module.exports = {
-  ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, DISCOVERY_ENABLED, HOUR, DAY,
+  ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, DISCOVERY_ENABLED,
+  CIMD_ADVERTISED, HOUR, DAY,
   LIFETIME, LIMITS,
   protectedResourceMetadata, authorizationServerMetadata,
 };
