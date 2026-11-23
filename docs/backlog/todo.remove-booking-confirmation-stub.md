@@ -12,6 +12,7 @@ cancellation (`notifyBookingApproval`), so delete the stub rather than build an 
 - `README.md` (edited) — remove its Cloud Functions table row
 - `docs/knowledge/data-flow.md` (edited) — drop booking-create step 3 and its table row
 - `.github/copilot-instructions.md` (edited) — drop its function-list line
+- `docs/backlog/todo.remove-booking-confirmation-stub.md` (new) — this spec
 
 ## Acceptance
 - [ ] `functions/index.js` exports no `sendBookingConfirmation`
@@ -26,7 +27,7 @@ cancellation (`notifyBookingApproval`), so delete the stub rather than build an 
 ## Verify
 - `grep -rn "sendBookingConfirmation" functions/index.js README.md docs/knowledge .github` → no output
 - `cd functions && npm run lint` → exit 0
-- `npm test` → all pass
+- `npm test` → only the 2 failures that also fail on `main` (`test/mcp.test.js`, `test/emailTransport.test.js`)
 - post-merge (owner): `firebase functions:list --project danang-hub-app` → no `sendBookingConfirmation`
 - regression: create a desk booking in prod → `firebase functions:log --only autoApproveDeskBooking` shows it fired and the booking is approved
 
