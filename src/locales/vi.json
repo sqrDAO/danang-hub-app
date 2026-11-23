@@ -936,7 +936,7 @@
     "cooldownRemaining": "Có thể tạo token mới sau {{seconds}} giây.",
     "title": "Đặt chỗ qua trợ lý AI",
     "help": "Token cá nhân cho phép trợ lý xem lịch đặt chỗ của bạn, kiểm tra chỗ trống, tạo yêu cầu đặt chỗ và hủy lượt đặt riêng lẻ đang chờ duyệt. Token hết hạn sau 90 ngày. Giữ bí mật và thu hồi tại đây để ngắt kết nối.",
-    "compatibility": "Dùng ứng dụng MCP hỗ trợ header Authorization: Bearer tùy chỉnh. Chưa hỗ trợ kết nối OAuth một chạm.",
+    "compatibility": "Claude (web, Desktop và di động) có thể kết nối bằng cách đăng nhập tài khoản Hub: thêm URL máy chủ MCP làm connector tùy chỉnh. Với ứng dụng chỉ nhận header như Claude Code, dùng token cá nhân với Authorization: Bearer.",
     "endpoint": "URL máy chủ MCP",
     "preview": "Không thể tạo token trong bản xem trước cục bộ.",
     "active": "Token đang hoạt động · hết hạn {{date}} (giờ Hub)",
@@ -946,6 +946,54 @@
     "create": "Tạo token",
     "revoke": "Thu hồi token",
     "error": "Không thể cập nhật token. Kiểm tra kết nối, đợi một phút rồi thử lại.",
-    "source": "Trợ lý AI"
+    "source": "Trợ lý AI",
+    "apps": {
+      "title": "Ứng dụng đã kết nối",
+      "help": "Các ứng dụng AI bạn đã cho phép bằng cách đăng nhập. Ngắt kết nối để ứng dụng không thể thao tác thay bạn nữa; ứng dụng sẽ phải yêu cầu bạn đăng nhập lại.",
+      "empty": "Chưa có ứng dụng nào được kết nối.",
+      "redirect": "Quay về {{host}}",
+      "connected": "Kết nối ngày {{date}}",
+      "lastUsed": "dùng lần cuối {{date}}",
+      "neverUsed": "chưa sử dụng",
+      "disconnect": "Ngắt kết nối",
+      "confirmTitle": "Ngắt kết nối ứng dụng này?",
+      "confirmBody": "Ứng dụng đăng nhập qua {{host}} sẽ mất quyền truy cập lịch đặt chỗ của bạn ngay lập tức. Các lượt đặt chỗ đã tạo vẫn được giữ.",
+      "error": "Không thể ngắt kết nối ứng dụng. Kiểm tra kết nối rồi thử lại.",
+      "loadError": "Không thể tải danh sách ứng dụng đã kết nối. Kiểm tra kết nối rồi tải lại trang."
+    }
+  },
+  "oauth": {
+    "title": "Kết nối ứng dụng AI với tài khoản Hub?",
+    "lead": "Một ứng dụng AI muốn dùng công cụ đặt chỗ của Hub thay cho bạn. Chỉ cho phép nếu chính bạn vừa bắt đầu kết nối này.",
+    "appName": "Tên ứng dụng (do ứng dụng tự đặt, Hub không xác minh)",
+    "appNameHint": "Ứng dụng nào cũng có thể tự đặt tên này. Hãy dựa vào địa chỉ bên dưới.",
+    "unnamedApp": "Ứng dụng không tên",
+    "redirect": "Sau khi bạn quyết định, bạn sẽ quay về",
+    "account": "Đang đăng nhập với",
+    "loopbackWarning": "Ứng dụng này chạy trên chính máy tính của bạn ({{host}}). Chỉ cho phép nếu bạn tự khởi chạy nó, ví dụ từ Claude Code hoặc MCP Inspector. Nếu một trang web yêu cầu bạn cho phép, đó là lừa đảo.",
+    "accessTitle": "Ứng dụng sẽ có thể",
+    "scopes": {
+      "bookings": "Xem tiện ích và lịch trống, xem, tạo và hủy các lượt đặt chỗ của chính bạn."
+    },
+    "revokeHint": "Quyền truy cập kéo dài tối đa 90 ngày. Bạn có thể ngắt kết nối bất cứ lúc nào tại Hồ sơ → Đặt chỗ qua trợ lý AI → Ứng dụng đã kết nối.",
+    "approve": "Cho phép",
+    "deny": "Từ chối",
+    "switchAccount": "Không phải bạn? Đăng xuất và dùng tài khoản khác",
+    "signInTitle": "Đăng nhập để kết nối ứng dụng AI",
+    "signInBody": "Một ứng dụng AI muốn kết nối với tài khoản Hub của bạn. Đăng nhập để xem yêu cầu; sau đó bạn sẽ quay lại trang này.",
+    "signIn": "Đăng nhập",
+    "verifyTitle": "Xác minh email để tiếp tục",
+    "verifyBody": "Hãy xác minh {{email}} trước khi kết nối ứng dụng AI. Liên kết trong email sẽ đưa bạn trở lại yêu cầu này.",
+    "verifySent": "Chúng tôi đã gửi liên kết. Mở liên kết rồi quay lại tab này.",
+    "errors": {
+      "invalidTitle": "Liên kết đăng nhập không đầy đủ",
+      "invalid": "Quay lại ứng dụng AI và kết nối Hub lại.",
+      "expiredTitle": "Yêu cầu đăng nhập đã hết hạn",
+      "expired": "Mỗi yêu cầu có hiệu lực 10 phút và chỉ dùng một lần. Quay lại ứng dụng AI và kết nối Hub lại.",
+      "failedTitle": "Đã xảy ra lỗi",
+      "failed": "Không thể hoàn tất yêu cầu. Kiểm tra kết nối rồi thử lại.",
+      "signIn": "Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.",
+      "unverified": "Hãy xác minh email trước."
+    }
   }
 }

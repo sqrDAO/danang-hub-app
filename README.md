@@ -22,7 +22,7 @@ Live app: **https://app.danangblockchainhub.com**
 - **Monthly desk-hours limit** — members can book up to 40 hours of ordinary desk time per calendar month (hub time); Fixed/Partner Desk days and admins are exempt. The booking page shows hours used and blocks over-limit bookings, and the server cancels any that slip through
 - **Fixed Desk Renewal** — members renew from 7 days before a plan ends to 7 days after; renewals wait for admin approval (approved or rejected as one plan) and don't hold the desk meanwhile; a reminder goes out 3 days before the end
 - **Partner Desks** — members of a partner organization (e.g. 9AM Games, DiiD) are booked on the partner's desk every working day, four weeks ahead, for as long as they stay attached; they can skip single days
-- **AI Agent Booking** — personal access tokens and six MCP booking tools; [setup and first deployment](docs/knowledge/mcp-booking.md). Requires a client supporting bearer headers; OAuth is not included.
+- **AI Agent Booking** — six MCP booking tools at `app.danangblockchainhub.com/mcp`; Claude and ChatGPT connectors sign in with the member's Hub account (OAuth 2.1, consent page at `/oauth/consent`, Connected apps with Disconnect in Profile), other clients use a personal bearer token; [setup and first deployment](docs/knowledge/mcp-booking.md).
 - **Conflict Detection** — real-time server-side conflict checking via Cloud Functions
 - **Recurring Bookings** — weekly recurring reservations
 - **Check-in / Check-out** — manual and automatic checkout (hourly Cloud Function)
@@ -297,10 +297,10 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `mcp` | HTTPS request | Stateless MCP endpoint; bearer-token auth, rate limits, six member booking tools |
-| `oauth` | HTTPS request | OAuth 2.1 authorization server for MCP connectors (#263), served through Hosting rewrites on `app.danangblockchainhub.com`: protected-resource and authorization-server metadata, dynamic client registration (Claude, ChatGPT and loopback callbacks only), authorize, token (PKCE S256, rotating refresh tokens) and revoke. Dark until phase 3: `mcp` does not advertise it and the metadata documents return 404 |
-| `oauthConsent` | Callable | Describe, approve or deny a pending OAuth sign-in request for the signed-in member; approval creates the grant and a 60 s single-use code (consent page ships in phase 3) |
-| `manageMcpToken` | Callable | Issue, inspect and revoke the signed-in member’s one personal token (90-day expiry) |
+| `mcp` | HTTPS request | Stateless MCP endpoint, six member booking tools. Accepts personal `dhm_` tokens anywhere and OAuth `dha_` access tokens (audience-checked) only through Hosting on `app.danangblockchainhub.com`, whose 401 carries `resource_metadata`; 60 requests/min per token or grant |
+| `oauth` | HTTPS request | OAuth 2.1 authorization server for MCP connectors (#263), served through Hosting rewrites on `app.danangblockchainhub.com`: protected-resource and authorization-server metadata, dynamic client registration (Claude, ChatGPT and loopback callbacks only), authorize, token (PKCE S256, rotating refresh tokens) and revoke. Discovery on (`DISCOVERY_ENABLED` in `functions/oauth/config.js`) |
+| `oauthConsent` | Callable | Describe, approve or deny a pending OAuth sign-in request for the signed-in member; approval creates the grant and a 60 s single-use code; called by the `/oauth/consent` page |
+| `manageMcpToken` | Callable | Issue, inspect and revoke the signed-in member’s one personal token (90-day expiry); `listGrants`/`revokeGrant` list and disconnect the member's sign-in apps (Profile → Connected apps) |
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |
 | `checkSlotAvailability` | Callable | Public slot availability check |
 | `editOwnEvent` | Callable | Validates and saves an organizer's future-event revision; resubmits live or rejected events |
@@ -419,13 +419,13 @@ functions/
 | `push_tokens` | Per-phone tokens at `push_tokens/{uid}/devices/{deviceId}`; read only when `preferences.pushNotifications` is on. Device registration, Off and logout delete the legacy `push_tokens/{uid}` doc, which clients can no longer create/update. The sender sets `members.pushTokensMigrated` best effort after confirming legacy absence, then skips legacy reads. Off/logout invalidate in-flight registration and revoke this browser's subscription. Registration is serialized so a late cancelled operation is cleaned up before another account registers. A successful revoke keeps Off even if document cleanup fails; logout retains the marker for next-login intent. Unrecoverable FCM errors prune every doc holding the invalid token. |
 | `push_notifications` | Internal dedupe markers for browser push alerts; expired markers are deleted by schedule and carry `expiresAt` for optional Firestore TTL |
 | `importRateLimits` | Server-only per-account import counters (`windowStart` in milliseconds and `count`), allowing 10 attempts per hour, including failed page fetches |
-| `mcpTokens` | Server-only SHA-256 token-hash IDs, member ID, expiry and per-minute request counter; raw tokens are never stored |
+| `mcpTokens` | Server-only SHA-256 token-hash IDs, member ID, expiry and per-minute request counter; raw tokens are never stored. Also `oauth_<grantId>` mirrors of live OAuth grants, read by the booking tools' credential check and deleted on revoke |
 | `mcpTokenOwners` | Server-only per-member token metadata/index; one token per member, one generation per minute |
 | `mcpBookingLocks` | Server-only per-amenity transaction serialization documents for MCP creates |
 | `oauthClients` | Server-only OAuth clients from dynamic registration (public, no secret); expire 1 day after registration unless used, then 30 days after each token exchange (`expiresAt` TTL) |
 | `oauthRequests` | Server-only pending authorization requests, 10-minute TTL, consumed once on approve or deny |
 | `oauthCodes` | Server-only SHA-256 hashes of authorization codes (60 s, single use; replaying a code that was already exchanged revokes its grant, a code burned by a failed PKCE check is just refused) |
-| `oauthGrants` | Server-only per-member app connections (client, redirect URI, scope, revoked flag), 90-day cap |
+| `oauthGrants` | Server-only per-member app connections (client, redirect URI, scope, revoked flag, per-minute request counter, `lastUsedAt`), 90-day cap |
 | `oauthTokens` | Server-only SHA-256 hashes of `dha_` access (1 h) and `dhr_` refresh (30 days sliding, rotated on use) tokens with grant, member and audience |
 | `oauthRateLimits` | Server-only registration counters: global hourly cap for hosted callbacks, per-IP hourly cap for loopback, unused-client buckets |
 | `nonces` | Short-lived nonces for wallet auth (keyed by address, deleted after use) |

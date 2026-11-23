@@ -1,11 +1,17 @@
 # Book through an MCP client
 
-Issue #149, phase 1. The server uses stateless Streamable HTTP with JSON responses
-and personal bearer tokens. It does not implement OAuth discovery/authorization;
-clients requiring OAuth (including one-click connection flows) are not supported
-by this phase. A client must allow an `Authorization` header on each request.
+Issue #149, with OAuth sign-in from #263. The server uses stateless Streamable
+HTTP with JSON responses. Two ways to authenticate:
 
-## Member setup
+- **Sign in (OAuth 2.1)**, for Claude web, Desktop and mobile custom connectors:
+  add `https://app.danangblockchainhub.com/mcp`, sign in with your Hub account
+  and approve. Only this Hosting URL offers sign-in; design in
+  [`mcp-oauth-design.md`](mcp-oauth-design.md).
+- **Personal token** (`dhm_`), for clients that send an `Authorization: Bearer`
+  header (Claude Code, OpenClaw, Hermes, the `mcp-remote` bridge). Works at the
+  Hosting URL and the raw function URL.
+
+## Member setup: personal token
 
 1. Sign in to the Hub and complete your name, company and role.
 2. Open Profile → **Book with your AI agent** → **Generate token**.
@@ -18,6 +24,8 @@ by this phase. A client must allow an `Authorization` header on each request.
    revocation (at least one minute after the last generation).
 
 Tokens expire after 90 days and work for email, Google and wallet accounts.
+Apps connected by sign-in are listed under Profile → **Book with your AI agent**
+→ **Connected apps**; **Disconnect** ends that app's access at its next request.
 One token is active per member. Permissions are member-scoped even for admins.
 Revocation prevents new requests; an already completed request is not undone.
 The server also rejects disabled/deleted Firebase accounts on every request
@@ -25,38 +33,50 @@ and honors the profile’s required-email-verification gate.
 
 ## Choose your client
 
-Client documentation checked **2026-11-21**. These instructions describe documented
-compatibility; they are not a claim that each signed-in client has been tested.
+Client documentation checked **2026-11-21**, sign-in rows updated with #263
+phase 3. These instructions describe documented compatibility; the phase 3
+post-deploy checks (Claude web, Claude Desktop) confirm the sign-in rows.
 
 | Client | Current Hub connection |
 | --- | --- |
-| Claude web, individual account | **No working path yet.** The remote connector's request-header option is rejected; OAuth support is tracked in [#263](https://github.com/sqrDAO/danang-hub-app/issues/263) |
-| Claude Desktop, individual account | Local `mcp-remote` bridge in `claude_desktop_config.json`; steps below. The remote request-header connector does not work yet |
+| Claude web, individual account | **Sign in**: custom connector with the Hosting URL, no header; steps below |
+| Claude Desktop, individual account | **Sign in**: same custom connector (synced with Claude web). The local `mcp-remote` bridge with a token still works |
 | Claude Code | HTTP server with an environment-backed bearer header; steps below |
 | OpenClaw (current native MCP registry) | Streamable HTTP with an environment-backed header |
 | Hermes Agent (NousResearch) | Remote HTTP with an environment-backed header |
 | Claude Team / Enterprise shared connector | Do not install a member's personal token as an organization-wide credential |
-| ChatGPT custom MCP app/plugin | Not compatible with this personal-token server yet; OAuth support is required |
+| ChatGPT custom MCP app/plugin | **Sign in** (OAuth). End-to-end verification with ChatGPT is #263 phase 4 |
 
 ### Claude web
 
-**The Hub cannot be connected from Claude web today.** A custom connector set to
-**No sign in** with an `Authorization: Bearer …` request header looks valid but
-fails with "Couldn't reach": the connector's requests are rejected (checked
-2026-11-22, [#261](https://github.com/sqrDAO/danang-hub-app/issues/261)). OAuth
-sign-in, which would make the connector work, is tracked in
-[#263](https://github.com/sqrDAO/danang-hub-app/issues/263). Until then, use
-Claude Code or Claude Desktop with the local bridge below.
+1. In Claude, open **Customize → Connectors → Add custom connector** (wording may
+   vary by plan).
+2. Name it `danang-hub` and enter `https://app.danangblockchainhub.com/mcp`. Leave
+   the advanced OAuth client fields and request headers empty: Claude registers
+   itself with the Hub.
+3. Click **Connect**. The Hub portal opens: sign in (email, Google or wallet),
+   verify your email if asked, then check the consent page. It shows the app's
+   self-declared name and where it sends you back (`claude.ai`). **Approve**.
+4. Back in Claude, enable the connector in a chat and ask: “Use danang-hub to
+   list amenities. Do not create a booking.”
 
-**Do not put your personal Hub token in a shared workspace connector:** its users
+Disconnect in the Hub (Profile → **Connected apps**) or remove the connector in
+Claude. Do not use the raw `cloudfunctions.net` URL here: it accepts only
+personal tokens and offers no sign-in.
+
+**Do not connect a shared workspace connector to your own account:** its users
 would act as you.
 
 ### Claude Desktop
 
-The remote connector under **Customize → Connectors** fails the same way as on
-Claude web. Instead, run the open-source `mcp-remote` bridge locally: Desktop
-starts it as a local server, and it forwards each request to the Hub with your
-header. It needs Node.js 18 or newer on your system (Desktop uses the system Node).
+Use the same custom connector as Claude web (**Customize → Connectors**); Desktop
+opens the Hub sign-in in your browser. Connectors added on Claude web also appear
+in Desktop.
+
+Alternative with a personal token: run the open-source `mcp-remote` bridge
+locally. Desktop starts it as a local server, and it forwards each request to the
+Hub with your header. It needs Node.js 18 or newer on your system (Desktop uses
+the system Node).
 
 1. Open the Desktop config file, creating it if missing (**Settings → Developer →
    Edit Config** opens it):
@@ -94,8 +114,8 @@ There is deliberately **no space** after `Authorization:` in `args`: some client
 split arguments on spaces, so the space lives in the `HUB_AUTH` value instead.
 The token is stored **in plaintext** in this file: keep it private, out of backups
 you share and out of source control. After rotating the token, edit `HUB_AUTH` and
-restart Desktop. If you previously added a Hub remote connector under
-**Customize → Connectors**, remove it to avoid a duplicate that fails.
+restart Desktop. Use either the bridge or the sign-in connector, not both, to
+avoid duplicate tools.
 
 Sources: [mcp-remote custom headers](https://github.com/punkpeye/mcp-remote#custom-headers)
 and [MCP's Claude Desktop local server guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
@@ -201,23 +221,22 @@ per-request `Authorization: Bearer …` header. Names for configuration fields v
 Claude Code uses `mcpServers`, OpenClaw uses `mcp.servers`, and Hermes uses
 `mcp_servers`; do not copy an entire config between products without checking its
 schema. Begin with a private, read-only test and keep write approvals enabled.
-A client that supports only OAuth, unauthenticated HTTP, stdio, or legacy SSE does
-not directly match this server's current setup.
+A client that supports only OAuth can use sign-in at the Hosting URL if its
+callback is on the allowlist (Claude, ChatGPT, or a loopback
+`http://localhost|127.0.0.1:<port>/callback`); unauthenticated HTTP, stdio and
+legacy SSE clients do not match this server.
 
 ### ChatGPT
 
-**The current Hub server cannot be connected directly in ChatGPT.** OpenAI's
-custom MCP flow supports OAuth or unauthenticated servers, and its authentication
-documentation says ChatGPT cannot supply custom API keys. Our server requires a
-personal bearer token and does not offer OAuth. Selecting “No authentication”
-will not bypass Hub authentication. Do not paste your token into a chat or URL.
-
-ChatGPT's current entry point is **Plugins → + → Add custom MCP server**, subject
-to account/workspace permissions; legacy interfaces may show **Settings → Apps →
-Create**. These menus alone do not make this Hub server compatible. Use Claude
-Code or Claude Desktop with the `mcp-remote` bridge above for now. Hub OAuth
-support ([#263](https://github.com/sqrDAO/danang-hub-app/issues/263)) is needed
-before ChatGPT setup can work.
+ChatGPT's custom MCP flow supports OAuth, which the Hub now offers at
+`https://app.danangblockchainhub.com/mcp`. Add it under **Plugins → + → Add
+custom MCP server** (legacy: **Settings → Apps → Create**), subject to
+account/workspace permissions, choose OAuth, and sign in and approve in the Hub
+as for Claude web. ChatGPT registers itself; do not paste a personal token (it
+cannot send custom API keys). End-to-end verification with ChatGPT, including
+its stable callback, is phase 4 of
+[#263](https://github.com/sqrDAO/danang-hub-app/issues/263); until then, use Claude
+if the ChatGPT connection fails.
 
 Sources: [OpenAI connection instructions](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
 and [authentication requirements](https://developers.openai.com/plugins/build/auth).
@@ -233,6 +252,8 @@ booking status again after submission.
 | --- | --- |
 | Generate fails soon after revoking | Wait until 60 seconds after the previous generation, then retry. Revoking does not reset this cooldown. |
 | 401 / invalid or expired token | Check the `Bearer ` prefix and token, with no extra quotes. Tokens expire after 90 days; revoked tokens cannot be restored. |
+| Sign-in connector says it can't connect, or asks to sign in again | Use the exact Hosting URL (`app.danangblockchainhub.com/mcp`, not the raw function URL). After Disconnect, or 90 days after approving, reconnect and approve again. |
+| Consent page says the request expired | Requests last 10 minutes and work once: start the connection again from the AI app. |
 | Replacement token still fails | Update the client's saved header/environment, then reconnect or restart it. Only one token is active per member. |
 | Verify-email / incomplete-profile error | Sign in to the Hub, complete required verification and profile fields, then retry. |
 | 429 / too many requests | Pause at least one minute; avoid automatic retry loops. |
@@ -277,7 +298,7 @@ string in step with this section when tool behavior changes.
 
 ## Limits and storage
 
-- 60 HTTP POST requests per token per minute, including initialization/discovery;
+- 60 HTTP POST requests per token (or per sign-in grant) per minute, including initialization/discovery;
   HTTP 429 includes `Retry-After: 60`. Counter reservations are transactional.
 - 16 KiB request limit; no server-side sessions or GET event stream (405).
 - Unexpected Origin headers get 403; desktop/server clients normally omit Origin.
@@ -288,6 +309,9 @@ string in step with this section when tool behavior changes.
 - Tokens use 256 bits of randomness; only SHA-256 hashes and metadata are stored.
   `mcpTokens`, `mcpTokenOwners` and `mcpBookingLocks` remain default-deny to all
   Firestore clients, including admins. Do not add client-side rules for them.
+  Each sign-in grant also has a mirror doc `mcpTokens/oauth_<grantId>` (`{uid,
+  grantId, expiresAt}` in epoch ms) that the booking tools' in-transaction
+  credential check reads; Disconnect and grant revocation delete it.
 - Token creation responses stay in React component state, never query caches or
   persistent browser storage. Status queries contain metadata only. No token/body
   logging is added. Old token documents are deleted on replacement/revocation.
@@ -319,15 +343,22 @@ behavior. Approved desk bookings intentionally cannot be cancelled through MCP.
 Never include the secret in screenshots or test reports. Run this in emulators
 first; production smoke bookings require appropriate test data and cleanup.
 
-### OAuth authorization server (phase 2 of #263, deployed dark)
+### OAuth sign-in (#263 phases 2 and 3)
 
-The `oauth` function and `oauthConsent` callable are new: the first deploy may
-need the owner invoker setup in README ("New callable functions"). Both must be
-publicly invokable; they do their own validation. Hosting rewrites send
-`/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke` to `oauth`.
-`mcp` does not advertise OAuth and all three `/.well-known/oauth-*` paths
-return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) until
-phase 3, so no connector can start a sign-in and nothing changes for members.
+The `oauth` function and `oauthConsent` callable serve the authorization
+server; both must be publicly invokable and do their own validation. Hosting
+rewrites send `/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke`
+to `oauth`; `/oauth/consent` is the SPA consent page. Discovery is on
+(`DISCOVERY_ENABLED` in `functions/oauth/config.js`); setting it to `false`
+returns the three metadata paths to JSON 404 and drops `resource_metadata`
+from the 401 without touching issued grants.
+
+`mcp` tells Hosting requests from raw ones by `X-Forwarded-Host` (last entry)
+equal to `app.danangblockchainhub.com` (`functions/oauth/resource.js`): only
+those get `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp", scope="bookings"`
+and may use `dha_` access tokens. The raw URL keeps `Bearer realm="Hub MCP"`
+and rejects `dha_` (401 reason `not-hosted`). A forged header on the raw URL
+only changes that caller's own response; `dha_` tokens stay audience-bound.
 
 One-time, as project owner: enable Firestore TTL on `expiresAt` (all values are
 Timestamps) so expired OAuth documents are deleted. TTL deletes within about
@@ -341,10 +372,13 @@ done
 ```
 
 Smoke checks after deploy (no member data involved):
-`curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`,
-`.../.well-known/oauth-protected-resource` and
-`.../.well-known/oauth-authorization-server` return JSON 404
-`{"error":"not_found"}` (not the SPA's HTML); a registration
+`curl -si -X POST https://app.danangblockchainhub.com/mcp` returns 401 with
+`resource_metadata`, while the raw function URL's 401 has only
+`realm="Hub MCP"`;
+`curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`
+returns 200 with `"resource":"https://app.danangblockchainhub.com/mcp"`, and
+`.../.well-known/oauth-authorization-server` lists
+`code_challenge_methods_supported: ["S256"]`; a registration
 with `{"redirect_uris":["https://evil.example/cb"]}` posted to `/oauth/register`
 returns 400 `invalid_redirect_uri`. Time a cold `POST /oauth/token` (decision
 5: Claude allows 10 s).

@@ -4,6 +4,7 @@ const {HttpsError} = require("firebase-functions/v2/https");
 const {LIFETIME} = require("./config");
 const {sha256, randomHex, ts, expired, loopbackParts} = require("./util");
 const {redirectWith} = require("./authorize");
+const {grantCredentialRef} = require("./credential");
 
 const REQUEST_ID = /^[a-f0-9]{32}$/;
 const SCOPE_TEXT = {bookings: "See amenities and availability, and list, " +
@@ -71,6 +72,10 @@ const createConsentService = (db, auth, requireUser) => {
         resource: request.resource, scope: request.scope, revoked: false,
         createdAt: now, lastUsedAt: null,
         expiresAt: ts(now + LIFETIME.grant)});
+      // Mirror for the booking tools' in-transaction credential check
+      // (credential.js); epoch ms like a dhm_ token doc.
+      tx.set(grantCredentialRef(db, grantId), {uid, grantId,
+        createdAt: now, expiresAt: now + LIFETIME.grant});
       tx.set(db.collection("oauthCodes").doc(sha256(code)), {
         grantId, uid, clientId: request.clientId,
         redirectUri: request.redirectUri, resource: request.resource,

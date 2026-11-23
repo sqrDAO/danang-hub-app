@@ -3002,7 +3002,9 @@ exports.mcp = onRequest(
 
 // OAuth 2.1 authorization server for MCP connectors (#263). Reached through
 // Hosting rewrites on app.danangblockchainhub.com; requires stay lazy so the
-// token endpoint's cold start stays low. `mcp` does not advertise it yet.
+// token endpoint's cold start stays low. `mcp` advertises it in its 401 and
+// accepts its dha_ access tokens only for requests that came through Hosting
+// on that origin (functions/oauth/resource.js).
 exports.oauth = onRequest(
     {cors: false, timeoutSeconds: 30, maxInstances: 10},
     (req, res) => require("./oauth/http").createOauthHandler(db)(req, res));

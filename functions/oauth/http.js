@@ -57,8 +57,8 @@ const route = (db, req, now) => {
   return handlers[`${req.method} ${req.path}`];
 };
 
-// `discovery` defaults to DISCOVERY_ENABLED; tests pass true to check the
-// documents phase 3 will publish.
+// `discovery` defaults to DISCOVERY_ENABLED; tests pass false to check the
+// dark (404) mode that phase 2 shipped.
 const createOauthHandler = (db, {now = () => Date.now(),
   discovery = DISCOVERY_ENABLED} = {}) =>
   async (req, res) => {

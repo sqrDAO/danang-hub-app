@@ -938,7 +938,7 @@
     "cooldownRemaining": "Generate a new token in {{seconds}} seconds.",
     "title": "Book with your AI agent",
     "help": "A personal token lets your agent read your bookings, check availability, create pending bookings and cancel your pending individual bookings. It expires after 90 days. Keep it private; revoke it here to disconnect your agent.",
-    "compatibility": "Use an MCP client that supports a custom Authorization: Bearer header. One-click OAuth connections are not supported yet.",
+    "compatibility": "Claude (web, Desktop and mobile) can connect by signing in with your Hub account: add the MCP server URL as a custom connector. For clients that only take a header, such as Claude Code, use a personal token with Authorization: Bearer.",
     "endpoint": "MCP server URL",
     "preview": "Token creation is unavailable in this local preview.",
     "active": "Active token · expires {{date}} (Hub time)",
@@ -948,6 +948,54 @@
     "create": "Generate token",
     "revoke": "Revoke token",
     "error": "Could not update token access. Check your connection, wait one minute and try again.",
-    "source": "AI agent"
+    "source": "AI agent",
+    "apps": {
+      "title": "Connected apps",
+      "help": "AI apps you approved by signing in. Disconnect one to stop it acting for you; it will have to ask you to sign in again.",
+      "empty": "No apps are connected.",
+      "redirect": "Returns to {{host}}",
+      "connected": "Connected {{date}}",
+      "lastUsed": "last used {{date}}",
+      "neverUsed": "not used yet",
+      "disconnect": "Disconnect",
+      "confirmTitle": "Disconnect this app?",
+      "confirmBody": "The app that signs in through {{host}} loses access to your bookings immediately. Bookings it already made are kept.",
+      "error": "Could not disconnect the app. Check your connection and try again.",
+      "loadError": "Could not load connected apps. Check your connection and refresh."
+    }
+  },
+  "oauth": {
+    "title": "Connect an AI app to your Hub account?",
+    "lead": "An AI app is asking to use the Hub booking tools as you. Approve only if you just started this connection yourself.",
+    "appName": "App name (set by the app itself, not verified by the Hub)",
+    "appNameHint": "Any app can choose this name. Rely on the address below instead.",
+    "unnamedApp": "Unnamed app",
+    "redirect": "After you decide, you go back to",
+    "account": "Signed in as",
+    "loopbackWarning": "This app runs on your own computer ({{host}}). Approve only if you started it yourself, for example from Claude Code or MCP Inspector. A website asking you to approve this is a phishing attempt.",
+    "accessTitle": "It will be able to",
+    "scopes": {
+      "bookings": "See amenities and availability, and list, create and cancel your own bookings."
+    },
+    "revokeHint": "Access lasts up to 90 days. You can disconnect it any time in Profile → Book with your AI agent → Connected apps.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "switchAccount": "Not you? Sign out and use another account",
+    "signInTitle": "Sign in to connect your AI app",
+    "signInBody": "An AI app wants to connect to your Hub account. Sign in to review the request; you will come back here afterwards.",
+    "signIn": "Sign in",
+    "verifyTitle": "Verify your email to continue",
+    "verifyBody": "Verify {{email}} before connecting an AI app. The link in the email brings you back to this request.",
+    "verifySent": "We sent you a link. Open it, then come back to this tab.",
+    "errors": {
+      "invalidTitle": "This sign-in link is incomplete",
+      "invalid": "Go back to your AI app and connect the Hub again.",
+      "expiredTitle": "This sign-in request expired",
+      "expired": "Requests last 10 minutes and work once. Go back to your AI app and connect the Hub again.",
+      "failedTitle": "Something went wrong",
+      "failed": "Could not complete the request. Check your connection and try again.",
+      "signIn": "Your session ended. Sign in again to continue.",
+      "unverified": "Verify your email first."
+    }
   }
 }

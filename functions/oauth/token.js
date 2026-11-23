@@ -1,11 +1,12 @@
 // POST /oauth/token and /oauth/revoke, plus access-token validation for the
-// resource server (wired into `mcp` in phase 3). Only SHA-256 hashes of
+// resource server (`mcp`, via mcpTokens.js). Only SHA-256 hashes of
 // codes and tokens are stored.
 const {LIFETIME, RESOURCE} = require("./config");
 const {sha256, randomHex, ts, millis, expired, verifyPkce} =
   require("./util");
 const {loadClient, checkScope} = require("./authorize");
 const {UNUSED_DOC, GRANTS} = require("./register");
+const {grantCredentialRef} = require("./credential");
 
 const ACCESS = /^dha_[a-f0-9]{64}$/;
 const REFRESH = /^dhr_[a-f0-9]{64}$/;
@@ -20,7 +21,8 @@ const grantTokensQuery = (db, grantId) =>
   tokens(db).where("grantId", "==", grantId);
 
 // Reads first (Firestore transactions require it), then returns a writer
-// that marks the grant revoked and deletes all of its tokens.
+// that marks the grant revoked and deletes all of its tokens and its
+// mcpTokens mirror (credential.js), so booking transactions fail too.
 const prepareRevokeGrant = async (tx, db, grantId) => {
   const grantRef = db.collection("oauthGrants").doc(grantId);
   const grant = await tx.get(grantRef);
@@ -28,6 +30,7 @@ const prepareRevokeGrant = async (tx, db, grantId) => {
   return (now) => {
     if (grant.exists) tx.update(grantRef, {revoked: true, revokedAt: now});
     owned.docs.forEach((doc) => tx.delete(tokens(db).doc(doc.id)));
+    tx.delete(grantCredentialRef(db, grantId));
   };
 };
 
@@ -210,7 +213,7 @@ const revoke = async (db, params, {now = Date.now(), headers} = {}) => {
   return {status: 200, body: {}};
 };
 
-// For `mcp` (phase 3): resolve a dha_ bearer token to {uid, grantId} or
+// For `mcp`: resolve a dha_ bearer token to {uid, grantId} or
 // return the reason it is rejected. The audience must be the MCP URL.
 const validateAccessToken = async (db, value, {now = Date.now(),
   audience = RESOURCE} = {}) => {

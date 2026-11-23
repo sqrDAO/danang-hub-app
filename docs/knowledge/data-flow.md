@@ -73,6 +73,14 @@ an Auth email set only that, or leave a legacy value unchanged, so an account th
 profile can keep an old typed address. Wallet accounts have no Auth email and type their own.
 System mail never reads this field (only `getVerifiedEmail`).
 
+One route sits outside `ProtectedRoute` on purpose: `/oauth/consent` (MCP OAuth sign-in, #263,
+`src/pages/oauth/Consent.jsx`). `firstStopPath` would drop its `?request=` id, so the page checks
+sign-in and email verification itself: signed-out members go to
+`/login?redirect=<encodeURIComponent('/oauth/consent?request=…')>` (Login honors it via
+`toSafeRedirectPath`), and email-pending members verify inline with a link whose Continue URL is
+the same consent request. The `oauthConsent` callable re-runs `requireUser`, so the page's checks
+are UX only. Design: `docs/knowledge/mcp-oauth-design.md`.
+
 ---
 
 ## 2. Booking lifecycle

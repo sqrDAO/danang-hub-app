@@ -10,6 +10,9 @@ const { authorize } = require('./oauth/authorize')
 const { token, revoke, validateAccessToken } = require('./oauth/token')
 const { createConsentService } = require('./oauth/consent')
 const { redirectMatches, isAllowedRedirect, verifyPkce, s256 } = require('./oauth/util')
+const { isHostedRequest, challenge: wwwAuthenticate } = require('./oauth/resource')
+const { createTokenService } = require('./mcpTokens')
+const { createBookingTools } = require('./mcpBookings')
 
 const ISSUER = 'https://app.danangblockchainhub.com'
 const RESOURCE = `${ISSUER}/mcp`
@@ -71,18 +74,18 @@ const docs = (data, prefix) => [...data].filter(([path]) => path.startsWith(pref
 const WELL_KNOWN = ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp',
   '/.well-known/oauth-authorization-server']
 
-test('discovery is dark by default: metadata documents return JSON 404, not a page', async () => {
+test('with discovery off (phase 2 dark mode), metadata documents return JSON 404, not a page', async () => {
   const { db } = makeStore()
   for (const path of WELL_KNOWN) {
-    const res = await call(db, { method: 'GET', path })
+    const res = await call(db, { method: 'GET', path }, { discovery: false })
     assert.equal(res.statusCode, 404, path)
     assert.deepEqual(res.body, { error: 'not_found' })
   }
 })
 
-test('metadata documents advertise the canonical resource, S256 and public clients', async () => {
+test('discovery is on: metadata documents return 200 with the canonical resource, S256 and public clients', async () => {
   const { db } = makeStore()
-  const on = { discovery: true }
+  const on = undefined
   for (const path of WELL_KNOWN.slice(0, 2)) {
     const res = await call(db, { method: 'GET', path }, on)
     assert.equal(res.statusCode, 200)
@@ -502,4 +505,132 @@ test('token endpoint rejects grants other than authorization_code and refresh_to
     const result = await token(store.db, { grant_type: grant, client_id: clientId }, FORM)
     assert.equal(result.body.error, 'unsupported_grant_type')
   }
+})
+
+// Phase 3: the resource server (`mcp`) side.
+const HOSTED = { headers: { 'x-forwarded-host': 'app.danangblockchainhub.com' } }
+const METADATA_URL = `${ISSUER}/.well-known/oauth-protected-resource/mcp`
+const memberStore = () => makeStore({
+  [`members/${uid}`]: { displayName: 'Tester', company: 'Hub', jobTitle: 'Builder' },
+  'amenities/desk': { name: 'Desk', type: 'desk', capacity: 1 }
+})
+// Approve and exchange: an access token plus the grant id behind it.
+const connected = async (store, now = Date.now()) => {
+  const flow = await approved(store, now)
+  const grantId = store.data.get(`oauthCodes/${hash(flow.code)}`).grantId
+  const issued = (await exchange(store.db, flow.clientId, flow.code, now)).body
+  return { ...flow, grantId, access: issued.access_token, refresh: issued.refresh_token }
+}
+const reasonOf = (promise) => promise.then(() => null, (e) => {
+  assert.equal(e.code, 'unauthenticated')
+  return e.details.reason
+})
+const manageAs = (service, data, who = uid) => service.manage({ auth: { uid: who }, data })
+
+test('Hosting detection: only the canonical X-Forwarded-Host (last hop) counts as hosted', () => {
+  assert.equal(isHostedRequest(HOSTED), true)
+  assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': 'APP.danangblockchainhub.com' } }), true)
+  assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': 'evil.example, app.danangblockchainhub.com' } }), true)
+  assert.equal(isHostedRequest({ headers: {} }), false, 'raw cloudfunctions.net request')
+  assert.equal(isHostedRequest({ headers: { host: 'us-central1-danang-hub-app.cloudfunctions.net' } }), false)
+  assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': 'danang-hub-app.web.app' } }), false)
+  assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': 'app.danangblockchainhub.com.evil.example' } }), false)
+  assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': ['app.danangblockchainhub.com'] } }), false)
+})
+
+test('401 challenge: resource_metadata and scope only through Hosting; the raw URL keeps the realm', () => {
+  assert.equal(wwwAuthenticate(true), `Bearer resource_metadata="${METADATA_URL}", scope="bookings"`)
+  assert.equal(wwwAuthenticate(false), 'Bearer realm="Hub MCP"')
+  assert.equal(wwwAuthenticate(true, false), 'Bearer realm="Hub MCP"', 'discovery off advertises nothing')
+})
+
+test('mcp accepts a dha_ access token through Hosting, with the dhm_ requireUser gate', async () => {
+  const store = memberStore()
+  const { access, grantId } = await connected(store)
+  const service = createTokenService(store.db, auth)
+  const principal = await service.authenticate('Bearer ' + access, { hosted: true })
+  assert.equal(principal.uid, uid)
+  assert.equal(principal.grantId, grantId)
+  // Booking tools re-check the credential inside their transactions.
+  const tools = createBookingTools(store.db, { isWithinAmenityHours: () => true, computeBookingAvailability: async () => ({}) })
+  assert.deepEqual((await tools.list_amenities(principal, { limit: 20 })).items.map((a) => a.id), ['desk'])
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + access)), 'not-hosted', 'raw URL stays dhm_-only')
+  const unverified = createTokenService(store.db, { getUser: async () => ({ email: 'a@b.c', emailVerified: false }) })
+  await assert.rejects(unverified.authenticate('Bearer ' + access, { hosted: true }), /Verify your email/)
+  const disabled = createTokenService(store.db, { getUser: async () => ({ disabled: true }) })
+  assert.equal(await reasonOf(disabled.authenticate('Bearer ' + access, { hosted: true })), 'disabled')
+  assert.equal(await reasonOf(service.authenticate('Bearer dha_' + '0'.repeat(64), { hosted: true })), 'unknown')
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + flipCase(access), { hosted: true })), 'malformed')
+})
+const flipCase = (value) => value.slice(0, 4) + value.slice(4).toUpperCase()
+
+test('mcp rejects a dha_ token whose aud is not the canonical MCP URL with 401', async () => {
+  const store = memberStore()
+  const { access } = await connected(store)
+  const [path, doc] = docs(store.data, 'oauthTokens').find(([, d]) => d.type === 'access')
+  store.data.set(path, { ...doc, aud: 'https://us-central1-danang-hub-app.cloudfunctions.net/mcp' })
+  const service = createTokenService(store.db, auth)
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + access, { hosted: true })), 'audience')
+})
+
+test('mcp rejects a dha_ token of a revoked or expired grant with 401', async () => {
+  const store = memberStore()
+  const { access, grantId } = await connected(store)
+  const service = createTokenService(store.db, auth)
+  const grantPath = `oauthGrants/${grantId}`
+  const grant = store.data.get(grantPath)
+  store.data.set(grantPath, { ...grant, revoked: true })
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + access, { hosted: true })), 'revoked')
+  store.data.set(grantPath, { ...grant, expiresAt: { toMillis: () => Date.now() - 1 } })
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + access, { hosted: true })), 'revoked')
+})
+
+test('dha_ requests are limited to 60 per minute per grant; lastUsedAt is written once per minute', async () => {
+  const store = memberStore()
+  const { access, grantId } = await connected(store)
+  const service = createTokenService(store.db, auth)
+  const grantPath = `oauthGrants/${grantId}`
+  for (let i = 0; i < 60; i++) await service.authenticate('Bearer ' + access, { hosted: true })
+  const grant = store.data.get(grantPath)
+  assert.equal(grant.count, 60)
+  assert.equal(typeof grant.lastUsedAt, 'number')
+  await assert.rejects(service.authenticate('Bearer ' + access, { hosted: true }), (e) => e.code === 'resource-exhausted')
+  store.data.set(grantPath, { ...grant, lastUsedAt: 1, window: grant.window - 1 })
+  await service.authenticate('Bearer ' + access, { hosted: true })
+  assert.equal(store.data.get(grantPath).count, 1)
+  assert.notEqual(store.data.get(grantPath).lastUsedAt, 1, 'a new window records lastUsedAt')
+})
+
+test('Connected apps: listGrants shows the member\'s live grants only; revokeGrant disconnects', async () => {
+  const store = memberStore()
+  const first = await connected(store)
+  const second = await connected(store, Date.now() + 1000)
+  const service = createTokenService(store.db, auth)
+  const { grants } = await manageAs(service, { action: 'listGrants' })
+  assert.deepEqual(grants.map((g) => g.id), [second.grantId, first.grantId], 'newest first')
+  assert.deepEqual(Object.keys(grants[0]).sort(), ['clientName', 'createdAt', 'expiresAt', 'id', 'lastUsedAt', 'redirectHost'])
+  assert.equal(grants[0].clientName, 'Claude')
+  assert.equal(grants[0].redirectHost, 'claude.ai')
+  assert.deepEqual((await manageAs(service, { action: 'listGrants' }, 'member-b')).grants, [])
+  // Another member cannot disconnect it, and ids are validated.
+  await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: first.grantId }, 'member-b'), /Unknown app/)
+  await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: '../x' }), /Unknown app/)
+  assert.equal(store.data.has(`mcpTokens/oauth_${first.grantId}`), true, 'approve creates the booking-check mirror')
+  assert.deepEqual(await manageAs(service, { action: 'revokeGrant', grantId: first.grantId }), { revoked: true })
+  assert.equal(store.data.get(`oauthGrants/${first.grantId}`).revoked, true)
+  assert.equal(docs(store.data, 'oauthTokens').some(([, d]) => d.grantId === first.grantId), false, 'tokens deleted')
+  assert.equal(store.data.has(`mcpTokens/oauth_${first.grantId}`), false, 'mirror deleted')
+  assert.deepEqual((await manageAs(service, { action: 'listGrants' })).grants.map((g) => g.id), [second.grantId])
+  assert.equal((await refresh(store.db, first.clientId, first.refresh, Date.now())).body.error, 'invalid_grant')
+})
+
+test('after Disconnect, the grant\'s next MCP request and in-flight booking calls fail with 401', async () => {
+  const store = memberStore()
+  const { access, grantId } = await connected(store)
+  const service = createTokenService(store.db, auth)
+  const principal = await service.authenticate('Bearer ' + access, { hosted: true })
+  await manageAs(service, { action: 'revokeGrant', grantId })
+  assert.equal(await reasonOf(service.authenticate('Bearer ' + access, { hosted: true })), 'unknown')
+  const tools = createBookingTools(store.db, { isWithinAmenityHours: () => true, computeBookingAvailability: async () => ({}) })
+  await assert.rejects(tools.list_amenities(principal, { limit: 20 }), (e) => e.code === 'unauthenticated')
 })

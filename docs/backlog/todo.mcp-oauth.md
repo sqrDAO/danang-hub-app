@@ -10,9 +10,13 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
 - `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (`oauthConsent` logic), `http` (router).
 - `functions/index.js` (edited) — export `oauth` and `oauthConsent`; `mcp` 401 adds `resource_metadata` and `scope`.
+- `functions/oauth/resource.js` (new, phase 3) — Hosting-vs-raw detection (`X-Forwarded-Host`) and the 401 challenge; `functions/mcpServer.js` (edited) uses it.
+- `functions/oauth/credential.js` (new, phase 3) — `mcpTokens/oauth_<grantId>` mirror so `mcpBookings.js`'s in-transaction credential check covers grants unchanged; created by `consent.js`, deleted by `token.js` revoke.
 - `functions/mcpTokens.js` (edited) — accept `dha_` access tokens with audience check; `listGrants`/`revokeGrant` actions.
-- `src/pages/oauth/Consent.jsx`, `src/App.jsx`, `src/services/mcpTokens.js` (new/edited) — consent route and service calls.
-- `src/components/McpTokens.jsx` (edited) — Connected apps list with Disconnect.
+- `src/pages/oauth/Consent.jsx`, `Consent.css`, `src/App.jsx`, `src/services/mcpTokens.js`, `src/utils/oauthConsent.js` (new/edited) — consent route, helpers and service calls.
+- `src/hooks/useSendVerificationLink.js` (new), `src/pages/member/VerifyEmail.jsx` (edited) — verification-link hook shared with the consent page's inline verify step.
+- `src/components/McpTokens.jsx`, `McpTokens.css` (edited), `src/components/ConnectedApps.jsx` (new) — Connected apps list with Disconnect (native `<dialog>` via `Modal`).
+- `test/oauthConsent.test.js` (new, phase 3) — login redirect round trip, request id and error mapping.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — consent and connected-apps strings.
 - `firestore.rules`, `test/firestore-mcp.rules.test.js` (edited) — deny-all for `oauthClients`, `oauthRequests`, `oauthCodes`, `oauthGrants`, `oauthTokens`, `oauthRateLimits`.
 - `test/mcpOauth.test.js` (new, phase 2) — PKCE, redirect matching, DCR limits, code single use, refresh rotation and reuse, audience.
@@ -20,33 +24,33 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `docs/knowledge/mcp-booking.md`, `README.md` (edited) — new URL, sign-in setup, functions and collections tables.
 
 ## Acceptance
-- [ ] Unauthenticated `POST /mcp` returns 401 with `WWW-Authenticate` carrying `resource_metadata` and `scope="bookings"`.
-- [ ] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp` (phase 3; phase 2 returns 404 while `DISCOVERY_ENABLED` is false, unit-tested with it on).
+- [x] Unauthenticated `POST /mcp` returns 401 with `WWW-Authenticate` carrying `resource_metadata` and `scope="bookings"`.
+- [x] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp` (phase 3; phase 2 returns 404 while `DISCOVERY_ENABLED` is false, unit-tested with it on).
 - [x] Until phase 3, all three `/.well-known/oauth-*` paths (protected-resource at the root and at `/mcp`, authorization-server) return JSON 404, not the SPA shell.
-- [ ] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
+- [x] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
 - [x] DCR rejects a redirect URI outside the allowlist with `invalid_redirect_uri`.
 - [x] DCR for Claude/ChatGPT callbacks is not limited per IP, only by a global hourly cap.
 - [x] DCR with a loopback redirect is limited to 10 per IP per hour.
 - [ ] Unused clients expire by TTL, and registration returns 503 above the unused-client ceiling.
 - [ ] With the PWA installed, a navigation to `/oauth/authorize` or `/.well-known/*` never gets the cached SPA shell.
-- [ ] A signed-out or email-pending member returns to the same consent request after login or verification.
+- [x] A signed-out or email-pending member returns to the same consent request after login or verification.
 - [x] `/oauth/authorize` with an unregistered redirect URI shows an error page and does not redirect.
 - [x] `/oauth/authorize` without S256 PKCE is rejected.
-- [ ] Consent page shows the redirect hostname and a warning for loopback redirects.
-- [ ] A wallet-signed-in member can approve consent.
+- [x] Consent page shows the redirect hostname and a warning for loopback redirects.
+- [x] A wallet-signed-in member can approve consent.
 - [x] Authorization codes expire after 60 s and work once.
 - [x] A code exchange rejected for a wrong `client_id`, `redirect_uri` or `resource` can be retried; a failed PKCE check burns the code; only a replay of a successfully exchanged code revokes the grant.
 - [x] DCR strips control, bidi, zero-width and blank-rendering (Hangul filler, Braille blank) characters from `client_name` and caps each redirect URI at 256 chars.
 - [x] The token endpoint rejects a grant type the client did not register with `unauthorized_client`; registration defaults to both grants.
 - [x] Refresh rotates the token, and a reused refresh token revokes the grant.
-- [ ] An access token whose `aud` is not the canonical MCP URL gets 401.
-- [ ] Disconnect in Profile makes that grant's next MCP request return 401.
+- [x] An access token whose `aud` is not the canonical MCP URL gets 401.
+- [x] Disconnect in Profile makes that grant's next MCP request return 401.
 - [x] A `dhm_` token works at both the raw function URL and `/mcp` on Hosting.
 - [x] Clients cannot read or write any `oauth*` collection.
 - [ ] Claude web and Claude Desktop connect via sign-in with no request header.
 - [x] NOT: store raw codes or tokens.
 - [x] NOT: support `plain` PKCE, implicit, password or `client_credentials` grants.
-- [ ] NOT: change MCP tool behavior or `mcpBookings.js`.
+- [x] NOT: change MCP tool behavior or `mcpBookings.js`.
 
 ## Verify
 - `npm run lint && npm run build && npm --prefix functions run lint && npm test` → green.
@@ -63,4 +67,6 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Hosting rewrite order matters: specific rewrites before `**`.
 - Phase 3 flips `DISCOVERY_ENABLED` in `functions/oauth/config.js`. Keep the well-known rewrites even while dark: without them `**` answers 200 `index.html`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
+- Phase 3: `mcp` treats a request as Hosting when the last `X-Forwarded-Host` entry is `app.danangblockchainhub.com`; forging it on the raw URL only changes the forger's own response, and `dha_` stays audience-bound.
+- Phase 3: `mcpBookings.js` re-checks `mcpTokens/{principal.hash}` in every booking transaction, so a `dha_` principal carries `hash: oauth_<grantId>`, a mirror doc kept in step with the grant (the design's "principal stays `{uid}`" missed this).
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.

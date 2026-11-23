@@ -1,6 +1,6 @@
 # MCP OAuth sign-in: design
 
-Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: proposed, not built.
+Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: phases 0–3 built; phase 4 (CIMD, ChatGPT verification) open.
 
 Goal: a member adds `https://app.danangblockchainhub.com/mcp` as a Claude
 (web, Desktop, mobile) custom connector or a ChatGPT app, signs in with their
@@ -198,8 +198,11 @@ forwards tokens anywhere (no passthrough).
 
 `authenticate(header)` dispatches on prefix: `dhm_` → existing path unchanged;
 `dha_` → hash lookup, `type == "access"`, not expired, `aud` matches, grant
-not revoked, `requireUser(uid)`, then rate limit. Principal stays `{uid}`, so
-`mcpBookings.js` is untouched. Rate limit: 60 req/min per grant, same
+not revoked, `requireUser(uid)`, then rate limit. `mcpBookings.js` is
+untouched. Phase 3 correction: its booking transactions re-check
+`mcpTokens/{principal.hash}`, so a `dha_` principal is `{uid, grantId, hash:
+"oauth_<grantId>"}` and each grant keeps a mirror doc there
+(`functions/oauth/credential.js`), created on approve and deleted on revoke. Rate limit: 60 req/min per grant, same
 transactional counter as `mcpTokens` (stored on `oauthGrants/{id}`), plus
 `lastUsedAt` (written at most once per minute).
 

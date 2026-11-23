@@ -5,14 +5,13 @@ const RESOURCE = `${ISSUER}/mcp`;
 const SCOPE = "bookings";
 // offline_access is accepted on requests; refresh tokens are issued anyway.
 const REQUEST_SCOPES = [SCOPE, "offline_access"];
-// Phase 2 deploys the server dark: all three discovery paths (protected
-// resource at the root and at /mcp, authorization server) answer 404 so no
-// connector starts a sign-in before the consent page exists. Hosting keeps
-// the well-known rewrites (without them the SPA catch-all would answer
-// 200 text/html), and clients that find no protected-resource metadata fall
-// back to /.well-known/oauth-authorization-server at the origin (MCP
-// 2025-03-26), so that document is gated too. Phase 3 sets this to true.
-const DISCOVERY_ENABLED = false;
+// Phase 2 deployed the server dark (all three discovery paths answered
+// 404). Phase 3 switches discovery on: the protected-resource documents (at
+// the root and at /mcp) and the authorization-server document are served,
+// and `mcp` points at them from its 401 when reached through Hosting.
+// Setting this back to false turns sign-in discovery off again without
+// touching issued grants (existing dha_ tokens keep working until revoked).
+const DISCOVERY_ENABLED = true;
 
 const SECOND = 1000;
 const HOUR = 3600 * SECOND;
