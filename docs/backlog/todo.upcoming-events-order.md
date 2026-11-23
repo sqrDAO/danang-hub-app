@@ -1,5 +1,5 @@
 # Upcoming events list nearest first
-**Phase**: — · **Deps**: —
+**Phase**: — · **Deps**: — · **Issue**: #291
 
 ## Goal
 Every "Upcoming Events" list showed the farthest event first, because `getUpcomingEvents` sorted by date descending and the admin dashboard took the first 5 of a `getEvents` result ordered `date desc`. Sort upcoming lists ascending by start date so the next event leads; past-event lists keep newest first.
