@@ -50,8 +50,9 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [x] A URL `client_id` off the allowlist is refused without any fetch.
 - [x] A CIMD document whose `client_id` differs from its URL is refused.
 - [x] A CIMD document with a redirect URI outside the DCR allowlist is refused.
-- [x] A CIMD fetch that redirects, times out (3 s), exceeds 16 KB or returns non-JSON fails closed with an OAuth error, not a 500.
-- [x] A validated CIMD document is reused from cache for 1 h; failures are not cached.
+- [x] A CIMD fetch that redirects, times out (3 s), exceeds 16 KB or returns non-JSON fails closed with an OAuth error, not a 500; 403, 408, 429 and 5xx give 503.
+- [x] A validated CIMD document is reused for 1 h; an unavailable failure is remembered 30 s, and concurrent fetches are shared.
+- [x] While the host is unavailable, the last validated document serves for up to 24 h past expiry; an invalid document never does.
 - [x] An allowlisted CIMD client completes authorize, consent and token, and its grant shows in Connected apps and can be disconnected.
 - [x] Every authorization redirect (success, error and deny) carries `iss` equal to the issuer.
 - [x] `https://chatgpt.com/connector_platform_oauth_redirect` is accepted for DCR and CIMD.
@@ -75,5 +76,5 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Hosting rewrite order matters: specific rewrites before `**`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.
-- Phase 4: CIMD clients have no `oauthClients` doc; authorize stores `cimd: true` and the validated name on the request, consent copies it to the grant. Once CIMD is advertised, Claude web switches from DCR to its hosted CIMD URL for new connections; existing DCR grants keep working.
+- Phase 4: CIMD clients have no `oauthClients` doc; authorize stores `cimd: true` and the validated name on the request, consent copies it to the grant. Once CIMD is advertised, Claude web switches from DCR to its hosted CIMD URL for new connections; existing DCR grants keep working. Rollback: `CIMD_ADVERTISED = false` in `functions/oauth/config.js` (keep the allowlist, so CIMD grants still refresh); emptying the allowlist breaks them.
 - Phase 3 review: consent moved from the `oauthConsent` callable to `POST /oauth/consent-action` on `oauth`, because only a Hosting rewrite forwards the `__session` binding cookie. The callable stays exported as a stub so the deploy does not try to delete a live function; drop it after `firebase functions:delete oauthConsent`.

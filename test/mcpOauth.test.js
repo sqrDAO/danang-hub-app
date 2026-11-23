@@ -815,9 +815,9 @@ const cimdExchange = (db, clientId, code, redirectUri, now, fetchCimd) => token(
 const startCimd = async (db, clientId, redirectUri, fetchCimd, now = Date.now()) =>
   authorize(db, cimdQuery(clientId, redirectUri), { now, fetchCimd })
 
-test('CIMD allowlist: exactly ChatGPT, Claude and Claude Code; fetch limits 3 s, 16 KB, 1 h cache', () => {
+test('CIMD allowlist: exactly ChatGPT, Claude and Claude Code; fetch limits 3 s, 16 KB, 1 h cache, 24 h stale, 30 s failure', () => {
   assert.deepEqual([...cimd.ALLOWLIST].sort(), [CHATGPT_DOC, CLAUDE_CODE_DOC, CLAUDE_DOC].sort())
-  assert.deepEqual({ ...cimd.FETCH }, { timeoutMs: 3000, maxBytes: 16384, cacheMs: 3600000 })
+  assert.deepEqual({ ...cimd.FETCH }, { timeoutMs: 3000, maxBytes: 16384, cacheMs: 3600000, staleMs: 86400000, failureMs: 30000 })
   for (const near of [CHATGPT_DOC + '/', CHATGPT_DOC + '?x', 'https://CHATGPT.com/oauth/client.json', 'http://chatgpt.com/oauth/client.json',
     'https://chatgpt.com/oauth/abc/client.json', 'https://claude.ai/oauth/mcp-oauth-client-metadata/confidential_client',
     'https://chatgpt.com.evil.example/oauth/client.json', 'https://evil.example/doc', 42]) {
@@ -978,7 +978,7 @@ test('CIMD fails closed on transport: 3xx, 404, 5xx, non-JSON, oversize, slow, n
   assert.equal(off.error.kind, 'invalid')
 })
 
-test('CIMD cache: a validated document is reused for an hour; failures are not cached', async () => {
+test('CIMD cache: a validated document is reused for an hour; an unavailable failure is remembered 30 s', async () => {
   cimd.resetCimdCache()
   const { db } = makeStore()
   const now = Date.now()
@@ -986,13 +986,132 @@ test('CIMD cache: a validated document is reused for an hour; failures are not c
   const { fetch, calls } = stubFetch((url) => fail ? new Response('down', { status: 500 }) : Response.json(DOCS[url]))
   assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)).status, 503)
   fail = false
-  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)).status, 302)
-  assert.equal(calls.length, 2, 'the failure was not cached')
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 29000)).status, 503)
+  assert.equal(calls.length, 1, 'negative cache: no refetch within 30 s')
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 31000)).status, 302)
+  assert.equal(calls.length, 2, 'refetched after 30 s')
   assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 59 * 60000)).status, 302)
   assert.equal(calls.length, 2, 'cache hit within the hour')
-  fail = true
-  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 61 * 60000)).status, 503)
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 92 * 60000)).status, 302)
   assert.equal(calls.length, 3, 'refetched after an hour')
+})
+
+test('CIMD: concurrent resolves share one fetch', async () => {
+  cimd.resetCimdCache()
+  let release
+  const gate = new Promise((resolve) => { release = resolve })
+  const { fetch, calls } = stubFetch(async (url) => { await gate; return Response.json(DOCS[url]) })
+  const pending = [1, 2, 3, 4, 5].map(() => cimd.resolveCimdClient(CHATGPT_DOC, { fetch }))
+  release()
+  const results = await Promise.all(pending)
+  assert.equal(calls.length, 1)
+  assert.ok(results.every((r) => r.client && r.client.clientName === 'ChatGPT'))
+})
+
+test('CIMD: 403, 408 and 429 are unavailable (503 at authorize, temporarily_unavailable at token), 404 stays invalid', async () => {
+  const { db } = makeStore()
+  for (const [status, http, error] of [[403, 503, 'temporarily_unavailable'], [408, 503, 'temporarily_unavailable'],
+    [429, 503, 'temporarily_unavailable'], [404, 400, 'invalid_client'], [401, 400, 'invalid_client']]) {
+    cimd.resetCimdCache()
+    const { fetch } = stubFetch(() => new Response('cf challenge', { status }))
+    const res = await call(db, { method: 'GET', path: '/oauth/authorize', query: cimdQuery(CHATGPT_DOC, CHATGPT_STABLE) },
+      { fetchCimd: fetch })
+    assert.equal(res.statusCode, http, String(status))
+    assert.equal(res.headers.Location, undefined)
+    cimd.resetCimdCache()
+    const refused = await cimdExchange(db, CHATGPT_DOC, 'a'.repeat(64), CHATGPT_STABLE, Date.now(), fetch)
+    assert.equal(refused.body.error, error, String(status))
+    assert.equal(refused.status, http === 503 ? 503 : 401)
+    if (http === 503) assert.equal(refused.headers['Retry-After'], '30')
+  }
+})
+
+// A ChatGPT CIMD connection made at `now`: the refresh token, with the cache warm.
+const cimdConnected = async (store, now, fetch) => {
+  const started = await startCimd(store.db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)
+  const consent = createConsentService(store.db, auth, allow)
+  const input = { request: requestOf(started), browser: browserOf(started) }
+  const url = new URL((await consent.handle(uid, { action: 'approve', ...input }, now)).redirectUrl)
+  return (await cimdExchange(store.db, CHATGPT_DOC, url.searchParams.get('code'), CHATGPT_STABLE, now, fetch)).body
+}
+const cimdRefresh = (db, refreshToken, now, fetch) => token(db, { grant_type: 'refresh_token', client_id: CHATGPT_DOC,
+  refresh_token: refreshToken }, { ...FORM, now, fetchCimd: fetch })
+
+test('CIMD stale-if-error: an upstream 403 after the cache expires still lets refresh, code exchange and authorize work for 24 h', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const now = Date.now()
+  let reply = (url) => Response.json(DOCS[url])
+  const { fetch, calls } = stubFetch((url) => reply(url))
+  const issued = await cimdConnected(store, now, fetch)
+  reply = () => new Response('challenge', { status: 403 })
+  const later = now + 2 * 3600000
+  const refreshed = await cimdRefresh(store.db, issued.refresh_token, later, fetch)
+  assert.equal(refreshed.status, 200, 'stale document serves the refresh')
+  assert.equal(calls.length, 2, 'the expired cache was refetched once')
+  // Within the negative window: no refetch, still stale; a whole new sign-in works too.
+  const again = await cimdConnected(store, later + 1000, fetch)
+  assert.match(again.access_token, /^dha_/, 'authorize and code exchange served stale')
+  assert.equal(calls.length, 2)
+  // Past the 24 h grace: the stale document is dropped.
+  const dead = await cimdRefresh(store.db, refreshed.body.refresh_token, now + 3600000 + 86400000 + 60000, fetch)
+  assert.deepEqual([dead.status, dead.body.error], [503, 'temporarily_unavailable'])
+  reply = (url) => Response.json(DOCS[url])
+  const back = await cimdRefresh(store.db, refreshed.body.refresh_token, now + 3600000 + 86400000 + 120000, fetch)
+  assert.equal(back.status, 200, 'the grant itself survived; a recovered host serves again')
+})
+
+test('CIMD stale-if-error never covers an invalid document (404 or changed client_id), which also drops the cache', async () => {
+  for (const bad of [() => new Response('gone', { status: 404 }), docWith(CHATGPT_DOC, { client_id: 'https://chatgpt.com/x.json' })]) {
+    cimd.resetCimdCache()
+    const store = memberStore()
+    const now = Date.now()
+    let reply = (url) => Response.json(DOCS[url])
+    const { fetch } = stubFetch((url) => reply(url))
+    const issued = await cimdConnected(store, now, fetch)
+    reply = bad
+    const refused = await cimdRefresh(store.db, issued.refresh_token, now + 2 * 3600000, fetch)
+    assert.deepEqual([refused.status, refused.body.error], [401, 'invalid_client'])
+    reply = () => new Response('down', { status: 503 })
+    const after = await cimdRefresh(store.db, issued.refresh_token, now + 2 * 3600000 + 1000, fetch)
+    assert.equal(after.status, 503, 'no stale document left to serve')
+  }
+})
+
+test('CIMD: the response body is cancelled on the non-200, non-JSON and oversize paths', async () => {
+  const tracked = (status, contentType, length) => {
+    let cancelled = false
+    const body = new ReadableStream({ pull () {}, cancel () { cancelled = true } })
+    const headers = { 'content-type': contentType }
+    if (length) headers['content-length'] = String(length)
+    const response = new Response(body, { status, headers })
+    return { response, cancelled: () => cancelled }
+  }
+  for (const [status, type, length] of [[403, 'text/html'], [404, 'text/plain'], [302, 'text/html'], [503, 'text/html'],
+    [200, 'text/html'], [200, 'application/json', 999999]]) {
+    const t = tracked(status, type, length)
+    const result = await cimd.fetchDocument(CHATGPT_DOC, { fetch: async () => t.response })
+    assert.ok(result.error, `${status} ${type}`)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(t.cancelled(), true, `${status} ${type} ${length || ''}`)
+  }
+})
+
+test('CIMD rollback switch: with CIMD_ADVERTISED off, metadata omits the flag and an existing CIMD grant still refreshes', async () => {
+  cimd.resetCimdCache()
+  const { CIMD_ADVERTISED } = require('./oauth/config')
+  assert.equal(CIMD_ADVERTISED, true)
+  const store = memberStore()
+  const { fetch } = stubFetch()
+  const issued = await cimdConnected(store, Date.now(), fetch)
+  const as = (await call(store.db, { method: 'GET', path: '/.well-known/oauth-authorization-server' }, { cimdAdvertised: false })).body
+  assert.equal('client_id_metadata_document_supported' in as, false)
+  assert.equal(as.registration_endpoint, `${ISSUER}/oauth/register`, 'DCR still offered')
+  const res = await call(store.db, { method: 'POST', path: '/oauth/token', headers: FORM.headers,
+    body: { grant_type: 'refresh_token', client_id: CHATGPT_DOC, refresh_token: issued.refresh_token } },
+  { cimdAdvertised: false, fetchCimd: fetch })
+  assert.equal(res.statusCode, 200)
+  assert.match(res.body.access_token, /^dha_/)
 })
 
 test('RFC 9207: iss is on every authorization response, success and error, for DCR and CIMD', async () => {

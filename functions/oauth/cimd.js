@@ -14,16 +14,30 @@ const ALLOWLIST = Object.freeze([
   "https://claude.ai/oauth/mcp-oauth-client-metadata",
   "https://claude.ai/oauth/claude-code-client-metadata",
 ]);
+// cacheMs: a validated document is used without refetching. staleMs: past
+// that, while the host is unreachable or refusing us (403/408/429/5xx,
+// network, timeout), the last validated document keeps serving, so a
+// Cloudflare challenge on Google Cloud egress does not end live grants.
+// failureMs: such a failure is remembered so every request does not refetch.
 const FETCH = Object.freeze({timeoutMs: 3000, maxBytes: 16 * 1024,
-  cacheMs: HOUR});
+  cacheMs: HOUR, staleMs: 24 * HOUR, failureMs: 30 * 1000});
+// Statuses that say "not now" rather than "this client is wrong".
+const TRANSIENT = [403, 408, 429];
 const GRANTS = ["authorization_code", "refresh_token"];
 const MAX_LIST = 10;
 const MAX_TEXT = 256;
 
-// Validated documents only, keyed by the allowlisted URL. Per function
-// instance; at most ALLOWLIST.length entries.
+// Per function instance, keyed by the allowlisted URL (so each map holds at
+// most ALLOWLIST.length entries): validated documents, recent "unavailable"
+// failures, and fetches in flight (concurrent resolves share one).
 const cache = new Map();
-const resetCimdCache = () => cache.clear();
+const failures = new Map();
+const inflight = new Map();
+const resetCimdCache = () => {
+  cache.clear();
+  failures.clear();
+  inflight.clear();
+};
 
 const isUrlClientId = (value) =>
   typeof value === "string" && value.startsWith("https://");
@@ -34,10 +48,22 @@ const invalid = (description) => ({error: {kind: "invalid", description}});
 const unavailable = (description) =>
   ({error: {kind: "unavailable", description}});
 
+// Releases the connection of a body we will not read. Never throws.
+const cancelBody = (response) => {
+  try {
+    if (response.body) response.body.cancel().catch(() => {});
+  } catch (error) {
+    // Already locked or closed: nothing to release.
+  }
+};
+
 // Reads at most `max` bytes; anything longer is refused, not truncated.
 const readCapped = async (response, max) => {
   const declared = Number(response.headers.get("content-length"));
-  if (declared > max) return null;
+  if (declared > max) {
+    cancelBody(response);
+    return null;
+  }
   if (!response.body) return "";
   const reader = response.body.getReader();
   const chunks = [];
@@ -68,10 +94,13 @@ const fetchDocument = async (url, {fetch = global.fetch,
       signal: controller.signal});
     // A 3xx is refused, never followed (redirect: "manual").
     if (response.status !== 200) {
+      cancelBody(response);
       const message = `Client metadata answered ${response.status}.`;
-      return response.status >= 500 ? unavailable(message) : invalid(message);
+      return response.status >= 500 || TRANSIENT.includes(response.status) ?
+        unavailable(message) : invalid(message);
     }
     if (!/json/i.test(response.headers.get("content-type") || "")) {
+      cancelBody(response);
       return invalid("Client metadata is not JSON.");
     }
     const text = await readCapped(response, maxBytes);
@@ -150,22 +179,55 @@ const validateDocument = (url, text) => {
   }};
 };
 
+// One fetch and validation per URL at a time.
+const load = (url, fetch) => {
+  if (!inflight.has(url)) {
+    const run = fetchDocument(url, {fetch})
+        .then((f) => f.error ? f : validateDocument(url, f.text))
+        .finally(() => inflight.delete(url));
+    inflight.set(url, run);
+  }
+  return inflight.get(url);
+};
+
+// During an "unavailable" failure: the last validated document if it is
+// within the stale grace, else the error.
+const staleOr = (url, error, now) => {
+  const hit = cache.get(url);
+  if (hit && hit.until + FETCH.staleMs > now) {
+    logger.warn("oauth: CIMD serving stale client metadata", {url,
+      reason: error.description, expiredAt: hit.until});
+    return {client: hit.client, stale: true};
+  }
+  cache.delete(url);
+  return {error};
+};
+
 // {client} for an allowlisted, valid document, else {error: {kind,
 // description}}: kind "invalid" (refused) or "unavailable" (fetch failed).
-// A URL outside the allowlist is refused without any network call.
+// A URL outside the allowlist is refused without any network call. An
+// "invalid" document drops the cached one; only "unavailable" serves stale.
 const resolveCimdClient = async (url, {now = Date.now(), fetch} = {}) => {
   if (!isAllowedCimd(url)) return invalid("client_id is not allowlisted.");
   const hit = cache.get(url);
   if (hit && hit.until > now) return {client: hit.client};
-  const fetched = await fetchDocument(url, {fetch});
-  const result = fetched.error ? fetched : validateDocument(url, fetched.text);
-  if (result.error) {
-    logger.warn("oauth: CIMD client refused", {url,
-      reason: result.error.description});
+  const failed = failures.get(url);
+  if (failed && failed.until > now) return staleOr(url, failed.error, now);
+  const result = await load(url, fetch);
+  if (result.client) {
+    cache.set(url, {client: result.client, until: now + FETCH.cacheMs});
+    failures.delete(url);
     return result;
   }
-  cache.set(url, {client: result.client, until: now + FETCH.cacheMs});
-  return result;
+  logger.warn("oauth: CIMD client refused", {url,
+    reason: result.error.description});
+  if (result.error.kind === "invalid") {
+    cache.delete(url);
+    failures.delete(url);
+    return result;
+  }
+  failures.set(url, {error: result.error, until: now + FETCH.failureMs});
+  return staleOr(url, result.error, now);
 };
 
 module.exports = {

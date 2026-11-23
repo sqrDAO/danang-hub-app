@@ -367,12 +367,21 @@ one of three exact URLs (ChatGPT, Claude web/Desktop/mobile, Claude Code; the
 list and its sources are in `functions/oauth/cimd.js` and the design doc) is
 fetched by the `oauth` function (3 s, 16 KB, no redirects, cached 1 h per
 instance) and validated; any other URL `client_id` is refused without a
-fetch. CIMD clients have no `oauthClients` doc: their validated name is
+fetch. If the host later answers 403, 408, 429 or 5xx or times out, the last
+validated document keeps serving for up to 24 h (log: `oauth: CIMD serving
+stale client metadata`), and the failure is remembered 30 s. CIMD clients have no `oauthClients` doc: their validated name is
 stored on the request and then the grant, so Connected apps and Disconnect
 work as for DCR. If a document cannot be fetched, `/oauth/authorize` shows an
 error page (503) and `/oauth/token` answers 503 `temporarily_unavailable`;
 an invalid document gets 400 / 401 `invalid_client`. Refusals are logged as
 `oauth: CIMD client refused` with the reason.
+
+To roll back CIMD, set `CIMD_ADVERTISED = false` in
+`functions/oauth/config.js` and deploy `oauth`: new connections register
+through DCR, and existing CIMD grants keep refreshing because the allowlist
+still accepts their URLs. Do not remove a URL from the allowlist instead:
+clients keep sending it while CIMD is advertised, so new sign-ins fail and
+that client's existing grants stop refreshing.
 
 `mcp` tells Hosting requests from raw ones by `X-Forwarded-Host` (last entry)
 equal to `app.danangblockchainhub.com` (`functions/oauth/resource.js`): only

@@ -3,6 +3,7 @@
 const logger = require("firebase-functions/logger");
 const {
   protectedResourceMetadata, authorizationServerMetadata, DISCOVERY_ENABLED,
+  CIMD_ADVERTISED,
 } = require("./config");
 
 const CORS = {
@@ -66,9 +67,11 @@ const route = (db, req, now, {consent, fetchCimd}) => {
 // `discovery` defaults to DISCOVERY_ENABLED; tests pass false to check the
 // dark (404) mode that phase 2 shipped. `consent` lazily returns
 // {verifyIdToken, service} for /oauth/consent-action. `fetchCimd` replaces
-// fetch for CIMD documents (tests only).
+// fetch for CIMD documents, `cimdAdvertised` the CIMD_ADVERTISED switch
+// (tests only).
 const createOauthHandler = (db, {now = () => Date.now(),
-  discovery = DISCOVERY_ENABLED, consent, fetchCimd} = {}) =>
+  discovery = DISCOVERY_ENABLED, consent, fetchCimd,
+  cimdAdvertised = CIMD_ADVERTISED} = {}) =>
   async (req, res) => {
     // private: Hosting's CDN must neither cache a response nor drop the
     // __session cookie that authorize sets.
@@ -80,8 +83,12 @@ const createOauthHandler = (db, {now = () => Date.now(),
       return;
     }
     if (METADATA[path] && req.method === "GET") {
-      if (discovery) res.set(CORS).status(200).json(METADATA[path]());
-      else res.set(CORS).status(404).json({error: "not_found"});
+      if (discovery) {
+        res.set(CORS).status(200)
+            .json(METADATA[path]({cimd: cimdAdvertised}));
+      } else {
+        res.set(CORS).status(404).json({error: "not_found"});
+      }
       return;
     }
     const handler = route(db, req, now(), {consent, fetchCimd});

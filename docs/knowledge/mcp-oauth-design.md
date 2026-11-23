@@ -198,8 +198,16 @@ connection anyway, and the page is the only phishing defense.
   request cannot point the server at another URL (SSRF). Fetch: GET, 3 s
   timeout over the whole exchange, 16 KB cap (declared or streamed),
   `redirect: "manual"` with any non-200 refused, JSON content type, no
-  cookies or credentials. The validated client is cached 1 h per function
-  instance; failures are not cached. Validation, all fail-closed:
+  cookies or credentials. Per function instance, the validated client is
+  cached 1 h; concurrent fetches of one URL share a single request; an
+  "unavailable" failure (403, 408, 429, 5xx, network, timeout: Cloudflare
+  in front of both hosts may challenge or throttle Google Cloud egress) is
+  remembered 30 s; and during such a failure the last validated document is
+  served stale for up to 24 h past its expiry (logged as `oauth: CIMD
+  serving stale client metadata`), at authorize, code exchange and refresh,
+  so a blocked refetch does not end live grants. An "invalid" result (404,
+  other 4xx, 3xx, non-JSON, oversize, failed validation) is never covered
+  by stale and drops the cached document. Validation, all fail-closed:
   `client_id` equals the URL; `redirect_uris` 1–5 strings, all on the DCR
   allowlist (the requested `redirect_uri` must then match the document, with
   the loopback port ignored); `grant_types` must include
@@ -211,9 +219,10 @@ connection anyway, and the page is the only phishing defense.
   advertises only that); no `client_secret`; lists ≤ 10 entries and strings
   ≤ 256 chars; `client_name` cleaned like DCR. Unknown fields are ignored.
   Errors: an unknown or invalid client gets the plain error page (400) at
-  authorize and 401 `invalid_client` at token; an unreachable document (5xx,
-  network, timeout) gets a 503 page at authorize and 503
-  `temporarily_unavailable` at token, never a 500 or a redirect.
+  authorize and 401 `invalid_client` at token; an unavailable document with
+  no stale copy gets a 503 page at authorize and 503
+  `temporarily_unavailable` (`Retry-After: 30`) at token, never a 500 or a
+  redirect.
   Storage: CIMD clients have no `oauthClients` doc (no TTL, no DCR counters).
   `/oauth/authorize` stores `cimd: true` and the validated `clientName` on
   the request; consent shows that name (`clientNameSelfDeclared: false`,
@@ -221,6 +230,13 @@ connection anyway, and the page is the only phishing defense.
   Connected apps lists the grant and Disconnect revokes it exactly as for
   DCR. Grants, codes and tokens carry the URL as `clientId`. DCR is
   unchanged and stays the fallback.
+  Rollback: set `CIMD_ADVERTISED = false` in `functions/oauth/config.js`.
+  The metadata then drops `client_id_metadata_document_supported`, so new
+  Claude and ChatGPT connections register through DCR, while the allowlist
+  still accepts the URLs and existing CIMD grants keep refreshing. Do not
+  roll back by removing a URL from the allowlist: while CIMD is advertised
+  the client keeps sending that URL (new sign-ins get a 400) and its
+  existing grants fail at their next refresh.
 
 ### 5. Tokens
 
@@ -313,7 +329,8 @@ in the deploy runbook). README Firestore collections table updated.
 2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed, but all three metadata paths (`/.well-known/oauth-protected-resource`, `.../oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`) return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) and `mcp` 401 does not point at them: a client that found the protected-resource document, or fell back to the origin's AS metadata (MCP 2025-03-26), would start a sign-in that dead-ends on the missing consent page. Without the rewrites the SPA catch-all would answer 200 HTML.
 3. **Switch on**: `DISCOVERY_ENABLED = true`, consent page with browser binding (`/oauth/consent-action` on `oauth`; the `oauthConsent` callable is retired to a stub), `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). To verify right after deploy (the browser-bound consent path cannot run on preview channels or emulators, whose origin `/oauth/consent-action` refuses): Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403). If consent fails for everyone, set `DISCOVERY_ENABLED = false` to switch sign-in back off.
 4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect):
-   `functions/oauth/cimd.js`, `client_id_metadata_document_supported: true`.
+   `functions/oauth/cimd.js`, `client_id_metadata_document_supported: true`
+   behind the `CIMD_ADVERTISED` switch.
    RFC 9207 `iss` (success, error and deny redirects) and the
    `connector_platform_oauth_redirect` allowlist entry already shipped in
    phase 2; phase 4 adds tests for both. Post-deploy: connect ChatGPT, and
