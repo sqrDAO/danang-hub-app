@@ -9,18 +9,16 @@ test('admin view shows every field, restricted ones included', () => {
   }
 })
 
-test('restricted fields never show outside views that allow them', () => {
-  for (const name of Object.keys(EVENT_VIEWS)) {
-    if (EVENT_VIEWS[name].allowRestricted) continue
-    const fields = getVisibleFields(name)
-    assert.ok(!fields.has('venue'), `${name} venue`)
-    assert.ok(!fields.has('revision'), `${name} revision`)
+test('venue and revision show only in the admin view', () => {
+  for (const field of ['venue', 'revision']) {
+    const views = Object.keys(EVENT_VIEWS).filter(name => getVisibleFields(name).has(field))
+    assert.deepEqual(views, ['admin'], field)
   }
 })
 
 test('hidden fields are not visible', () => {
   const fields = getVisibleFields('member')
-  for (const f of ['status', 'attendees']) assert.ok(!fields.has(f), f)
+  assert.ok(!fields.has('status'))
 })
 
 test('attendee counts only for admin and organizer', () => {

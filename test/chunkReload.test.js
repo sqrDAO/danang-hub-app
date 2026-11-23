@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isOptionalChunkError, shouldReloadForStaleChunk } from '../src/utils/chunkReload.js'
+import { shouldReloadForStaleChunk } from '../src/utils/chunkReload.js'
 
 const pageError = new TypeError(
   'Failed to fetch dynamically imported module: https://hub.example/assets/Events-AbC123.js'
@@ -37,14 +37,10 @@ test('does not reload for the optional HeroCanvas3D chunk', () => {
   assert.equal(shouldReloadForStaleChunk({ ...base, error: heroError }), false)
 })
 
-test('isOptionalChunkError matches only HeroCanvas3D', () => {
-  assert.equal(isOptionalChunkError(heroError), true)
-  assert.equal(
-    isOptionalChunkError(new Error('error loading dynamically imported module: /assets/HeroCanvas3D-x.js')),
-    true
-  )
-  assert.equal(isOptionalChunkError(pageError), false)
-  assert.equal(isOptionalChunkError(new TypeError('Importing a module script failed.')), false)
-  assert.equal(isOptionalChunkError(undefined), false)
-  assert.equal(isOptionalChunkError('HeroCanvas3D'), true)
+test('only the HeroCanvas3D chunk is exempt, whatever shape the error has', () => {
+  const reload = (error) => shouldReloadForStaleChunk({ ...base, error })
+  assert.equal(reload(new Error('error loading dynamically imported module: /assets/HeroCanvas3D-x.js')), false)
+  assert.equal(reload('HeroCanvas3D'), false)
+  assert.equal(reload(new TypeError('Importing a module script failed.')), true)
+  assert.equal(reload(undefined), true)
 })

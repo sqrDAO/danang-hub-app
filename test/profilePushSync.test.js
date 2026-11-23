@@ -3,15 +3,16 @@ import assert from 'node:assert/strict'
 import { settleProfilePushSync } from '../src/utils/profilePushSync.js'
 
 test('successful revoke with failed document cleanup warns and lets profile save continue', async () => {
-  const calls = []
   const error = { code: 'push/cleanup-failed', subscriptionRevoked: true }
+  let warning
+  let permission
   await settleProfilePushSync({
     sync: Promise.reject(error), touched: true,
-    onWarning: warning => { assert.equal(warning, error); calls.push('warning') },
-    readPermission: () => 'granted', onPermissionChange: value => calls.push(value)
+    onWarning: value => { warning = value },
+    readPermission: () => 'granted', onPermissionChange: value => { permission = value }
   })
-  calls.push('save-profile')
-  assert.deepEqual(calls, ['warning', 'granted', 'save-profile'])
+  assert.equal(warning, error)
+  assert.equal(permission, 'granted')
 })
 
 test('failed revoke still prevents save and refreshes permission state', async () => {

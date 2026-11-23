@@ -187,5 +187,5 @@ const createTokenService = (db, auth) => {
   return {manage, authenticate, requireUser};
 };
 
-module.exports = {createTokenService, hashToken, activeToken, reserveRequest,
+module.exports = {createTokenService, hashToken, activeToken,
   reserveGrantRequest, liveGrant};

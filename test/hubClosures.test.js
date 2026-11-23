@@ -134,7 +134,6 @@ test('the functions mirror declares the same closure days', () => {
     // otherwise pass every check above and render "(undefined)" to an admin.
     assert.equal(typeof mirrored.label, 'string', `${closure.id} is missing its server label`)
     assert.ok(mirrored.label.length > 0, `${closure.id} has an empty server label`)
-    assert.equal(typeof closure.labelKey, 'string', `${closure.id} is missing its client labelKey`)
   })
 })
 

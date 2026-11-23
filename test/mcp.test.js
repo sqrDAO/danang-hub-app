@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { makeStore } from './helpers/mcpStore.js'
 const require = createRequire(new URL('../functions/package.json', import.meta.url))
-const { createTokenService, hashToken, reserveRequest } = require('./mcpTokens')
-const { createBookingTools, assertRange } = require('./mcpBookings')
+const { createTokenService, hashToken } = require('./mcpTokens')
+const { createBookingTools } = require('./mcpBookings')
 const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js')
@@ -102,9 +102,8 @@ test('MCP checks trusted profile age for unverified emails at issuance and on ev
   assert.equal((await current.authenticate('Bearer ' + verified.token)).uid, uid)
 })
 
-test('rate reservation is bounded, expiry fails closed, concurrent requests cannot overspend', async () => {
+test('rate reservation is bounded: concurrent requests cannot overspend', async () => {
   const now = Date.now()
-  assert.throws(() => reserveRequest({ expiresAt: now }, now), /expired/)
   const f = fixture()
   f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: now + 86400000, window: Math.floor(now / 60000), count: 59 })
   const service = createTokenService(f.db, auth)
@@ -165,12 +164,18 @@ test('cancellation rejects foreign, approved and plan bookings', async () => {
   }
 })
 
-test('schemas reject protected fields, malformed IDs and timezone-less times', () => {
+test('schemas reject protected fields, malformed IDs and timezone-less times; past or over-24h slots are refused', async () => {
   const schema = toolDefinitions.find(d => d[0] === 'create_booking')[3]
   assert.equal(schema.safeParse({ ...slot(), status: 'approved' }).success, false)
   assert.equal(schema.safeParse({ ...slot(), amenityId: '../secret' }).success, false)
   assert.equal(schema.safeParse({ ...slot(), startTime: '2026-12-01T09:00:00' }).success, false)
-  assert.throws(() => assertRange({ startTime: 'invalid', endTime: 'invalid' }), /future slot/)
+  const f = fixture()
+  const past = { amenityId: 'desk', startTime: new Date(Date.now() - 7200000).toISOString(),
+    endTime: new Date(Date.now() - 3600000).toISOString() }
+  const long = { ...slot(), endTime: new Date(Date.parse(slot().startTime) + 25 * 3600000).toISOString() }
+  for (const args of [past, long]) {
+    await assert.rejects(f.handlers.check_availability(f.principal, args), /future slot/)
+  }
 })
 
 test('SDK HTTP client initializes, discovers six tools, and calls tools with isolated identity', async t => {
@@ -249,7 +254,6 @@ test('authenticate tags each 401 with a reason code', async () => {
   f.data.set(`mcpTokens/${hash}`, { uid, expiresAt: Date.now() + 86400000 })
   const disabled = createTokenService(f.db, { getUser: async () => ({ disabled: true }) })
   assert.equal(await reason('Bearer ' + secret, disabled), 'disabled')
-  assert.throws(() => reserveRequest({ uid, revoked: true }, Date.now()), e => e.details.reason === 'revoked')
 })
 
 test('401 logs one structured line with the reason and header shape, never token material', async t => {

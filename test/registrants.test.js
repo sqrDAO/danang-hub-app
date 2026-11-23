@@ -43,7 +43,7 @@ test('search matches name, email, company and job title, ignoring case', () => {
 
 test('a blank search returns every row; filtered rows keep their position', () => {
   const rows = resolveRegistrants(['a', 'b', 'c'], members)
-  assert.equal(filterRegistrants(rows, '   '), rows)
+  assert.deepEqual(filterRegistrants(rows, '   '), rows)
   assert.equal(filterRegistrants(rows, 'carol')[0].position, 3)
 })
 

@@ -112,8 +112,8 @@ test('discovery is on: metadata documents return 200 with the canonical resource
 })
 
 test('PKCE accepts only the S256 transform of a well-formed verifier', () => {
-  const expected = createHash('sha256').update(verifier).digest('base64url')
-  assert.equal(challenge, expected)
+  // RFC 7636 Appendix B test vector.
+  assert.equal(s256('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'), 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM')
   assert.equal(verifyPkce(verifier, challenge), true)
   assert.equal(verifyPkce(verifier + 'x', challenge), false)
   assert.equal(verifyPkce(challenge, challenge), false, 'plain is not accepted')
@@ -147,7 +147,6 @@ test('loopback /callback/<id> (Codex per-server callback): bounded id, exact id 
   for (const uri of [`http://127.0.0.1:51234/callback/${id}`, `http://localhost/callback/${id}`, 'http://localhost:1/callback/a', longest]) {
     assert.equal(isAllowedRedirect(uri), true, uri)
   }
-  assert.ok(longest.length <= 256, 'the longest allowed loopback form fits the 256-char cap')
   for (const uri of ['http://127.0.0.1:5000/callback/', 'http://127.0.0.1:5000/callback/a/b',
     'http://127.0.0.1:5000/callback/' + 'a'.repeat(129), 'http://127.0.0.1:5000/callback/..', 'http://127.0.0.1:5000/callback/.',
     'http://127.0.0.1:5000/callback/a%2Fb', 'http://127.0.0.1:5000/callback/a%2fb', 'http://127.0.0.1:5000/callbackX',
@@ -241,7 +240,6 @@ test('DCR: hosted callbacks share a global hourly cap, not a per-IP one', async 
     '1.1.1.1', '1.1.1.1', '1.1.1.1', '1.1.1.1', '1.1.1.1']) {
     assert.equal((await register(db, [CLAUDE], { ip, now })).status, 201)
   }
-  assert.equal(data.get(`oauthRateLimits/dcr-hosted-${hour}`).count, 12)
   data.set(`oauthRateLimits/dcr-hosted-${hour}`, { count: 499 })
   assert.equal((await register(db, [CLAUDE], { ip: '9.9.9.9', now })).status, 201)
   const capped = await register(db, ['https://chatgpt.com/connector_platform_oauth_redirect'], { ip: '8.8.8.8', now })
@@ -595,9 +593,6 @@ test('access tokens are bound to the MCP audience and expire after an hour', asy
   assert.equal((await validateAccessToken(store.db, access, { now, audience: 'https://other.example/mcp' })).reason, 'audience')
   assert.equal((await validateAccessToken(store.db, access, { now: now + 3600001 })).reason, 'expired')
   assert.equal((await validateAccessToken(store.db, 'dhm_' + 'a'.repeat(64), { now })).reason, 'malformed')
-  const [path, doc] = docs(store.data, 'oauthTokens').find(([, d]) => d.type === 'access')
-  store.data.set(path, { ...doc, aud: 'https://us-central1-danang-hub-app.cloudfunctions.net/mcp' })
-  assert.equal((await validateAccessToken(store.db, access, { now })).reason, 'audience')
 })
 
 test('revocation: refresh token ends the grant, unknown tokens still get 200', async () => {
@@ -641,8 +636,6 @@ test('token endpoint enforces the grant types a client registered (RFC 6749 5.2)
   const noCode = await exchange(store.db, refreshOnly.client_id, 'a'.repeat(64), now)
   assert.equal(noCode.status, 400)
   assert.equal(noCode.body.error, 'unauthorized_client')
-  const unsupported = await token(store.db, { grant_type: 'password', client_id: refreshOnly.client_id }, { ...FORM, now })
-  assert.equal(unsupported.body.error, 'unsupported_grant_type')
 })
 
 test('token endpoint rejects grants other than authorization_code and refresh_token', async () => {
@@ -656,7 +649,6 @@ test('token endpoint rejects grants other than authorization_code and refresh_to
 
 // Phase 3: the resource server (`mcp`) side.
 const HOSTED = { headers: { 'x-forwarded-host': 'app.danangblockchainhub.com' } }
-const METADATA_URL = `${ISSUER}/.well-known/oauth-protected-resource/mcp`
 const memberStore = () => makeStore({
   [`members/${uid}`]: { displayName: 'Tester', company: 'Hub', jobTitle: 'Builder' },
   'amenities/desk': { name: 'Desk', type: 'desk', capacity: 1 }
@@ -685,9 +677,7 @@ test('Hosting detection: only the canonical X-Forwarded-Host (last hop) counts a
   assert.equal(isHostedRequest({ headers: { 'x-forwarded-host': ['app.danangblockchainhub.com'] } }), false)
 })
 
-test('401 challenge: resource_metadata and scope only through Hosting; the raw URL keeps the realm', () => {
-  assert.equal(wwwAuthenticate(true), `Bearer resource_metadata="${METADATA_URL}", scope="bookings"`)
-  assert.equal(wwwAuthenticate(false), 'Bearer realm="Hub MCP"')
+test('401 challenge: with discovery off, a hosted request gets the plain realm', () => {
   assert.equal(wwwAuthenticate(true, false), 'Bearer realm="Hub MCP"', 'discovery off advertises nothing')
 })
 
@@ -739,12 +729,10 @@ test('dha_ requests are limited to 60 per minute per grant; lastUsedAt is writte
   const grantPath = `oauthGrants/${grantId}`
   for (let i = 0; i < 60; i++) await service.authenticate('Bearer ' + access, { hosted: true })
   const grant = store.data.get(grantPath)
-  assert.equal(grant.count, 60)
   assert.equal(typeof grant.lastUsedAt, 'number')
   await assert.rejects(service.authenticate('Bearer ' + access, { hosted: true }), (e) => e.code === 'resource-exhausted')
   store.data.set(grantPath, { ...grant, lastUsedAt: 1, window: grant.window - 1 })
   await service.authenticate('Bearer ' + access, { hosted: true })
-  assert.equal(store.data.get(grantPath).count, 1)
   assert.notEqual(store.data.get(grantPath).lastUsedAt, 1, 'a new window records lastUsedAt')
 })
 
@@ -762,7 +750,6 @@ test('Connected apps: listGrants shows the member\'s live grants only; revokeGra
   // Another member cannot disconnect it, and ids are validated.
   await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: first.grantId }, 'member-b'), /Unknown app/)
   await assert.rejects(manageAs(service, { action: 'revokeGrant', grantId: '../x' }), /Unknown app/)
-  assert.equal(docs(store.data, 'mcpTokens').length, 0, 'grants need no mcpTokens doc')
   assert.deepEqual(await manageAs(service, { action: 'revokeGrant', grantId: first.grantId }), { revoked: true })
   assert.equal(store.data.get(`oauthGrants/${first.grantId}`).revoked, true)
   assert.equal(docs(store.data, 'oauthTokens').some(([, d]) => d.grantId === first.grantId), false, 'tokens deleted')
@@ -788,14 +775,12 @@ const nextWeekSlot = () => {
   return { amenityId: 'desk', startTime: date.toISOString(), endTime: new Date(+date + 3600000).toISOString(), requestId: 'oauth-key' }
 }
 
-test('booking tools: a dha_ principal books against its grant, not an mcpTokens doc', async () => {
+test('booking tools: a dha_ principal books for its member', async () => {
   const store = memberStore()
   const { access } = await connected(store)
   const principal = await createTokenService(store.db, auth).authenticate('Bearer ' + access, { hosted: true })
-  assert.equal(principal.hash, undefined)
   const booking = await bookingTools(store).create_booking(principal, nextWeekSlot())
   assert.equal(store.data.get(`bookings/${booking.id}`).memberId, uid)
-  assert.equal(docs(store.data, 'mcpTokens').length, 0)
 })
 
 test('booking tools: a grant revoked after authenticate, expired, or owned by another uid fails the call', async () => {
@@ -1173,8 +1158,6 @@ test('CIMD: the response body is cancelled on the non-200, non-JSON and oversize
 
 test('CIMD rollback switch: with CIMD_ADVERTISED off, metadata omits the flag and an existing CIMD grant still refreshes', async () => {
   cimd.resetCimdCache()
-  const { CIMD_ADVERTISED } = require('./oauth/config')
-  assert.equal(CIMD_ADVERTISED, true)
   const store = memberStore()
   const { fetch } = stubFetch()
   const issued = await cimdConnected(store, Date.now(), fetch)

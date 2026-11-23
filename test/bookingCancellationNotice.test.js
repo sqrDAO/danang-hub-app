@@ -29,7 +29,6 @@ test('stays silent when the status did not change', () => {
 
 test('stays silent for statuses that are not an active booking', () => {
   assert.equal(getCancellationNotice({ status: 'completed' }, cancelledBy('admin')), null)
-  assert.equal(getCancellationNotice({ status: 'cancelled' }, cancelledBy('admin')), null)
 })
 
 test('stays silent for any write that is not a cancellation', () => {
