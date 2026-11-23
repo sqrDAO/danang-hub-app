@@ -19,6 +19,7 @@ import {
 import { db } from './firebase'
 import { getMember } from './members'
 import { LOCAL_DEV_MODE } from '../utils/localDevMode'
+import { sortEventsNearestFirst } from '../utils/eventOrder'
 import {
   addLocalWaitlist,
   countLocalCompletedEvents,
@@ -148,7 +149,7 @@ export const createEvent = async (data) => {
 }
 
 /**
- * Fetches events for the "upcoming" surfaces, newest first.
+ * Fetches events for the "upcoming" surfaces, nearest date first.
  *
  * Despite the name this does NOT filter by date — every caller applies its own
  * date filter. It returns approved events only; pass `includePending: true` to
@@ -158,7 +159,7 @@ export const createEvent = async (data) => {
  * publicly as a registerable card.
  *
  * @param {{ includePending?: boolean }} [options]
- * @returns {Promise<Array>} Events sorted by date descending
+ * @returns {Promise<Array>} Events sorted by date ascending (nearest first)
  */
 export const getUpcomingEvents = async ({ includePending = false } = {}) => {
   if (LOCAL_DEV_MODE) return listLocalUpcomingEvents({ includePending })
@@ -205,12 +206,8 @@ export const getUpcomingEvents = async ({ includePending = false } = {}) => {
 
     const allEvents = [...approvedEvents, ...pendingEvents]
 
-    // Sort by date descending
-    return allEvents.sort((a, b) => {
-      const dateA = a.date instanceof Date ? a.date : new Date(a.date)
-      const dateB = b.date instanceof Date ? b.date : new Date(b.date)
-      return dateB - dateA
-    })
+    // Upcoming lists read nearest first (callers drop past events)
+    return sortEventsNearestFirst(allEvents)
   } catch (error) {
     console.error('Error fetching upcoming events:', error)
     return []

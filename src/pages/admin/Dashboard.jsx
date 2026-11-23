@@ -9,6 +9,7 @@ import { getEvents, getCompletedEventsCount } from '../../services/events'
 import { getAmenities } from '../../services/amenities'
 import { formatDateDDMMYYYY, formatEventTime } from '../../utils/timezone'
 import { appLocale } from '../../utils/appLocale'
+import { sortEventsNearestFirst } from '../../utils/eventOrder'
 import EventCard from '../../components/event/EventCard'
 import './Dashboard.css'
 import '../member/Profile.css'
@@ -159,7 +160,7 @@ const AdminDashboard = () => {
   const recentStartIndex = (safeRecentBookingsPage - 1) * RECENT_BOOKINGS_PAGE_SIZE
   const recentEndIndex = recentStartIndex + RECENT_BOOKINGS_PAGE_SIZE
   const recentBookingsPageItems = recentBookingsSorted.slice(recentStartIndex, recentEndIndex)
-  const upcomingEvents = dashboardEvents.filter(e => new Date(e.date) > new Date()).slice(0, 5)
+  const upcomingEvents = sortEventsNearestFirst(dashboardEvents.filter(e => new Date(e.date) > now)).slice(0, 5)
 
   return (
     <Layout isAdmin>
