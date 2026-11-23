@@ -6,6 +6,7 @@ import {
   buildLocalDevProjects
 } from './localDevFixtures.js'
 import { holdsSeat } from '../utils/renewals.js'
+import { sortEventsNearestFirst } from '../utils/eventOrder.js'
 import { AMENITY_RESERVED, PARTNER_DESK, PARTNER_DESK_MISSING, PARTNER_DESK_TAKEN } from '../utils/deskPlans.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved', 'checked-in']
@@ -213,12 +214,13 @@ export const listLocalEvents = (filters = {}) =>
     .map((event) => cloneDates(event, ['date']))
 
 export const listLocalUpcomingEvents = ({ includePending = false } = {}) =>
-  sortEventsByDateDesc(getStore().events.filter((event) => (
+  sortEventsNearestFirst(getStore().events.filter((event) => (
     event.status === 'approved' || (includePending && event.status === 'pending')
   ))).map((event) => cloneDates(event, ['date']))
 
 export const listLocalApprovedEvents = () =>
-  listLocalUpcomingEvents({ includePending: false })
+  sortEventsByDateDesc(getStore().events.filter((event) => event.status === 'approved'))
+    .map((event) => cloneDates(event, ['date']))
 
 export const listLocalPendingEvents = () =>
   sortEventsByDateDesc(getStore().events.filter((event) => event.status === 'pending'))
