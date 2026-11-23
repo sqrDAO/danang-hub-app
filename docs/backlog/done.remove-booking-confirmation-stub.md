@@ -12,7 +12,7 @@ cancellation (`notifyBookingApproval`), so delete the stub rather than build an 
 - `README.md` (edited) — remove its Cloud Functions table row
 - `docs/knowledge/data-flow.md` (edited) — drop booking-create step 3 and its table row
 - `.github/copilot-instructions.md` (edited) — drop its function-list line
-- `docs/backlog/todo.remove-booking-confirmation-stub.md` (new) — this spec
+- `docs/backlog/done.remove-booking-confirmation-stub.md` (new) — this spec
 
 ## Acceptance
 - [ ] `functions/index.js` exports no `sendBookingConfirmation`
