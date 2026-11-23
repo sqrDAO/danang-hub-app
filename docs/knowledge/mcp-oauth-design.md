@@ -1,6 +1,6 @@
 # MCP OAuth sign-in: design
 
-Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: phases 0–3 built; phase 4 (CIMD, ChatGPT verification) open.
+Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: phases 0–4 built (phases 0–3 live since 2026-11-23; phase 4, CIMD allowlist and ChatGPT verification, awaits deploy).
 
 Goal: a member adds `https://app.danangblockchainhub.com/mcp` as a Claude
 (web, Desktop, mobile) custom connector or a ChatGPT app, signs in with their
@@ -20,7 +20,7 @@ claude.com/docs/connectors/building/authentication, developers.openai.com/apps-s
 | AS metadata (RFC 8414 or OIDC) | MUST one | Reachable from 160.79.104.0/21 | Yes |
 | PKCE | S256 | Always S256; `code_challenge_methods_supported: ["S256"]` must be present | Must include S256 |
 | Resource indicators (RFC 8707) | Client MUST send; server MUST check audience | Sends | Sends; copy into audience |
-| Registration | CIMD SHOULD, DCR MAY | CIMD only if `client_id_metadata_document_supported: true` **and** `none` in `token_endpoint_auth_methods_supported`, else DCR (new client per fresh connection) | Prefers CIMD (`https://chatgpt.com/oauth/client.json`), else DCR (once per connection) |
+| Registration | CIMD SHOULD, DCR MAY | CIMD only if `client_id_metadata_document_supported: true` **and** `none` in `token_endpoint_auth_methods_supported`, else DCR (new client per fresh connection). Hosted apps: `https://claude.ai/oauth/mcp-oauth-client-metadata`; Claude Code: `https://claude.ai/oauth/claude-code-client-metadata` (checked 2026-11-23) | Prefers CIMD (`https://chatgpt.com/oauth/client.json` when the AS supports RFC 9207, else `https://chatgpt.com/oauth/{callback_id}/client.json`), else DCR (once per connection) |
 | Redirect URIs | Exact match; HTTPS or loopback | `https://claude.ai/api/mcp/auth_callback` (may move to `https://claude.com/api/mcp/auth_callback`); Claude Code: loopback `http://localhost:<any>/callback`, `http://127.0.0.1:<any>/callback` | `https://chatgpt.com/connector_platform_oauth_redirect` when AS supports RFC 9207 `iss`, else `https://chatgpt.com/connector/oauth/{callback_id}` |
 | RFC 9207 `iss` in authorization response | — | — | Needed for the stable redirect; must be in success **and** error responses |
 | Refresh | Public clients MUST rotate | Refreshes on 401 and 5 min before expiry; `invalid_grant` on dead refresh; appends `offline_access` if AS lists it | Plan for rotation |
@@ -85,7 +85,8 @@ AS metadata:
  "client_id_metadata_document_supported": true}
 ```
 
-(`client_id_metadata_document_supported` only from phase 4.) Protected
+(`client_id_metadata_document_supported` since phase 4; `iss` on every
+authorization response since phase 2.) Protected
 resource metadata: `{"resource": ".../mcp", "authorization_servers":
 ["https://app.danangblockchainhub.com"], "scopes_supported": ["bookings"],
 "bearer_methods_supported": ["header"]}`. The `mcp` 401 becomes
@@ -179,12 +180,47 @@ connection anyway, and the page is the only phishing defense.
     deletes the rest.
   - Ceiling: when more than 5,000 never-used clients exist (counter doc),
     registration returns `503` with `Retry-After` until TTL catches up.
-- **CIMD (phase 4).** Accept URL `client_id`s only from an allowlist
-  (`https://chatgpt.com/oauth/client.json`,
-  `https://claude.ai/oauth/claude-code-client-metadata`, plus Claude's hosted
-  CIMD URL once confirmed). Allowlisting removes the SSRF risk of fetching
-  arbitrary URLs; fetch with 3 s timeout, 16 KB cap, no redirects, cache 1 h,
-  require `client_id` == URL and redirect URIs ⊆ the DCR allowlist.
+- **CIMD (phase 4, `functions/oauth/cimd.js`).** A `client_id` that starts
+  with `https://` is accepted at `/oauth/authorize` and `/oauth/token` only if
+  it is exactly one of these strings (checked 2026-11-23, each document
+  fetched and read):
+
+  | URL | Client | Source |
+  | --- | --- | --- |
+  | `https://chatgpt.com/oauth/client.json` | ChatGPT, when the AS meets RFC 9207 | developers.openai.com/apps-sdk/build/auth ("Client ID Metadata Documents") |
+  | `https://claude.ai/oauth/mcp-oauth-client-metadata` | Claude web, Desktop, mobile, Cowork | claude.com/docs/connectors/building/enterprise-managed-auth (names it as Claude's public CIMD; the authentication page says custom connectors use "the Client ID Metadata Document that Anthropic hosts") |
+  | `https://claude.ai/oauth/claude-code-client-metadata` | Claude Code | claude.com/docs/connectors/building/authentication ("Callback URLs") |
+
+  Not allowlisted: ChatGPT's per-callback `…/oauth/{callback_id}/client.json`
+  (only used when the AS lacks RFC 9207 `iss`, which this AS has) and
+  Claude's `…/confidential_client` form (`private_key_jwt`, which this AS
+  does not offer). Only the allowlisted string itself is ever fetched, so a
+  request cannot point the server at another URL (SSRF). Fetch: GET, 3 s
+  timeout over the whole exchange, 16 KB cap (declared or streamed),
+  `redirect: "manual"` with any non-200 refused, JSON content type, no
+  cookies or credentials. The validated client is cached 1 h per function
+  instance; failures are not cached. Validation, all fail-closed:
+  `client_id` equals the URL; `redirect_uris` 1–5 strings, all on the DCR
+  allowlist (the requested `redirect_uri` must then match the document, with
+  the loopback port ignored); `grant_types` must include
+  `authorization_code` (unsupported types such as jwt-bearer are dropped,
+  default `["authorization_code"]` per RFC 7591); `response_types` must
+  include `code`; the client must allow `none` (`token_endpoint_auth_method:
+  "none"` or `"none"` in `token_endpoint_auth_methods_supported`; ChatGPT
+  prefers `private_key_jwt` but lists `none`, and uses `none` because this AS
+  advertises only that); no `client_secret`; lists ≤ 10 entries and strings
+  ≤ 256 chars; `client_name` cleaned like DCR. Unknown fields are ignored.
+  Errors: an unknown or invalid client gets the plain error page (400) at
+  authorize and 401 `invalid_client` at token; an unreachable document (5xx,
+  network, timeout) gets a 503 page at authorize and 503
+  `temporarily_unavailable` at token, never a 500 or a redirect.
+  Storage: CIMD clients have no `oauthClients` doc (no TTL, no DCR counters).
+  `/oauth/authorize` stores `cimd: true` and the validated `clientName` on
+  the request; consent shows that name (`clientNameSelfDeclared: false`,
+  since it comes from an allowlisted host) and copies it onto the grant, so
+  Connected apps lists the grant and Disconnect revokes it exactly as for
+  DCR. Grants, codes and tokens carry the URL as `clientId`. DCR is
+  unchanged and stays the fallback.
 
 ### 5. Tokens
 
@@ -276,7 +312,13 @@ in the deploy runbook). README Firestore collections table updated.
 1. **Hosting origin**: `/mcp` rewrite; service worker denylist for `/oauth/*` (except consent) and `/.well-known/*`; Profile and docs show the new URL; `dhm_` works through Hosting. No OAuth advertised yet.
 2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed, but all three metadata paths (`/.well-known/oauth-protected-resource`, `.../oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`) return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) and `mcp` 401 does not point at them: a client that found the protected-resource document, or fell back to the origin's AS metadata (MCP 2025-03-26), would start a sign-in that dead-ends on the missing consent page. Without the rewrites the SPA catch-all would answer 200 HTML.
 3. **Switch on**: `DISCOVERY_ENABLED = true`, consent page with browser binding (`/oauth/consent-action` on `oauth`; the `oauthConsent` callable is retired to a stub), `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). To verify right after deploy (the browser-bound consent path cannot run on preview channels or emulators, whose origin `/oauth/consent-action` refuses): Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403). If consent fails for everyone, set `DISCOVERY_ENABLED = false` to switch sign-in back off.
-4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect).
+4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect):
+   `functions/oauth/cimd.js`, `client_id_metadata_document_supported: true`.
+   RFC 9207 `iss` (success, error and deny redirects) and the
+   `connector_platform_oauth_redirect` allowlist entry already shipped in
+   phase 2; phase 4 adds tests for both. Post-deploy: connect ChatGPT, and
+   check that Claude web now uses CIMD (Claude switches from DCR once the
+   metadata advertises CIMD; existing DCR grants keep working).
 
 ## Decisions (2026-11-22, all recommendations accepted by the repo owner)
 

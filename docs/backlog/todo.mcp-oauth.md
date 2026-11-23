@@ -9,6 +9,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `public/sw.js` (edited, phase 1) — `NavigationRoute` denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`.
 - `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
 - `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (consent logic and the `POST /oauth/consent-action` handler), `http` (router).
+- `functions/oauth/cimd.js` (new, phase 4) — CIMD: exact `client_id` URL allowlist, capped no-redirect fetch, validation, 1 h cache; `authorize`, `token`, `consent`, `http`, `config`, `register` (edited) resolve either client form and advertise `client_id_metadata_document_supported`.
 - `functions/oauth/browser.js` (new, phase 3) — consent browser binding: `__session` cookie set by `/oauth/authorize`, SHA-256 stored on the request, checked on describe/approve/deny.
 - `functions/index.js` (edited) — export `oauth` (also serving `/oauth/consent-action`) and a retired `oauthConsent` stub that approves nothing; `mcp` 401 adds `resource_metadata` and `scope`.
 - `functions/oauth/resource.js` (new, phase 3) — Hosting-vs-raw detection (`X-Forwarded-Host`) and the 401 challenge; `functions/mcpServer.js` (edited) uses it.
@@ -20,7 +21,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - `test/oauthConsent.test.js` (new, phase 3) — login redirect round trip, request id and error mapping (including the other-browser state).
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — consent and connected-apps strings.
 - `firestore.rules`, `test/firestore-mcp.rules.test.js` (edited) — deny-all for `oauthClients`, `oauthRequests`, `oauthCodes`, `oauthGrants`, `oauthTokens`, `oauthRateLimits`.
-- `test/mcpOauth.test.js` (new, phase 2) — PKCE, redirect matching, DCR limits, code single use, refresh rotation and reuse, audience.
+- `test/mcpOauth.test.js` (new, phase 2) — PKCE, redirect matching, DCR limits, code single use, refresh rotation and reuse, audience; phase 4 adds CIMD (stubbed fetch), RFC 9207 `iss` and the ChatGPT stable redirect.
 - `src/utils/navigationDenylist.js`, `test/navigationDenylist.test.js` (new, phase 2) — service worker denylist as an importable, tested module.
 - `docs/knowledge/mcp-booking.md`, `README.md` (edited) — new URL, sign-in setup, functions and collections tables.
 
@@ -50,8 +51,20 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [x] A `dhm_` token works at both the raw function URL and `/mcp` on Hosting.
 - [x] Clients cannot read or write any `oauth*` collection.
 - [ ] Claude web and Claude Desktop connect via sign-in with no request header.
+- [x] AS metadata advertises `client_id_metadata_document_supported: true` and `authorization_response_iss_parameter_supported: true`.
+- [x] A URL `client_id` is accepted at authorize and token only when it exactly equals an allowlisted CIMD URL.
+- [x] A URL `client_id` off the allowlist is refused without any fetch.
+- [x] A CIMD document whose `client_id` differs from its URL is refused.
+- [x] A CIMD document with a redirect URI outside the DCR allowlist is refused.
+- [x] A CIMD fetch that redirects, times out (3 s), exceeds 16 KB or returns non-JSON fails closed with an OAuth error, not a 500.
+- [x] A validated CIMD document is reused from cache for 1 h; failures are not cached.
+- [x] An allowlisted CIMD client completes authorize, consent and token, and its grant shows in Connected apps and can be disconnected.
+- [x] Every authorization redirect (success, error and deny) carries `iss` equal to the issuer.
+- [x] `https://chatgpt.com/connector_platform_oauth_redirect` is accepted for DCR and CIMD.
+- [ ] ChatGPT connects via sign-in on the stable redirect.
 - [x] NOT: store raw codes or tokens.
 - [x] NOT: support `plain` PKCE, implicit, password or `client_credentials` grants.
+- [x] NOT: fetch any URL that is not an exact allowlist entry, or follow redirects.
 - [x] NOT: change MCP tool behavior; in `mcpBookings.js` only `memberFor`'s access check changes (owner-approved 2026-11-23).
 
 ## Verify
@@ -61,6 +74,8 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - MCP Inspector via its proxy (`npx @modelcontextprotocol/inspector`, proxy transport; direct browser mode sends an `Origin` that `/mcp` rejects with 403) against the Hosting URL → OAuth flow completes, `list_amenities` works.
 - Installed PWA, cold `oauth` function: open an `/oauth/authorize` link → function response, not the SPA shell.
 - Claude web: Customize → Connectors → Add custom connector with the Hosting URL → sign-in, consent, tools listed.
+- ChatGPT: add the Hosting URL as a custom MCP app with OAuth → consent shows ChatGPT and `chatgpt.com` → tools listed.
+- `curl -s https://app.danangblockchainhub.com/.well-known/oauth-authorization-server` → `client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true`.
 - regression: Claude Code with `dhm_` header still lists amenities; Profile token generate/revoke still works.
 
 ## Notes
@@ -72,4 +87,5 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Phase 3: `mcp` treats a request as Hosting when the last `X-Forwarded-Host` entry is `app.danangblockchainhub.com`; forging it on the raw URL only changes the forger's own response, and `dha_` stays audience-bound.
 - Phase 3: booking transactions re-check the credential (`memberFor`), so a `dha_` principal is `{uid, grantId}` and `memberFor` reads its grant; the design's "`mcpBookings.js` untouched" missed this.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.
+- Phase 4: CIMD clients have no `oauthClients` doc; authorize stores `cimd: true` and the validated name on the request, consent copies it to the grant. Once CIMD is advertised, Claude web switches from DCR to its hosted CIMD URL for new connections; existing DCR grants keep working.
 - Phase 3 review: consent moved from the `oauthConsent` callable to `POST /oauth/consent-action` on `oauth`, because only a Hosting rewrite forwards the `__session` binding cookie. The callable stays exported as a stub so the deploy does not try to delete a live function; drop it after `firebase functions:delete oauthConsent`.

@@ -45,13 +45,14 @@ const sendResult = (res, result, cors) => {
 // Same-origin browser endpoints: no CORS headers.
 const NO_CORS = ["/oauth/authorize", "/oauth/consent-action"];
 
-const route = (db, req, now, consent) => {
-  const options = {now, headers: req.headers};
+const route = (db, req, now, {consent, fetchCimd}) => {
+  const options = {now, headers: req.headers, fetchCimd};
   const handlers = {
     "POST /oauth/register": () => require("./register")
         .registerClient(db, req.body, {ip: clientIp(req), now}),
     "GET /oauth/authorize": () => require("./authorize")
-        .authorize(db, req.query, {now, cookie: req.headers.cookie}),
+        .authorize(db, req.query, {now, cookie: req.headers.cookie,
+          fetchCimd}),
     "POST /oauth/consent-action": () => require("./consent")
         .consentAction(consent(), req, now),
     "POST /oauth/token": () => require("./token")
@@ -64,9 +65,10 @@ const route = (db, req, now, consent) => {
 
 // `discovery` defaults to DISCOVERY_ENABLED; tests pass false to check the
 // dark (404) mode that phase 2 shipped. `consent` lazily returns
-// {verifyIdToken, service} for /oauth/consent-action.
+// {verifyIdToken, service} for /oauth/consent-action. `fetchCimd` replaces
+// fetch for CIMD documents (tests only).
 const createOauthHandler = (db, {now = () => Date.now(),
-  discovery = DISCOVERY_ENABLED, consent} = {}) =>
+  discovery = DISCOVERY_ENABLED, consent, fetchCimd} = {}) =>
   async (req, res) => {
     // private: Hosting's CDN must neither cache a response nor drop the
     // __session cookie that authorize sets.
@@ -82,7 +84,7 @@ const createOauthHandler = (db, {now = () => Date.now(),
       else res.set(CORS).status(404).json({error: "not_found"});
       return;
     }
-    const handler = route(db, req, now(), consent);
+    const handler = route(db, req, now(), {consent, fetchCimd});
     if (!handler) {
       sendResult(res, {status: 404, body: {error: "not_found"}}, cors);
       return;

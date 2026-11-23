@@ -13,6 +13,7 @@ const { redirectMatches, isAllowedRedirect, verifyPkce, s256 } = require('./oaut
 const { isHostedRequest, challenge: wwwAuthenticate } = require('./oauth/resource')
 const { createTokenService } = require('./mcpTokens')
 const { createBookingTools } = require('./mcpBookings')
+const cimd = require('./oauth/cimd')
 
 const ISSUER = 'https://app.danangblockchainhub.com'
 const RESOURCE = `${ISSUER}/mcp`
@@ -104,7 +105,8 @@ test('discovery is on: metadata documents return 200 with the canonical resource
   assert.deepEqual(as.response_types_supported, ['code'])
   assert.equal(as.authorization_response_iss_parameter_supported, true)
   assert.equal(as.token_endpoint, `${ISSUER}/oauth/token`)
-  assert.equal('client_id_metadata_document_supported' in as, false)
+  assert.equal(as.client_id_metadata_document_supported, true, 'phase 4: CIMD')
+  assert.ok(as.scopes_supported.includes('offline_access'))
   assert.equal((await call(db, { method: 'GET', path: '/oauth/other' })).statusCode, 404)
   assert.equal((await call(db, { method: 'OPTIONS', path: '/oauth/token' })).statusCode, 204)
 })
@@ -777,4 +779,263 @@ test('booking tools: a grant revoked after authenticate, expired, or owned by an
   await assert.rejects(tools.create_booking({ uid: 'member-b', grantId }, nextWeekSlot()), unauthenticated)
   await assert.rejects(tools.list_amenities({ uid, grantId: 'f'.repeat(32) }, { limit: 20 }), unauthenticated)
   assert.equal(docs(store.data, 'bookings').length, 0, 'no booking created')
+})
+
+// Phase 4: CIMD allowlist and ChatGPT verification (RFC 9207 iss, stable redirect).
+const CHATGPT_DOC = 'https://chatgpt.com/oauth/client.json'
+const CLAUDE_DOC = 'https://claude.ai/oauth/mcp-oauth-client-metadata'
+const CLAUDE_CODE_DOC = 'https://claude.ai/oauth/claude-code-client-metadata'
+const CHATGPT_STABLE = 'https://chatgpt.com/connector_platform_oauth_redirect'
+// The documents as served on 2026-11-23.
+const DOCS = {
+  [CHATGPT_DOC]: { client_id: CHATGPT_DOC, client_uri: 'https://chatgpt.com/', redirect_uris: [CHATGPT_STABLE],
+    token_endpoint_auth_method: 'private_key_jwt', token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+    grant_types: ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'],
+    response_types: ['code'], client_name: 'ChatGPT', logo_uri: 'https://persistent.oaistatic.com/sonic/misc/openai-logo.png',
+    token_endpoint_auth_signing_alg: 'RS256', jwks_uri: 'https://chatgpt.com/oauth/jwks.json' },
+  [CLAUDE_DOC]: { client_id: CLAUDE_DOC, client_name: 'Claude', client_uri: 'https://claude.ai', redirect_uris: [CLAUDE],
+    grant_types: ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'],
+    response_types: ['code'], token_endpoint_auth_method: 'none' },
+  [CLAUDE_CODE_DOC]: { client_id: CLAUDE_CODE_DOC, client_name: 'Claude Code', client_uri: 'https://claude.ai',
+    redirect_uris: ['http://localhost/callback', 'http://127.0.0.1/callback'], grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'], token_endpoint_auth_method: 'none' }
+}
+// A fetch stub that records every call; `reply(url, init)` returns a Response.
+const stubFetch = (reply = (url) => Response.json(DOCS[url])) => {
+  const calls = []
+  const fetch = async (url, init) => { calls.push({ url, init }); return reply(url, init) }
+  return { fetch, calls }
+}
+const docWith = (url, patch) => () => Response.json({ ...DOCS[url], ...patch })
+const cimdQuery = (clientId, redirectUri, extra) => authorizeQuery(clientId, { redirect_uri: redirectUri, ...extra })
+const cimdExchange = (db, clientId, code, redirectUri, now, fetchCimd) => token(db, {
+  grant_type: 'authorization_code', client_id: clientId, code, redirect_uri: redirectUri,
+  code_verifier: verifier, resource: RESOURCE
+}, { ...FORM, now, fetchCimd })
+const startCimd = async (db, clientId, redirectUri, fetchCimd, now = Date.now()) =>
+  authorize(db, cimdQuery(clientId, redirectUri), { now, fetchCimd })
+
+test('CIMD allowlist: exactly ChatGPT, Claude and Claude Code; fetch limits 3 s, 16 KB, 1 h cache', () => {
+  assert.deepEqual([...cimd.ALLOWLIST].sort(), [CHATGPT_DOC, CLAUDE_CODE_DOC, CLAUDE_DOC].sort())
+  assert.deepEqual({ ...cimd.FETCH }, { timeoutMs: 3000, maxBytes: 16384, cacheMs: 3600000 })
+  for (const near of [CHATGPT_DOC + '/', CHATGPT_DOC + '?x', 'https://CHATGPT.com/oauth/client.json', 'http://chatgpt.com/oauth/client.json',
+    'https://chatgpt.com/oauth/abc/client.json', 'https://claude.ai/oauth/mcp-oauth-client-metadata/confidential_client',
+    'https://chatgpt.com.evil.example/oauth/client.json', 'https://evil.example/doc', 42]) {
+    assert.equal(cimd.isAllowedCimd(near), false, String(near))
+  }
+})
+
+test('CIMD: an allowlisted ChatGPT client completes authorize, consent and token on the stable redirect', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const now = Date.now()
+  const { fetch, calls } = stubFetch()
+  const started = await startCimd(store.db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)
+  assert.equal(started.status, 302)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, CHATGPT_DOC)
+  assert.deepEqual([calls[0].init.redirect, calls[0].init.credentials, calls[0].init.method], ['manual', 'omit', 'GET'])
+  assert.equal(calls[0].init.headers.Authorization, undefined, 'no credentials forwarded')
+  assert.ok(calls[0].init.signal instanceof AbortSignal)
+  const stored = store.data.get(`oauthRequests/${requestOf(started)}`)
+  assert.deepEqual([stored.clientId, stored.cimd, stored.clientName], [CHATGPT_DOC, true, 'ChatGPT'])
+  const consent = createConsentService(store.db, auth, allow)
+  const input = { request: requestOf(started), browser: browserOf(started) }
+  const described = await consent.handle(uid, { action: 'describe', ...input }, now)
+  assert.deepEqual([described.clientName, described.clientNameSelfDeclared, described.redirectHost],
+    ['ChatGPT', false, 'chatgpt.com'])
+  const url = new URL((await consent.handle(uid, { action: 'approve', ...input }, now)).redirectUrl)
+  assert.equal(url.origin + url.pathname, CHATGPT_STABLE)
+  assert.equal(url.searchParams.get('iss'), ISSUER, 'RFC 9207 iss on success')
+  assert.equal(url.searchParams.get('state'), 'st-1')
+  const code = url.searchParams.get('code')
+  const issued = await cimdExchange(store.db, CHATGPT_DOC, code, CHATGPT_STABLE, now, fetch)
+  assert.equal(issued.status, 200)
+  assert.equal(calls.length, 1, 'token endpoint used the cached document')
+  assert.equal(docs(store.data, 'oauthClients').length, 0, 'CIMD clients are not stored')
+  const grant = grantOf(store, code)
+  assert.deepEqual([grant.clientId, grant.clientName], [CHATGPT_DOC, 'ChatGPT'])
+  // Refresh rotates for a CIMD client; Connected apps lists and disconnects it.
+  const rotated = await token(store.db, { grant_type: 'refresh_token', client_id: CHATGPT_DOC,
+    refresh_token: issued.body.refresh_token }, { ...FORM, now, fetchCimd: fetch })
+  assert.equal(rotated.status, 200)
+  const service = createTokenService(store.db, auth)
+  const { grants } = await manageAs(service, { action: 'listGrants' })
+  assert.deepEqual(grants.map((g) => [g.clientName, g.redirectHost]), [['ChatGPT', 'chatgpt.com']])
+  assert.deepEqual(await manageAs(service, { action: 'revokeGrant', grantId: grants[0].id }), { revoked: true })
+  const principal = service.authenticate('Bearer ' + rotated.body.access_token, { hosted: true })
+  assert.equal(await reasonOf(principal), 'unknown')
+})
+
+test('CIMD: Claude web and Claude Code documents work; Claude Code matches loopback on any port', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const { fetch } = stubFetch()
+  for (const [clientId, redirectUri] of [[CLAUDE_DOC, CLAUDE], [CLAUDE_CODE_DOC, 'http://localhost:33418/callback'],
+    [CLAUDE_CODE_DOC, 'http://127.0.0.1:5000/callback']]) {
+    const started = await startCimd(store.db, clientId, redirectUri, fetch)
+    const input = { request: requestOf(started), browser: browserOf(started) }
+    const consent = createConsentService(store.db, auth, allow)
+    const url = new URL((await consent.handle(uid, { action: 'approve', ...input })).redirectUrl)
+    const issued = await cimdExchange(store.db, clientId, url.searchParams.get('code'), redirectUri, Date.now(), fetch)
+    assert.equal(issued.status, 200, clientId + ' ' + redirectUri)
+  }
+  const other = await startCimd(store.db, CLAUDE_CODE_DOC, 'http://localhost:1/oauth/callback', fetch)
+  assert.equal(other.status, 400, 'a redirect the document does not list is refused')
+  assert.equal(other.location, undefined)
+  const foreign = await startCimd(store.db, CLAUDE_DOC, CHATGPT_STABLE, fetch)
+  assert.equal(foreign.status, 400, 'Claude\'s document does not cover ChatGPT\'s callback')
+})
+
+test('CIMD: a URL client_id off the allowlist is refused at authorize and token without any fetch', async () => {
+  cimd.resetCimdCache()
+  const { db } = makeStore()
+  const { fetch, calls } = stubFetch(() => { throw new Error('must not fetch') })
+  for (const clientId of ['https://evil.example/client.json', 'https://chatgpt.com/oauth/abc/client.json',
+    CLAUDE_DOC + '/confidential_client', 'https://169.254.169.254/latest/meta-data', 'http://chatgpt.com/oauth/client.json']) {
+    const res = await call(db, { method: 'GET', path: '/oauth/authorize', query: cimdQuery(clientId, CHATGPT_STABLE) },
+      { fetchCimd: fetch })
+    assert.equal(res.statusCode, 400, clientId)
+    assert.equal(res.headers.Location, undefined)
+    const refused = await cimdExchange(db, clientId, 'a'.repeat(64), CHATGPT_STABLE, Date.now(), fetch)
+    assert.deepEqual([refused.status, refused.body.error], [401, 'invalid_client'], clientId)
+  }
+  assert.equal(calls.length, 0)
+})
+
+test('CIMD fails closed: client_id mismatch, bad redirects, public-client and type checks, never a redirect or 500', async () => {
+  const { db } = makeStore()
+  const cases = [
+    { client_id: 'https://chatgpt.com/oauth/other.json' },
+    { client_id: undefined },
+    { redirect_uris: ['https://evil.example/cb'] },
+    { redirect_uris: [CHATGPT_STABLE, 'https://evil.example/cb'] },
+    { redirect_uris: [] },
+    { redirect_uris: CHATGPT_STABLE },
+    { redirect_uris: Array(6).fill(CHATGPT_STABLE) },
+    { redirect_uris: [{ uri: CHATGPT_STABLE }] },
+    { token_endpoint_auth_method: 'private_key_jwt', token_endpoint_auth_methods_supported: ['private_key_jwt'] },
+    { token_endpoint_auth_method: undefined, token_endpoint_auth_methods_supported: undefined },
+    { token_endpoint_auth_methods_supported: 'none' },
+    { client_secret: 's3cret' },
+    { grant_types: ['refresh_token'] },
+    { grant_types: Array(11).fill('authorization_code') },
+    { response_types: ['token'] },
+    { client_name: 'x'.repeat(300) },
+    { client_name: ['ChatGPT'] }
+  ]
+  for (const patch of cases) {
+    cimd.resetCimdCache()
+    const { fetch } = stubFetch(docWith(CHATGPT_DOC, patch))
+    const res = await call(db, { method: 'GET', path: '/oauth/authorize', query: cimdQuery(CHATGPT_DOC, CHATGPT_STABLE) },
+      { fetchCimd: fetch })
+    assert.equal(res.statusCode, 400, JSON.stringify(patch))
+    assert.equal(res.headers.Location, undefined)
+    const refused = await cimdExchange(db, CHATGPT_DOC, 'a'.repeat(64), CHATGPT_STABLE, Date.now(), fetch)
+    assert.deepEqual([refused.status, refused.body.error], [401, 'invalid_client'], JSON.stringify(patch))
+  }
+  cimd.resetCimdCache()
+  const { fetch } = stubFetch(docWith(CHATGPT_DOC, { client_name: 'Chat‮GPT' }))
+  const started = await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch)
+  assert.equal(new URL(started.location).pathname, '/oauth/consent', 'unknown fields ignored, name cleaned')
+})
+
+test('CIMD fails closed on transport: 3xx, 404, 5xx, non-JSON, oversize, slow, network error', async () => {
+  const { db } = makeStore()
+  const big = JSON.stringify({ ...DOCS[CHATGPT_DOC], client_uri: 'x'.repeat(17000) })
+  const stream = (text) => new ReadableStream({ start (c) { c.enqueue(new TextEncoder().encode(text)); c.close() } })
+  const cases = [
+    [() => new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/' } }), 400],
+    [() => new Response('nope', { status: 404 }), 400],
+    [() => new Response('down', { status: 503 }), 503],
+    [() => new Response('<html>', { headers: { 'content-type': 'text/html' } }), 400],
+    [() => new Response('{not json', { headers: { 'content-type': 'application/json' } }), 400],
+    [() => new Response('[1]', { headers: { 'content-type': 'application/json' } }), 400],
+    [() => new Response(big, { headers: { 'content-type': 'application/json' } }), 400],
+    [() => new Response(stream(big), { headers: { 'content-type': 'application/json' } }), 400],
+    [() => { throw new TypeError('fetch failed') }, 503]
+  ]
+  for (const [reply, status] of cases) {
+    cimd.resetCimdCache()
+    const { fetch } = stubFetch(reply)
+    const res = await call(db, { method: 'GET', path: '/oauth/authorize', query: cimdQuery(CHATGPT_DOC, CHATGPT_STABLE) },
+      { fetchCimd: fetch })
+    assert.equal(res.statusCode, status, String(reply))
+    assert.equal(res.headers.Location, undefined)
+    const refused = await cimdExchange(db, CHATGPT_DOC, 'a'.repeat(64), CHATGPT_STABLE, Date.now(), fetch)
+    assert.equal(refused.body.error, status === 503 ? 'temporarily_unavailable' : 'invalid_client')
+    assert.equal(refused.status, status === 503 ? 503 : 401)
+  }
+  // A server that never answers is cut off by the timeout (3 s in production).
+  const hang = (url, init) => new Promise((resolve, reject) =>
+    init.signal.addEventListener('abort', () => reject(init.signal.reason)))
+  const started = Date.now()
+  const slow = await cimd.fetchDocument(CHATGPT_DOC, { fetch: hang, timeoutMs: 30 })
+  assert.equal(slow.error.kind, 'unavailable')
+  assert.match(slow.error.description, /timed out/)
+  assert.ok(Date.now() - started < 1000)
+  const off = await cimd.fetchDocument('https://evil.example/doc', { fetch: () => assert.fail('fetched') })
+  assert.equal(off.error.kind, 'invalid')
+})
+
+test('CIMD cache: a validated document is reused for an hour; failures are not cached', async () => {
+  cimd.resetCimdCache()
+  const { db } = makeStore()
+  const now = Date.now()
+  let fail = true
+  const { fetch, calls } = stubFetch((url) => fail ? new Response('down', { status: 500 }) : Response.json(DOCS[url]))
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)).status, 503)
+  fail = false
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now)).status, 302)
+  assert.equal(calls.length, 2, 'the failure was not cached')
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 59 * 60000)).status, 302)
+  assert.equal(calls.length, 2, 'cache hit within the hour')
+  fail = true
+  assert.equal((await startCimd(db, CHATGPT_DOC, CHATGPT_STABLE, fetch, now + 61 * 60000)).status, 503)
+  assert.equal(calls.length, 3, 'refetched after an hour')
+})
+
+test('RFC 9207: iss is on every authorization response, success and error, for DCR and CIMD', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const { fetch } = stubFetch()
+  const { client_id: dcr } = (await register(store.db, [CHATGPT_STABLE])).body
+  for (const clientId of [dcr, CHATGPT_DOC]) {
+    const failed = await authorize(store.db, cimdQuery(clientId, CHATGPT_STABLE, { code_challenge_method: 'plain' }),
+      { fetchCimd: fetch })
+    const errorUrl = new URL(failed.location)
+    assert.deepEqual([errorUrl.searchParams.get('error'), errorUrl.searchParams.get('iss')], ['invalid_request', ISSUER])
+    const consent = createConsentService(store.db, auth, allow)
+    const input = (started) => ({ request: requestOf(started), browser: browserOf(started) })
+    const denied = await startCimd(store.db, clientId, CHATGPT_STABLE, fetch)
+    const deny = new URL((await consent.handle(uid, { action: 'deny', ...input(denied) })).redirectUrl)
+    assert.deepEqual([deny.searchParams.get('error'), deny.searchParams.get('iss')], ['access_denied', ISSUER])
+    const ok = await startCimd(store.db, clientId, CHATGPT_STABLE, fetch)
+    const approve = new URL((await consent.handle(uid, { action: 'approve', ...input(ok) })).redirectUrl)
+    assert.equal(approve.searchParams.get('iss'), ISSUER)
+    assert.ok(approve.searchParams.get('code'))
+  }
+  const as = (await call(store.db, { method: 'GET', path: '/.well-known/oauth-authorization-server' })).body
+  assert.equal(as.authorization_response_iss_parameter_supported, true)
+  assert.equal(as.issuer, ISSUER, 'iss matches the metadata issuer exactly')
+})
+
+test('DCR is unaffected: the ChatGPT stable redirect and callback form register, and DCR flows need no fetch', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const { fetch, calls } = stubFetch(() => { throw new Error('must not fetch') })
+  for (const uri of [CHATGPT_STABLE, 'https://chatgpt.com/connector/oauth/cb_123']) {
+    const reg = await register(store.db, [uri])
+    assert.equal(reg.status, 201, uri)
+    const started = await authorize(store.db, cimdQuery(reg.body.client_id, uri), { fetchCimd: fetch })
+    const consent = createConsentService(store.db, auth, allow)
+    const input = { request: requestOf(started), browser: browserOf(started) }
+    const described = await consent.handle(uid, { action: 'describe', ...input })
+    assert.equal(described.clientNameSelfDeclared, true)
+    const url = new URL((await consent.handle(uid, { action: 'approve', ...input })).redirectUrl)
+    const issued = await cimdExchange(store.db, reg.body.client_id, url.searchParams.get('code'), uri, Date.now(), fetch)
+    assert.equal(issued.status, 200)
+    assert.equal(store.data.get(`oauthClients/${reg.body.client_id}`).usedAt > 0, true, 'DCR client still kept alive')
+  }
+  assert.equal(calls.length, 0)
 })

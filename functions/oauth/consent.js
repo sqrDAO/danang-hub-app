@@ -23,6 +23,13 @@ const accountLabel = (user) => {
 };
 
 const createConsentService = (db, auth, requireUser) => {
+  // A CIMD client (URL client_id) has no oauthClients doc; authorize
+  // stored its validated name on the request.
+  const clientFor = async (request, tx) => {
+    if (request.cimd) return {clientName: request.clientName};
+    const ref = db.collection("oauthClients").doc(request.clientId);
+    return (await (tx ? tx.get(ref) : ref.get())).data() || {};
+  };
   const requestRef = (id) => {
     if (typeof id !== "string" || !REQUEST_ID.test(id)) {
       throw new HttpsError("invalid-argument", "Unknown request.");
@@ -39,12 +46,12 @@ const createConsentService = (db, auth, requireUser) => {
   const describe = async (uid, id, browser, now) => {
     const request = liveRequest((await requestRef(id).get()).data(), now);
     requireSameBrowser(request, browser);
-    const client = (await db.collection("oauthClients")
-        .doc(request.clientId).get()).data() || {};
+    const client = await clientFor(request);
     const user = await auth.getUser(uid);
     return {
       clientName: client.clientName || "",
-      clientNameSelfDeclared: true,
+      // A CIMD name comes from an allowlisted host (chatgpt.com, claude.ai).
+      clientNameSelfDeclared: !request.cimd,
       redirectHost: new URL(request.redirectUri).host,
       loopback: Boolean(loopbackParts(request.redirectUri)),
       scopes: [{scope: request.scope, text: SCOPE_TEXT[request.scope]}],
@@ -59,15 +66,14 @@ const createConsentService = (db, auth, requireUser) => {
     return db.runTransaction(async (tx) => {
       const request = liveRequest((await tx.get(ref)).data(), now);
       requireSameBrowser(request, browser);
-      const client = (await tx.get(db.collection("oauthClients")
-          .doc(request.clientId))).data();
+      const client = await clientFor(request, tx);
       tx.delete(ref);
       const state = request.state === null ? undefined : request.state;
       if (!approve) {
         return {redirectUrl: redirectWith(request.redirectUri, {
           error: "access_denied", state})};
       }
-      if (expired(client, now)) {
+      if (!request.cimd && expired(client, now)) {
         throw new HttpsError("not-found", "This app registration expired.");
       }
       const grantId = randomHex(16);

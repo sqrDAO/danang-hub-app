@@ -42,7 +42,8 @@ const protectedResourceMetadata = () => ({
   bearer_methods_supported: ["header"],
 });
 
-// client_id_metadata_document_supported is added in phase 4 (CIMD).
+// Phase 4: CIMD for the allowlisted client_id URLs in ./cimd.js; RFC 9207
+// `iss` is on every authorization response (authorize.js redirectWith).
 const authorizationServerMetadata = () => ({
   issuer: ISSUER,
   authorization_endpoint: `${ISSUER}/oauth/authorize`,
@@ -56,6 +57,7 @@ const authorizationServerMetadata = () => ({
   revocation_endpoint_auth_methods_supported: ["none"],
   scopes_supported: REQUEST_SCOPES,
   authorization_response_iss_parameter_supported: true,
+  client_id_metadata_document_supported: true,
 });
 
 module.exports = {

@@ -5,6 +5,7 @@ const {ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, LIFETIME, LIMITS} =
 const {sha256, randomHex, ts, expired, redirectMatches, CHALLENGE} =
   require("./util");
 const {readBrowserId, browserCookie} = require("./browser");
+const {isUrlClientId, resolveCimdClient} = require("./cimd");
 
 const CLIENT_ID = /^dhc_[a-f0-9]{32}$/;
 
@@ -13,6 +14,19 @@ const loadClient = async (db, clientId, now, tx) => {
   const ref = db.collection("oauthClients").doc(clientId);
   const client = (await (tx ? tx.get(ref) : ref.get())).data();
   return expired(client, now) ? null : client;
+};
+
+// Either form of client_id: a DCR id (oauthClients) or an allowlisted CIMD
+// URL. Returns {client} or {error: {kind, description}}; kind
+// "unavailable" means the CIMD document could not be fetched.
+const resolveClient = async (db, clientId, {now = Date.now(),
+  fetchCimd} = {}) => {
+  if (isUrlClientId(clientId)) {
+    return resolveCimdClient(clientId, {now, fetch: fetchCimd});
+  }
+  const client = await loadClient(db, clientId, now);
+  return client ? {client} :
+    {error: {kind: "invalid", description: "Unknown or expired client_id."}};
 };
 
 // Authorization response URL with RFC 9207 `iss` on success and error.
@@ -24,7 +38,7 @@ const redirectWith = (redirectUri, params) => {
   return url.toString();
 };
 
-const errorPage = (message) => ({status: 400, page: message});
+const errorPage = (message, status = 400) => ({status, page: message});
 const errorRedirect = (redirectUri, state, error, description) => ({
   status: 302,
   location: redirectWith(redirectUri, {
@@ -64,11 +78,24 @@ const requestError = (query) => {
   return null;
 };
 
+// What the consent page needs about a CIMD client, which has no
+// oauthClients doc: its name from the validated document.
+const cimdFields = (client) => client.cimd ?
+  {cimd: true, clientName: client.clientName} : {};
+
 // `cookie` is the request's Cookie header (browser binding, ./browser.js).
-const authorize = async (db, query, {now = Date.now(), cookie} = {}) => {
+// `fetchCimd` replaces fetch for CIMD documents (tests).
+const authorize = async (db, query, {now = Date.now(), cookie,
+  fetchCimd} = {}) => {
   const q = query || {};
-  const client = await loadClient(db, q.client_id, now);
-  if (!client) return errorPage("Unknown or expired client_id.");
+  const {client, error} = await resolveClient(db, q.client_id,
+      {now, fetchCimd});
+  if (error) {
+    return error.kind === "unavailable" ?
+      errorPage("Couldn't load this app's registration; try again " +
+        "shortly.", 503) :
+      errorPage("Unknown or expired client_id.");
+  }
   if (!redirectMatches(client.redirectUris, q.redirect_uri)) {
     return errorPage("redirect_uri is not registered for this client.");
   }
@@ -86,7 +113,7 @@ const authorize = async (db, query, {now = Date.now(), cookie} = {}) => {
       codeChallenge: q.code_challenge, resource: RESOURCE,
       scope: checkScope(q.scope), state: q.state === undefined ?
         null : q.state,
-      browserHash: sha256(browserId),
+      browserHash: sha256(browserId), ...cimdFields(client),
       createdAt: now, expiresAt: ts(now + LIFETIME.request),
     });
   });
@@ -94,4 +121,6 @@ const authorize = async (db, query, {now = Date.now(), cookie} = {}) => {
     location: `${ISSUER}/oauth/consent?request=${id}`};
 };
 
-module.exports = {authorize, loadClient, redirectWith, checkScope};
+module.exports = {
+  authorize, loadClient, resolveClient, redirectWith, checkScope,
+};
