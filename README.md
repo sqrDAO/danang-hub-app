@@ -425,7 +425,7 @@ functions/
 | `mcpBookingLocks` | Server-only per-amenity transaction serialization documents for MCP creates |
 | `oauthClients` | Server-only OAuth clients from dynamic registration (public, no secret); expire 1 day after registration unless used, then 30 days after each token exchange (`expiresAt` TTL) |
 | `oauthRequests` | Server-only pending authorization requests, 10-minute TTL, consumed once on approve or deny |
-| `oauthCodes` | Server-only SHA-256 hashes of authorization codes (60 s, single use; a replay revokes the grant) |
+| `oauthCodes` | Server-only SHA-256 hashes of authorization codes (60 s, single use; replaying a code that was already exchanged revokes its grant, a code burned by a failed PKCE check is just refused) |
 | `oauthGrants` | Server-only per-member app connections (client, redirect URI, scope, revoked flag), 90-day cap |
 | `oauthTokens` | Server-only SHA-256 hashes of `dha_` access (1 h) and `dhr_` refresh (30 days sliding, rotated on use) tokens with grant, member and audience |
 | `oauthRateLimits` | Server-only registration counters: global hourly cap for hosted callbacks, per-IP hourly cap for loopback, unused-client buckets |

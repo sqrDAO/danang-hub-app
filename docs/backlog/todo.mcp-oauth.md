@@ -22,7 +22,7 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 ## Acceptance
 - [ ] Unauthenticated `POST /mcp` returns 401 with `WWW-Authenticate` carrying `resource_metadata` and `scope="bookings"`.
 - [ ] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp` (phase 3; phase 2 returns 404 while `DISCOVERY_ENABLED` is false, unit-tested with it on).
-- [ ] Until phase 3, both `/.well-known/oauth-*` documents return JSON 404, not the SPA shell.
+- [x] Until phase 3, all three `/.well-known/oauth-*` paths (protected-resource at the root and at `/mcp`, authorization-server) return JSON 404, not the SPA shell.
 - [ ] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
 - [x] DCR rejects a redirect URI outside the allowlist with `invalid_redirect_uri`.
 - [x] DCR for Claude/ChatGPT callbacks is not limited per IP, only by a global hourly cap.
@@ -36,7 +36,8 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [ ] A wallet-signed-in member can approve consent.
 - [x] Authorization codes expire after 60 s and work once.
 - [x] A code exchange rejected for a wrong `client_id`, `redirect_uri` or `resource` can be retried; a failed PKCE check burns the code; only a replay of a successfully exchanged code revokes the grant.
-- [x] DCR strips control, bidi and zero-width characters from `client_name` and caps each redirect URI at 256 chars.
+- [x] DCR strips control, bidi, zero-width and blank-rendering (Hangul filler, Braille blank) characters from `client_name` and caps each redirect URI at 256 chars.
+- [x] The token endpoint rejects a grant type the client did not register with `unauthorized_client`; registration defaults to both grants.
 - [x] Refresh rotates the token, and a reused refresh token revokes the grant.
 - [ ] An access token whose `aud` is not the canonical MCP URL gets 401.
 - [ ] Disconnect in Profile makes that grant's next MCP request return 401.

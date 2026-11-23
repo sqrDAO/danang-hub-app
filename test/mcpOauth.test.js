@@ -63,6 +63,9 @@ const exchange = (db, clientId, code, now, extra = {}) => token(db, {
 const refresh = (db, clientId, refreshToken, now) => token(db, {
   grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken
 }, { ...FORM, now })
+const hash = (value) => createHash('sha256').update(value).digest('hex')
+// The grant a code was issued for, read straight from the store.
+const grantOf = (store, code) => store.data.get(`oauthGrants/${store.data.get(`oauthCodes/${hash(code)}`).grantId}`)
 const docs = (data, prefix) => [...data].filter(([path]) => path.startsWith(prefix + '/'))
 
 const WELL_KNOWN = ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp',
@@ -170,6 +173,22 @@ test('DCR strips invisible characters from client_name and keeps the client docu
   const stored = data.get(`oauthClients/${many.body.client_id}`)
   assert.deepEqual(stored.grantTypes, ['refresh_token'])
   assert.deepEqual(stored.responseTypes, ['code'])
+})
+
+test('DCR drops blank-rendering letters from client_name; a blank name is stored like a missing one', async () => {
+  const { db, data } = makeStore()
+  const name = async (clientName) => {
+    const ok = await registerClient(db, { redirect_uris: [CLAUDE], client_name: clientName }, {})
+    assert.equal(ok.status, 201)
+    return [ok.body, data.get(`oauthClients/${ok.body.client_id}`).clientName]
+  }
+  assert.equal((await name('Cl\u115Fa\u1160u\u3164d\uFFA0e\u2800\u180E'))[1], 'Claude')
+  const missing = await name(undefined)
+  for (const blank of ['\u3164', '\u115F\u1160', ' \uFFA0 \u2800 ', '\u180E\u3164\t']) {
+    const [body, stored] = await name(blank)
+    assert.equal(stored, missing[1], JSON.stringify(blank))
+    assert.equal(body.client_name, undefined, JSON.stringify(blank))
+  }
 })
 
 test('DCR: hosted callbacks share a global hourly cap, not a per-IP one', async () => {
@@ -346,8 +365,24 @@ test('a rejected exchange does not count as use: a corrected retry works, a fail
   const after = await exchange(store.db, guessed.clientId, guessed.code, now + 1000)
   assert.equal(after.body.error, 'invalid_grant', 'a burned code never issues tokens')
   assert.match(after.body.error_description, /no longer valid/)
+  assert.equal(grantOf(store, guessed.code).revoked, false, 'a burned code does not revoke its own grant')
   assert.equal((await validateAccessToken(store.db, retry.body.access_token, { now })).uid, uid,
     'a burned code does not revoke other grants')
+})
+
+test('a code presented with another registered client_id can be retried with the right one', async () => {
+  const store = makeStore()
+  const now = Date.now()
+  const flow = await approved(store, now)
+  const other = (await register(store.db, [CLAUDE], { now })).body.client_id
+  const foreign = await exchange(store.db, other, flow.code, now)
+  assert.equal(foreign.status, 400)
+  assert.equal(foreign.body.error, 'invalid_grant')
+  assert.match(foreign.body.error_description, /another client/)
+  const retry = await exchange(store.db, flow.clientId, flow.code, now + 1000)
+  assert.equal(retry.status, 200)
+  assert.equal(grantOf(store, flow.code).revoked, false)
+  assert.equal((await validateAccessToken(store.db, retry.body.access_token, { now })).uid, uid)
 })
 
 test('a reused authorization code revokes the grant and its tokens', async () => {
@@ -432,10 +467,38 @@ test('revocation: refresh token ends the grant, unknown tokens still get 200', a
   assert.equal(docs(store.data, 'oauthGrants')[0][1].revoked, true)
 })
 
+test('token endpoint enforces the grant types a client registered (RFC 6749 5.2)', async () => {
+  const store = makeStore()
+  const now = Date.now()
+  const flow = await approved(store, now)
+  const issued = (await exchange(store.db, flow.clientId, flow.code, now)).body
+  const clientPath = `oauthClients/${flow.clientId}`
+  assert.deepEqual(store.data.get(clientPath).grantTypes, ['authorization_code', 'refresh_token'],
+    'omitted grant_types default to both, so Claude and ChatGPT can refresh')
+
+  store.data.set(clientPath, { ...store.data.get(clientPath), grantTypes: ['authorization_code'] })
+  const noRefresh = await refresh(store.db, flow.clientId, issued.refresh_token, now + 1000)
+  assert.equal(noRefresh.status, 400)
+  assert.equal(noRefresh.body.error, 'unauthorized_client')
+
+  const { grantTypes, ...legacy } = store.data.get(clientPath)
+  assert.ok(grantTypes)
+  store.data.set(clientPath, legacy)
+  assert.equal((await refresh(store.db, flow.clientId, issued.refresh_token, now + 2000)).status, 200,
+    'a stored client without grantTypes gets the default')
+
+  const refreshOnly = (await registerClient(store.db, { redirect_uris: [CLAUDE], grant_types: ['refresh_token'] }, { now })).body
+  const noCode = await exchange(store.db, refreshOnly.client_id, 'a'.repeat(64), now)
+  assert.equal(noCode.status, 400)
+  assert.equal(noCode.body.error, 'unauthorized_client')
+  const unsupported = await token(store.db, { grant_type: 'password', client_id: refreshOnly.client_id }, { ...FORM, now })
+  assert.equal(unsupported.body.error, 'unsupported_grant_type')
+})
+
 test('token endpoint rejects grants other than authorization_code and refresh_token', async () => {
   const store = makeStore()
   const { client_id: clientId } = (await register(store.db)).body
-  for (const grant of ['client_credentials', 'password', 'implicit', undefined]) {
+  for (const grant of ['client_credentials', 'password', 'implicit', 'toString', '__proto__', undefined]) {
     const result = await token(store.db, { grant_type: grant, client_id: clientId }, FORM)
     assert.equal(result.body.error, 'unsupported_grant_type')
   }

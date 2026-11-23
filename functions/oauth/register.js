@@ -8,7 +8,11 @@ const {
 const GRANTS = ["authorization_code", "refresh_token"];
 const UNUSED_DOC = "dcr-unused";
 const UNUSED_WINDOW_HOURS = 24;
-const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
+// Control and format characters (\p{Cf} covers U+180E), line and paragraph
+// separators, and letters that render blank: the Hangul fillers and the
+// Braille blank.
+const INVISIBLE =
+  /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u115F\u1160\u3164\uFFA0\u2800]/gu;
 
 const fail = (status, error, description, headers) =>
   ({status, headers, body: {error, error_description: description}});
@@ -24,8 +28,9 @@ const cleanName = (value) => {
   if (value === undefined) return "";
   if (typeof value !== "string") return null;
   // Self-declared and untrusted: drop control and invisible format
-  // characters (bidi overrides and isolates, zero-width, BOM) and line or
-  // paragraph separators, then cap the length.
+  // characters (bidi overrides and isolates, zero-width, BOM), line or
+  // paragraph separators and blank-rendering letters, then cap the length.
+  // A name that is blank after this is stored as "", like a missing one.
   return [...value.replace(INVISIBLE, "").trim()]
       .slice(0, LIMITS.clientName).join("");
 };
@@ -132,5 +137,5 @@ const registerClient = async (db, body, {ip, now = Date.now()} = {}) => {
 };
 
 module.exports = {
-  registerClient, validateMetadata, unusedCount, UNUSED_DOC,
+  registerClient, validateMetadata, unusedCount, UNUSED_DOC, GRANTS,
 };

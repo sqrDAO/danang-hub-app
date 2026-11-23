@@ -325,7 +325,7 @@ The `oauth` function and `oauthConsent` callable are new: the first deploy may
 need the owner invoker setup in README ("New callable functions"). Both must be
 publicly invokable; they do their own validation. Hosting rewrites send
 `/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke` to `oauth`.
-`mcp` does not advertise OAuth and both `/.well-known/oauth-*` documents
+`mcp` does not advertise OAuth and all three `/.well-known/oauth-*` paths
 return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) until
 phase 3, so no connector can start a sign-in and nothing changes for members.
 
@@ -341,8 +341,9 @@ done
 ```
 
 Smoke checks after deploy (no member data involved):
-`curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`
-and `.../.well-known/oauth-authorization-server` return JSON 404
+`curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`,
+`.../.well-known/oauth-protected-resource` and
+`.../.well-known/oauth-authorization-server` return JSON 404
 `{"error":"not_found"}` (not the SPA's HTML); a registration
 with `{"redirect_uris":["https://evil.example/cb"]}` posted to `/oauth/register`
 returns 400 `invalid_redirect_uri`. Time a cold `POST /oauth/token` (decision

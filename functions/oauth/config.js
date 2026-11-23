@@ -5,7 +5,8 @@ const RESOURCE = `${ISSUER}/mcp`;
 const SCOPE = "bookings";
 // offline_access is accepted on requests; refresh tokens are issued anyway.
 const REQUEST_SCOPES = [SCOPE, "offline_access"];
-// Phase 2 deploys the server dark: both discovery documents answer 404 so no
+// Phase 2 deploys the server dark: all three discovery paths (protected
+// resource at the root and at /mcp, authorization server) answer 404 so no
 // connector starts a sign-in before the consent page exists. Hosting keeps
 // the well-known rewrites (without them the SPA catch-all would answer
 // 200 text/html), and clients that find no protected-resource metadata fall

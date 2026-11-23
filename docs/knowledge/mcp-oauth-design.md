@@ -145,7 +145,11 @@ connection anyway, and the page is the only phishing defense.
   the phase 3 check). Anything else →
   `invalid_redirect_uri` (decision 2). At most 5 redirect URIs of ≤ 256 chars
   each. `client_name` ≤ 64 chars with control, bidi and zero-width
-  characters stripped, stored as untrusted text. **No per-IP limit for hosted clients**: Claude registers
+  characters (plus Hangul fillers and the Braille blank, which render
+  blank) stripped, stored as untrusted text. `grant_types` defaults to both
+  `authorization_code` and `refresh_token` (Claude and ChatGPT omit it and
+  need refresh), and `/oauth/token` answers `unauthorized_client` for a grant
+  type the client did not register. **No per-IP limit for hosted clients**: Claude registers
   from Anthropic's shared egress (160.79.104.0/21) and makes a new client per
   fresh connection, and ChatGPT also registers from shared IPs, so a per-IP
   cap would lock out every member after a few connections. Instead:
@@ -238,7 +242,7 @@ in the deploy runbook). README Firestore collections table updated.
 ## Threats and mitigations (summary)
 
 - Phishing client posing as Claude: redirect allowlist + hostname on consent.
-- Code interception: PKCE S256 required, 60 s single-use code, reuse revokes grant.
+- Code interception: PKCE S256 required, 60 s single-use code; replaying an exchanged code revokes its grant, a failed PKCE check burns the code.
 - Open redirect: no redirect before client + redirect URI validate.
 - Token theft: hashed storage, 1 h access tokens, rotating refresh with reuse detection, revocation in Profile.
 - Cross-resource token use: `aud` check; `dhm_` and `dha_` namespaces distinct.
@@ -250,7 +254,7 @@ in the deploy runbook). README Firestore collections table updated.
 
 0. **This PR**: design + spec.
 1. **Hosting origin**: `/mcp` rewrite; service worker denylist for `/oauth/*` (except consent) and `/.well-known/*`; Profile and docs show the new URL; `dhm_` works through Hosting. No OAuth advertised yet.
-2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed, but both metadata documents return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) and `mcp` 401 does not point at them: a client that found the protected-resource document, or fell back to the origin's AS metadata (MCP 2025-03-26), would start a sign-in that dead-ends on the missing consent page. Without the rewrites the SPA catch-all would answer 200 HTML.
+2. **AS backend, dark**: `functions/oauth/*` (metadata, register, authorize, token, revoke), rules + tests, unit tests for PKCE, redirect matching, rotation/reuse. Well-known rewrites deployed, but all three metadata paths (`/.well-known/oauth-protected-resource`, `.../oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`) return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) and `mcp` 401 does not point at them: a client that found the protected-resource document, or fell back to the origin's AS metadata (MCP 2025-03-26), would start a sign-in that dead-ends on the missing consent page. Without the rewrites the SPA catch-all would answer 200 HTML.
 3. **Switch on**: `DISCOVERY_ENABLED = true`, consent page, `oauthConsent` callable, `dha_` acceptance + `resource_metadata` 401 in `mcp`, Connected apps UI, docs (Claude web/Desktop and ChatGPT rows become "Sign in"). Verified end to end with Claude web, Claude Desktop, Claude Code and MCP Inspector via its proxy (Inspector's direct browser mode sends an `Origin` that `/mcp` rejects with 403).
 4. **CIMD allowlist + ChatGPT verification** (`iss`, stable redirect).
 

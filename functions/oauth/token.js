@@ -5,7 +5,7 @@ const {LIFETIME, RESOURCE} = require("./config");
 const {sha256, randomHex, ts, millis, expired, verifyPkce} =
   require("./util");
 const {loadClient, checkScope} = require("./authorize");
-const {UNUSED_DOC} = require("./register");
+const {UNUSED_DOC, GRANTS} = require("./register");
 
 const ACCESS = /^dha_[a-f0-9]{64}$/;
 const REFRESH = /^dhr_[a-f0-9]{64}$/;
@@ -151,6 +151,11 @@ const refreshTokens = (db, params, now) => {
   });
 };
 
+const GRANT_HANDLERS = new Map([
+  ["authorization_code", exchangeCode],
+  ["refresh_token", refreshTokens],
+]);
+
 const isForm = (headers) => /^application\/x-www-form-urlencoded\b/i
     .test((headers && headers["content-type"]) || "");
 
@@ -162,12 +167,18 @@ const token = async (db, params, {now = Date.now(), headers} = {}) => {
   const p = params || {};
   const client = await loadClient(db, p.client_id, now);
   if (!client) return fail("invalid_client", "Unknown client_id.", 401);
-  if (p.grant_type === "authorization_code") {
-    return exchangeCode(db, p, now);
+  const handler = GRANT_HANDLERS.get(p.grant_type);
+  if (!handler) {
+    return fail("unsupported_grant_type",
+        "Use authorization_code or refresh_token.");
   }
-  if (p.grant_type === "refresh_token") return refreshTokens(db, p, now);
-  return fail("unsupported_grant_type",
-      "Use authorization_code or refresh_token.");
+  // RFC 6749 5.2: a grant type the client did not register. Clients stored
+  // without grantTypes get the registration default (both).
+  if (!(client.grantTypes || GRANTS).includes(p.grant_type)) {
+    return fail("unauthorized_client",
+        `Client is not registered for ${p.grant_type}.`);
+  }
+  return handler(db, p, now);
 };
 
 // RFC 7009: always 200 for unknown or foreign tokens. Revoking a refresh
