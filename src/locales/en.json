@@ -48,6 +48,7 @@
     "on": "On",
     "off": "Off",
     "telegramChatbot": "Chat with our Telegram bot",
+    "whatsappChat": "Chat with us on WhatsApp",
     "errorReload": "Something went wrong. Please reload the page.",
     "reload": "Reload"
   },

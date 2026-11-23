@@ -4,6 +4,7 @@ import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
 import EmailVerificationReminder from './EmailVerificationReminder'
+import WhatsAppFloat from './WhatsAppFloat'
 import './Layout.css'
 
 const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatbot = false, flush = false }) => {
@@ -18,6 +19,7 @@ const Layout = ({ children, isAdmin = false, public: isPublic = false, hideChatb
         {children}
       </main>
       <Footer />
+      {!hideChatbot && <WhatsAppFloat />}
       {!hideChatbot && (
         <a
           href="https://t.me/danangblockchainhub"
