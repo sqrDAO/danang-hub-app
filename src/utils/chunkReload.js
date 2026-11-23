@@ -9,7 +9,7 @@ export const OPTIONAL_CHUNK_PATTERN = /HeroCanvas3D/
  * @param {unknown} error the `vite:preloadError` event payload
  * @returns {boolean} true when the failing chunk is optional (see above)
  */
-export function isOptionalChunkError(error) {
+function isOptionalChunkError(error) {
   const message = typeof error?.message === 'string' ? error.message : String(error ?? '')
   return OPTIONAL_CHUNK_PATTERN.test(message)
 }

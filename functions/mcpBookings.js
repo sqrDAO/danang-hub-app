@@ -176,4 +176,4 @@ const createBookingTools = (db, availability) => {
 };
 
 module.exports = {createBookingTools, assertComplete, assertAmenity,
-  assertRange, assertCancellation};
+  assertCancellation};

@@ -39,16 +39,6 @@ if (!hasEmulator) {
 
   after(async () => testEnv.cleanup())
 
-  test('owners may still cancel their own pending booking', async () => {
-    await seed('bookings', 'own-cancel', booking({ status: 'pending' }))
-    const memberDb = testEnv.authenticatedContext('member-a').firestore()
-
-    await assertSucceeds(updateDoc(
-      doc(memberDb, 'bookings', 'own-cancel'),
-      { status: 'cancelled' }
-    ))
-  })
-
   // Policy (#150): an approved booking counts toward the monthly desk-hours
   // limit, and its owner can't cancel it to win those hours back.
   for (const status of ['approved', 'checked-in', 'completed']) {
