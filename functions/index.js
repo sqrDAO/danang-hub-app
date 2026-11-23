@@ -2281,37 +2281,6 @@ exports.sendEventReminders = onSchedule(
       }
     });
 
-// Send booking confirmation email
-exports.sendBookingConfirmation = onDocumentCreated(
-    "bookings/{bookingId}",
-    async (event) => {
-      const snap = event.data;
-      if (!snap) return null;
-      const booking = snap.data();
-
-      try {
-        // Get amenity details
-        const amenityDoc = await db.collection("amenities")
-            .doc(booking.amenityId).get();
-        const amenity = amenityDoc.exists ? amenityDoc.data() : null;
-
-        // TODO: Integrate with email service; send only to
-        // getVerifiedEmail(booking.memberId) (never members.email)
-        console.log("Booking confirmation:", {
-          bookingId: event.params.bookingId,
-          memberId: booking.memberId,
-          amenityName: amenity && amenity.name ? amenity.name : null,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-        });
-
-        return null;
-      } catch (error) {
-        console.error("Error sending booking confirmation:", error);
-        return null;
-      }
-    });
-
 /**
  * The 40-hour monthly desk limit (monthlyHours.js), enforced here because
  * members write bookings straight to Firestore and rules cannot add up hours.

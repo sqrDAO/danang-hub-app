@@ -92,8 +92,6 @@ pending ──admin──▶ approved ──member/admin──▶ checked-in ─
    `details.reason: 'slot-unavailable'`; series skip only that day (`src/utils/conflictCheck.js`).
 2. `createBooking()` (`src/services/bookings.js`) writes the doc with `status: 'pending'`
    and `Timestamp`-converted times.
-3. `sendBookingConfirmation` fires `onCreate` — currently **logs only** (email TODO):
-   booking id, member id, amenity name and times; no Auth lookup, no email or phone.
 
 ### Conflict semantics — `functions/index.js › checkBookingConflicts`
 
@@ -292,7 +290,6 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 | `removePartner` | callable (admin) | Detach the partner's members, release its desk and delete it in one transaction, then cancel their unstarted Partner Desk days (`partner-removed`); `{daysPending: true}` if that last step fails |
 | `generateWalletNonce` | callable (public) | One-time nonce in `nonces/{address}`, 5-min TTL |
 | `verifyWalletSignature` | callable (public) | Verify sig, consume nonce, mint custom token |
-| `sendBookingConfirmation` | `bookings` onCreate | Log only (email TODO) |
 | `autoApproveDeskBooking` | `bookings` onCreate | Cancel a desk booking that passes the 40-hour monthly limit (`monthly-hours-limit`); otherwise auto-approve desk or notify admins for manual review; browser push follows for opted-in admins |
 | `notifyBookingApproval` | `bookings` onUpdate | Member in-app notification on approval, and on cancellation when `cancelledReason` is set; grouped by fixed-desk plan; browser push follows for opted-in members |
 | `notifyEventPendingReview` | `events` onCreate | Admin in-app notification for new pending event; browser push for opted-in admins |

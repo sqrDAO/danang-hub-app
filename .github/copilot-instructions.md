@@ -52,7 +52,6 @@ Every function lives in a single file; `README.md` holds the authoritative table
 - `checkBookingConflicts` — callable, authenticated
 - `checkSlotAvailability` — callable, public (public slot availability check)
 - `generateWalletNonce` / `verifyWalletSignature` — callables, public (wallet sign-in)
-- `sendBookingConfirmation` — Firestore `onCreate` on bookings
 - `autoApproveDeskBooking` — Firestore `onCreate` on bookings
 - `notifyBookingApproval` — Firestore `onUpdate` on bookings
 - `notifyEventPendingReview` — Firestore `onCreate` on events
