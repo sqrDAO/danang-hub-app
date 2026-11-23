@@ -3,11 +3,14 @@ import { getUpcomingHubClosures } from '../utils/hubClosures'
 import { formatDateDDMMYYYY } from '../utils/timezone'
 import './HubClosureNotice.css'
 
-// Upcoming full-day Hub closures. Renders nothing once every closure has
-// passed, so it can sit unconditionally at the top of a page.
+// How far ahead the member notice looks; later closures still block bookings.
+const NOTICE_WINDOW_DAYS = 45
+
+// Upcoming full-day Hub closures. Renders nothing when none starts within the
+// window, so it can sit unconditionally at the top of a page.
 const HubClosureNotice = ({ hintKey = 'closures.noticeHint', className = '' }) => {
   const { t } = useTranslation()
-  const closures = getUpcomingHubClosures()
+  const closures = getUpcomingHubClosures(new Date(), { withinDays: NOTICE_WINDOW_DAYS })
 
   if (closures.length === 0) return null
 

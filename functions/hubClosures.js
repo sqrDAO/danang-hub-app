@@ -17,6 +17,103 @@ const HUB_CLOSURES = [
     end: "2026-09-02",
     label: "Independence Day holiday",
   },
+  {
+    id: "culture-day-2026",
+    start: "2026-11-24",
+    end: "2026-11-24",
+    label: "Vietnamese Culture Day holiday",
+  },
+  // Keep in step with src/utils/hubClosures.js (sources noted there).
+  {
+    id: "new-year-2027",
+    start: "2027-01-01",
+    end: "2027-01-01",
+    label: "New Year holiday",
+  },
+  {
+    id: "lunar-new-year-2027",
+    start: "2027-02-04",
+    end: "2027-02-10",
+    label: "Lunar New Year (Tet) holiday",
+  },
+  {
+    id: "hung-kings-2027",
+    start: "2027-04-16",
+    end: "2027-04-16",
+    label: "Hung Kings Commemoration holiday",
+  },
+  {
+    id: "reunification-day-2027",
+    start: "2027-04-30",
+    end: "2027-04-30",
+    label: "Reunification Day holiday",
+  },
+  {
+    id: "labour-day-2027",
+    start: "2027-05-01",
+    end: "2027-05-01",
+    label: "Labour Day holiday",
+  },
+  {
+    id: "labour-day-2027-in-lieu",
+    start: "2027-05-03",
+    end: "2027-05-03",
+    label: "Labour Day holiday (day in lieu)",
+  },
+  {
+    id: "martyrs-day-2027",
+    start: "2027-07-27",
+    end: "2027-07-27",
+    label: "Invalids and Martyrs Day holiday",
+  },
+  {
+    id: "national-day-2027",
+    start: "2027-09-02",
+    end: "2027-09-03",
+    label: "National Day holiday",
+  },
+  {
+    id: "culture-day-2027",
+    start: "2027-11-24",
+    end: "2027-11-24",
+    label: "Vietnamese Culture Day holiday",
+  },
+  {
+    id: "new-year-2028",
+    start: "2028-01-01",
+    end: "2028-01-01",
+    label: "New Year holiday",
+  },
+  {
+    id: "new-year-2028-in-lieu",
+    start: "2028-01-03",
+    end: "2028-01-03",
+    label: "New Year holiday (day in lieu)",
+  },
+  {
+    id: "hung-kings-2028",
+    start: "2028-04-04",
+    end: "2028-04-04",
+    label: "Hung Kings Commemoration holiday",
+  },
+  {
+    id: "reunification-labour-day-2028",
+    start: "2028-04-30",
+    end: "2028-05-02",
+    label: "Reunification Day and Labour Day holiday",
+  },
+  {
+    id: "martyrs-day-2028",
+    start: "2028-07-27",
+    end: "2028-07-27",
+    label: "Invalids and Martyrs Day holiday",
+  },
+  {
+    id: "culture-day-2028",
+    start: "2028-11-24",
+    end: "2028-11-24",
+    label: "Vietnamese Culture Day holiday",
+  },
 ];
 
 const HUB_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {

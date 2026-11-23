@@ -44,6 +44,12 @@
   display: block;
 }
 
+/* The mobile drawer (z-index 102) sits under the floating buttons (9999);
+   hide them while it is open so they do not cover its footer controls. */
+.layout:has(.mobile-nav.open) :is(.tg-float, .wa-float) {
+  display: none;
+}
+
 /* ── Mobile PWA adjustments for bottom nav ── */
 
 @media (max-width: 768px) {

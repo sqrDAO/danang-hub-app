@@ -54,9 +54,67 @@ test('falls back to the start day when no end is given', () => {
 })
 
 test('lists a closure until its final day has passed', () => {
-  assert.equal(getUpcomingHubClosures('2026-08-01').length, 1)
-  assert.equal(getUpcomingHubClosures('2026-09-02').length, 1)
-  assert.equal(getUpcomingHubClosures('2026-09-03').length, 0)
+  const ids = (from) => getUpcomingHubClosures(from).map(c => c.id)
+  assert.ok(ids('2026-09-02').includes('independence-day-2026'))
+  assert.ok(!ids('2026-09-03').includes('independence-day-2026'))
+  assert.ok(ids('2026-11-24').includes('culture-day-2026'))
+  assert.ok(!ids('2026-11-25').includes('culture-day-2026'))
+  assert.equal(getUpcomingHubClosures('2029-01-01').length, 0)
+})
+
+test('withinDays keeps only closures starting inside the window', () => {
+  const ids = (from, withinDays) => getUpcomingHubClosures(from, { withinDays }).map(c => c.id)
+  assert.deepEqual(ids('2026-11-25', 30), [])
+  assert.deepEqual(ids('2026-11-25', 45), ['new-year-2027'])
+  assert.deepEqual(ids('2026-11-17', 45), ['culture-day-2026', 'new-year-2027'])
+  assert.deepEqual(ids('2026-12-21', 45), ['new-year-2027', 'lunar-new-year-2027'])
+  // An ongoing closure stays listed until its last day.
+  assert.deepEqual(ids('2027-02-08', 0), ['lunar-new-year-2027'])
+})
+
+test('every declared closure is well-formed, unique and labelled in both locales', () => {
+  const require = createRequire(import.meta.url)
+  const en = require('../src/locales/en.json')
+  const vi = require('../src/locales/vi.json')
+  const seen = new Set()
+  for (const closure of HUB_CLOSURES) {
+    assert.ok(!seen.has(closure.id), `duplicate id ${closure.id}`)
+    seen.add(closure.id)
+    assert.match(closure.start, /^\d{4}-\d{2}-\d{2}$/)
+    assert.match(closure.end, /^\d{4}-\d{2}-\d{2}$/)
+    assert.ok(closure.start <= closure.end, `${closure.id} ends before it starts`)
+    const key = closure.labelKey.replace(/^closures\./, '')
+    assert.equal(typeof en.closures[key], 'string', `${closure.id}: missing EN label`)
+    assert.equal(typeof vi.closures[key], 'string', `${closure.id}: missing VI label`)
+  }
+})
+
+test('2027 holidays close the Hub, and the days around them stay open', () => {
+  const closed = ['2027-01-01', '2027-02-04', '2027-02-10', '2027-04-16', '2027-04-30', '2027-05-01',
+    '2027-05-03', '2027-07-27', '2027-09-02', '2027-09-03', '2027-11-24']
+  const open = ['2027-01-04', '2027-02-03', '2027-02-11', '2027-05-04', '2027-09-06', '2027-11-25']
+  for (const day of closed) assert.equal(isHubClosed(day), true, `${day} should be closed`)
+  for (const day of open) assert.equal(isHubClosed(day), false, `${day} should be open`)
+  assert.equal(getHubClosure('2027-02-06').labelKey, 'closures.lunarNewYear')
+})
+
+test('2028 declares only the dates fixed by law', () => {
+  for (const day of ['2028-01-01', '2028-01-03', '2028-04-04', '2028-04-30', '2028-05-02', '2028-07-27', '2028-11-24']) {
+    assert.equal(isHubClosed(day), true, `${day} should be closed`)
+  }
+  // Tet and National Day 2028 wait for the official schedule.
+  assert.equal(isHubClosed('2028-01-26'), false)
+  assert.equal(isHubClosed('2028-09-02'), false)
+})
+
+test('closes the Hub for the whole of 24 Nov 2026 (Vietnamese Culture Day)', () => {
+  assert.equal(getHubClosure('2026-11-24').labelKey, 'closures.cultureDay2026')
+  assert.equal(isHubClosed('2026-11-23'), false)
+  assert.equal(isHubClosed('2026-11-25'), false)
+  // Hub day boundaries are +07:00.
+  assert.equal(isHubClosed(new Date('2026-11-23T17:00:00.000Z')), true)
+  assert.equal(isHubClosed(new Date('2026-11-24T16:59:59.000Z')), true)
+  assert.equal(isHubClosed(new Date('2026-11-24T17:00:00.000Z')), false)
 })
 
 // The closure list is pinned in two places because the client is ESM and the

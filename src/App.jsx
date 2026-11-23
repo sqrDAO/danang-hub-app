@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ToastContainer from './components/Toast'
 import PushOptInBanner from './components/PushOptInBanner'
+import WhatsAppFloat from './components/WhatsAppFloat'
 import Home from './pages/Home'
 
 // Lazy-loaded routes — these are not the landing path and benefit from code splitting
@@ -47,7 +48,15 @@ function App() {
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={(
+            <>
+              <Login />
+              <WhatsAppFloat solo />
+            </>
+          )}
+        />
         {/* MCP OAuth consent: outside ProtectedRoute, it checks sign-in itself
             and keeps ?request= across login and email verification */}
         <Route path="/oauth/consent" element={<OauthConsent />} />
