@@ -10,7 +10,7 @@ Resolve #279: declare the Hub's public holiday closures ahead of time so members
 - `src/components/HubClosureNotice.jsx` (edited) — lists closures starting within 45 days.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — one label key per holiday, reused across years.
 - `test/hubClosures.test.js` (edited) — 2027 and 2028 dates, the notice window, well-formed and labelled entries.
-- `docs/backlog/todo.holiday-closures-2027-2028.md` (new) — this spec.
+- `docs/backlog/done.holiday-closures-2027-2028.md` (new) — this spec.
 
 ## Acceptance
 - [ ] Every 2027 public holiday is closed: 1/1, Tết 4–10/2, Hùng Kings 16/4, 30/4, 1/5, 3/5 in lieu, 27/7, 2–3/9, 24/11.
