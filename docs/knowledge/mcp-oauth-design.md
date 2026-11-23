@@ -1,6 +1,6 @@
 # MCP OAuth sign-in: design
 
-Issue #263 · spec `docs/backlog/todo.mcp-oauth.md` · status: phases 0–4 built (phases 0–3 live since 2026-11-23; phase 4, CIMD allowlist and ChatGPT verification, awaits deploy).
+Issue #263 · spec `docs/backlog/done.mcp-oauth.md` · status: phases 0–4 shipped 2026-11-23 (phase 4: CIMD allowlist and ChatGPT verification).
 
 Goal: a member adds `https://app.danangblockchainhub.com/mcp` as a Claude
 (web, Desktop, mobile) custom connector or a ChatGPT app, signs in with their
