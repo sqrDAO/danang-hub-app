@@ -6,23 +6,17 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 
 ## Files
 - `docs/knowledge/mcp-oauth-design.md` (new) — architecture, client requirements, threats, phases, decisions.
-- `public/sw.js` (edited, phase 1) — `NavigationRoute` denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`.
-- `firebase.json` (edited) — Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
-- `functions/oauth/` (new, phase 2) — `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (consent logic and the `POST /oauth/consent-action` handler), `http` (router).
-- `functions/oauth/cimd.js` (new, phase 4) — CIMD: exact `client_id` URL allowlist, capped no-redirect fetch, validation, 1 h cache; `authorize`, `token`, `consent`, `http`, `config`, `register` (edited) resolve either client form and advertise `client_id_metadata_document_supported`.
-- `functions/oauth/browser.js` (new, phase 3) — consent browser binding: `__session` cookie set by `/oauth/authorize`, SHA-256 stored on the request, checked on describe/approve/deny.
+- `public/sw.js` (edited, phase 1), `firebase.json` (edited) — service worker denylist adds `/.well-known/` and `/oauth/` except `/oauth/consent`; Hosting rewrites for `/mcp`, `/.well-known/oauth-*`, `/oauth/*` before the SPA catch-all.
+- `functions/oauth/` (new) — phase 2: `config`, `util`, `register`, `authorize`, `token` (token, revoke, access-token validation), `consent` (logic and the `POST /oauth/consent-action` handler), `http` (router); phase 3: `browser` (consent binding: `__session` cookie from `/oauth/authorize`, SHA-256 on the request, checked on describe/approve/deny), `resource` (Hosting-vs-raw via `X-Forwarded-Host`, the 401 challenge; used by `functions/mcpServer.js`).
+- `functions/oauth/cimd.js` (new, phase 4) — CIMD: exact `client_id` URL allowlist, capped no-redirect fetch, validation, 1 h cache; `authorize`, `token`, `consent`, `http`, `config`, `register` resolve either client form and advertise `client_id_metadata_document_supported`.
 - `functions/index.js` (edited) — export `oauth` (also serving `/oauth/consent-action`) and a retired `oauthConsent` stub that approves nothing; `mcp` 401 adds `resource_metadata` and `scope`.
-- `functions/oauth/resource.js` (new, phase 3) — Hosting-vs-raw detection (`X-Forwarded-Host`) and the 401 challenge; `functions/mcpServer.js` (edited) uses it.
 - `functions/mcpBookings.js` (edited, phase 3) — `memberFor` re-checks `oauthGrants/{grantId}` for `dha_` principals inside each booking transaction; tool behavior unchanged.
 - `functions/mcpTokens.js` (edited) — accept `dha_` access tokens with audience check; `listGrants`/`revokeGrant` actions.
-- `src/pages/oauth/Consent.jsx`, `Consent.css`, `src/App.jsx`, `src/services/mcpTokens.js`, `src/utils/oauthConsent.js` (new/edited) — consent route, helpers and service calls.
-- `src/hooks/useSendVerificationLink.js` (new), `src/pages/member/VerifyEmail.jsx` (edited) — verification-link hook shared with the consent page's inline verify step.
-- `src/components/McpTokens.jsx`, `McpTokens.css` (edited), `src/components/ConnectedApps.jsx` (new) — Connected apps list with Disconnect (native `<dialog>` via `Modal`).
-- `test/oauthConsent.test.js` (new, phase 3) — login redirect round trip, request id and error mapping (including the other-browser state).
-- `src/locales/en.json`, `src/locales/vi.json` (edited) — consent and connected-apps strings.
+- `src/pages/oauth/Consent.jsx`, `Consent.css`, `src/App.jsx`, `src/services/mcpTokens.js`, `src/utils/oauthConsent.js`, `src/hooks/useSendVerificationLink.js` (new/edited), `src/pages/member/VerifyEmail.jsx` (edited) — consent route, helpers, service calls and the shared verification-link hook.
+- `src/components/McpTokens.jsx`, `McpTokens.css` (edited), `src/components/ConnectedApps.jsx` (new), `src/locales/en.json`, `src/locales/vi.json` (edited) — Connected apps list with Disconnect (native `<dialog>` via `Modal`); consent and connected-apps strings.
+- `test/oauthConsent.test.js` (new, phase 3), `src/utils/navigationDenylist.js`, `test/navigationDenylist.test.js` (new, phase 2) — consent redirect round trip and error mapping; service worker denylist as a tested module.
 - `firestore.rules`, `test/firestore-mcp.rules.test.js` (edited) — deny-all for `oauthClients`, `oauthRequests`, `oauthCodes`, `oauthGrants`, `oauthTokens`, `oauthRateLimits`.
 - `test/mcpOauth.test.js` (new, phase 2) — PKCE, redirect matching, DCR limits, code single use, refresh rotation and reuse, audience; phase 4 adds CIMD (stubbed fetch), RFC 9207 `iss` and the ChatGPT stable redirect.
-- `src/utils/navigationDenylist.js`, `test/navigationDenylist.test.js` (new, phase 2) — service worker denylist as an importable, tested module.
 - `docs/knowledge/mcp-booking.md`, `README.md` (edited) — new URL, sign-in setup, functions and collections tables.
 
 ## Acceptance
@@ -68,24 +62,18 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [x] NOT: change MCP tool behavior; in `mcpBookings.js` only `memberFor`'s access check changes (owner-approved 2026-11-23).
 
 ## Verify
-- `npm run lint && npm run build && npm --prefix functions run lint && npm test` → green.
-- `npm run test:rules` → `oauth*` deny-all cases pass.
-- `curl -si -X POST https://app.danangblockchainhub.com/mcp` → 401 with `resource_metadata`.
+- `npm run lint && npm run build && npm --prefix functions run lint && npm test && npm run test:rules` → green, including the `oauth*` deny-all rules cases.
+- `curl -si -X POST https://app.danangblockchainhub.com/mcp` → 401 with `resource_metadata`; `curl -s https://app.danangblockchainhub.com/.well-known/oauth-authorization-server` → `client_id_metadata_document_supported` and `authorization_response_iss_parameter_supported` both true.
 - MCP Inspector via its proxy (`npx @modelcontextprotocol/inspector`, proxy transport; direct browser mode sends an `Origin` that `/mcp` rejects with 403) against the Hosting URL → OAuth flow completes, `list_amenities` works.
 - Installed PWA, cold `oauth` function: open an `/oauth/authorize` link → function response, not the SPA shell.
 - Claude web: Customize → Connectors → Add custom connector with the Hosting URL → sign-in, consent, tools listed.
 - ChatGPT: add the Hosting URL as a custom MCP app with OAuth → consent shows ChatGPT and `chatgpt.com` → tools listed.
-- `curl -s https://app.danangblockchainhub.com/.well-known/oauth-authorization-server` → `client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true`.
 - regression: Claude Code with `dhm_` header still lists amenities; Profile token generate/revoke still works.
 
 ## Notes
 - Delivered in the phases listed in the design doc, one PR each; each PR ticks its bullets here, and the final PR renames this spec.
-- Open questions were decided on 2026-11-22 (all recommendations); see Decisions in the design doc.
 - Hosting rewrite order matters: specific rewrites before `**`.
-- Phase 3 flips `DISCOVERY_ENABLED` in `functions/oauth/config.js`. Keep the well-known rewrites even while dark: without them `**` answers 200 `index.html`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
-- Phase 3: `mcp` treats a request as Hosting when the last `X-Forwarded-Host` entry is `app.danangblockchainhub.com`; forging it on the raw URL only changes the forger's own response, and `dha_` stays audience-bound.
-- Phase 3: booking transactions re-check the credential (`memberFor`), so a `dha_` principal is `{uid, grantId}` and `memberFor` reads its grant; the design's "`mcpBookings.js` untouched" missed this.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.
 - Phase 4: CIMD clients have no `oauthClients` doc; authorize stores `cimd: true` and the validated name on the request, consent copies it to the grant. Once CIMD is advertised, Claude web switches from DCR to its hosted CIMD URL for new connections; existing DCR grants keep working.
 - Phase 3 review: consent moved from the `oauthConsent` callable to `POST /oauth/consent-action` on `oauth`, because only a Hosting rewrite forwards the `__session` binding cookie. The callable stays exported as a stub so the deploy does not try to delete a live function; drop it after `firebase functions:delete oauthConsent`.
