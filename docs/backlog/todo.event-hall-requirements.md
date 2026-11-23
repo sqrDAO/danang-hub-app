@@ -15,7 +15,7 @@ Resolve #277: the event form still tells hosts to pay a 100,000 VND parking fee,
 - [ ] It lists the Lu.ma listing with gm@sqrdao.com as host or manager.
 - [ ] It lists the 30-minute setup and the 3-hour room reset.
 - [ ] EN and VI carry the same keys.
-- [ ] No locale key mentioning a parking fee or on-chain deposit remains.
+- [ ] No locale string says a parking fee or an on-chain deposit is required.
 - [ ] NOT: event form fields, validation or submission change.
 
 ## Verify
