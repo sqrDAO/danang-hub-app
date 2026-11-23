@@ -9,7 +9,7 @@ Resolve #275: the Hub is closed on Tuesday 24 November 2026 for a public holiday
 - `functions/hubClosures.js` (edited) — matching server entry with its `label`.
 - `src/locales/en.json`, `src/locales/vi.json` (edited) — `closures.cultureDay2026`.
 - `test/hubClosures.test.js` (edited) — 24 Nov cases and upcoming-closure counts.
-- `docs/backlog/todo.closure-culture-day-2026.md` (new) — this spec.
+- `docs/backlog/done.closure-culture-day-2026.md` (new) — this spec.
 
 ## Acceptance
 - [ ] `isHubClosed` is true for every instant of 24 Nov 2026 hub time (+07:00) and false on 23 and 25 Nov.
