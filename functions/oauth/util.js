@@ -26,16 +26,21 @@ const millis = (value) =>
 const expired = (data, now) =>
   !data || !(millis(data.expiresAt) > now);
 
-// Decision 2: only Claude, ChatGPT and loopback (Claude Code, MCP Inspector)
-// callbacks may register.
+// Decision 2: only Claude, ChatGPT and loopback (Claude Code, Codex, MCP
+// Inspector) callbacks may register.
 const HOSTED_REDIRECTS = [
   /^https:\/\/claude\.ai\/api\/mcp\/auth_callback$/,
   /^https:\/\/claude\.com\/api\/mcp\/auth_callback$/,
   /^https:\/\/chatgpt\.com\/connector_platform_oauth_redirect$/,
   /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]{1,128}$/,
 ];
+// Paths: /callback (Claude Code, Codex), /callback/<id> (Codex appends a
+// per-server callback id when the AS does not advertise RFC 9207 iss),
+// /oauth/callback and /oauth/callback/debug (MCP Inspector). The id is part
+// of the exact path match; only the port is ignored.
 const LOOPBACK = new RegExp("^http://(localhost|127\\.0\\.0\\.1)" +
-  "(?::(\\d{1,5}))?(/callback|/oauth/callback|/oauth/callback/debug)$");
+  "(?::(\\d{1,5}))?(/callback(?:/[A-Za-z0-9_-]{1,128})?|/oauth/callback" +
+  "|/oauth/callback/debug)$");
 const loopbackParts = (uri) => {
   const match = typeof uri === "string" && LOOPBACK.exec(uri);
   if (!match) return null;

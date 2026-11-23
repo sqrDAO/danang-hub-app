@@ -13,6 +13,10 @@ const ALLOWLIST = Object.freeze([
   "https://chatgpt.com/oauth/client.json",
   "https://claude.ai/oauth/mcp-oauth-client-metadata",
   "https://claude.ai/oauth/claude-code-client-metadata",
+  // Codex CLI, IDE extension and ChatGPT desktop app: the stable document,
+  // used because our metadata advertises RFC 9207 iss and an issuer
+  // (openai/codex codex-rs/rmcp-client/src/oauth_client_registration.rs).
+  "https://chatgpt.com/oauth/codex/client.json",
 ]);
 // cacheMs: a validated document is used without refetching. staleMs: past
 // that, while the host is unreachable or refusing us (403/408/429/5xx,

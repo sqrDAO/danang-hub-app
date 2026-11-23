@@ -3,8 +3,8 @@
 Issue #149, with OAuth sign-in from #263. The server uses stateless Streamable
 HTTP with JSON responses. Two ways to authenticate:
 
-- **Sign in (OAuth 2.1)**, for Claude web, Desktop and mobile custom connectors:
-  add `https://app.danangblockchainhub.com/mcp`, sign in with your Hub account
+- **Sign in (OAuth 2.1)**, for Claude web, Desktop and mobile custom connectors,
+  ChatGPT and Codex: add `https://app.danangblockchainhub.com/mcp`, sign in with your Hub account
   and approve. Only this Hosting URL offers sign-in; design in
   [`mcp-oauth-design.md`](mcp-oauth-design.md).
 - **Personal token** (`dhm_`), for clients that send an `Authorization: Bearer`
@@ -46,6 +46,7 @@ post-deploy checks (Claude web, Claude Desktop) confirm the sign-in rows.
 | Hermes Agent (NousResearch) | Remote HTTP with an environment-backed header |
 | Claude Team / Enterprise shared connector | Do not install a member's personal token as an organization-wide credential |
 | ChatGPT custom MCP app/plugin | **Sign in** (OAuth); steps below |
+| Codex (CLI, IDE extension, ChatGPT desktop app) | **Sign in** with `codex mcp login`, or a bearer token from an environment variable; steps below |
 
 ### Claude web
 
@@ -223,7 +224,8 @@ Claude Code uses `mcpServers`, OpenClaw uses `mcp.servers`, and Hermes uses
 schema. Begin with a private, read-only test and keep write approvals enabled.
 A client that supports only OAuth can use sign-in at the Hosting URL if its
 callback is on the allowlist (Claude, ChatGPT, or a loopback
-`http://localhost|127.0.0.1:<port>/callback`); unauthenticated HTTP, stdio and
+`http://localhost|127.0.0.1:<port>/callback`, also `/callback/<id>` with an
+`<id>` of up to 128 letters, digits, `_` or `-`); unauthenticated HTTP, stdio and
 legacy SSE clients do not match this server.
 
 ### ChatGPT
@@ -242,6 +244,43 @@ send custom API keys). If the connection fails, use Claude and report it on
 
 Sources: [OpenAI connection instructions](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
 and [authentication requirements](https://developers.openai.com/plugins/build/auth).
+
+### Codex
+
+Codex (CLI, IDE extension and Codex in the ChatGPT desktop app share one
+`config.toml`) signs in with your Hub account:
+
+```bash
+codex mcp add danang-hub --url https://app.danangblockchainhub.com/mcp
+codex mcp login danang-hub
+```
+
+The login opens a browser on the Hub consent page, which shows **Codex** and a
+loopback address (`127.0.0.1:<port>`): Codex listens on your own machine for
+the result. Approve, and the CLI stores the credentials. In the `codex` TUI (or
+the desktop app composer), `/mcp` lists the server; try the read-only amenities
+prompt above. Without a local browser, add `--no-browser` and paste the full
+redirect URL back into the terminal.
+
+By default (`auto`) Codex identifies itself with its client metadata document,
+`https://chatgpt.com/oauth/codex/client.json`. If that sign-in fails, register
+through dynamic registration for this login instead:
+
+```bash
+codex mcp login danang-hub --oauth-client-registration dcr
+```
+
+Or skip sign-in and use a personal `dhm_` token from an environment variable.
+Add this to `~/.codex/config.toml` and export `DANANG_HUB_TOKEN` (read it as in
+the Claude Code steps) before starting Codex:
+
+```toml
+[mcp_servers.danang-hub]
+url = "https://app.danangblockchainhub.com/mcp"
+bearer_token_env_var = "DANANG_HUB_TOKEN"
+```
+
+Source: [Codex MCP documentation](https://developers.openai.com/codex/mcp).
 
 ## Verify and troubleshoot
 
@@ -363,7 +402,8 @@ from the 401 without touching issued grants.
 Clients identify themselves in one of two ways. Dynamic registration
 (`/oauth/register`, `dhc_` ids in `oauthClients`) is the fallback every client
 supports. Client ID Metadata Documents (CIMD, phase 4): a `client_id` that is
-one of three exact URLs (ChatGPT, Claude web/Desktop/mobile, Claude Code; the
+one of four exact URLs (ChatGPT, Claude web/Desktop/mobile, Claude Code,
+Codex; the
 list and its sources are in `functions/oauth/cimd.js` and the design doc) is
 fetched by the `oauth` function (3 s, 16 KB, no redirects, cached 1 h per
 instance) and validated; any other URL `client_id` is refused without a
