@@ -20,6 +20,12 @@ export const HUB_CLOSURES = [
     end: '2026-09-02',
     labelKey: 'closures.independenceDay2026',
   },
+  {
+    id: 'culture-day-2026',
+    start: '2026-11-24',
+    end: '2026-11-24',
+    labelKey: 'closures.cultureDay2026',
+  },
 ]
 
 const HUB_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/

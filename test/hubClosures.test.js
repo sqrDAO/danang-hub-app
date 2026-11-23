@@ -54,9 +54,21 @@ test('falls back to the start day when no end is given', () => {
 })
 
 test('lists a closure until its final day has passed', () => {
-  assert.equal(getUpcomingHubClosures('2026-08-01').length, 1)
-  assert.equal(getUpcomingHubClosures('2026-09-02').length, 1)
-  assert.equal(getUpcomingHubClosures('2026-09-03').length, 0)
+  assert.equal(getUpcomingHubClosures('2026-08-01').length, 2)
+  assert.equal(getUpcomingHubClosures('2026-09-02').length, 2)
+  assert.equal(getUpcomingHubClosures('2026-09-03').length, 1)
+  assert.equal(getUpcomingHubClosures('2026-11-24').length, 1)
+  assert.equal(getUpcomingHubClosures('2026-11-25').length, 0)
+})
+
+test('closes the Hub for the whole of 24 Nov 2026 (Vietnamese Culture Day)', () => {
+  assert.equal(getHubClosure('2026-11-24').labelKey, 'closures.cultureDay2026')
+  assert.equal(isHubClosed('2026-11-23'), false)
+  assert.equal(isHubClosed('2026-11-25'), false)
+  // Hub day boundaries are +07:00.
+  assert.equal(isHubClosed(new Date('2026-11-23T17:00:00.000Z')), true)
+  assert.equal(isHubClosed(new Date('2026-11-24T16:59:59.000Z')), true)
+  assert.equal(isHubClosed(new Date('2026-11-24T17:00:00.000Z')), false)
 })
 
 // The closure list is pinned in two places because the client is ESM and the

@@ -17,6 +17,12 @@ const HUB_CLOSURES = [
     end: "2026-09-02",
     label: "Independence Day holiday",
   },
+  {
+    id: "culture-day-2026",
+    start: "2026-11-24",
+    end: "2026-11-24",
+    label: "Vietnamese Culture Day holiday",
+  },
 ];
 
 const HUB_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {

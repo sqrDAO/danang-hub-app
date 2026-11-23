@@ -789,7 +789,8 @@
     "noticeHint": "Không thể đặt chỗ hoặc tạo sự kiện trong những ngày này.",
     "adminHint": "Các lượt đặt chỗ đã tạo trong những ngày này được đánh dấu bên dưới — hãy huỷ nếu Hub vẫn đóng cửa.",
     "badge": "Hub đóng cửa",
-    "independenceDay2026": "Quốc khánh Việt Nam"
+    "independenceDay2026": "Quốc khánh Việt Nam",
+    "cultureDay2026": "Ngày Văn hóa Việt Nam"
   },
   "fixedDesk": {
     "title": "Gói Bàn Cố Định",

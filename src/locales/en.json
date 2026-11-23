@@ -791,7 +791,8 @@
     "noticeHint": "Bookings and events cannot be made on these dates.",
     "adminHint": "Bookings already made on these dates are flagged below — cancel them if the closure stands.",
     "badge": "Hub closed",
-    "independenceDay2026": "Vietnam's Independence Day"
+    "independenceDay2026": "Vietnam's Independence Day",
+    "cultureDay2026": "Vietnamese Culture Day"
   },
   "fixedDesk": {
     "title": "Fixed Desk Plans",
