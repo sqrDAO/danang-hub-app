@@ -3008,7 +3008,9 @@ exports.mcp = onRequest(
 // It also serves the consent page's POST /oauth/consent-action, which needs
 // the browser-binding cookie that only a Hosting rewrite forwards.
 const oauthConsentDeps = () => ({
-  verifyIdToken: (idToken) => getAuth().verifyIdToken(idToken),
+  // checkRevoked: a member whose sessions were revoked cannot approve with a
+  // still-unexpired ID token.
+  verifyIdToken: (idToken) => getAuth().verifyIdToken(idToken, true),
   service: () => require("./oauth/consent").createConsentService(
       db, getAuth(), mcpTokenService().requireUser),
 });
