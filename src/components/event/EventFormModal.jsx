@@ -118,6 +118,9 @@ const getVenueOptions = (eventSpaces, amenities, currentId) => {
   return [{ id: currentId, name: getAmenityName(amenities, currentId) }, ...eventSpaces]
 }
 
+// Mirrors the Event Hall points of the published Event Guidelines.
+const HALL_REQUIREMENTS = ['hallRequirementLuma', 'hallRequirementSetup', 'hallRequirementFees']
+
 const EventHallFields = ({ editingEvent, prefillAmenityId, amenities, checkEventHall, t }) => {
   const eventSpaces = getEventSpaces(amenities)
   const currentVenueId = getEventVenueId(editingEvent) || prefillAmenityId
@@ -125,7 +128,7 @@ const EventHallFields = ({ editingEvent, prefillAmenityId, amenities, checkEvent
   const venueOptions = getVenueOptions(eventSpaces, amenities, currentVenueId)
 
   return <>
-    <div className="event-hall-notice"><p><strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong></p><ul><li>{t('memberEvents.modal.parkingFeeRequirement')}</li></ul></div>
+    <div className="event-hall-notice"><p><strong>{t('memberEvents.modal.hallRequirementsTitle')}</strong></p><ul>{HALL_REQUIREMENTS.map(key => <li key={key}>{t(`memberEvents.modal.${key}`)}</li>)}</ul></div>
     <div className="form-group">
       <label className="form-label">{t('memberEvents.modal.preferredAmenityLabel')}</label>
       {/* Keyed so the default re-applies once amenities finish loading. */}
