@@ -158,8 +158,11 @@ connection anyway, and the page is the only phishing defense.
   match the **allowlist**: the two Claude callbacks, the two ChatGPT forms
   (`connector_platform_oauth_redirect`, `connector/oauth/[A-Za-z0-9_-]{1,128}`), and
   loopback `http://localhost|127.0.0.1:<port>/callback` (also
-  `/oauth/callback` and `/oauth/callback/debug`, which MCP Inspector uses for
-  the phase 3 check). Anything else →
+  `/callback/[A-Za-z0-9_-]{1,128}`, Codex's per-server callback when an AS
+  lacks RFC 9207 `iss` (#284), and `/oauth/callback` and
+  `/oauth/callback/debug`, which MCP Inspector uses for the phase 3 check).
+  Loopback matching ignores the port only: the path, including any
+  `<id>`, must match exactly. Anything else →
   `invalid_redirect_uri` (decision 2). At most 5 redirect URIs of ≤ 256 chars
   each. `client_name` ≤ 64 chars with control, bidi and zero-width
   characters (plus Hangul fillers and the Braille blank, which render
@@ -190,11 +193,19 @@ connection anyway, and the page is the only phishing defense.
   | `https://chatgpt.com/oauth/client.json` | ChatGPT, when the AS meets RFC 9207 | developers.openai.com/apps-sdk/build/auth ("Client ID Metadata Documents") |
   | `https://claude.ai/oauth/mcp-oauth-client-metadata` | Claude web, Desktop, mobile, Cowork | claude.com/docs/connectors/building/enterprise-managed-auth (names it as Claude's public CIMD; the authentication page says custom connectors use "the Client ID Metadata Document that Anthropic hosts") |
   | `https://claude.ai/oauth/claude-code-client-metadata` | Claude Code | claude.com/docs/connectors/building/authentication ("Callback URLs") |
+  | `https://chatgpt.com/oauth/codex/client.json` | Codex CLI, IDE extension, ChatGPT desktop app (#284, added 2026-11-23) | developers.openai.com/codex/mcp ("Client ID Metadata Document URLs") and openai/codex `codex-rs/rmcp-client/src/oauth_client_registration.rs` |
 
   Not allowlisted: ChatGPT's per-callback `…/oauth/{callback_id}/client.json`
-  (only used when the AS lacks RFC 9207 `iss`, which this AS has) and
+  and Codex's `…/oauth/codex/{callback_id}/client.json` (each only used when
+  the AS lacks RFC 9207 `iss` or a metadata `issuer`, which this AS has) and
   Claude's `…/confidential_client` form (`private_key_jwt`, which this AS
-  does not offer). Only the allowlisted string itself is ever fetched, so a
+  does not offer). Codex's document lists only loopback redirects
+  (`http://127.0.0.1/callback`, `http://localhost/callback`, no port) and
+  `none`, as Claude Code's does: this is native-app CIMD, so anyone can
+  present that `client_id` with a callback on their own machine. That is
+  the expected trust model (RFC 8252): the code only reaches a listener on
+  the signing-in member's machine, PKCE binds it to the requester, and
+  consent flags the loopback redirect. Only the allowlisted string itself is ever fetched, so a
   request cannot point the server at another URL (SSRF). Fetch: GET, 3 s
   timeout over the whole exchange, 16 KB cap (declared or streamed),
   `redirect: "manual"` with any non-200 refused, JSON content type, no
@@ -232,8 +243,8 @@ connection anyway, and the page is the only phishing defense.
   unchanged and stays the fallback.
   Rollback: set `CIMD_ADVERTISED = false` in `functions/oauth/config.js`.
   The metadata then drops `client_id_metadata_document_supported`, so new
-  Claude and ChatGPT connections register through DCR, while the allowlist
-  still accepts the URLs and existing CIMD grants keep refreshing. Do not
+  Claude, ChatGPT and Codex connections register through DCR, while the
+  allowlist still accepts the URLs and existing CIMD grants keep refreshing. Do not
   roll back by removing a URL from the allowlist: while CIMD is advertised
   the client keeps sending that URL (new sign-ins get a 400) and its
   existing grants fail at their next refresh.

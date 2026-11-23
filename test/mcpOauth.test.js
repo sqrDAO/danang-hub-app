@@ -141,6 +141,41 @@ test('redirect allowlist and matching: exact for hosted, any port for loopback',
   assert.equal(redirectMatches(['http://localhost:1000/callback'], 'http://localhost:1000/oauth/callback'), false)
 })
 
+test('loopback /callback/<id> (Codex per-server callback): bounded id, exact id match, any port', async () => {
+  const id = 'abc123ABC_-x'
+  const longest = 'http://127.0.0.1:65535/callback/' + 'a'.repeat(128)
+  for (const uri of [`http://127.0.0.1:51234/callback/${id}`, `http://localhost/callback/${id}`, 'http://localhost:1/callback/a', longest]) {
+    assert.equal(isAllowedRedirect(uri), true, uri)
+  }
+  assert.ok(longest.length <= 256, 'the longest allowed loopback form fits the 256-char cap')
+  for (const uri of ['http://127.0.0.1:5000/callback/', 'http://127.0.0.1:5000/callback/a/b',
+    'http://127.0.0.1:5000/callback/' + 'a'.repeat(129), 'http://127.0.0.1:5000/callback/..', 'http://127.0.0.1:5000/callback/.',
+    'http://127.0.0.1:5000/callback/a%2Fb', 'http://127.0.0.1:5000/callback/a%2fb', 'http://127.0.0.1:5000/callbackX',
+    'http://127.0.0.1:5000/callbackabc', `http://127.0.0.1:5000/callback/${id}?x=1`, `http://127.0.0.1:5000/callback/${id}#f`,
+    `https://127.0.0.1:5000/callback/${id}`, `http://localhost.evil.com/callback/${id}`, `http://127.0.0.1:0/callback/${id}`,
+    `http://127.0.0.1:5000/oauth/callback/${id}`]) {
+    assert.equal(isAllowedRedirect(uri), false, uri)
+  }
+  const registered = [`http://127.0.0.1/callback/${id}`]
+  assert.equal(redirectMatches(registered, `http://127.0.0.1:51234/callback/${id}`), true, 'port ignored')
+  assert.equal(redirectMatches(registered, `http://127.0.0.1:51234/callback/${id}x`), false, 'id must match exactly')
+  assert.equal(redirectMatches(registered, 'http://127.0.0.1:51234/callback/abc123abc_-x'), false, 'id is case-sensitive')
+  assert.equal(redirectMatches(registered, 'http://127.0.0.1:51234/callback'), false, 'bare /callback is another path')
+  assert.equal(redirectMatches(['http://127.0.0.1/callback'], `http://127.0.0.1:51234/callback/${id}`), false)
+  assert.equal(redirectMatches(registered, `http://localhost:51234/callback/${id}`), false, 'host must match')
+  // DCR: the 5-URI cap still applies, and a registered id round-trips through authorize on any port.
+  const { db } = makeStore()
+  const six = Array.from({ length: 6 }, (_, i) => `http://127.0.0.1/callback/id${i}`)
+  assert.equal((await register(db, six)).status, 400)
+  const ok = await register(db, six.slice(0, 5))
+  assert.equal(ok.status, 201)
+  const started = await authorize(db, authorizeQuery(ok.body.client_id, { redirect_uri: 'http://127.0.0.1:40000/callback/id3' }))
+  assert.equal(new URL(started.location).pathname, '/oauth/consent')
+  const wrongId = await authorize(db, authorizeQuery(ok.body.client_id, { redirect_uri: 'http://127.0.0.1:40000/callback/id9' }))
+  assert.equal(wrongId.status, 400)
+  assert.equal(wrongId.location, undefined)
+})
+
 test('DCR registers public clients only and rejects redirects outside the allowlist', async () => {
   const { db, data } = makeStore()
   const bad = await register(db, ['https://evil.example/cb'])
@@ -786,6 +821,7 @@ const CHATGPT_DOC = 'https://chatgpt.com/oauth/client.json'
 const CLAUDE_DOC = 'https://claude.ai/oauth/mcp-oauth-client-metadata'
 const CLAUDE_CODE_DOC = 'https://claude.ai/oauth/claude-code-client-metadata'
 const CHATGPT_STABLE = 'https://chatgpt.com/connector_platform_oauth_redirect'
+const CODEX_DOC = 'https://chatgpt.com/oauth/codex/client.json'
 // The documents as served on 2026-11-23.
 const DOCS = {
   [CHATGPT_DOC]: { client_id: CHATGPT_DOC, client_uri: 'https://chatgpt.com/', redirect_uris: [CHATGPT_STABLE],
@@ -798,7 +834,11 @@ const DOCS = {
     response_types: ['code'], token_endpoint_auth_method: 'none' },
   [CLAUDE_CODE_DOC]: { client_id: CLAUDE_CODE_DOC, client_name: 'Claude Code', client_uri: 'https://claude.ai',
     redirect_uris: ['http://localhost/callback', 'http://127.0.0.1/callback'], grant_types: ['authorization_code', 'refresh_token'],
-    response_types: ['code'], token_endpoint_auth_method: 'none' }
+    response_types: ['code'], token_endpoint_auth_method: 'none' },
+  [CODEX_DOC]: { client_id: CODEX_DOC, client_uri: 'https://chatgpt.com/codex', application_type: 'native',
+    redirect_uris: ['http://127.0.0.1/callback', 'http://localhost/callback'], token_endpoint_auth_method: 'none',
+    token_endpoint_auth_methods_supported: ['none'], grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'], client_name: 'Codex', logo_uri: 'https://persistent.oaistatic.com/sonic/misc/openai-logo.png' }
 }
 // A fetch stub that records every call; `reply(url, init)` returns a Response.
 const stubFetch = (reply = (url) => Response.json(DOCS[url])) => {
@@ -815,12 +855,13 @@ const cimdExchange = (db, clientId, code, redirectUri, now, fetchCimd) => token(
 const startCimd = async (db, clientId, redirectUri, fetchCimd, now = Date.now()) =>
   authorize(db, cimdQuery(clientId, redirectUri), { now, fetchCimd })
 
-test('CIMD allowlist: exactly ChatGPT, Claude and Claude Code; fetch limits 3 s, 16 KB, 1 h cache, 24 h stale, 30 s failure', () => {
-  assert.deepEqual([...cimd.ALLOWLIST].sort(), [CHATGPT_DOC, CLAUDE_CODE_DOC, CLAUDE_DOC].sort())
+test('CIMD allowlist: exactly ChatGPT, Claude, Claude Code and Codex; fetch limits 3 s, 16 KB, 1 h cache, 24 h stale, 30 s failure', () => {
+  assert.deepEqual([...cimd.ALLOWLIST].sort(), [CHATGPT_DOC, CLAUDE_CODE_DOC, CLAUDE_DOC, CODEX_DOC].sort())
   assert.deepEqual({ ...cimd.FETCH }, { timeoutMs: 3000, maxBytes: 16384, cacheMs: 3600000, staleMs: 86400000, failureMs: 30000 })
   for (const near of [CHATGPT_DOC + '/', CHATGPT_DOC + '?x', 'https://CHATGPT.com/oauth/client.json', 'http://chatgpt.com/oauth/client.json',
     'https://chatgpt.com/oauth/abc/client.json', 'https://claude.ai/oauth/mcp-oauth-client-metadata/confidential_client',
-    'https://chatgpt.com.evil.example/oauth/client.json', 'https://evil.example/doc', 42]) {
+    'https://chatgpt.com.evil.example/oauth/client.json', 'https://evil.example/doc',
+    'https://chatgpt.com/oauth/codex/abc123ABC_-x/client.json', CODEX_DOC + '/', 'https://chatgpt.com/oauth/codex', 42]) {
     assert.equal(cimd.isAllowedCimd(near), false, String(near))
   }
 })
@@ -885,6 +926,39 @@ test('CIMD: Claude web and Claude Code documents work; Claude Code matches loopb
   assert.equal(other.location, undefined)
   const foreign = await startCimd(store.db, CLAUDE_DOC, CHATGPT_STABLE, fetch)
   assert.equal(foreign.status, 400, 'Claude\'s document does not cover ChatGPT\'s callback')
+})
+
+test('CIMD: Codex completes authorize, consent and token on a random loopback port; refresh works', async () => {
+  cimd.resetCimdCache()
+  const store = memberStore()
+  const now = Date.now()
+  const { fetch, calls } = stubFetch()
+  const consent = createConsentService(store.db, auth, allow)
+  for (const host of ['127.0.0.1', 'localhost']) {
+    const redirectUri = `http://${host}:${49152 + Math.floor(Math.random() * 16000)}/callback`
+    const started = await startCimd(store.db, CODEX_DOC, redirectUri, fetch, now)
+    assert.equal(started.status, 302, redirectUri)
+    const input = { request: requestOf(started), browser: browserOf(started) }
+    const described = await consent.handle(uid, { action: 'describe', ...input }, now)
+    assert.deepEqual([described.clientName, described.clientNameSelfDeclared, described.loopback],
+      ['Codex', false, true], 'consent flags the loopback redirect')
+    const url = new URL((await consent.handle(uid, { action: 'approve', ...input }, now)).redirectUrl)
+    assert.equal(url.origin + url.pathname, redirectUri)
+    assert.equal(url.searchParams.get('iss'), ISSUER, 'Codex validates iss (issuer-bound shared callback)')
+    const code = url.searchParams.get('code')
+    const issued = await cimdExchange(store.db, CODEX_DOC, code, redirectUri, now, fetch)
+    assert.equal(issued.status, 200, redirectUri)
+    assert.deepEqual([grantOf(store, code).clientId, grantOf(store, code).clientName], [CODEX_DOC, 'Codex'])
+    const rotated = await token(store.db, { grant_type: 'refresh_token', client_id: CODEX_DOC,
+      refresh_token: issued.body.refresh_token }, { ...FORM, now, fetchCimd: fetch })
+    assert.equal(rotated.status, 200)
+  }
+  assert.equal(calls.length, 1, 'one fetch, then the cached document')
+  for (const redirectUri of ['http://127.0.0.1:5000/oauth/callback', 'http://127.0.0.1:5000/callback/abc123', CHATGPT_STABLE]) {
+    const refused = await startCimd(store.db, CODEX_DOC, redirectUri, fetch, now)
+    assert.equal(refused.status, 400, redirectUri + ' is not in Codex\'s document')
+    assert.equal(refused.location, undefined)
+  }
 })
 
 test('CIMD: a URL client_id off the allowlist is refused at authorize and token without any fetch', async () => {
