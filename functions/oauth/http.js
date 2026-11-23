@@ -2,7 +2,7 @@
 // well-known and /oauth/* endpoints here). No MCP SDK is loaded.
 const logger = require("firebase-functions/logger");
 const {
-  protectedResourceMetadata, authorizationServerMetadata,
+  protectedResourceMetadata, authorizationServerMetadata, DISCOVERY_ENABLED,
 } = require("./config");
 
 const CORS = {
@@ -57,7 +57,10 @@ const route = (db, req, now) => {
   return handlers[`${req.method} ${req.path}`];
 };
 
-const createOauthHandler = (db, {now = () => Date.now()} = {}) =>
+// `discovery` defaults to DISCOVERY_ENABLED; tests pass true to check the
+// documents phase 3 will publish.
+const createOauthHandler = (db, {now = () => Date.now(),
+  discovery = DISCOVERY_ENABLED} = {}) =>
   async (req, res) => {
     res.set("Cache-Control", "no-store");
     const path = req.path;
@@ -67,7 +70,8 @@ const createOauthHandler = (db, {now = () => Date.now()} = {}) =>
       return;
     }
     if (METADATA[path] && req.method === "GET") {
-      res.set(CORS).status(200).json(METADATA[path]());
+      if (discovery) res.set(CORS).status(200).json(METADATA[path]());
+      else res.set(CORS).status(404).json({error: "not_found"});
       return;
     }
     const handler = route(db, req, now());

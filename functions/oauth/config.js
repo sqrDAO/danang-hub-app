@@ -5,6 +5,13 @@ const RESOURCE = `${ISSUER}/mcp`;
 const SCOPE = "bookings";
 // offline_access is accepted on requests; refresh tokens are issued anyway.
 const REQUEST_SCOPES = [SCOPE, "offline_access"];
+// Phase 2 deploys the server dark: both discovery documents answer 404 so no
+// connector starts a sign-in before the consent page exists. Hosting keeps
+// the well-known rewrites (without them the SPA catch-all would answer
+// 200 text/html), and clients that find no protected-resource metadata fall
+// back to /.well-known/oauth-authorization-server at the origin (MCP
+// 2025-03-26), so that document is gated too. Phase 3 sets this to true.
+const DISCOVERY_ENABLED = false;
 
 const SECOND = 1000;
 const HOUR = 3600 * SECOND;
@@ -24,6 +31,7 @@ const LIMITS = {
   unusedClients: 5000,
   clientName: 64,
   redirectUris: 5,
+  redirectUriLength: 256,
   state: 1024,
 };
 
@@ -51,6 +59,7 @@ const authorizationServerMetadata = () => ({
 });
 
 module.exports = {
-  ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, HOUR, DAY, LIFETIME, LIMITS,
+  ISSUER, RESOURCE, SCOPE, REQUEST_SCOPES, DISCOVERY_ENABLED, HOUR, DAY,
+  LIFETIME, LIMITS,
   protectedResourceMetadata, authorizationServerMetadata,
 };

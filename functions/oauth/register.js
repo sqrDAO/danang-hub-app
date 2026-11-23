@@ -8,6 +8,7 @@ const {
 const GRANTS = ["authorization_code", "refresh_token"];
 const UNUSED_DOC = "dcr-unused";
 const UNUSED_WINDOW_HOURS = 24;
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
 const fail = (status, error, description, headers) =>
   ({status, headers, body: {error, error_description: description}});
@@ -22,9 +23,11 @@ const optionalList = (value, fallback) => {
 const cleanName = (value) => {
   if (value === undefined) return "";
   if (typeof value !== "string") return null;
-  // Self-declared and untrusted: drop control characters, cap the length.
-  return [...value].filter((c) => c.charCodeAt(0) > 31 &&
-    c.charCodeAt(0) !== 127).join("").trim().slice(0, LIMITS.clientName);
+  // Self-declared and untrusted: drop control and invisible format
+  // characters (bidi overrides and isolates, zero-width, BOM) and line or
+  // paragraph separators, then cap the length.
+  return [...value.replace(INVISIBLE, "").trim()]
+      .slice(0, LIMITS.clientName).join("");
 };
 
 // Returns {metadata} or {error}. token_endpoint_auth_method is always
@@ -37,7 +40,7 @@ const validateMetadata = (body) => {
   if (!Array.isArray(uris) || !uris.length ||
     uris.length > LIMITS.redirectUris) {
     return {error: fail(400, "invalid_redirect_uri",
-        "Send 1 to 5 redirect_uris.")};
+        `Send 1 to ${LIMITS.redirectUris} redirect_uris.`)};
   }
   if (!uris.every(isAllowedRedirect)) {
     return {error: fail(400, "invalid_redirect_uri",
@@ -57,8 +60,9 @@ const validateMetadata = (body) => {
   if (clientName === null) {
     return {error: invalidMetadata("client_name must be a string.")};
   }
-  return {metadata: {redirectUris: [...new Set(uris)], grantTypes,
-    responseTypes, clientName}};
+  return {metadata: {redirectUris: [...new Set(uris)],
+    grantTypes: [...new Set(grantTypes)],
+    responseTypes: [...new Set(responseTypes)], clientName}};
 };
 
 const unusedCount = (buckets, hour) => Object.entries(buckets || {})

@@ -298,7 +298,7 @@ Picking a partner's desk reserves it for that partner: it is hidden from other m
 | Function | Type | Description |
 |----------|------|-------------|
 | `mcp` | HTTPS request | Stateless MCP endpoint; bearer-token auth, rate limits, six member booking tools |
-| `oauth` | HTTPS request | OAuth 2.1 authorization server for MCP connectors (#263), served through Hosting rewrites on `app.danangblockchainhub.com`: protected-resource and authorization-server metadata, dynamic client registration (Claude, ChatGPT and loopback callbacks only), authorize, token (PKCE S256, rotating refresh tokens) and revoke. Not advertised by `mcp` yet |
+| `oauth` | HTTPS request | OAuth 2.1 authorization server for MCP connectors (#263), served through Hosting rewrites on `app.danangblockchainhub.com`: protected-resource and authorization-server metadata, dynamic client registration (Claude, ChatGPT and loopback callbacks only), authorize, token (PKCE S256, rotating refresh tokens) and revoke. Dark until phase 3: `mcp` does not advertise it and the metadata documents return 404 |
 | `oauthConsent` | Callable | Describe, approve or deny a pending OAuth sign-in request for the signed-in member; approval creates the grant and a 60 s single-use code (consent page ships in phase 3) |
 | `manageMcpToken` | Callable | Issue, inspect and revoke the signed-in member’s one personal token (90-day expiry) |
 | `checkBookingConflicts` | Callable | Server-side validation to prevent double-bookings |

@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const {Timestamp} = require("firebase-admin/firestore");
+const {LIMITS} = require("./config");
 
 const sha256 = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -31,7 +32,7 @@ const HOSTED_REDIRECTS = [
   /^https:\/\/claude\.ai\/api\/mcp\/auth_callback$/,
   /^https:\/\/claude\.com\/api\/mcp\/auth_callback$/,
   /^https:\/\/chatgpt\.com\/connector_platform_oauth_redirect$/,
-  /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]+$/,
+  /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]{1,128}$/,
 ];
 const LOOPBACK = new RegExp("^http://(localhost|127\\.0\\.0\\.1)" +
   "(?::(\\d{1,5}))?(/callback|/oauth/callback|/oauth/callback/debug)$");
@@ -43,8 +44,10 @@ const loopbackParts = (uri) => {
 };
 const isHostedRedirect = (uri) =>
   typeof uri === "string" && HOSTED_REDIRECTS.some((re) => re.test(uri));
+// Every allowed form is short; the cap keeps a client document small.
 const isAllowedRedirect = (uri) =>
-  isHostedRedirect(uri) || Boolean(loopbackParts(uri));
+  typeof uri === "string" && uri.length <= LIMITS.redirectUriLength &&
+  (isHostedRedirect(uri) || Boolean(loopbackParts(uri)));
 // Exact match, except loopback ignores the port (RFC 8252 section 7.3).
 const redirectMatches = (registered, requested) => {
   if (typeof requested !== "string") return false;

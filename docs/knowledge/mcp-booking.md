@@ -325,7 +325,9 @@ The `oauth` function and `oauthConsent` callable are new: the first deploy may
 need the owner invoker setup in README ("New callable functions"). Both must be
 publicly invokable; they do their own validation. Hosting rewrites send
 `/.well-known/oauth-*` and `/oauth/register|authorize|token|revoke` to `oauth`.
-`mcp` does not advertise OAuth until phase 3, so nothing changes for members.
+`mcp` does not advertise OAuth and both `/.well-known/oauth-*` documents
+return 404 (`DISCOVERY_ENABLED = false` in `functions/oauth/config.js`) until
+phase 3, so no connector can start a sign-in and nothing changes for members.
 
 One-time, as project owner: enable Firestore TTL on `expiresAt` (all values are
 Timestamps) so expired OAuth documents are deleted. TTL deletes within about
@@ -339,8 +341,9 @@ done
 ```
 
 Smoke checks after deploy (no member data involved):
-`curl -s https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`
-and `.../.well-known/oauth-authorization-server` return JSON; a registration
+`curl -si https://app.danangblockchainhub.com/.well-known/oauth-protected-resource/mcp`
+and `.../.well-known/oauth-authorization-server` return JSON 404
+`{"error":"not_found"}` (not the SPA's HTML); a registration
 with `{"redirect_uris":["https://evil.example/cb"]}` posted to `/oauth/register`
 returns 400 `invalid_redirect_uri`. Time a cold `POST /oauth/token` (decision
 5: Claude allows 10 s).

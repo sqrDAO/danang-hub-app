@@ -72,6 +72,21 @@ const prepareClientUse = async (tx, db, clientId) => {
 const liveGrant = (grant, now) => grant && !grant.revoked &&
   !expired(grant, now);
 
+// Which failures consume the code: a wrong client_id, redirect_uri or
+// resource is a request error the client can correct and retry, so the code
+// stays valid (it still dies after 60 s). A failed PKCE check burns it, so a
+// stolen code allows one verifier guess. Only a code that already issued
+// tokens counts as used, so only its replay revokes the grant.
+const codeError = (code, grant, params, now) =>
+  expired(code, now) ? "Code expired." :
+  code.clientId !== params.client_id ? "Code was issued to another client." :
+  code.redirectUri !== params.redirect_uri ? "redirect_uri mismatch." :
+  params.resource !== undefined && params.resource !== code.resource ?
+    "resource mismatch." :
+  !verifyPkce(params.code_verifier, code.codeChallenge) ?
+    {burn: "PKCE verification failed."} :
+  !liveGrant(grant, now) ? {burn: "Grant revoked or expired."} : null;
+
 const exchangeCode = (db, params, now) => {
   if (typeof params.code !== "string" || !CODE.test(params.code)) {
     return Promise.resolve(invalidGrant("Unknown code."));
@@ -80,6 +95,7 @@ const exchangeCode = (db, params, now) => {
   return db.runTransaction(async (tx) => {
     const code = (await tx.get(codeRef)).data();
     if (!code) return invalidGrant("Unknown code.");
+    if (code.burnedAt) return invalidGrant("Code is no longer valid.");
     const grantRef = db.collection("oauthGrants").doc(code.grantId);
     const grant = (await tx.get(grantRef)).data();
     if (code.usedAt) {
@@ -87,19 +103,14 @@ const exchangeCode = (db, params, now) => {
       (await prepareRevokeGrant(tx, db, code.grantId))(now);
       return invalidGrant("Code already used.");
     }
-    const bad = expired(code, now) ? "Code expired." :
-      code.clientId !== params.client_id ? "Code was issued to another " +
-        "client." :
-      code.redirectUri !== params.redirect_uri ? "redirect_uri mismatch." :
-      params.resource !== undefined && params.resource !== code.resource ?
-        "resource mismatch." :
-      !verifyPkce(params.code_verifier, code.codeChallenge) ?
-        "PKCE verification failed." :
-      !liveGrant(grant, now) ? "Grant revoked or expired." : null;
-    const useClient = bad ? null :
-      await prepareClientUse(tx, db, code.clientId);
-    tx.update(codeRef, {usedAt: now});
+    const bad = codeError(code, grant, params, now);
+    if (bad && bad.burn) {
+      tx.update(codeRef, {burnedAt: now});
+      return invalidGrant(bad.burn);
+    }
     if (bad) return invalidGrant(bad);
+    const useClient = await prepareClientUse(tx, db, code.clientId);
+    tx.update(codeRef, {usedAt: now});
     useClient(now);
     return writeTokens(tx, db, code.grantId, grant, now);
   });

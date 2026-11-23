@@ -21,8 +21,9 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 
 ## Acceptance
 - [ ] Unauthenticated `POST /mcp` returns 401 with `WWW-Authenticate` carrying `resource_metadata` and `scope="bookings"`.
-- [x] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp`.
-- [x] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
+- [ ] `/.well-known/oauth-protected-resource/mcp` returns `resource` equal to `https://app.danangblockchainhub.com/mcp` (phase 3; phase 2 returns 404 while `DISCOVERY_ENABLED` is false, unit-tested with it on).
+- [ ] Until phase 3, both `/.well-known/oauth-*` documents return JSON 404, not the SPA shell.
+- [ ] AS metadata lists `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]`.
 - [x] DCR rejects a redirect URI outside the allowlist with `invalid_redirect_uri`.
 - [x] DCR for Claude/ChatGPT callbacks is not limited per IP, only by a global hourly cap.
 - [x] DCR with a loopback redirect is limited to 10 per IP per hour.
@@ -34,6 +35,8 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - [ ] Consent page shows the redirect hostname and a warning for loopback redirects.
 - [ ] A wallet-signed-in member can approve consent.
 - [x] Authorization codes expire after 60 s and work once.
+- [x] A code exchange rejected for a wrong `client_id`, `redirect_uri` or `resource` can be retried; a failed PKCE check burns the code; only a replay of a successfully exchanged code revokes the grant.
+- [x] DCR strips control, bidi and zero-width characters from `client_name` and caps each redirect URI at 256 chars.
 - [x] Refresh rotates the token, and a reused refresh token revokes the grant.
 - [ ] An access token whose `aud` is not the canonical MCP URL gets 401.
 - [ ] Disconnect in Profile makes that grant's next MCP request return 401.
@@ -57,5 +60,6 @@ Resolve #263: let members connect Claude web/Desktop/mobile custom connectors an
 - Delivered in the phases listed in the design doc, one PR each; each PR ticks its bullets here, and the final PR renames this spec.
 - Open questions were decided on 2026-11-22 (all recommendations); see Decisions in the design doc.
 - Hosting rewrite order matters: specific rewrites before `**`.
+- Phase 3 flips `DISCOVERY_ENABLED` in `functions/oauth/config.js`. Keep the well-known rewrites even while dark: without them `**` answers 200 `index.html`.
 - Consent route is outside `ProtectedRoute`; build `/login?redirect=` with `encodeURIComponent`.
 - New `expiresAt` fields are Timestamps (TTL), not epoch ms like `mcpTokens`.

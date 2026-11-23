@@ -34,9 +34,9 @@ const fakeRes = () => {
   res.end = () => res
   return res
 }
-const call = async (db, req) => {
+const call = async (db, req, options) => {
   const res = fakeRes()
-  await createOauthHandler(db)({ headers: {}, query: {}, ip: '1.2.3.4', ...req }, res)
+  await createOauthHandler(db, options)({ headers: {}, query: {}, ip: '1.2.3.4', ...req }, res)
   return res
 }
 
@@ -65,17 +65,30 @@ const refresh = (db, clientId, refreshToken, now) => token(db, {
 }, { ...FORM, now })
 const docs = (data, prefix) => [...data].filter(([path]) => path.startsWith(prefix + '/'))
 
+const WELL_KNOWN = ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp',
+  '/.well-known/oauth-authorization-server']
+
+test('discovery is dark by default: metadata documents return JSON 404, not a page', async () => {
+  const { db } = makeStore()
+  for (const path of WELL_KNOWN) {
+    const res = await call(db, { method: 'GET', path })
+    assert.equal(res.statusCode, 404, path)
+    assert.deepEqual(res.body, { error: 'not_found' })
+  }
+})
+
 test('metadata documents advertise the canonical resource, S256 and public clients', async () => {
   const { db } = makeStore()
-  for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp']) {
-    const res = await call(db, { method: 'GET', path })
+  const on = { discovery: true }
+  for (const path of WELL_KNOWN.slice(0, 2)) {
+    const res = await call(db, { method: 'GET', path }, on)
     assert.equal(res.statusCode, 200)
     assert.deepEqual(res.body, { resource: RESOURCE, authorization_servers: [ISSUER],
       scopes_supported: ['bookings'], bearer_methods_supported: ['header'] })
     assert.equal(res.headers['Access-Control-Allow-Origin'], '*')
     assert.equal(res.headers['Cache-Control'], 'no-store')
   }
-  const as = (await call(db, { method: 'GET', path: '/.well-known/oauth-authorization-server' })).body
+  const as = (await call(db, { method: 'GET', path: WELL_KNOWN[2] }, on)).body
   assert.equal(as.issuer, ISSUER)
   assert.deepEqual(as.code_challenge_methods_supported, ['S256'])
   assert.deepEqual(as.token_endpoint_auth_methods_supported, ['none'])
@@ -101,11 +114,12 @@ test('PKCE accepts only the S256 transform of a well-formed verifier', () => {
 test('redirect allowlist and matching: exact for hosted, any port for loopback', () => {
   for (const uri of [CLAUDE, 'https://claude.com/api/mcp/auth_callback',
     'https://chatgpt.com/connector_platform_oauth_redirect', 'https://chatgpt.com/connector/oauth/abc_D-1',
-    'http://localhost:33418/callback', 'http://127.0.0.1/callback', 'http://localhost:6274/oauth/callback']) {
+    'https://chatgpt.com/connector/oauth/' + 'a'.repeat(128), 'http://localhost:33418/callback', 'http://127.0.0.1/callback', 'http://localhost:6274/oauth/callback']) {
     assert.equal(isAllowedRedirect(uri), true, uri)
   }
   for (const uri of ['https://evil.example/callback', 'http://claude.ai/api/mcp/auth_callback',
-    CLAUDE + '?x=1', 'https://chatgpt.com/connector/oauth/a/b', 'http://localhost:0/callback',
+    CLAUDE + '?x=1', 'https://chatgpt.com/connector/oauth/a/b', 'https://chatgpt.com/connector/oauth/' + 'a'.repeat(129),
+    'https://chatgpt.com/connector/oauth/', 'http://localhost:0/callback',
     'http://localhost:70000/callback', 'http://localhost.evil.com/callback', 'http://localhost:80/other',
     'https://localhost:3000/callback', 'http://[::1]:3000/callback', 42]) {
     assert.equal(isAllowedRedirect(uri), false, String(uri))
@@ -138,6 +152,24 @@ test('DCR registers public clients only and rejects redirects outside the allowl
   assert.equal(stored.clientName.length, 64)
   assert.equal(stored.clientName.startsWith('Claude '), true)
   assert.equal(stored.expiresAt.toMillis(), now + 86400000, 'unused clients expire after a day (TTL)')
+})
+
+test('DCR strips invisible characters from client_name and keeps the client document small', async () => {
+  const { db, data } = makeStore()
+  const hidden = '\u202E\u202A\u2066\u2069\u200B\u200F\uFEFF\u2028\u2029\u0085'
+  const ok = await registerClient(db, { redirect_uris: [CLAUDE], client_name: `Cl${hidden}aude ✓` }, {})
+  assert.equal(ok.status, 201)
+  assert.equal(data.get(`oauthClients/${ok.body.client_id}`).clientName, 'Claude ✓')
+  const loop = (i) => `http://localhost:${1000 + i}/callback`
+  assert.equal((await register(db, [1, 2, 3, 4, 5, 6].map(loop))).body.error, 'invalid_redirect_uri')
+  const long = 'http://localhost:1/callback' + '?'.repeat(300)
+  assert.equal((await register(db, [long])).body.error, 'invalid_redirect_uri')
+  const many = await registerClient(db, { redirect_uris: [CLAUDE],
+    grant_types: Array(1000).fill('refresh_token'), response_types: Array(1000).fill('code') }, {})
+  assert.equal(many.status, 201)
+  const stored = data.get(`oauthClients/${many.body.client_id}`)
+  assert.deepEqual(stored.grantTypes, ['refresh_token'])
+  assert.deepEqual(stored.responseTypes, ['code'])
 })
 
 test('DCR: hosted callbacks share a global hourly cap, not a per-IP one', async () => {
@@ -293,6 +325,29 @@ test('code exchange: PKCE, single use, 60 s expiry, no raw secrets stored', asyn
   assert.equal((await exchange(store.db, target.clientId, target.code, now, { resource: 'https://x.example/mcp' })).body.error, 'invalid_grant')
   const redirect = await approved(store, now)
   assert.equal((await exchange(store.db, redirect.clientId, redirect.code, now, { redirect_uri: 'https://claude.com/api/mcp/auth_callback' })).body.error, 'invalid_grant')
+})
+
+test('a rejected exchange does not count as use: a corrected retry works, a failed PKCE check burns the code', async () => {
+  const store = makeStore()
+  const now = Date.now()
+  const flow = await approved(store, now)
+  const wrongResource = await exchange(store.db, flow.clientId, flow.code, now, { resource: 'https://x.example/mcp' })
+  assert.equal(wrongResource.body.error, 'invalid_grant')
+  const wrongRedirect = await exchange(store.db, flow.clientId, flow.code, now, { redirect_uri: 'https://claude.com/api/mcp/auth_callback' })
+  assert.equal(wrongRedirect.body.error, 'invalid_grant')
+  const retry = await exchange(store.db, flow.clientId, flow.code, now + 1000)
+  assert.equal(retry.status, 200)
+  assert.equal(docs(store.data, 'oauthGrants')[0][1].revoked, false)
+  assert.equal((await validateAccessToken(store.db, retry.body.access_token, { now })).uid, uid)
+
+  const guessed = await approved(store, now)
+  const badVerifier = await exchange(store.db, guessed.clientId, guessed.code, now, { code_verifier: 'w'.repeat(43) })
+  assert.equal(badVerifier.body.error, 'invalid_grant')
+  const after = await exchange(store.db, guessed.clientId, guessed.code, now + 1000)
+  assert.equal(after.body.error, 'invalid_grant', 'a burned code never issues tokens')
+  assert.match(after.body.error_description, /no longer valid/)
+  assert.equal((await validateAccessToken(store.db, retry.body.access_token, { now })).uid, uid,
+    'a burned code does not revoke other grants')
 })
 
 test('a reused authorization code revokes the grant and its tokens', async () => {
