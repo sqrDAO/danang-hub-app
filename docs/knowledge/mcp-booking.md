@@ -316,13 +316,16 @@ each client that used it. Disconnecting a client does not revoke the Hub token.
 | `list_my_bookings` | optional limit, cursor | Own booking IDs, times, status and source |
 | `create_booking` | amenityId, startTime, endTime, requestId | Pending booking; reuse requestId for retries of exactly the same slot |
 | `cancel_booking` | bookingId | Cancellation of an own pending individual booking only |
+| `list_upcoming_events` | optional limit, cursor | Approved events that have not started, nearest first: time, venue, organizer, hosting projects, seat counts, your registered/waitlisted state, `eventLink` and a portal `registerUrl`; descriptions over 1,000 characters are cut (`descriptionTruncated`); no attendee IDs |
 
 Dates require an explicit offset (`2026-12-01T09:00:00+07:00`); Hub time is
 Asia/Ho_Chi_Minh. Slots must be in the future, within a year, at most 24 hours,
-and inside amenity hours on a single Hub day. Read tools paginate by document ID,
+and inside amenity hours on a single Hub day. Amenity and booking lists paginate by document ID,
 not date. Follow `nextCursor` until null, including when a filtered page is empty.
 A new requestId means a new booking attempt, even if the previous booking was
-cancelled. Fixed/partner desk plans, event creation and admin operations are absent.
+cancelled. Upcoming events page by start time. Fixed/partner desk plans, event
+registration and creation, and admin operations are absent: `registerUrl` opens
+registration in the portal.
 
 Creation checks the current profile, reserved-amenity access, closures, hours and
 capacity in a Firestore transaction. A per-amenity lock serializes MCP creates;
@@ -376,7 +379,7 @@ follow the owner IAM recovery runbook from #234/#245; do not grant broad project
 roles to the CI account. Do not run an all-functions deploy to repair this endpoint.
 
 After first deploy, use a disposable test member and the MCP Inspector or an SDK
-client with a bearer header: initialize, list all six tools, check availability,
+client with a bearer header: initialize, list all seven tools, check availability,
 create with a unique requestId, repeat it (same ID), list own bookings, cancel a
 still-pending test booking, revoke, and confirm the old token receives 401.
 Check disabled-user rejection, 429 limits, and pending-to-approved monthly-limit

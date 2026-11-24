@@ -26,11 +26,15 @@ const instructions = "Da Nang Blockchain Hub booking for the member who " +
   "reject the booking. New bookings are pending until the Hub approves " +
   "them, so never report pending as confirmed; list_my_bookings shows the " +
   "current status. Hub time is Asia/Ho_Chi_Minh: send times with an " +
-  "explicit offset such as +07:00. List tools page by ID, not date: follow " +
-  "nextCursor until it is null, even after a short or empty page. " +
+  "explicit offset such as +07:00. Amenity and booking lists page by ID, " +
+  "not date. On every list tool, follow nextCursor until it is null, " +
+  "even after a short or empty page. " +
   "cancel_booking only cancels the member's own " +
   "pending individual bookings; event spaces, desk plans and admin " +
-  "actions stay in the Hub portal. Limit: 60 requests per minute; on a " +
+  "actions stay in the Hub portal. list_upcoming_events lists approved " +
+  "Hub events that have not started, nearest first; to register, give " +
+  "the member the event's registerUrl, as registering is only in the " +
+  "portal. Limit: 60 requests per minute; on a " +
   "rate-limit error wait a minute instead of retrying.";
 // [name, title, description, input schema, readOnly]
 const toolDefinitions = [
@@ -62,11 +66,16 @@ const toolDefinitions = [
     "cancelled here.",
   z.object({bookingId: id.describe("Booking ID from list_my_bookings.")})
       .strict(), false],
+  ["list_upcoming_events", "List upcoming Hub events", "List approved " +
+    "Hub events that have not started yet, nearest first: time, venue, " +
+    "organizer, seats left, whether you are registered or waitlisted, " +
+    "and a registerUrl for the Hub portal. Paginated by nextCursor.",
+  z.object(pagination).strict(), true],
 ];
 
 const createServer = (principal, handlers) => {
   const server = new McpServer({
-    name: "danang-hub-mcp-server", version: "1.1.0",
+    name: "danang-hub-mcp-server", version: "1.2.0",
   }, {instructions});
   for (const [name, title, description, schema, readOnly] of
     toolDefinitions) {

@@ -6,6 +6,7 @@ const require = createRequire(new URL('../functions/package.json', import.meta.u
 const { createTokenService, hashToken } = require('./mcpTokens')
 const { createBookingTools } = require('./mcpBookings')
 const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
+const { Timestamp } = require('firebase-admin/firestore')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js')
 const express = require('express')
@@ -178,7 +179,7 @@ test('schemas reject protected fields, malformed IDs and timezone-less times; pa
   }
 })
 
-test('SDK HTTP client initializes, discovers six tools, and calls tools with isolated identity', async t => {
+test('SDK HTTP client initializes, discovers seven tools, and calls tools with isolated identity', async t => {
   const f = fixture()
   const service = createTokenService(f.db, auth)
   const app = express()
@@ -197,7 +198,7 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   await client.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: 'Bearer ' + secret } } }))
   t.after(() => client.close())
   const { tools } = await client.listTools()
-  assert.equal(tools.length, 6)
+  assert.equal(tools.length, 7)
   assert.match(client.getInstructions(), /list_amenities.*check_availability.*confirm.*create_booking/s)
   assert.match(client.getInstructions(), /Asia\/Ho_Chi_Minh/)
   assert.match(client.getInstructions(), /never report pending as confirmed/)
@@ -230,6 +231,11 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   assert.equal(create.structuredContent.status, 'pending')
   const cancel = await client.callTool({ name: 'cancel_booking', arguments: { bookingId: create.structuredContent.id } })
   assert.equal(cancel.structuredContent.status, 'cancelled')
+  assert.match(client.getInstructions(), /list_upcoming_events.*registerUrl/s)
+  assert.equal(tools.find(tool => tool.name === 'list_upcoming_events').annotations.readOnlyHint, true)
+  f.data.set('events/soon', { status: 'approved', title: 'Meetup', date: Timestamp.fromMillis(Date.now() + 86400000) })
+  const events = await client.callTool({ name: 'list_upcoming_events', arguments: {} })
+  assert.deepEqual(events.structuredContent.items.map(e => e.title), ['Meetup'])
   f.data.delete(`mcpTokens/${hash}`)
   await assert.rejects(client.listTools())
 })
@@ -315,4 +321,75 @@ test('401 advertises resource_metadata and scope only for requests through Hosti
   assert.equal(rawAccess.status, 401)
   assert.equal(lines.at(-1)[0].reason, 'not-hosted')
   assert.equal(rawAccess.headers.get('www-authenticate'), 'Bearer realm="Hub MCP"')
+})
+
+const inDays = (days) => Timestamp.fromMillis(Date.now() + days * 86400000)
+const eventFixture = () => {
+  const f = fixture()
+  const seed = {
+    'events/late': { status: 'approved', title: 'Demo Day', date: inDays(3), duration: 90, capacity: 2,
+      attendees: [uid, 'member-x'], waitlist: ['member-y'], requestedAmenityId: 'hall',
+      organizerDisplayName: 'Alice', hostingProjects: 'SuperteamVN', eventLink: 'https://lu.ma/demo',
+      description: 'x'.repeat(1200) },
+    'events/soon': { status: 'approved', title: 'Coffee', date: inDays(1), attendees: [], waitlist: [] },
+    'events/full': { status: 'approved', title: 'Workshop', date: inDays(2), capacity: 1,
+      attendees: ['member-x'], waitlist: [uid] },
+    'events/past': { status: 'approved', title: 'Old', date: inDays(-1) },
+    'events/pending': { status: 'pending', title: 'Unreviewed', date: inDays(2) },
+    'events/rejected': { status: 'rejected', title: 'No', date: inDays(2) },
+    'amenities/hall': { name: 'Event Hall', type: 'event-space' }
+  }
+  for (const [path, value] of Object.entries(seed)) f.data.set(path, value)
+  return f
+}
+
+test('upcoming events: approved and not yet started, nearest first', async () => {
+  const f = eventFixture()
+  const { items, nextCursor } = await f.handlers.list_upcoming_events(f.principal, { limit: 20 })
+  assert.deepEqual(items.map(e => e.id), ['soon', 'full', 'late'])
+  assert.equal(nextCursor, null)
+})
+
+test('upcoming events: each one carries what a member decides on, never member IDs', async () => {
+  const f = eventFixture()
+  const { items } = await f.handlers.list_upcoming_events(f.principal, { limit: 20 })
+  const [soon, full, late] = items
+  assert.equal(late.title, 'Demo Day')
+  assert.equal(late.durationMinutes, 90)
+  assert.equal(Date.parse(late.endTime) - Date.parse(late.startTime), 90 * 60000)
+  assert.equal(late.timezone, 'Asia/Ho_Chi_Minh')
+  assert.equal(late.venue, 'Event Hall')
+  assert.equal(late.organizer, 'Alice')
+  assert.equal(late.hostingProjects, 'SuperteamVN')
+  assert.equal(late.eventLink, 'https://lu.ma/demo')
+  assert.equal(late.registerUrl, 'https://app.danangblockchainhub.com/member/events?action=register&eventId=late')
+  assert.deepEqual([late.capacity, late.attendeeCount, late.waitlistCount, late.spotsLeft], [2, 2, 1, 0])
+  assert.deepEqual([late.registered, late.waitlisted], [true, false])
+  assert.deepEqual([full.registered, full.waitlisted], [false, true])
+  assert.equal(late.descriptionTruncated, true)
+  assert.equal(late.description.length, 1001)
+  assert.deepEqual([soon.venue, soon.capacity, soon.spotsLeft, soon.endTime, soon.durationMinutes],
+    [null, null, null, null, null])
+  assert.equal(soon.descriptionTruncated, false)
+  const text = JSON.stringify(items)
+  for (const id of ['member-x', 'member-y', uid]) assert.equal(text.includes(id), false, id)
+})
+
+test('upcoming events: pages follow nextCursor; unknown and unapproved cursors are refused', async () => {
+  const f = eventFixture()
+  const first = await f.handlers.list_upcoming_events(f.principal, { limit: 2 })
+  assert.deepEqual(first.items.map(e => e.id), ['soon', 'full'])
+  assert.equal(first.nextCursor, 'full')
+  const second = await f.handlers.list_upcoming_events(f.principal, { limit: 2, cursor: first.nextCursor })
+  assert.deepEqual(second.items.map(e => e.id), ['late'])
+  assert.equal(second.nextCursor, null)
+  for (const cursor of ['missing', 'pending']) {
+    await assert.rejects(f.handlers.list_upcoming_events(f.principal, { limit: 2, cursor }), /Unknown cursor/)
+  }
+})
+
+test('upcoming events: a revoked token is refused', async () => {
+  const f = eventFixture()
+  f.data.delete(`mcpTokens/${hash}`)
+  await assert.rejects(f.handlers.list_upcoming_events(f.principal, { limit: 20 }), /revoked or expired/)
 })
