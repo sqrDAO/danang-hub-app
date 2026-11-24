@@ -32,9 +32,11 @@ const instructions = "Da Nang Blockchain Hub booking for the member who " +
   "cancel_booking only cancels the member's own " +
   "pending individual bookings; event spaces, desk plans and admin " +
   "actions stay in the Hub portal. list_upcoming_events lists approved " +
-  "Hub events that have not started, nearest first; to register, give " +
-  "the member the event's registerUrl, as registering is only in the " +
-  "portal. Limit: 60 requests per minute; on a " +
+  "Hub events that have not started, nearest first. Registering is not " +
+  "a tool: when the member wants to register, give them the event's " +
+  "registerUrl (its own page for signUp event-page; for signUp hub, " +
+  "opening it registers them at once, so never share it just as a " +
+  "details link). Limit: 60 requests per minute; on a " +
   "rate-limit error wait a minute instead of retrying.";
 // [name, title, description, input schema, readOnly]
 const toolDefinitions = [
@@ -67,9 +69,11 @@ const toolDefinitions = [
   z.object({bookingId: id.describe("Booking ID from list_my_bookings.")})
       .strict(), false],
   ["list_upcoming_events", "List upcoming Hub events", "List approved " +
-    "Hub events that have not started yet, nearest first: time, venue, " +
-    "organizer, seats left, whether you are registered or waitlisted, " +
-    "and a registerUrl for the Hub portal. Paginated by nextCursor.",
+    "Hub events that have not started yet, nearest first: time, " +
+    "organizer, whether a Hub sign-up is full, whether you are registered " +
+    "or waitlisted, and where to register (registerUrl). For signUp hub, " +
+    "opening registerUrl registers you immediately. Paginated by " +
+    "nextCursor.",
   z.object(pagination).strict(), true],
 ];
 

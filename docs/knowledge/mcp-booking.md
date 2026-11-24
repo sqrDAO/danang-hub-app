@@ -316,14 +316,15 @@ each client that used it. Disconnecting a client does not revoke the Hub token.
 | `list_my_bookings` | optional limit, cursor | Own booking IDs, times, status and source |
 | `create_booking` | amenityId, startTime, endTime, requestId | Pending booking; reuse requestId for retries of exactly the same slot |
 | `cancel_booking` | bookingId | Cancellation of an own pending individual booking only |
-| `list_upcoming_events` | optional limit, cursor | Approved events that have not started, nearest first: time, venue, organizer, hosting projects, seat counts, your registered/waitlisted state, `eventLink` and a portal `registerUrl`; descriptions over 1,000 characters are cut (`descriptionTruncated`); no attendee IDs |
+| `list_upcoming_events` | optional limit, cursor | Approved events that have not started, nearest first: time, organizer, hosting projects, `eventLink` (web links only), `signUp` (`event-page` or `hub`), `registerUrl` (the event's own page, or the portal link that registers on open), `isFull` (Hub sign-ups only), and your registered/waitlisted state. Descriptions over 1,000 characters are cut (`descriptionTruncated`). Like the portal's member view: no venue, attendee counts or member IDs |
 
 Dates require an explicit offset (`2026-12-01T09:00:00+07:00`); Hub time is
 Asia/Ho_Chi_Minh. Slots must be in the future, within a year, at most 24 hours,
 and inside amenity hours on a single Hub day. Amenity and booking lists paginate by document ID,
 not date. Follow `nextCursor` until null, including when a filtered page is empty.
 A new requestId means a new booking attempt, even if the previous booking was
-cancelled. Upcoming events page by start time. Fixed/partner desk plans, event
+cancelled. Upcoming events page by start time; their cursor keeps the last event's
+start, so moving it doesn't skip a page. Fixed/partner desk plans, event
 registration and creation, and admin operations are absent: `registerUrl` opens
 registration in the portal.
 

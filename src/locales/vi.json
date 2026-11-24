@@ -948,7 +948,7 @@
     "generationHelp": "Bạn có thể tạo một token mỗi phút.",
     "cooldownRemaining": "Có thể tạo token mới sau {{seconds}} giây.",
     "title": "Đặt chỗ qua trợ lý AI",
-    "help": "Token cá nhân cho phép trợ lý xem lịch đặt chỗ của bạn, kiểm tra chỗ trống, tạo yêu cầu đặt chỗ và hủy lượt đặt riêng lẻ đang chờ duyệt. Token hết hạn sau 90 ngày. Giữ bí mật và thu hồi tại đây để ngắt kết nối.",
+    "help": "Token cá nhân cho phép trợ lý xem lịch đặt chỗ của bạn, kiểm tra chỗ trống, tạo yêu cầu đặt chỗ và hủy lượt đặt riêng lẻ đang chờ duyệt. Trợ lý cũng có thể xem các sự kiện sắp diễn ra tại Hub và biết bạn đã đăng ký hay đang trong danh sách chờ. Token hết hạn sau 90 ngày. Giữ bí mật và thu hồi tại đây để ngắt kết nối.",
     "compatibility": "Claude (web, Desktop và di động) có thể kết nối bằng cách đăng nhập tài khoản Hub: thêm URL máy chủ MCP làm connector tùy chỉnh. Với ứng dụng chỉ nhận header như Claude Code, dùng token cá nhân với Authorization: Bearer.",
     "endpoint": "URL máy chủ MCP",
     "preview": "Không thể tạo token trong bản xem trước cục bộ.",

@@ -17,28 +17,40 @@ export const makeStore = (initial = {}, createdAt = Date.now()) => {
     if (op === '>') return field !== undefined && comparable(field) > comparable(value)
     return field === value
   }
-  // orderBy(field) sorts by that field, then ID; any other orderBy is by ID.
-  const byField = (field) => (a, b) => {
-    const left = comparable(a.data()[field])
-    const right = comparable(b.data()[field])
-    return left < right ? -1 : left > right ? 1 : a.id < b.id ? -1 : 1
+  // Firestore order: the orderBy fields, then document ID. A non-string key is
+  // FieldPath.documentId(). startAfter takes values for those fields, as in
+  // Firestore, so a cursor never depends on the document still matching.
+  const valueOf = (doc, field) => field === '__name__' ? doc.id : comparable(doc.data()[field])
+  const orderOf = (fields) => fields.includes('__name__') ? fields : [...fields, '__name__']
+  const compare = (fields) => (a, b) => {
+    for (const field of fields) {
+      const left = valueOf(a, field)
+      const right = valueOf(b, field)
+      if (left < right) return -1
+      if (left > right) return 1
+    }
+    return 0
   }
-  // startAfter takes an ID (ID order) or a snapshot (field order).
-  const afterCursor = (docs, cursor) => {
-    if (typeof cursor === 'string') return docs.filter(doc => doc.id > cursor)
-    return docs.slice(docs.findIndex(doc => doc.id === cursor.id) + 1)
+  const isAfter = (doc, fields, values) => {
+    if (values.length === 0) return true
+    for (const [index, value] of values.entries()) {
+      const left = valueOf(doc, fields[index])
+      const right = comparable(value)
+      if (left !== right) return left > right
+    }
+    return false
   }
-  const query = (name, filters = [], max = Infinity, cursor = '', field = null) => ({
+  const query = (name, filters = [], max = Infinity, cursor = [], fields = []) => ({
     doc: (id) => ref(`${name}/${id}`),
-    where: (key, op, value) => query(name, [...filters, [key, op, value]], max, cursor, field),
-    orderBy: (key) => query(name, filters, max, cursor, typeof key === 'string' ? key : null),
-    limit: (n) => query(name, filters, n, cursor, field),
-    startAfter: (after) => query(name, filters, max, after, field),
+    where: (key, op, value) => query(name, [...filters, [key, op, value]], max, cursor, fields),
+    orderBy: (key) => query(name, filters, max, cursor, [...fields, typeof key === 'string' ? key : '__name__']),
+    limit: (n) => query(name, filters, n, cursor, fields),
+    startAfter: (...values) => query(name, filters, max, values, fields),
     get: async () => {
-      const all = [...data.keys()].filter(path => path.startsWith(name + '/'))
-        .sort().map(snapshot).filter(doc => filters.every(filter => matches(doc, filter)))
-      if (field) all.sort(byField(field))
-      const docs = afterCursor(all, cursor).slice(0, max)
+      const order = orderOf(fields)
+      const docs = [...data.keys()].filter(path => path.startsWith(name + '/'))
+        .map(snapshot).filter(doc => filters.every(filter => matches(doc, filter)))
+        .sort(compare(order)).filter(doc => isAfter(doc, order, cursor)).slice(0, max)
       return { docs, size: docs.length, forEach: (fn) => docs.forEach(fn) }
     }
   })
