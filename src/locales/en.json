@@ -251,6 +251,18 @@
     "name": "Name",
     "email": "Email",
     "phone": "Phone",
+    "phoneCountry": "Country code",
+    "phonePlaceholder": "905 123 456",
+    "phoneHelp": "Pick your country code, then type your number. A leading 0 is fine. You can also paste a full number starting with +.",
+    "gender": "Gender",
+    "genderUnset": "Not specified",
+    "genderHelp": "Optional. Only you and Hub admins can see it. Used only in totals for the Hub’s gender-balance reporting (UN Sustainable Development Goal 5).",
+    "genderOptions": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other",
+      "prefer-not-to-say": "Prefer not to say"
+    },
     "optional": "Optional",
     "copyAddress": "Copy address",
     "copied": "Copied!",
@@ -313,7 +325,7 @@
       "jobTitleRequired": "Role (job title) is required",
       "invalidLinkedIn": "LinkedIn must be a valid URL",
       "invalidWebsite": "Website must be a valid URL",
-      "invalidPhone": "Phone can only contain digits, spaces, dashes, plus sign, and parentheses"
+      "invalidPhone": "Enter a valid phone number: 8 to 15 digits including the country code."
     },
     "memberSinceRelative": {
       "lessThanMonth": "Less than a month",

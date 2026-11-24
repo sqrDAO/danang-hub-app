@@ -37,6 +37,7 @@ import { consumeCreateAction } from '../../utils/consumeCreateAction'
 import { useTranslation } from 'react-i18next'
 import './Events.css'
 import './Profile.css'
+import { formatPhone, phoneHref } from '../../utils/phone'
 
 const isEventRegistered = (event, uid) => {
   return event.attendees?.includes(uid) || false
@@ -722,8 +723,8 @@ const HostContactSection = ({ member }) => (
       <div className="profile-detail-item">
         <span className="detail-label">Phone</span>
         <span className="detail-value">
-          <a href={`tel:${member.phone}`} className="profile-link">
-            {member.phone}
+          <a href={phoneHref(member.phone)} className="profile-link">
+            {formatPhone(member.phone)}
           </a>
         </span>
       </div>

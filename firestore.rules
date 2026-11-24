@@ -34,7 +34,9 @@ service cloud.firestore {
     
     // Members collection
     // Profile fields: uid, displayName, email, verifiedEmail, photoURL, membershipType,
-    // phone, bio, company, jobTitle, linkedIn, website, preferences (object),
+    // phone (E.164, src/utils/phone.js), gender (optional, self-reported, for
+    // aggregate SDG 5 reporting), bio, company, jobTitle, linkedIn, website,
+    // preferences (object),
     // locale ('en'|'vi', mirrors the UI language so Cloud Functions can
     // localize push copy), createdAt, updatedAt.
     // partnerId (id in /partners) is admin-set: the hourly partner-desk sync
@@ -64,6 +66,21 @@ service cloud.firestore {
               verifiedEmail == request.resource.data.get('email', ''));
     }
 
+    // An owner writes phone as E.164 or empty. Unchanged always passes, so an
+    // older free-text number never blocks an unrelated write (locale, email sync).
+    function ownerPhoneAllowed(before) {
+      let phone = request.resource.data.get('phone', '');
+      return phone == before || phone == '' ||
+             (phone is string && phone.matches('[+][1-9][0-9]{7,14}'));
+    }
+
+    // gender: one of GENDER_OPTIONS (src/utils/profileFields.js), empty, or unchanged.
+    function ownerGenderAllowed(before) {
+      let gender = request.resource.data.get('gender', '');
+      return gender == before ||
+             gender in ['', 'female', 'male', 'other', 'prefer-not-to-say'];
+    }
+
     match /members/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId);
@@ -74,7 +91,8 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
                        request.resource.data.get('membershipType', null) == 'member' &&
                        !('partnerId' in request.resource.data) &&
-                       ownerEmailAllowed('') && verifiedEmailAllowed(userId, '');
+                       ownerEmailAllowed('') && verifiedEmailAllowed(userId, '') &&
+                       ownerPhoneAllowed('') && ownerGenderAllowed('');
       // Users can update their own profile (except membershipType and partnerId,
       // which they may not change or remove, and email, which follows their
       // Auth email when they have one)
@@ -82,7 +100,9 @@ service cloud.firestore {
                        request.resource.data.get('membershipType', null) == resource.data.get('membershipType', null) &&
                        request.resource.data.get('partnerId', null) == resource.data.get('partnerId', null) &&
                        ownerEmailAllowed(resource.data.get('email', '')) &&
-                       verifiedEmailAllowed(userId, resource.data.get('verifiedEmail', ''));
+                       verifiedEmailAllowed(userId, resource.data.get('verifiedEmail', '')) &&
+                       ownerPhoneAllowed(resource.data.get('phone', '')) &&
+                       ownerGenderAllowed(resource.data.get('gender', ''));
       // Only admins can update membershipType or any member. A profile with no
       // membershipType (legacy) reads as 'member' here, so admins can still
       // edit its other fields.

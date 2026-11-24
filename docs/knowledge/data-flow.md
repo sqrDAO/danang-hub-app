@@ -317,7 +317,7 @@ client's `getFunctions(app, 'us-central1')` **must stay in sync**).
 
 | Collection | Read | Write |
 |---|---|---|
-| `members` | owner or admin | owner create/update (**cannot set or change `membershipType` or `partnerId`**); admin edits allowed; new `verifiedEmail` proof requires the owner's matching verified Auth token, even for admin writes |
+| `members` | owner or admin | owner create/update (**cannot set or change `membershipType` or `partnerId`**); admin edits allowed; new `verifiedEmail` proof requires the owner's matching verified Auth token, even for admin writes; owner `phone` must be E.164, empty or unchanged, owner `gender` a listed value, empty or unchanged |
 | `partners` | any signed-in user | admin only |
 | `amenities` | public | admin only (`reservedForPartnerId` marks a partner's desk; see `bookings`) |
 | `bookings` | owner or admin | owner create (status `pending`; **a desk reserved for a partner takes bookings only from that partner's members**; none of the admin/server-written fields, `pd_*` ids, `partner-desk` plans or `partner_*` plan groups; `renewalOf` only on a `fixed-desk` day with a `planGroupId`); owner update **only `status` and `updatedAt`**, with `status` either unchanged or `cancelled` from `pending` (or from `approved` on a `fixed-desk`/`partner-desk` day); owner delete only while `pending`; admin anything |

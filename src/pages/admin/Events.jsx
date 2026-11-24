@@ -29,6 +29,7 @@ import { isPendingFor } from '../../utils/mutationTarget'
 import { parseHubDateTime } from '../../utils/timezone'
 import './Events.css'
 import '../member/Profile.css'
+import { formatPhone, phoneHref } from '../../utils/phone'
 
 // Admin event management ("view all" intent): ±365 day window.
 const getAdminEventsWindow = () => {
@@ -362,8 +363,8 @@ const HostProfileContact = ({ member }) => (
       <div className="profile-detail-item">
         <span className="detail-label">Phone</span>
         <span className="detail-value">
-          <a href={`tel:${member.phone}`} className="profile-link">
-            {member.phone}
+          <a href={phoneHref(member.phone)} className="profile-link">
+            {formatPhone(member.phone)}
           </a>
         </span>
       </div>

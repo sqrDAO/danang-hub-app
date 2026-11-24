@@ -57,3 +57,9 @@ test('emails skip members without one, deleted accounts and duplicates', () => {
   const rows = resolveRegistrants(['a', 'gone', 'c', 'b', 'd'], dupes)
   assert.deepEqual(getRegistrantEmails(rows), ['alice@example.com', 'bob@example.com'])
 })
+
+test('search finds a stored E.164 phone typed as a spaced local number', () => {
+  const rows = resolveRegistrants(['a', 'b'], [{ id: 'a', displayName: 'A', phone: '+84905123456' }, { id: 'b', displayName: 'B' }])
+  assert.deepEqual(filterRegistrants(rows, '0905 123 456').map(r => r.uid), ['a'])
+  assert.deepEqual(filterRegistrants(rows, '+84 905').map(r => r.uid), ['a'])
+})

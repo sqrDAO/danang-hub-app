@@ -23,14 +23,14 @@ import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../uti
 import { uploadMemberAvatar } from '../../services/storage'
 import useEmailStatus from '../../hooks/useEmailStatus'
 import { showToast } from '../../utils/toast'
-import { missingProfileFields } from '../../utils/profileFields'
+import { GENDER_OPTIONS, genderLabelKey, genderSelectValue, missingProfileFields } from '../../utils/profileFields'
+import { DEFAULT_PHONE_COUNTRY, PHONE_COUNTRIES, formatPhone, phoneForSave, splitPhone } from '../../utils/phone'
 import './Profile.css'
 
 const URL_PATTERN = /^https?:\/\/.+\..+/
 
 const walletChainLabel = (address) =>
   address?.startsWith('0x') ? 'auth.ethereumWallet' : 'auth.solanaWallet'
-const PHONE_PATTERN = /^[\d\s\-+()]+$/
 
 const CopyIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -56,11 +56,23 @@ const getPushPreferenceHelp = (supported, permission, t) => {
   return t('profile.pushNotificationsHelp')
 }
 
-const buildProfileUpdateData = (formData) => ({
+// Untouched phone inputs keep the stored value, even an older free-text one.
+const readPhone = (formData, storedPhone) =>
+  phoneForSave(formData.get('phoneCountry'), formData.get('phone'), storedPhone)
+
+// Left out when the select still shows what it opened with, so a value the
+// select can't show (admin-written) isn't erased by an unrelated save.
+const readGenderUpdate = (formData, storedGender) => {
+  const gender = formData.get('gender') || ''
+  return gender === genderSelectValue(storedGender) ? {} : { gender }
+}
+
+const buildProfileUpdateData = (formData, userProfile) => ({
   displayName: formData.get('displayName')?.trim() || '',
   // Only a wallet account's email input is enabled; a disabled one isn't submitted.
   ...(formData.has('email') && { email: formData.get('email').trim() }),
-  phone: formData.get('phone')?.trim() || '',
+  phone: readPhone(formData, userProfile?.phone).value,
+  ...readGenderUpdate(formData, userProfile?.gender),
   bio: formData.get('bio')?.trim() || '',
   company: formData.get('company')?.trim() || '',
   jobTitle: formData.get('jobTitle')?.trim() || '',
@@ -113,7 +125,7 @@ const useDevicePushOn = (uid, preferences) => useSyncExternalStore(
   () => readDevicePushOn(uid, preferences)
 )
 
-const validateProfileForm = (data, requireFields = false, t) => {
+const validateProfileForm = (data, requireFields, t, phoneValid) => {
   if (requireFields) {
     const requiredError = validateRequiredFields(data, t)
     if (requiredError) return requiredError
@@ -124,7 +136,7 @@ const validateProfileForm = (data, requireFields = false, t) => {
   if (isInvalidOptionalField(data.website, URL_PATTERN)) {
     return t('profile.validation.invalidWebsite')
   }
-  if (isInvalidOptionalField(data.phone, PHONE_PATTERN)) {
+  if (!phoneValid) {
     return t('profile.validation.invalidPhone')
   }
   return null
@@ -263,6 +275,86 @@ const EmailFormField = ({ emailStatus, userProfile }) => {
   )
 }
 
+// Localized region names, Vietnam first, the rest alphabetical by name.
+// Region names from Intl.DisplayNames, or the region code where it's missing
+// (Safari before 14.1) or rejects the locale.
+const regionNamer = (language) => {
+  try {
+    const names = new Intl.DisplayNames([language, 'en'].filter(Boolean), { type: 'region' })
+    return (region) => names.of(region) || region
+  } catch {
+    return (region) => region
+  }
+}
+
+const usePhoneCountryOptions = () => {
+  const { i18n } = useTranslation()
+  const nameOf = regionNamer(i18n.language)
+  // Dial code first, so a narrow select still shows it.
+  const options = PHONE_COUNTRIES.map(({ region, dialCode }) => {
+    const name = nameOf(region)
+    return { region, name, label: `+${dialCode} ${name}` }
+  })
+  const [first] = options.filter(({ region }) => region === DEFAULT_PHONE_COUNTRY)
+  const rest = options
+    .filter(({ region }) => region !== DEFAULT_PHONE_COUNTRY)
+    .sort((a, b) => a.name.localeCompare(b.name, i18n.language))
+  return [first, ...rest]
+}
+
+// Dial-code picker + national number; saved as E.164 (utils/phone.js). An older
+// free-text number opens split into the two, and is normalized on save.
+const PhoneFormField = ({ phone }) => {
+  const { t } = useTranslation()
+  const options = usePhoneCountryOptions()
+  const { region, national } = splitPhone(phone)
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor="profile-phone">{t('profile.phone')}</label>
+      <div className="phone-field">
+        <select
+          name="phoneCountry"
+          className="form-field phone-country-select"
+          defaultValue={region}
+          autoComplete="tel-country-code"
+          aria-label={t('profile.phoneCountry')}
+        >
+          {options.map((option) => (
+            <option key={option.region} value={option.region}>{option.label}</option>
+          ))}
+        </select>
+        <input
+          id="profile-phone"
+          type="tel"
+          name="phone"
+          inputMode="tel"
+          autoComplete="tel-national"
+          className="form-field phone-number-input"
+          defaultValue={national}
+          placeholder={t('profile.phonePlaceholder')}
+        />
+      </div>
+      <p className="form-field-note form-field-note--flush">{t('profile.phoneHelp')}</p>
+    </div>
+  )
+}
+
+const GenderFormField = ({ gender }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor="profile-gender">{t('profile.gender')}</label>
+      <select id="profile-gender" name="gender" className="form-field" defaultValue={genderSelectValue(gender)}>
+        <option value="">{t('profile.genderUnset')}</option>
+        {GENDER_OPTIONS.map((option) => (
+          <option key={option} value={option}>{t(`profile.genderOptions.${option}`)}</option>
+        ))}
+      </select>
+      <p className="form-field-note form-field-note--flush">{t('profile.genderHelp')}</p>
+    </div>
+  )
+}
+
 const ProfileEditForm = ({
   userProfile,
   profileComplete,
@@ -296,16 +388,8 @@ const ProfileEditForm = ({
           />
         </div>
         <EmailFormField emailStatus={emailStatus} userProfile={userProfile} />
-        <div className="form-group">
-          <label className="form-label">{t('profile.phone')}</label>
-          <input
-            type="tel"
-            name="phone"
-            className="form-field"
-            defaultValue={userProfile.phone}
-            placeholder={t('profile.optional')}
-          />
-        </div>
+        <PhoneFormField phone={userProfile.phone} />
+        <GenderFormField gender={userProfile.gender} />
         {userProfile.walletAddress && (
           <WalletAddressEditField
             address={userProfile.walletAddress}
@@ -542,7 +626,11 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         </div>
         <div className="profile-detail-item">
           <span className="detail-label">{t('profile.phone')}</span>
-          <span className="detail-value">{userProfile.phone || '—'}</span>
+          <span className="detail-value">{formatPhone(userProfile.phone) || '—'}</span>
+        </div>
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.gender')}</span>
+          <span className="detail-value">{genderLabelKey(userProfile.gender) ? t(genderLabelKey(userProfile.gender)) : '—'}</span>
         </div>
         {userProfile.walletAddress && (
           <ProfileWalletDetail
@@ -694,8 +782,9 @@ const MemberProfile = () => {
     // Only a switch the member touched changes this phone.
     const pushTouched = pushInput?.dataset.touched === 'true' && !pushInput.disabled
     const desiredPushNotifications = pushTouched ? pushInput.checked : currentPushOn
-    const data = buildProfileUpdateData(formData)
-    const validationError = validateProfileForm(data, !profileComplete, t)
+    const data = buildProfileUpdateData(formData, userProfile)
+    const phoneValid = readPhone(formData, userProfile.phone).valid
+    const validationError = validateProfileForm(data, !profileComplete, t, phoneValid)
     if (validationError) {
       showToast(validationError, 'error')
       return
