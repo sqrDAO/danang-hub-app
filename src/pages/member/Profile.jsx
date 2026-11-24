@@ -23,14 +23,14 @@ import { isDeviceOptedIn, isDevicePushOn, subscribeDeviceOptIn } from '../../uti
 import { uploadMemberAvatar } from '../../services/storage'
 import useEmailStatus from '../../hooks/useEmailStatus'
 import { showToast } from '../../utils/toast'
-import { missingProfileFields } from '../../utils/profileFields'
+import { GENDER_OPTIONS, missingProfileFields } from '../../utils/profileFields'
+import { DEFAULT_PHONE_COUNTRY, PHONE_COUNTRIES, formatPhone, isE164, normalizePhone, splitPhone } from '../../utils/phone'
 import './Profile.css'
 
 const URL_PATTERN = /^https?:\/\/.+\..+/
 
 const walletChainLabel = (address) =>
   address?.startsWith('0x') ? 'auth.ethereumWallet' : 'auth.solanaWallet'
-const PHONE_PATTERN = /^[\d\s\-+()]+$/
 
 const CopyIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -60,7 +60,9 @@ const buildProfileUpdateData = (formData) => ({
   displayName: formData.get('displayName')?.trim() || '',
   // Only a wallet account's email input is enabled; a disabled one isn't submitted.
   ...(formData.has('email') && { email: formData.get('email').trim() }),
-  phone: formData.get('phone')?.trim() || '',
+  // E.164 when valid; otherwise what was typed, which validation rejects.
+  phone: normalizePhone(formData.get('phoneCountry'), formData.get('phone')).value,
+  gender: formData.get('gender') || '',
   bio: formData.get('bio')?.trim() || '',
   company: formData.get('company')?.trim() || '',
   jobTitle: formData.get('jobTitle')?.trim() || '',
@@ -124,7 +126,7 @@ const validateProfileForm = (data, requireFields = false, t) => {
   if (isInvalidOptionalField(data.website, URL_PATTERN)) {
     return t('profile.validation.invalidWebsite')
   }
-  if (isInvalidOptionalField(data.phone, PHONE_PATTERN)) {
+  if (data.phone && !isE164(data.phone)) {
     return t('profile.validation.invalidPhone')
   }
   return null
@@ -263,6 +265,75 @@ const EmailFormField = ({ emailStatus, userProfile }) => {
   )
 }
 
+// Localized region names, Vietnam first, the rest alphabetical by name.
+const usePhoneCountryOptions = () => {
+  const { i18n } = useTranslation()
+  const names = new Intl.DisplayNames([i18n.language, 'en'], { type: 'region' })
+  // Dial code first, so a narrow select still shows it.
+  const options = PHONE_COUNTRIES.map(({ region, dialCode }) => {
+    const name = names.of(region) || region
+    return { region, name, label: `+${dialCode} ${name}` }
+  })
+  const [first] = options.filter(({ region }) => region === DEFAULT_PHONE_COUNTRY)
+  const rest = options
+    .filter(({ region }) => region !== DEFAULT_PHONE_COUNTRY)
+    .sort((a, b) => a.name.localeCompare(b.name, i18n.language))
+  return [first, ...rest]
+}
+
+// Dial-code picker + national number; saved as E.164 (utils/phone.js). An older
+// free-text number opens split into the two, and is normalized on save.
+const PhoneFormField = ({ phone }) => {
+  const { t } = useTranslation()
+  const options = usePhoneCountryOptions()
+  const { region, national } = splitPhone(phone)
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor="profile-phone">{t('profile.phone')}</label>
+      <div className="phone-field">
+        <select
+          name="phoneCountry"
+          className="form-field phone-country-select"
+          defaultValue={region}
+          autoComplete="tel-country-code"
+          aria-label={t('profile.phoneCountry')}
+        >
+          {options.map((option) => (
+            <option key={option.region} value={option.region}>{option.label}</option>
+          ))}
+        </select>
+        <input
+          id="profile-phone"
+          type="tel"
+          name="phone"
+          inputMode="tel"
+          autoComplete="tel-national"
+          className="form-field phone-number-input"
+          defaultValue={national}
+          placeholder={t('profile.phonePlaceholder')}
+        />
+      </div>
+      <p className="form-field-note form-field-note--flush">{t('profile.phoneHelp')}</p>
+    </div>
+  )
+}
+
+const GenderFormField = ({ gender }) => {
+  const { t } = useTranslation()
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor="profile-gender">{t('profile.gender')}</label>
+      <select id="profile-gender" name="gender" className="form-field" defaultValue={gender || ''}>
+        <option value="">{t('profile.genderUnset')}</option>
+        {GENDER_OPTIONS.map((option) => (
+          <option key={option} value={option}>{t(`profile.genderOptions.${option}`)}</option>
+        ))}
+      </select>
+      <p className="form-field-note form-field-note--flush">{t('profile.genderHelp')}</p>
+    </div>
+  )
+}
+
 const ProfileEditForm = ({
   userProfile,
   profileComplete,
@@ -296,16 +367,8 @@ const ProfileEditForm = ({
           />
         </div>
         <EmailFormField emailStatus={emailStatus} userProfile={userProfile} />
-        <div className="form-group">
-          <label className="form-label">{t('profile.phone')}</label>
-          <input
-            type="tel"
-            name="phone"
-            className="form-field"
-            defaultValue={userProfile.phone}
-            placeholder={t('profile.optional')}
-          />
-        </div>
+        <PhoneFormField phone={userProfile.phone} />
+        <GenderFormField gender={userProfile.gender} />
         {userProfile.walletAddress && (
           <WalletAddressEditField
             address={userProfile.walletAddress}
@@ -542,7 +605,11 @@ const ProfileDetails = ({ userProfile, preferences, stats, statsLoading, copiedA
         </div>
         <div className="profile-detail-item">
           <span className="detail-label">{t('profile.phone')}</span>
-          <span className="detail-value">{userProfile.phone || '—'}</span>
+          <span className="detail-value">{formatPhone(userProfile.phone) || '—'}</span>
+        </div>
+        <div className="profile-detail-item">
+          <span className="detail-label">{t('profile.gender')}</span>
+          <span className="detail-value">{userProfile.gender ? t(`profile.genderOptions.${userProfile.gender}`) : '—'}</span>
         </div>
         {userProfile.walletAddress && (
           <ProfileWalletDetail

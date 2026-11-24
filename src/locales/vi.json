@@ -251,6 +251,18 @@
     "name": "Tên",
     "email": "Email",
     "phone": "Điện thoại",
+    "phoneCountry": "Mã quốc gia",
+    "phonePlaceholder": "905 123 456",
+    "phoneHelp": "Chọn mã quốc gia rồi nhập số điện thoại. Có thể nhập số 0 ở đầu. Bạn cũng có thể dán số đầy đủ bắt đầu bằng +.",
+    "gender": "Giới tính",
+    "genderUnset": "Không xác định",
+    "genderHelp": "Không bắt buộc. Chỉ bạn và quản trị viên Hub xem được. Chỉ dùng ở dạng số liệu tổng hợp cho báo cáo cân bằng giới của Hub (Mục tiêu Phát triển Bền vững số 5 của Liên Hợp Quốc).",
+    "genderOptions": {
+      "female": "Nữ",
+      "male": "Nam",
+      "other": "Khác",
+      "prefer-not-to-say": "Không muốn tiết lộ"
+    },
     "optional": "Tùy chọn",
     "copyAddress": "Sao chép địa chỉ",
     "copied": "Đã sao chép!",
@@ -313,7 +325,7 @@
       "jobTitleRequired": "Cần nhập chức danh",
       "invalidLinkedIn": "Liên kết LinkedIn phải là URL hợp lệ",
       "invalidWebsite": "Website phải là URL hợp lệ",
-      "invalidPhone": "Số điện thoại chỉ được chứa số, khoảng trắng, gạch ngang, dấu cộng và dấu ngoặc"
+      "invalidPhone": "Nhập số điện thoại hợp lệ: 8 đến 15 chữ số, gồm cả mã quốc gia."
     },
     "memberSinceRelative": {
       "lessThanMonth": "Dưới một tháng",

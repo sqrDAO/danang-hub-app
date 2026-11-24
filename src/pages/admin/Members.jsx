@@ -13,6 +13,7 @@ import { isPendingFor } from '../../utils/mutationTarget'
 import './Members.css'
 import { formatDateDDMMYYYY } from '../../utils/timezone'
 import '../member/Profile.css'
+import { formatPhone } from '../../utils/phone'
 
 const walletChainLabel = (address) =>
   address?.startsWith('0x') ? 'auth.ethereumWallet' : 'auth.solanaWallet'
@@ -127,7 +128,11 @@ const MemberBasicInfoSection = ({ member, t }) => (
     </div>
     <div className="profile-detail-item">
       <span className="detail-label">{t('profile.phone')}</span>
-      <span className="detail-value">{member.phone || '—'}</span>
+      <span className="detail-value">{formatPhone(member.phone) || '—'}</span>
+    </div>
+    <div className="profile-detail-item">
+      <span className="detail-label">{t('profile.gender')}</span>
+      <span className="detail-value">{member.gender ? t(`profile.genderOptions.${member.gender}`) : '—'}</span>
     </div>
     {member.walletAddress && (
       <div className="profile-detail-item profile-detail-wallet">

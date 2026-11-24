@@ -6,6 +6,7 @@ import Avatar from '../Avatar'
 import { showToast } from '../../utils/toast'
 import { resolveRegistrants, filterRegistrants, getRegistrantEmails } from './registrants'
 import './EventRegistrantsModal.css'
+import { formatPhone, phoneHref } from '../../utils/phone'
 
 // Below this many people the whole list fits on screen, so no search box.
 const SEARCH_MIN_PEOPLE = 8
@@ -23,7 +24,7 @@ const copyEmails = async (rows, t) => {
 const Contact = ({ member }) => (
   <div className="registrant-contact">
     {member.email && <MemberEmail member={member} link className="registrant-link" />}
-    {member.phone && <a href={`tel:${member.phone}`} className="registrant-link">{member.phone}</a>}
+    {member.phone && <a href={phoneHref(member.phone)} className="registrant-link">{formatPhone(member.phone)}</a>}
   </div>
 )
 

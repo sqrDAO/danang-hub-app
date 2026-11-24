@@ -9,3 +9,8 @@ export const REQUIRED_PROFILE_FIELDS = [
 
 export const missingProfileFields = (profile) =>
   REQUIRED_PROFILE_FIELDS.filter(({ key }) => !profile?.[key]?.trim())
+
+// Optional, self-reported gender for the hub's aggregate gender-balance
+// reporting (UN SDG 5). Only the member and admins can read member docs.
+// firestore.rules accepts the same values on owner writes.
+export const GENDER_OPTIONS = ['female', 'male', 'other', 'prefer-not-to-say']

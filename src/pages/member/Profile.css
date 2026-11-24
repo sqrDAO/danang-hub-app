@@ -355,6 +355,22 @@
   margin-top: var(--spacing-lg);
 }
 
+/* Phone: dial-code picker + national number on one row */
+.phone-field {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.phone-country-select {
+  flex: 0 0 11rem;
+  min-width: 0;
+}
+
+.phone-number-input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Wallet Address */
 .wallet-address-field {
   display: flex;
@@ -437,5 +453,9 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-xs);
+  }
+
+  .phone-country-select {
+    flex-basis: 8.5rem;
   }
 }
