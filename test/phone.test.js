@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { formatPhone, normalizePhone, phoneHref, phoneSearchText, splitPhone } from '../src/utils/phone.js'
+import { formatPhone, normalizePhone, phoneForSave, phoneHref, phoneMatches, splitPhone } from '../src/utils/phone.js'
 
 test('a Vietnamese local number drops its trunk 0 behind +84', () => {
   assert.deepEqual(normalizePhone('VN', '0905 123 456'), { value: '+84905123456', valid: true })
@@ -51,9 +51,41 @@ test('tel: links use E.164, or the digits of a legacy value', () => {
   assert.equal(phoneHref('(090) 512-3456'), 'tel:0905123456')
 })
 
-test('search text covers stored, grouped and local forms', () => {
-  const text = phoneSearchText('+84905123456')
-  for (const needle of ['+84905123456', '905 123', '0905123456', '905123456']) {
-    assert.ok(text.includes(needle), needle)
+test('a country code typed without + is not added twice', () => {
+  assert.equal(normalizePhone('VN', '84 905 123 456').value, '+84905123456')
+  assert.equal(normalizePhone('VN', '(+84) 0905 123 456').value, '+84905123456')
+  assert.equal(normalizePhone('US', '1 415 555 0100').value, '+14155550100')
+})
+
+test('a national number that starts like the dial code keeps its digits', () => {
+  // VinaPhone 084…: 9 digits after the trunk 0, so not a typed country code.
+  assert.equal(normalizePhone('VN', '084 123 4567').value, '+84841234567')
+})
+
+test('a pasted international number drops the trunk 0 after the country code', () => {
+  assert.equal(normalizePhone('VN', '+84 0905 123 456').value, '+84905123456')
+  assert.equal(normalizePhone('US', '0084 0905 123 456').value, '+84905123456')
+  assert.equal(normalizePhone('VN', '+39 06 1234 5678').value, '+390612345678')
+})
+
+test('untouched phone inputs keep the stored value, even legacy text', () => {
+  for (const stored of ['4155550100', '0905123456 / 0912345678', '+84905123456', '']) {
+    const { region, national } = splitPhone(stored)
+    assert.deepEqual(phoneForSave(region, national, stored), { value: stored, valid: true }, stored)
   }
+})
+
+test('edited phone inputs are normalized and checked', () => {
+  assert.deepEqual(phoneForSave('VN', '0905 123 456', '4155550100'), { value: '+84905123456', valid: true })
+  assert.equal(phoneForSave('VN', '12', '+84905123456').valid, false)
+  assert.equal(phoneForSave('US', '9051234560912345678', '0905123456 / 0912345678').valid, false)
+})
+
+test('a phone matches however the admin types it', () => {
+  for (const query of ['+84905123456', '+84 905', '905 123', '0905123456', '0905 123 456', '090-512']) {
+    assert.ok(phoneMatches('+84905123456', query), query)
+  }
+  assert.ok(phoneMatches('+390612345678', '06 1234'))
+  assert.equal(phoneMatches('+84905123456', '0912'), false)
+  assert.equal(phoneMatches('', '0905'), false)
 })

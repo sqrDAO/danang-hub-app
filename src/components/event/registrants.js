@@ -1,5 +1,5 @@
 // Pure helpers behind the admin registrants modal (EventRegistrantsModal).
-import { phoneSearchText } from '../../utils/phone.js'
+import { phoneMatches } from '../../utils/phone.js'
 
 // Turns an event's uid list (attendees or waitlist) into rows, keeping the
 // stored order. A uid with no member doc (deleted account) still gets a row,
@@ -15,21 +15,18 @@ export const resolveRegistrants = (uids, members) => {
 
 const SEARCHED_FIELDS = ['displayName', 'email', 'company', 'jobTitle']
 
-// Phone matches as stored, grouped (+84 905 123 456) or local (0905123456).
-const searchedValues = (member) => [
-  ...SEARCHED_FIELDS.map(field => member[field] || ''),
-  phoneSearchText(member.phone)
-]
+// Phone matches however it is typed: +84 905 123 456, 0905 123 456, 905123.
+const memberMatches = (member, needle) =>
+  SEARCHED_FIELDS.some(field => String(member[field] || '').toLowerCase().includes(needle)) ||
+  phoneMatches(member.phone, needle)
 
 // Case-insensitive match on the fields an admin would search by. Rows keep
 // their original `position`. A deleted account can only be found by its uid.
 export const filterRegistrants = (rows, query) => {
   const needle = (query || '').trim().toLowerCase()
   if (!needle) return rows
-  return rows.filter(({ uid, member }) => {
-    const haystack = member ? searchedValues(member) : [uid]
-    return haystack.some(value => String(value).toLowerCase().includes(needle))
-  })
+  return rows.filter(({ uid, member }) =>
+    member ? memberMatches(member, needle) : uid.toLowerCase().includes(needle))
 }
 
 // Unique, non-empty emails in list order, ready to paste into a mail client.

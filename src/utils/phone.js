@@ -38,9 +38,36 @@ const countryForDigits = (digits) =>
 
 export const isE164 = (value) => E164.test(String(value || ''))
 
-const nationalDigits = (region, raw) => {
-  const digits = digitsOf(raw)
-  return KEEPS_TRUNK_ZERO.has(region) ? digits : digits.replace(/^0/, '')
+const withoutTrunkZero = (region, digits) =>
+  KEEPS_TRUNK_ZERO.has(region) ? digits : digits.replace(/^0/, '')
+
+// Separators carry no meaning, so "(+84) 0905…" reads like "+840905…".
+const compactOf = (input) => input.replace(/[\s().-]/g, '')
+
+// A full number with no national part shorter than 8 digits: E.164 numbers are
+// at least 11 digits once a country code is typed out ("84 905 123 456",
+// "1 415 555 0100"), while a national number like VinaPhone's 084… is 9-10.
+const MIN_TYPED_INTERNATIONAL = 11
+
+const typedDialCode = (region, digits) => {
+  const dialCode = dialCodeFor(region)
+  return digits.length >= MIN_TYPED_INTERNATIONAL && digits.startsWith(dialCode)
+    ? dialCode
+    : ''
+}
+
+// "+84 0905…": the trunk 0 never belongs after a country code (except Italy).
+const fromInternationalDigits = (digits) => {
+  const country = countryForDigits(digits)
+  if (!country) return `+${digits}`
+  const national = withoutTrunkZero(country.region, digits.slice(country.dialCode.length))
+  return `+${country.dialCode}${national}`
+}
+
+// Picker region + national number; a country code typed without + is dropped.
+const fromNationalDigits = (region, digits) => {
+  const typed = typedDialCode(region, digits)
+  return `+${dialCodeFor(region)}${withoutTrunkZero(region, digits.slice(typed.length))}`
 }
 
 /**
@@ -53,9 +80,10 @@ export const normalizePhone = (region, raw) => {
   const input = String(raw || '').trim()
   if (!input) return { value: '', valid: true }
   if (!PHONE_CHARACTERS.test(input)) return { value: input, valid: false }
-  const value = INTERNATIONAL_PREFIX.test(input)
-    ? `+${digitsOf(input.replace(/^00/, ''))}`
-    : `+${dialCodeFor(region)}${nationalDigits(region, input)}`
+  const compact = compactOf(input)
+  const value = INTERNATIONAL_PREFIX.test(compact)
+    ? fromInternationalDigits(digitsOf(compact.replace(/^00/, '')))
+    : fromNationalDigits(region, digitsOf(compact))
   return { value, valid: isE164(value) }
 }
 
@@ -66,21 +94,27 @@ const splitInternational = (digits) => {
 
 /**
  * Picker region and national number for a stored value, for the edit form.
- * Older free-text numbers are read as Vietnamese unless they start with +/00;
- * anything unreadable is returned as typed so the member can fix it.
+ * Older free-text numbers are read as Vietnamese unless they carry a country
+ * code; anything unreadable is returned as typed so the member can fix it.
  */
 export const splitPhone = (stored) => {
   const input = String(stored || '').trim()
   const fallback = { region: DEFAULT_PHONE_COUNTRY, national: input }
   if (!input) return fallback
-  if (INTERNATIONAL_PREFIX.test(input)) {
-    return splitInternational(digitsOf(input.replace(/^00/, ''))) || fallback
-  }
-  const digits = digitsOf(input)
-  if (digits.startsWith('84') && digits.length >= 11) {
-    return { region: DEFAULT_PHONE_COUNTRY, national: digits.slice(2) }
-  }
-  return digits ? { region: DEFAULT_PHONE_COUNTRY, national: digits.replace(/^0/, '') } : fallback
+  const { value, valid } = normalizePhone(DEFAULT_PHONE_COUNTRY, input)
+  return (valid && splitInternational(value.slice(1))) || fallback
+}
+
+/**
+ * The phone to save from the edit form. Inputs still showing what the form
+ * opened with keep the stored value as it is, so an older free-text number is
+ * never rewritten or rejected by a save that didn't touch it.
+ * @returns {{value: string, valid: boolean}}
+ */
+export const phoneForSave = (region, raw, stored) => {
+  const prefill = splitPhone(stored)
+  const untouched = region === prefill.region && String(raw || '').trim() === prefill.national
+  return untouched ? { value: stored || '', valid: true } : normalizePhone(region, raw)
 }
 
 // 905123456 → "905 123 456"; a lone trailing digit joins the group before it.
@@ -106,13 +140,27 @@ export const formatPhone = (stored) => {
 export const phoneHref = (stored) =>
   `tel:${isE164(stored) ? stored : String(stored || '').replace(/[^\d+]/g, '')}`
 
-/**
- * Every form an admin might search a number by: as stored, grouped, and the
- * local 0-prefixed form (0905123456) for numbers in the picker's list.
- */
-export const phoneSearchText = (stored) => {
-  if (!isE164(stored)) return String(stored || '')
+// Stored, grouped, and the local trunk-0 form (0905123456) where it applies.
+const phoneForms = (stored) => {
+  if (!isE164(stored)) return [String(stored || '')]
   const parts = splitInternational(stored.slice(1))
-  const local = parts ? `0${parts.national} ${parts.national}` : ''
-  return `${stored} ${formatPhone(stored)} ${local}`
+  if (!parts) return [stored]
+  const local = KEEPS_TRUNK_ZERO.has(parts.region) ? parts.national : `0${parts.national}`
+  return [stored, formatPhone(stored), local]
+}
+
+const MIN_DIGIT_QUERY = 3
+
+/**
+ * Whether a search box query names this phone, however the admin types it:
+ * "+84 905…", "0905 123 456", "905123". Digit queries ignore separators.
+ */
+export const phoneMatches = (stored, query) => {
+  const needle = String(query || '').trim().toLowerCase()
+  if (!needle || !stored) return false
+  const forms = phoneForms(stored)
+  if (forms.some((form) => form.toLowerCase().includes(needle))) return true
+  const digits = digitsOf(needle)
+  return PHONE_CHARACTERS.test(needle) && digits.length >= MIN_DIGIT_QUERY &&
+    forms.some((form) => digitsOf(form).includes(digits))
 }
