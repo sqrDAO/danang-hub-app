@@ -43,13 +43,6 @@ const AdminViewIcon = () => (
 
 const ViewSwitchIcon = ({ isAdmin }) => (isAdmin ? <MemberViewIcon /> : <AdminViewIcon />)
 
-const GlobeIcon = () => (
-  <svg className="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-  </svg>
-)
-
 const getCurrentLanguage = (i18n) => (i18n.language && i18n.language.startsWith('vi') ? 'vi' : 'en')
 
 const getBasePath = (isPublic, isAdmin) => {
@@ -60,18 +53,12 @@ const getBasePath = (isPublic, isAdmin) => {
 const getHeaderClassName = (isPublic, currentUser) =>
   `header${(!isPublic || currentUser) ? ' header--app' : ''}`
 
-const getMobileProfilePath = (isPublic, checkAdmin, profilePath) => {
-  if (!isPublic) return profilePath
-  return checkAdmin() ? '/admin/profile' : '/member/profile'
-}
-
-const NavLink = ({ to, isActive, closeMobileMenu, children }) => {
+const NavLink = ({ to, isActive, children }) => {
   const active = isActive(to)
   return (
     <li>
       <Link
         to={to}
-        onClick={closeMobileMenu}
         className={active ? 'active' : ''}
       >
         {children}
@@ -80,13 +67,12 @@ const NavLink = ({ to, isActive, closeMobileMenu, children }) => {
   )
 }
 
-const PublicNavItems = ({ location, isSectionActive, closeMobileMenu, currentUser, checkAdmin, t }) => (
+const PublicNavItems = ({ location, isSectionActive, currentUser, checkAdmin, t }) => (
   <>
     <li>
       <Link
         to="/"
         onClick={(e) => {
-          closeMobileMenu()
           if (location.pathname === '/') {
             e.preventDefault()
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -100,7 +86,6 @@ const PublicNavItems = ({ location, isSectionActive, closeMobileMenu, currentUse
     <li>
       <a
         href="#amenities"
-        onClick={closeMobileMenu}
         className={isSectionActive('#amenities') ? 'active' : ''}
       >
         {t('nav.amenities')}
@@ -109,7 +94,6 @@ const PublicNavItems = ({ location, isSectionActive, closeMobileMenu, currentUse
     <li>
       <a
         href="#events"
-        onClick={closeMobileMenu}
         className={isSectionActive('#events') ? 'active' : ''}
       >
         {t('nav.events')}
@@ -119,7 +103,6 @@ const PublicNavItems = ({ location, isSectionActive, closeMobileMenu, currentUse
       <li>
         <Link
           to="/admin"
-          onClick={closeMobileMenu}
           className={location.pathname.startsWith('/admin') ? 'active' : ''}
         >
           {t('nav.admin')}
@@ -129,21 +112,21 @@ const PublicNavItems = ({ location, isSectionActive, closeMobileMenu, currentUse
   </>
 )
 
-const AdminNavItems = ({ isActive, closeMobileMenu, t }) => (
+const AdminNavItems = ({ isActive, t }) => (
   <>
-    <NavLink to="/admin" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.dashboard')}</NavLink>
-    <NavLink to="/admin/members" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.members')}</NavLink>
-    <NavLink to="/admin/amenities" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.amenities')}</NavLink>
-    <NavLink to="/admin/bookings" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.bookings')}</NavLink>
-    <NavLink to="/admin/events" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.events')}</NavLink>
+    <NavLink to="/admin" isActive={isActive}>{t('nav.dashboard')}</NavLink>
+    <NavLink to="/admin/members" isActive={isActive}>{t('nav.members')}</NavLink>
+    <NavLink to="/admin/amenities" isActive={isActive}>{t('nav.amenities')}</NavLink>
+    <NavLink to="/admin/bookings" isActive={isActive}>{t('nav.bookings')}</NavLink>
+    <NavLink to="/admin/events" isActive={isActive}>{t('nav.events')}</NavLink>
   </>
 )
 
-const MemberNavItems = ({ isActive, closeMobileMenu, t }) => (
+const MemberNavItems = ({ isActive, t }) => (
   <>
-    <NavLink to="/member" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.dashboard')}</NavLink>
-    <NavLink to="/member/bookings" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.myBookings')}</NavLink>
-    <NavLink to="/member/events" isActive={isActive} closeMobileMenu={closeMobileMenu}>{t('nav.events')}</NavLink>
+    <NavLink to="/member" isActive={isActive}>{t('nav.dashboard')}</NavLink>
+    <NavLink to="/member/bookings" isActive={isActive}>{t('nav.myBookings')}</NavLink>
+    <NavLink to="/member/events" isActive={isActive}>{t('nav.events')}</NavLink>
   </>
 )
 
@@ -284,97 +267,11 @@ const UserArea = (props) => {
   return <PublicUserMenu {...props} />
 }
 
-const MobileUserInfo = ({ userProfile, to, closeMobileMenu, t }) => (
-  <Link
-    to={to}
-    className="mobile-user-info mobile-user-info-link"
-    onClick={closeMobileMenu}
-    aria-label={t('nav.profile')}
-  >
-    <Avatar
-      src={userProfile.photoURL}
-      name={userProfile.displayName}
-      size="lg"
-    />
-    <div className="mobile-user-details">
-      <div className="mobile-user-name">{userProfile.displayName}</div>
-      <div className="mobile-user-email">{userProfile.email}</div>
-    </div>
-  </Link>
-)
-
-const MobileAuthAction = ({ isPublic, currentUser, closeMobileMenu, handleLogout, t }) => {
-  if (isPublic && !currentUser) {
-    return (
-      <Link to="/login" className="btn btn-primary btn-full-width" onClick={closeMobileMenu}>
-        {t('common.login')}
-      </Link>
-    )
-  }
-  return (
-    <button className="btn btn-secondary btn-full-width" onClick={handleLogout}>
-      {t('common.logout')}
-    </button>
-  )
-}
-
-const MobileNavFooter = ({ isPublic, isAdmin, currentUser, checkAdmin, theme, toggleTheme, currentLanguage, toggleLanguage, closeMobileMenu, handleLogout, t }) => (
-  <div className="mobile-nav-footer">
-    <div className="mobile-footer-row">
-      <button
-        type="button"
-        className="mobile-footer-btn"
-        onClick={() => { toggleLanguage(); closeMobileMenu() }}
-      >
-        <GlobeIcon />
-        <span>{currentLanguage === 'en' ? 'English' : 'Tiếng Việt'}</span>
-      </button>
-      <button
-        type="button"
-        className="mobile-footer-btn"
-        onClick={() => { toggleTheme(); closeMobileMenu() }}
-      >
-        {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
-        <span>{theme === 'dark' ? t('common.darkMode') : t('common.lightMode')}</span>
-      </button>
-    </div>
-    {!isPublic && checkAdmin() && (
-      <Link
-        to={isAdmin ? '/member' : '/admin'}
-        className="mobile-footer-btn"
-        onClick={closeMobileMenu}
-      >
-        <ViewSwitchIcon isAdmin={isAdmin} />
-        <span>{isAdmin ? t('nav.memberView') : t('nav.adminView')}</span>
-      </Link>
-    )}
-    <MobileAuthAction isPublic={isPublic} currentUser={currentUser} closeMobileMenu={closeMobileMenu} handleLogout={handleLogout} t={t} />
-  </div>
-)
-
-const MobileNav = (props) => {
-  const { isMobileMenuOpen, userProfile, mobileProfilePath, closeMobileMenu, t } = props
-  return (
-    <nav className={`mobile-nav ${isMobileMenuOpen ? 'open' : ''}`}>
-      <div className="mobile-nav-header">
-        {userProfile && (
-          <MobileUserInfo userProfile={userProfile} to={mobileProfilePath} closeMobileMenu={closeMobileMenu} t={t} />
-        )}
-      </div>
-      <ul className="mobile-nav-list">
-        <NavItems {...props} />
-      </ul>
-      <MobileNavFooter {...props} />
-    </nav>
-  )
-}
-
 const Header = ({ isAdmin = false, public: isPublic = false }) => {
   const { currentUser, userProfile, logout, isAdmin: checkAdmin } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('')
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
@@ -395,7 +292,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
       setIsUserMenuOpen(false)
       await logout()
       navigate(isPublic ? '/' : '/login')
-      setIsMobileMenuOpen(false)
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -403,14 +299,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
 
   const basePath = getBasePath(isPublic, isAdmin)
   const profilePath = isAdmin ? '/admin/profile' : '/member/profile'
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen)
-  }
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false)
-  }
 
   // Close user menu on outside click
   useEffect(() => {
@@ -533,12 +421,10 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
     return location.hash === hash || (!location.hash && hash === '')
   }
 
-  const mobileProfilePath = getMobileProfilePath(isPublic, checkAdmin, profilePath)
-
   return (
     <header className={getHeaderClassName(isPublic, currentUser)}>
       <div className="header-container container">
-        <Link to="/" className="logo" onClick={closeMobileMenu}>
+        <Link to="/" className="logo">
           <img src={theme === 'light' ? '/assets/logo-dark.svg' : '/assets/logo.svg'} alt={t('common.appNameShort')} className="logo-image" />
         </Link>
 
@@ -552,7 +438,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
               location={location}
               isSectionActive={isSectionActive}
               isActive={isActive}
-              closeMobileMenu={closeMobileMenu}
               t={t}
             />
           </ul>
@@ -585,41 +470,7 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
             t={t}
           />
         </div>
-
-        <button
-          className="mobile-menu-toggle"
-          onClick={toggleMobileMenu}
-          aria-label="Toggle menu"
-        >
-          <span className={`hamburger ${isMobileMenuOpen ? 'open' : ''}`}>
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
-        </button>
       </div>
-
-      <div className={`mobile-nav-overlay ${isMobileMenuOpen ? 'open' : ''}`} onClick={closeMobileMenu}></div>
-
-      <MobileNav
-        isMobileMenuOpen={isMobileMenuOpen}
-        isPublic={isPublic}
-        isAdmin={isAdmin}
-        currentUser={currentUser}
-        userProfile={userProfile}
-        mobileProfilePath={mobileProfilePath}
-        checkAdmin={checkAdmin}
-        location={location}
-        isSectionActive={isSectionActive}
-        isActive={isActive}
-        closeMobileMenu={closeMobileMenu}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        currentLanguage={currentLanguage}
-        toggleLanguage={toggleLanguage}
-        handleLogout={handleLogout}
-        t={t}
-      />
     </header>
   )
 }
