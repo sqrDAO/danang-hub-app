@@ -3,6 +3,7 @@ const {Timestamp, FieldPath} = require("firebase-admin/firestore");
 const {rangeOverlapsClosure} = require("./hubClosures");
 const {usageByMonth, MONTHLY_DESK_HOURS} = require("./monthlyHours");
 const {activeToken, hashToken, liveGrant} = require("./mcpTokens");
+const {createEventTools} = require("./mcpEvents");
 
 const fail = (message) => {
   throw new HttpsError("failed-precondition", message);
@@ -172,6 +173,7 @@ const createBookingTools = (db, availability) => {
         .where("memberId", "==", p.uid), args, bookingView),
     create_booking: create,
     cancel_booking: cancel,
+    ...createEventTools(db, memberFor),
   };
 };
 

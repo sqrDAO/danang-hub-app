@@ -355,6 +355,6 @@ in the deploy runbook). README Firestore collections table updated.
 3. **Lifetimes**: access token 1 h; refresh token 30 days sliding; grant hard cap 90 days, after which the member consents again (same as `dhm_`).
 4. **Who may connect**: the same gate as `dhm_`: `requireUser` (not disabled; email verified only when the account has an email). No server-side profile-complete check, no role exclusions.
 5. **Cold start**: accept cold starts. Keep the `oauth` function's requires lazy and measure the token endpoint in phase 2; revisit `minInstances: 1` only if it misses Claude's 10 s budget.
-6. **Scopes**: one `bookings` scope covering all six tools.
+6. **Scopes**: one `bookings` scope covering every MCP tool, including `list_upcoming_events` (#299).
 7. **Rate limit**: 60 requests/min per grant, like per `dhm_` token.
 8. **Directory listing**: not a goal for now; phases 1 to 4 stay as designed.

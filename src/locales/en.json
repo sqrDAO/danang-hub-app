@@ -950,7 +950,7 @@
     "generationHelp": "You can generate one token per minute.",
     "cooldownRemaining": "Generate a new token in {{seconds}} seconds.",
     "title": "Book with your AI agent",
-    "help": "A personal token lets your agent read your bookings, check availability, create pending bookings and cancel your pending individual bookings. It expires after 90 days. Keep it private; revoke it here to disconnect your agent.",
+    "help": "A personal token lets your agent read your bookings, check availability, create pending bookings and cancel your pending individual bookings. It can also list upcoming Hub events and see whether you are registered or waitlisted. It expires after 90 days. Keep it private; revoke it here to disconnect your agent.",
     "compatibility": "Claude (web, Desktop and mobile) can connect by signing in with your Hub account: add the MCP server URL as a custom connector. For clients that only take a header, such as Claude Code, use a personal token with Authorization: Bearer.",
     "endpoint": "MCP server URL",
     "preview": "Token creation is unavailable in this local preview.",

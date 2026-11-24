@@ -6,6 +6,7 @@ const require = createRequire(new URL('../functions/package.json', import.meta.u
 const { createTokenService, hashToken } = require('./mcpTokens')
 const { createBookingTools } = require('./mcpBookings')
 const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
+const { Timestamp } = require('firebase-admin/firestore')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js')
 const express = require('express')
@@ -178,7 +179,7 @@ test('schemas reject protected fields, malformed IDs and timezone-less times; pa
   }
 })
 
-test('SDK HTTP client initializes, discovers six tools, and calls tools with isolated identity', async t => {
+test('SDK HTTP client initializes, discovers seven tools, and calls tools with isolated identity', async t => {
   const f = fixture()
   const service = createTokenService(f.db, auth)
   const app = express()
@@ -197,7 +198,7 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   await client.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: 'Bearer ' + secret } } }))
   t.after(() => client.close())
   const { tools } = await client.listTools()
-  assert.equal(tools.length, 6)
+  assert.equal(tools.length, 7)
   assert.match(client.getInstructions(), /list_amenities.*check_availability.*confirm.*create_booking/s)
   assert.match(client.getInstructions(), /Asia\/Ho_Chi_Minh/)
   assert.match(client.getInstructions(), /never report pending as confirmed/)
@@ -230,6 +231,11 @@ test('SDK HTTP client initializes, discovers six tools, and calls tools with iso
   assert.equal(create.structuredContent.status, 'pending')
   const cancel = await client.callTool({ name: 'cancel_booking', arguments: { bookingId: create.structuredContent.id } })
   assert.equal(cancel.structuredContent.status, 'cancelled')
+  assert.match(client.getInstructions(), /list_upcoming_events.*registerUrl/s)
+  assert.equal(tools.find(tool => tool.name === 'list_upcoming_events').annotations.readOnlyHint, true)
+  f.data.set('events/soon', { status: 'approved', title: 'Meetup', date: Timestamp.fromMillis(Date.now() + 86400000) })
+  const events = await client.callTool({ name: 'list_upcoming_events', arguments: {} })
+  assert.deepEqual(events.structuredContent.items.map(e => e.title), ['Meetup'])
   f.data.delete(`mcpTokens/${hash}`)
   await assert.rejects(client.listTools())
 })
@@ -315,4 +321,117 @@ test('401 advertises resource_metadata and scope only for requests through Hosti
   assert.equal(rawAccess.status, 401)
   assert.equal(lines.at(-1)[0].reason, 'not-hosted')
   assert.equal(rawAccess.headers.get('www-authenticate'), 'Bearer realm="Hub MCP"')
+})
+
+const inDays = (days) => Timestamp.fromMillis(Date.now() + days * 86400000)
+const eventFixture = () => {
+  const f = fixture()
+  const seed = {
+    'events/late': { status: 'approved', title: 'Demo Day', date: inDays(3), duration: 90, capacity: 2,
+      attendees: [uid, 'member-x'], waitlist: ['member-y'], requestedAmenityId: 'hall',
+      organizerId: 'member-z', organizerDisplayName: 'Alice', hostingProjects: 'SuperteamVN',
+      eventLink: 'https://lu.ma/demo', description: 'x'.repeat(999) + '🎉' + 'y'.repeat(50) },
+    'events/soon': { status: 'approved', title: 'Coffee', date: inDays(1), attendees: [], waitlist: [],
+      eventLink: 'javascript:alert(1)' },
+    'events/full': { status: 'approved', title: 'Workshop', date: inDays(2), capacity: 1,
+      attendees: ['member-x'], waitlist: [uid], organizerId: 'member-x' },
+    'events/past': { status: 'approved', title: 'Old', date: inDays(-1) },
+    'events/pending': { status: 'pending', title: 'Unreviewed', date: inDays(2) },
+    'events/rejected': { status: 'rejected', title: 'No', date: inDays(2) },
+    'members/member-x': { displayName: 'Xuan' },
+    'amenities/hall': { name: 'Event Hall', type: 'event-space' }
+  }
+  for (const [path, value] of Object.entries(seed)) f.data.set(path, value)
+  return f
+}
+const listEvents = (f, args = {}) => f.handlers.list_upcoming_events(f.principal, { limit: 20, ...args })
+
+test('upcoming events: approved and not yet started, nearest first', async () => {
+  const { items, nextCursor } = await listEvents(eventFixture())
+  assert.deepEqual(items.map(e => e.id), ['soon', 'full', 'late'])
+  assert.equal(nextCursor, null)
+})
+
+test('upcoming events: time, organizer, links and your own state', async () => {
+  const { items: [soon, full, late] } = await listEvents(eventFixture())
+  assert.equal(late.title, 'Demo Day')
+  assert.equal(late.durationMinutes, 90)
+  assert.equal(Date.parse(late.endTime) - Date.parse(late.startTime), 90 * 60000)
+  assert.equal(late.timezone, 'Asia/Ho_Chi_Minh')
+  assert.deepEqual([late.organizer, late.hostingProjects], ['Alice', 'SuperteamVN'])
+  assert.deepEqual([late.registered, late.waitlisted], [true, false])
+  assert.deepEqual([full.registered, full.waitlisted], [false, true])
+  assert.deepEqual([soon.endTime, soon.durationMinutes, soon.organizer], [null, null, null])
+})
+
+test('upcoming events: an older event without a stored organizer name gets it from the member', async () => {
+  const { items } = await listEvents(eventFixture())
+  assert.equal(items.find(e => e.id === 'full').organizer, 'Xuan')
+})
+
+test('upcoming events: an event with its own page is registered there, never against Hub capacity', async () => {
+  const late = (await listEvents(eventFixture())).items.find(e => e.id === 'late')
+  assert.equal(late.signUp, 'event-page')
+  assert.equal(late.eventLink, 'https://lu.ma/demo')
+  assert.equal(late.registerUrl, 'https://lu.ma/demo')
+  assert.equal(late.isFull, null)
+})
+
+test('upcoming events: a Hub sign-up says if it is full and links to portal registration', async () => {
+  const { items: [soon, full] } = await listEvents(eventFixture())
+  assert.equal(full.signUp, 'hub')
+  assert.equal(full.isFull, true)
+  assert.equal(full.registerUrl, 'https://app.danangblockchainhub.com/member/events?action=register&eventId=full')
+  assert.equal(soon.isFull, false)
+})
+
+test('upcoming events: a non-web event link is never handed out', async () => {
+  const soon = (await listEvents(eventFixture())).items.find(e => e.id === 'soon')
+  assert.equal(soon.eventLink, null)
+  assert.equal(soon.signUp, 'hub')
+  assert.equal(JSON.stringify(soon).includes('javascript:'), false)
+})
+
+test('upcoming events: only what the member view shows; no venue, counts or member IDs', async () => {
+  const { items } = await listEvents(eventFixture())
+  for (const event of items) {
+    for (const key of ['venue', 'capacity', 'attendeeCount', 'waitlistCount', 'spotsLeft', 'attendees', 'waitlist']) {
+      assert.equal(key in event, false, `${event.id}.${key}`)
+    }
+  }
+  const text = JSON.stringify(items)
+  for (const hidden of ['member-x', 'member-y', 'member-z', uid, 'Event Hall']) {
+    assert.equal(text.includes(hidden), false, hidden)
+  }
+})
+
+test('upcoming events: long descriptions are cut on a whole character', async () => {
+  const late = (await listEvents(eventFixture())).items.find(e => e.id === 'late')
+  assert.equal(late.descriptionTruncated, true)
+  assert.equal(late.description, 'x'.repeat(999) + '🎉…')
+  const soon = (await listEvents(eventFixture())).items.find(e => e.id === 'soon')
+  assert.deepEqual([soon.description, soon.descriptionTruncated], ['', false])
+})
+
+test('upcoming events: pages follow nextCursor, even when the last-listed event moves', async () => {
+  const f = eventFixture()
+  const first = await listEvents(f, { limit: 2 })
+  assert.deepEqual(first.items.map(e => e.id), ['soon', 'full'])
+  assert.match(first.nextCursor, /^\d+_\d+_full$/)
+  f.data.set('events/full', { ...f.data.get('events/full'), date: inDays(10) })
+  const second = await listEvents(f, { limit: 2, cursor: first.nextCursor })
+  assert.deepEqual(second.items.map(e => e.id), ['late', 'full'])
+  assert.equal(second.nextCursor, null)
+})
+
+test('upcoming events: a malformed cursor is refused', async () => {
+  for (const cursor of ['missing', '12_x_full', 'pending']) {
+    await assert.rejects(listEvents(eventFixture(), { cursor }), /Unknown cursor/)
+  }
+})
+
+test('upcoming events: a revoked token is refused', async () => {
+  const f = eventFixture()
+  f.data.delete(`mcpTokens/${hash}`)
+  await assert.rejects(listEvents(f), /revoked or expired/)
 })

@@ -11,7 +11,8 @@ const {readBrowserId, requireSameBrowser} = require("./browser");
 
 const REQUEST_ID = /^[a-f0-9]{32}$/;
 const SCOPE_TEXT = {bookings: "See amenities and availability, and list, " +
-  "create and cancel your own bookings."};
+  "create and cancel your own bookings. See upcoming Hub events and " +
+  "whether you are registered or waitlisted for them."};
 
 const shortWallet = (uid) => {
   const address = uid.slice(4);
