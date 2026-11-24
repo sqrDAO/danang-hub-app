@@ -1,0 +1,42 @@
+# Delete a PR's Firebase Hosting preview channel when the PR is merged or closed.
+# Hosting allows 50 channels per site; without this, previews pile up until new
+# ones fail with HTTP 429 (#286). The 3-day `expires` on the preview deploy is
+# the backstop if this job ever misses a PR.
+name: Clean up PR preview channel
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete_preview_channel:
+    # Same guard as build_and_preview: fork PRs never get a channel (or secrets).
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DANANG_HUB_APP }}
+
+      # Channel ids are `pr<number>-<branch>`, so the trailing dash keeps pr23
+      # from matching pr239, and `live` can never match.
+      - name: Delete this PR's preview channel
+        env:
+          PREFIX: pr${{ github.event.pull_request.number }}-
+        run: |
+          channels=$(npx --yes firebase-tools hosting:channel:list --project danang-hub-app --json)
+          ids=$(node -e 'for (const c of JSON.parse(require("fs").readFileSync(0)).result.channels) console.log(c.name.split("/").pop())' <<<"$channels")
+          ids=$(grep "^${PREFIX}" <<<"$ids" || true)
+          if [ -z "$ids" ]; then
+            echo "No ${PREFIX}* preview channel; nothing to delete."
+            exit 0
+          fi
+          for id in $ids; do
+            npx --yes firebase-tools hosting:channel:delete "$id" --project danang-hub-app --force
+          done
