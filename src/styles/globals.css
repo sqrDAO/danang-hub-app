@@ -2,6 +2,12 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Root scroll lock for every native modal dialog (Modal, photo lightbox).
+   The stable gutter above keeps the page from shifting sideways. */
+html:has(dialog:modal) {
+  overflow: hidden;
+}
+
 /* Wolgen — brand display font (Da Nang Blockchain Hub) */
 @font-face {
   font-family: 'Wolgen';

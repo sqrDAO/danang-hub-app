@@ -1,15 +1,38 @@
+/* Native <dialog> shown with showModal(): it sits in the top layer, so no
+   z-index. The UA dialog box is reset so the dialog fills the viewport and
+   clicks on its empty area act as backdrop clicks; the dimming lives on
+   ::backdrop, as in Modal.css. */
 .lightbox-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(6px);
-  z-index: 1100;
-  display: flex;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: none;
+  color: inherit;
+  background: transparent;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--spacing-lg);
+  overscroll-behavior: contain;
   animation: lightboxFade 0.2s ease;
+}
+
+.lightbox-overlay[open] {
+  display: flex;
+}
+
+.lightbox-overlay::backdrop {
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(6px);
+  animation: lightboxFade 0.2s ease;
+}
+
+.lightbox-overlay:focus-visible {
+  outline: none;
 }
 
 @keyframes lightboxFade {
@@ -189,6 +212,13 @@ button.amenity-photo-clickable {
 
 .amenity-photo-clickable {
   cursor: zoom-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox-overlay,
+  .lightbox-overlay::backdrop {
+    animation: none;
+  }
 }
 
 .amenity-photo-clickable:focus-visible {
