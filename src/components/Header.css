@@ -186,16 +186,21 @@
   border-color: var(--accent-secondary);
 }
 
+/* Top-layer popover: placed under the avatar from --popover-* (useAnchoredPopover) */
 .user-dropdown {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
+  position: fixed;
+  inset: auto;
+  top: calc(var(--popover-top, 0px) + 0.5rem);
+  left: var(--popover-anchor-right, 0px);
+  translate: -100% 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
   min-width: 200px;
   background: var(--surface-color);
   border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  z-index: 120;
   overflow: hidden;
   animation: dropdownFadeIn 0.15s ease;
 }
