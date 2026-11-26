@@ -42,7 +42,7 @@ export const deskPlanBadgeKey = (planType) => `${deskPlanCopyPrefix(planType)}.b
 // 'cancelled'. Days are approved one by one, so any pending day makes it
 // pending. `count` is the days not yet over.
 export const summarizePlan = (planGroupId, days, now = new Date()) => {
-  const byStart = [...days].sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+  const byStart = days.toSorted((a, b) => new Date(a.startTime) - new Date(b.startTime))
   const live = byStart.filter(b => b.status !== 'cancelled')
   const counted = live.length > 0 ? live : byStart
   const first = counted[0]

@@ -207,7 +207,7 @@ const eventMatches = (event, filters = {}) => {
 }
 
 const sortEventsByDateDesc = (events) =>
-  [...events].sort((left, right) => new Date(right.date) - new Date(left.date))
+  events.toSorted((left, right) => new Date(right.date) - new Date(left.date))
 
 export const listLocalEvents = (filters = {}) =>
   sortEventsByDateDesc(getStore().events.filter((event) => eventMatches(event, filters)))

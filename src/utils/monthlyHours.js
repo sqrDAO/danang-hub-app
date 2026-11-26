@@ -62,7 +62,7 @@ export const hoursUsedThisMonth = (bookings, amenities, now = new Date()) =>
 // `ranges` are { amenityId, startTime, endTime }.
 export const monthOverLimit = (ranges, bookings, amenities) => {
   const usage = usageByMonth(bookings, amenities)
-  const sorted = [...ranges].sort((a, b) => toMs(a.startTime) - toMs(b.startTime))
+  const sorted = ranges.toSorted((a, b) => toMs(a.startTime) - toMs(b.startTime))
   for (const range of sorted) {
     if (!countsTowardLimit({ ...range, status: 'pending' }, amenities)) continue
     for (const [month, hours] of hoursByMonth(range.startTime, range.endTime)) {

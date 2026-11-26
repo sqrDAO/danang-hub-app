@@ -1,5 +1,6 @@
 .home-container {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-color, #231F20);
   width: 100%;
   position: relative;
@@ -32,6 +33,7 @@
   text-align: center;
   color: var(--text-primary);
   min-height: calc(100vh - var(--header-height));
+  min-height: calc(100dvh - var(--header-height));
   display: flex;
   align-items: center;
   justify-content: center;

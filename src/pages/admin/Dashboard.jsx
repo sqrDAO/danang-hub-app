@@ -144,7 +144,7 @@ const AdminDashboard = () => {
     return bookingDayStart >= todayStart
   })
 
-  const recentBookingsSorted = [...upcomingBookingsForList].sort((a, b) => {
+  const recentBookingsSorted = upcomingBookingsForList.toSorted((a, b) => {
     const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
     const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
 

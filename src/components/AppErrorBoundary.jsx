@@ -22,7 +22,7 @@ class AppErrorBoundary extends Component {
 
     const { t } = this.props
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100dvh', padding: '16px' }}>
         <div className="glass" role="alert" style={{ padding: '24px', maxWidth: '360px', textAlign: 'center' }}>
           <p style={{ marginBottom: '16px' }}>{t('common.errorReload')}</p>
           <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>

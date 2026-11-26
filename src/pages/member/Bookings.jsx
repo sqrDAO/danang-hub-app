@@ -33,16 +33,25 @@ import { rangeOverlapsClosure } from '../../utils/hubClosures'
 import { appLocale } from '../../utils/appLocale'
 import './Bookings.css'
 
-const isMobileViewport = () =>
-  typeof window !== 'undefined' && window.innerWidth <= 768
+// Same breakpoint as the old `innerWidth <= 768` check; matchMedia only fires
+// when the viewport crosses it, not on every resize.
+const MOBILE_QUERY = '(max-width: 768px)'
+
+const getMobileQuery = () =>
+  (typeof window !== 'undefined' && window.matchMedia?.(MOBILE_QUERY)) || null
+
+const isMobileViewport = () => Boolean(getMobileQuery()?.matches)
 
 const useMobileViewport = () => {
   const [isMobile, setIsMobile] = useState(isMobileViewport)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(isMobileViewport())
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const mq = getMobileQuery()
+    if (!mq) return undefined
+    const onChange = () => setIsMobile(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
   }, [])
 
   return isMobile

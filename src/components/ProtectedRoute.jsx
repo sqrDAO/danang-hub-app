@@ -21,7 +21,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireProfileComplete
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '100vh'
+        height: '100dvh'
       }}>
         <div className="spinner"></div>
       </div>

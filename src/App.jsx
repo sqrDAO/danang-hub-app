@@ -24,7 +24,7 @@ const VerifyEmail = lazy(() => import('./pages/member/VerifyEmail'))
 const OauthConsent = lazy(() => import('./pages/oauth/Consent'))
 
 const RouteFallback = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100dvh' }}>
     <div className="spinner"></div>
   </div>
 )

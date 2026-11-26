@@ -32,7 +32,7 @@ const dialCodeFor = (region) =>
     PHONE_COUNTRIES.find((country) => country.region === DEFAULT_PHONE_COUNTRY)).dialCode
 
 // Longest dial code first: +855 is Cambodia, not +85x of something shorter.
-const BY_DIAL_LENGTH = [...PHONE_COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length)
+const BY_DIAL_LENGTH = PHONE_COUNTRIES.toSorted((a, b) => b.dialCode.length - a.dialCode.length)
 const countryForDigits = (digits) =>
   BY_DIAL_LENGTH.find((country) => digits.startsWith(country.dialCode)) || null
 
