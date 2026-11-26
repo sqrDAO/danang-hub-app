@@ -182,8 +182,11 @@ const createBookingTools = (db, availability) => {
     const ref = db.collection("bookings").doc(args.bookingId);
     const booking = (await tx.get(ref)).data();
     assertCancellation(booking, principal.uid);
-    assertNotEventSpace((await tx.get(db.collection("amenities")
-        .doc(booking.amenityId))).data());
+    // A booking with no amenityId can't be an event-space booking.
+    if (booking.amenityId) {
+      assertNotEventSpace((await tx.get(db.collection("amenities")
+          .doc(booking.amenityId))).data());
+    }
     tx.update(ref, {status: "cancelled", updatedAt: new Date().toISOString()});
     return {id: args.bookingId, status: "cancelled"};
   });
