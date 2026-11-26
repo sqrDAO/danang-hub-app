@@ -346,6 +346,15 @@ string in step with this section when tool behavior changes.
 
 - 60 HTTP POST requests per token (or per sign-in grant) per minute, including initialization/discovery;
   HTTP 429 includes `Retry-After: 60`. Counter reservations are transactional.
+- Per member, across all their tokens and sign-in grants (#301, `functions/mcpQuota.js`):
+  at most 5 pending, not-yet-ended non-desk bookings made through MCP (desks are left
+  to the 40-hour monthly limit), and at most 20 MCP creates per Hub day
+  (Asia/Ho_Chi_Minh). Both are checked in the `create_booking` transaction, so a
+  refused create writes nothing; an idempotent `requestId` retry is not counted.
+  The open-pending count reads only bookings that haven't ended (composite index on
+  `memberId, source, status, endTime` in `firestore.indexes.json`, deployed by an
+  owner, not CI) and fails closed above 100. The daily counter lives in
+  `mcpMemberQuotas/{uid}`. Portal bookings are not limited.
 - 16 KiB request limit; no server-side sessions or GET event stream (405).
 - Unexpected Origin headers get 403; desktop/server clients normally omit Origin.
   The three production Hub origins are explicitly allowed. No permissive CORS.
@@ -353,7 +362,7 @@ string in step with this section when tool behavior changes.
   hours fail closed above 2,000 own bookings or 500 amenities. Contact an owner
   to revisit bounds if reached; do not return partial availability/usage.
 - Tokens use 256 bits of randomness; only SHA-256 hashes and metadata are stored.
-  `mcpTokens`, `mcpTokenOwners` and `mcpBookingLocks` remain default-deny to all
+  `mcpTokens`, `mcpTokenOwners`, `mcpBookingLocks` and `mcpMemberQuotas` remain default-deny to all
   Firestore clients, including admins. Do not add client-side rules for them.
   Sign-in grants live in `oauthGrants`; the booking tools re-check the grant
   inside each booking transaction, so Disconnect fails in-flight calls too.

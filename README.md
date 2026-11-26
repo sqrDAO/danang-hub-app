@@ -422,6 +422,7 @@ functions/
 | `mcpTokens` | Server-only SHA-256 token-hash IDs, member ID, expiry and per-minute request counter; raw tokens are never stored. |
 | `mcpTokenOwners` | Server-only per-member token metadata/index; one token per member, one generation per minute |
 | `mcpBookingLocks` | Server-only per-amenity transaction serialization documents for MCP creates |
+| `mcpMemberQuotas` | Server-only per-member daily counter of MCP booking creates (Hub day, count) |
 | `oauthClients` | Server-only OAuth clients from dynamic registration (public, no secret; CIMD clients are not stored here); expire 1 day after registration unless used, then 30 days after each token exchange (`expiresAt` TTL) |
 | `oauthRequests` | Server-only pending authorization requests, 10-minute TTL, consumed once on approve or deny |
 | `oauthCodes` | Server-only SHA-256 hashes of authorization codes (60 s, single use; replaying a code that was already exchanged revokes its grant, a code burned by a failed PKCE check is just refused) |

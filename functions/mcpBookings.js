@@ -4,6 +4,8 @@ const {rangeOverlapsClosure} = require("./hubClosures");
 const {usageByMonth, MONTHLY_DESK_HOURS} = require("./monthlyHours");
 const {activeToken, hashToken, liveGrant} = require("./mcpTokens");
 const {createEventTools} = require("./mcpEvents");
+const {hubDay, countOpenPending, nextDailyQuota, MCP_OPEN_PENDING_LIMIT,
+  MCP_DAILY_CREATE_LIMIT, MCP_PENDING_SCAN_LIMIT} = require("./mcpQuota");
 
 const fail = (message) => {
   throw new HttpsError("failed-precondition", message);
@@ -111,6 +113,41 @@ const createBookingTools = (db, availability) => {
       result.conflicts.map((b) => ({startTime: iso(b.startTime),
         endTime: iso(b.endTime)}))};
   };
+  // Per-member caps (#301), read inside the create transaction. Returns the
+  // quota write to apply with the booking.
+  const reserveQuota = async (tx, principal, args) => {
+    const now = Date.now();
+    const quotaRef = db.collection("mcpMemberQuotas").doc(principal.uid);
+    const next = nextDailyQuota((await tx.get(quotaRef)).data(), hubDay(now));
+    if (!next) {
+      fail(`You can make ${MCP_DAILY_CREATE_LIMIT} bookings a day through ` +
+        "an AI agent; try again tomorrow (Hub time) or use the Hub portal.");
+    }
+    const amenity = (await tx.get(db.collection("amenities")
+        .doc(args.amenityId))).data();
+    if (amenity && amenity.type !== "desk") {
+      const pending = await tx.get(db.collection("bookings")
+          .where("memberId", "==", principal.uid)
+          .where("source", "==", "mcp").where("status", "==", "pending")
+          .where("endTime", ">", Timestamp.fromMillis(now))
+          .limit(MCP_PENDING_SCAN_LIMIT + 1));
+      if (pending.size > MCP_PENDING_SCAN_LIMIT) {
+        fail("Too many pending bookings to verify; contact the Hub.");
+      }
+      const bookings = pending.docs.map((d) => d.data());
+      const ids = [...new Set(bookings.map((b) => b.amenityId))];
+      const amenities = new Map(await Promise.all(ids.map(async (id) =>
+        [id, (await tx.get(db.collection("amenities").doc(id))).data()])));
+      if (countOpenPending(bookings, amenities, now) >=
+          MCP_OPEN_PENDING_LIMIT) {
+        fail(`You already have ${MCP_OPEN_PENDING_LIMIT} pending non-desk ` +
+          "bookings made through an AI agent. Wait for the Hub to review " +
+          "them, or cancel one, before booking another.");
+      }
+    }
+    return () => tx.set(quotaRef,
+        {...next, updatedAt: new Date(now).toISOString()});
+  };
   const create = (principal, args) => db.runTransaction(async (tx) => {
     const member = await memberFor(tx, principal);
     assertComplete(member);
@@ -126,10 +163,12 @@ const createBookingTools = (db, availability) => {
       }
       return bookingView(previous);
     }
+    const writeQuota = await reserveQuota(tx, principal, args);
     const lock = db.collection("mcpBookingLocks").doc(args.amenityId);
     await tx.get(lock);
     const result = await check(tx, principal, args);
     if (!result.available) fail(result.reason || "Slot is full.");
+    writeQuota();
     const booking = {memberId: principal.uid, amenityId: args.amenityId,
       startTime: Timestamp.fromDate(new Date(args.startTime)),
       endTime: Timestamp.fromDate(new Date(args.endTime)), status: "pending",

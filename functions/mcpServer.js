@@ -5,6 +5,8 @@ const {z} = require("zod");
 const {HttpsError} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const {isHostedRequest, challenge} = require("./oauth/resource");
+const {MCP_OPEN_PENDING_LIMIT, MCP_DAILY_CREATE_LIMIT} =
+  require("./mcpQuota");
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const time = z.string().datetime({offset: true})
@@ -37,7 +39,10 @@ const instructions = "Da Nang Blockchain Hub booking for the member who " +
   "registerUrl (its own page for signUp event-page; for signUp hub, " +
   "opening it registers them at once, so never share it just as a " +
   "details link). Limit: 60 requests per minute; on a " +
-  "rate-limit error wait a minute instead of retrying.";
+  "rate-limit error wait a minute instead of retrying. Through this " +
+  `server a member can hold at most ${MCP_OPEN_PENDING_LIMIT} pending ` +
+  `non-desk bookings and make at most ${MCP_DAILY_CREATE_LIMIT} bookings ` +
+  "per Hub day; when refused, tell the member instead of retrying.";
 // [name, title, description, input schema, readOnly]
 const toolDefinitions = [
   ["list_amenities", "List Hub amenities", "List bookable amenities with " +
@@ -60,7 +65,8 @@ const toolDefinitions = [
   ["create_booking", "Book a slot", "Create your pending individual " +
     "booking after checking availability. Ask the member to confirm the " +
     "slot first. Reuse requestId on retries; approval/monthly limits run " +
-    "afterwards.",
+    `afterwards. Refused beyond ${MCP_OPEN_PENDING_LIMIT} pending ` +
+    `non-desk bookings or ${MCP_DAILY_CREATE_LIMIT} bookings per Hub day.`,
   z.object({...slot, requestId: id.describe(
       "Unique key you choose; reuse only to retry this exact slot.")})
       .strict(), false],

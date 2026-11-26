@@ -6,6 +6,7 @@ import { REQUIRED_PROFILE_FIELDS } from '../src/utils/profileFields.js'
 const require = createRequire(new URL('../functions/package.json', import.meta.url))
 const { createTokenService, hashToken } = require('./mcpTokens')
 const { createBookingTools, assertComplete, REQUIRED_PROFILE_KEYS } = require('./mcpBookings')
+const { hubDay } = require('./mcpQuota')
 const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
 const { Timestamp } = require('firebase-admin/firestore')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
@@ -157,6 +158,102 @@ test('incomplete, reserved, missing, revoked and failed checks never create book
   }
 })
 
+// A room slot `day` days ahead; each call gets its own requestId.
+const roomSlot = (day, requestId = 'room-' + day) => {
+  const start = new Date(Date.now() + day * 86400000)
+  start.setUTCHours(2, 0, 0, 0)
+  return { amenityId: 'room', startTime: start.toISOString(),
+    endTime: new Date(+start + 3600000).toISOString(), requestId }
+}
+const withRoom = () => {
+  const f = fixture()
+  f.data.set('amenities/room', { name: 'Room', type: 'meeting-room', capacity: 1 })
+  // Conflict only on an overlapping pending booking, as the real check does.
+  f.availability.computeBookingAvailability = async ({ readQuery, amenityId, startTime, endTime }) => {
+    const docs = await readQuery(f.db.collection('bookings').where('amenityId', '==', amenityId))
+    const overlaps = d => d.status === 'pending' && d.startTime?.toMillis() < Date.parse(endTime) &&
+      d.endTime?.toMillis() > Date.parse(startTime)
+    return { hasConflicts: docs.docs.some(d => overlaps(d.data())), conflicts: [] }
+  }
+  return f
+}
+const mcpBookingCount = f => [...f.data.keys()].filter(k => k.startsWith('bookings/mcp_')).length
+
+test('caps: a 6th open pending room booking is refused; a desk is not', async () => {
+  const f = withRoom()
+  for (let day = 1; day <= 5; day++) await f.handlers.create_booking(f.principal, roomSlot(day))
+  const quota = f.data.get(`mcpMemberQuotas/${uid}`)
+  await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(6)), /already have 5 pending non-desk bookings/)
+  assert.equal(mcpBookingCount(f), 5)
+  assert.deepEqual(f.data.get(`mcpMemberQuotas/${uid}`), quota)
+  await f.handlers.create_booking(f.principal, slot())
+  assert.equal(mcpBookingCount(f), 6)
+})
+
+test('caps: cancelled, ended and portal bookings do not count toward the open pending cap', async () => {
+  const f = withRoom()
+  const past = new Date(Date.now() - 86400000)
+  for (let i = 0; i < 5; i++) {
+    f.data.set(`bookings/cancelled-${i}`, { memberId: uid, source: 'mcp', status: 'cancelled', amenityId: 'room',
+      endTime: Timestamp.fromMillis(Date.now() + 86400000) })
+    f.data.set(`bookings/ended-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'room',
+      endTime: Timestamp.fromDate(past) })
+    f.data.set(`bookings/portal-${i}`, { memberId: uid, status: 'pending', amenityId: 'room',
+      endTime: Timestamp.fromMillis(Date.now() + 86400000) })
+  }
+  await f.handlers.create_booking(f.principal, roomSlot(1))
+  assert.equal(mcpBookingCount(f), 1)
+})
+
+test('caps: the 21st create of a Hub day is refused; retries are free; the next day resets', async () => {
+  const f = withRoom()
+  f.data.set(`mcpMemberQuotas/${uid}`, { day: hubDay(Date.now()), creates: 19 })
+  const first = await f.handlers.create_booking(f.principal, roomSlot(1))
+  assert.equal(f.data.get(`mcpMemberQuotas/${uid}`).creates, 20)
+  assert.equal((await f.handlers.create_booking(f.principal, roomSlot(1))).id, first.id)
+  assert.equal(f.data.get(`mcpMemberQuotas/${uid}`).creates, 20)
+  await assert.rejects(f.handlers.create_booking(f.principal, slot()), /20 bookings a day/)
+  assert.equal(mcpBookingCount(f), 1)
+  f.data.set(`mcpMemberQuotas/${uid}`, { day: '2000-01-01', creates: 20 })
+  await f.handlers.create_booking(f.principal, slot())
+  assert.deepEqual(f.data.get(`mcpMemberQuotas/${uid}`).creates, 1)
+})
+
+test('caps: the daily quota is per member, shared across tokens and grants', async () => {
+  const f = withRoom()
+  const grantId = 'grant-1'
+  f.data.set(`oauthGrants/${grantId}`, { uid, expiresAt: Date.now() + 86400000 })
+  f.data.set(`mcpMemberQuotas/${uid}`, { day: hubDay(Date.now()), creates: 19 })
+  await f.handlers.create_booking(f.principal, roomSlot(1))
+  await assert.rejects(f.handlers.create_booking({ uid, grantId }, roomSlot(2)), /20 bookings a day/)
+})
+
+test('caps: a refused slot does not use the daily quota', async () => {
+  const f = withRoom()
+  await f.handlers.create_booking(f.principal, roomSlot(1))
+  await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(1, 'again')), /full/)
+  assert.equal(f.data.get(`mcpMemberQuotas/${uid}`).creates, 1)
+})
+
+test('caps: above 100 open pending MCP bookings the cap fails closed', async () => {
+  const f = withRoom()
+  for (let i = 0; i <= 100; i++) {
+    f.data.set(`bookings/p-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'desk',
+      endTime: Timestamp.fromMillis(Date.now() + 86400000) })
+  }
+  await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(1)), /Too many pending/)
+})
+
+test('caps: stale pending bookings that have ended never block a room booking', async () => {
+  const f = withRoom()
+  for (let i = 0; i <= 100; i++) {
+    f.data.set(`bookings/stale-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'room',
+      endTime: Timestamp.fromMillis(Date.now() - 86400000) })
+  }
+  await f.handlers.create_booking(f.principal, roomSlot(1))
+  assert.equal(mcpBookingCount(f), 1)
+})
+
 test('cancellation rejects foreign, approved and plan bookings', async () => {
   for (const booking of [ { memberId: 'other', status: 'pending' },
     { memberId: uid, status: 'approved' }, { memberId: uid, status: 'pending', planType: 'fixed-desk' } ]) {
@@ -249,6 +346,7 @@ test('SDK HTTP client initializes, discovers seven tools, and calls tools with i
   assert.match(client.getInstructions(), /nextCursor/)
   assert.match(client.getInstructions(), /get_my_hours_left first/)
   assert.match(client.getInstructions(), /60 requests per minute/)
+  assert.match(client.getInstructions(), /at most 5 pending non-desk bookings.*20 bookings per Hub day/s)
   for (const tool of tools) {
     assert.ok(tool.title, `${tool.name} has a title`)
     assert.notEqual(tool.title, tool.name.replaceAll('_', ' '))
