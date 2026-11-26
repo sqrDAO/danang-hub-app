@@ -175,6 +175,17 @@ test('cancellation refuses an own pending event-space booking', async () => {
   assert.deepEqual(f.data.get('bookings/target'), booking)
 })
 
+test('cancellation of an own pending booking without an amenityId still works', async () => {
+  const f = fixture()
+  f.data.set('bookings/target', { memberId: uid, status: 'pending' })
+  await f.handlers.cancel_booking(f.principal, { bookingId: 'target' })
+  assert.equal(f.data.get('bookings/target').status, 'cancelled')
+})
+
+test('cancel_booking describes the event-space refusal', () => {
+  assert.match(toolDefinitions.find(d => d[0] === 'cancel_booking')[2], /event-space/)
+})
+
 test('hours left: admins are exempt, members get the 40-hour allowance', async () => {
   const f = fixture()
   const own = await f.handlers.get_my_hours_left(f.principal, { month: '2026-12' })

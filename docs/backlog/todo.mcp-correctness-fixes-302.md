@@ -17,6 +17,9 @@ required profile fields. Declare the test-only `express` dependency.
 - [ ] `cancel_booking` refuses a member's own pending event-space booking with a message pointing to the portal.
 - [ ] `get_my_hours_left` returns `exempt: true` and null `hoursLeft`/`limit` for admins.
 - [ ] `get_my_hours_left` for members returns the same shape as before plus `exempt: false`.
+- [ ] `get_my_hours_left` refuses a revoked token or a missing member profile, like the other tools.
+- [ ] `cancel_booking` still cancels an own pending booking that has no `amenityId`.
+- [ ] The `cancel_booking` tool description names the event-space refusal.
 - [ ] A test fails if `REQUIRED_PROFILE_KEYS` and `src/utils/profileFields.js` keys differ.
 - [ ] `express` is a devDependency of `functions/`.
 - [ ] NOT: changing portal cancel rules or `firestore.rules`.
