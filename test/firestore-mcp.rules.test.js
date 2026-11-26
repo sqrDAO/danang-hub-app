@@ -80,7 +80,7 @@ test('Firestore transactions apply the per-member MCP caps across tokens', {
         startTime: start.toISOString(), endTime: new Date(+start + 3600000).toISOString() })
     }
     for (let day = 1; day <= 5; day++) await create(day % 2 ? 'one' : 'two', day)
-    await assert.rejects(create('two', 6), /already have 5 pending/)
+    await assert.rejects(create('two', 6), /already have 5 pending non-desk/)
     assert.equal((await db.collection('bookings').get()).size, 5)
     assert.equal((await db.collection('mcpMemberQuotas').doc('owner').get()).get('creates'), 5)
   } finally { await deleteApp(app) }

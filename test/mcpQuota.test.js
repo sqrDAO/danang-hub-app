@@ -17,7 +17,7 @@ test('nextDailyQuota counts up within a day, resets on a new day, stops at the l
   assert.equal(nextDailyQuota({ day: '2026-11-26', creates: MCP_DAILY_CREATE_LIMIT }, '2026-11-26'), null)
 })
 
-test('countOpenPending skips desks, ended and non-pending bookings; unknown amenities count', () => {
+test('countOpenPending skips desks, ended and non-pending bookings; unknown amenities and missing end times count', () => {
   const now = Date.parse('2026-11-26T00:00:00Z')
   const later = new Date(now + 3600000)
   const amenities = new Map([['desk', { type: 'desk' }], ['room', { type: 'meeting-room' }]])
@@ -26,7 +26,8 @@ test('countOpenPending skips desks, ended and non-pending bookings; unknown amen
     { status: 'pending', amenityId: 'gone', endTime: later },
     { status: 'pending', amenityId: 'desk', endTime: later },
     { status: 'pending', amenityId: 'room', endTime: new Date(now - 1) },
-    { status: 'approved', amenityId: 'room', endTime: later }
+    { status: 'approved', amenityId: 'room', endTime: later },
+    { status: 'pending', amenityId: 'room' }
   ]
-  assert.equal(countOpenPending(bookings, amenities, now), 2)
+  assert.equal(countOpenPending(bookings, amenities, now), 3)
 })

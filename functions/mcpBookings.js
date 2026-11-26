@@ -129,6 +129,7 @@ const createBookingTools = (db, availability) => {
       const pending = await tx.get(db.collection("bookings")
           .where("memberId", "==", principal.uid)
           .where("source", "==", "mcp").where("status", "==", "pending")
+          .where("endTime", ">", Timestamp.fromMillis(now))
           .limit(MCP_PENDING_SCAN_LIMIT + 1));
       if (pending.size > MCP_PENDING_SCAN_LIMIT) {
         fail("Too many pending bookings to verify; contact the Hub.");
@@ -139,7 +140,7 @@ const createBookingTools = (db, availability) => {
         [id, (await tx.get(db.collection("amenities").doc(id))).data()])));
       if (countOpenPending(bookings, amenities, now) >=
           MCP_OPEN_PENDING_LIMIT) {
-        fail(`You already have ${MCP_OPEN_PENDING_LIMIT} pending room ` +
+        fail(`You already have ${MCP_OPEN_PENDING_LIMIT} pending non-desk ` +
           "bookings made through an AI agent. Wait for the Hub to review " +
           "them, or cancel one, before booking another.");
       }

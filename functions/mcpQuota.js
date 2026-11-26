@@ -10,30 +10,35 @@ const MCP_DAILY_CREATE_LIMIT = 20;
 // Above this many pending MCP bookings the cap can't be counted safely.
 const MCP_PENDING_SCAN_LIMIT = 100;
 
-const hubDayFormat = new Intl.DateTimeFormat("en-CA", {
+const hubDayFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: HUB_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
 });
 /**
- * Hub calendar day as YYYY-MM-DD.
+ * Hub calendar day as YYYY-MM-DD, built from parts so it doesn't depend on
+ * a locale's date order.
  * @param {number} ms Epoch milliseconds
  * @return {string}
  */
-const hubDay = (ms) => hubDayFormat.format(new Date(ms));
+const hubDay = (ms) => {
+  const parts = Object.fromEntries(hubDayFormat.formatToParts(new Date(ms))
+      .map(({type, value}) => [type, value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
 
 const toMillis = (value) => value && typeof value.toMillis === "function" ?
   value.toMillis() :
   value instanceof Date ? value.getTime() : Date.parse(value);
 
 /**
- * Counts future pending non-desk bookings. Unknown amenities count, so a
- * deleted amenity can't hide a booking from the cap.
+ * Counts pending non-desk bookings that haven't ended. Unknown amenities and
+ * unreadable end times count, so neither can hide a booking from the cap.
  * @param {Array<Object>} bookings Pending MCP booking data
  * @param {Map<string, Object|undefined>} amenities Amenity data by ID
  * @param {number} now Epoch milliseconds
  * @return {number}
  */
 const countOpenPending = (bookings, amenities, now) => bookings.filter((b) =>
-  b.status === "pending" && toMillis(b.endTime) > now &&
+  b.status === "pending" && !(toMillis(b.endTime) <= now) &&
   (amenities.get(b.amenityId) || {}).type !== "desk").length;
 
 /**

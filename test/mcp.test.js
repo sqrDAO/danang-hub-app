@@ -183,7 +183,7 @@ test('caps: a 6th open pending room booking is refused; a desk is not', async ()
   const f = withRoom()
   for (let day = 1; day <= 5; day++) await f.handlers.create_booking(f.principal, roomSlot(day))
   const quota = f.data.get(`mcpMemberQuotas/${uid}`)
-  await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(6)), /already have 5 pending room bookings/)
+  await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(6)), /already have 5 pending non-desk bookings/)
   assert.equal(mcpBookingCount(f), 5)
   assert.deepEqual(f.data.get(`mcpMemberQuotas/${uid}`), quota)
   await f.handlers.create_booking(f.principal, slot())
@@ -235,12 +235,23 @@ test('caps: a refused slot does not use the daily quota', async () => {
   assert.equal(f.data.get(`mcpMemberQuotas/${uid}`).creates, 1)
 })
 
-test('caps: above 100 pending MCP bookings the cap fails closed', async () => {
+test('caps: above 100 open pending MCP bookings the cap fails closed', async () => {
   const f = withRoom()
   for (let i = 0; i <= 100; i++) {
-    f.data.set(`bookings/p-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'desk' })
+    f.data.set(`bookings/p-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'desk',
+      endTime: Timestamp.fromMillis(Date.now() + 86400000) })
   }
   await assert.rejects(f.handlers.create_booking(f.principal, roomSlot(1)), /Too many pending/)
+})
+
+test('caps: stale pending bookings that have ended never block a room booking', async () => {
+  const f = withRoom()
+  for (let i = 0; i <= 100; i++) {
+    f.data.set(`bookings/stale-${i}`, { memberId: uid, source: 'mcp', status: 'pending', amenityId: 'room',
+      endTime: Timestamp.fromMillis(Date.now() - 86400000) })
+  }
+  await f.handlers.create_booking(f.principal, roomSlot(1))
+  assert.equal(mcpBookingCount(f), 1)
 })
 
 test('cancellation rejects foreign, approved and plan bookings', async () => {

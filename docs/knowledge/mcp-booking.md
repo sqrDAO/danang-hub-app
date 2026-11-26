@@ -351,8 +351,10 @@ string in step with this section when tool behavior changes.
   to the 40-hour monthly limit), and at most 20 MCP creates per Hub day
   (Asia/Ho_Chi_Minh). Both are checked in the `create_booking` transaction, so a
   refused create writes nothing; an idempotent `requestId` retry is not counted.
-  The open-pending count fails closed above 100 pending MCP bookings. The daily
-  counter lives in `mcpMemberQuotas/{uid}`. Portal bookings are not limited.
+  The open-pending count reads only bookings that haven't ended (composite index on
+  `memberId, source, status, endTime` in `firestore.indexes.json`, deployed by an
+  owner, not CI) and fails closed above 100. The daily counter lives in
+  `mcpMemberQuotas/{uid}`. Portal bookings are not limited.
 - 16 KiB request limit; no server-side sessions or GET event stream (405).
 - Unexpected Origin headers get 403; desktop/server clients normally omit Origin.
   The three production Hub origins are explicitly allowed. No permissive CORS.

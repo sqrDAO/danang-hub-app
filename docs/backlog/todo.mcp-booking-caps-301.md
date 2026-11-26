@@ -7,6 +7,7 @@ Cap a member's open MCP-made pending non-desk bookings and their MCP creates per
 
 ## Files
 - `functions/mcpQuota.js` (new) — limits, hub-day key, pure quota and open-pending helpers
+- `firestore.indexes.json` (edited) — `bookings` index on memberId, source, status, endTime for the open-pending query
 - `functions/mcpBookings.js` (edited) — `create_booking` transaction applies both checks and bumps the counter
 - `functions/mcpServer.js` (edited) — instructions and `create_booking` description mention the limits
 - `test/mcpQuota.test.js` (new) — unit tests for the helpers
@@ -22,7 +23,8 @@ Cap a member's open MCP-made pending non-desk bookings and their MCP creates per
 - [ ] The daily counter resets on the next Hub day.
 - [ ] An idempotent retry of an existing `requestId` is not refused and not counted.
 - [ ] A refused create writes no booking and no counter change.
-- [ ] The open-pending check fails closed above 100 pending MCP bookings.
+- [ ] The open-pending check fails closed above 100 pending MCP bookings that haven't ended.
+- [ ] Pending bookings that have already ended never block a create.
 - [ ] `mcpMemberQuotas` denies all client reads and writes, admins included.
 - [ ] NOT: limits on portal bookings.
 - [ ] NOT: changes to the per-credential 60/min rate limit.
@@ -36,5 +38,5 @@ Cap a member's open MCP-made pending non-desk bookings and their MCP creates per
 - regression: existing create/idempotency tests in `test/mcp.test.js`
 
 ## Notes
-- The pending query uses only equality filters (`memberId`, `source`, `status`), so no composite index is needed.
+- The pending query filters `endTime > now`, so it needs the new composite index. CI can't deploy indexes: an owner runs `firebase deploy --only firestore:indexes` and waits for the index to build **before** merging, or non-desk MCP creates fail until it is ready.
 - Every read happens before the transaction's writes; the counter doc is read in the same transaction, so concurrent creates serialize on it.

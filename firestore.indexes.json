@@ -5,6 +5,16 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "memberId", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "endTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "memberId", "order": "ASCENDING" },
         { "fieldPath": "startTime", "order": "DESCENDING" }
       ]
     },
