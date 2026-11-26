@@ -66,7 +66,7 @@ export const uploadAmenityPhoto = async (amenityId, file) => {
     return downloadURL
   } catch (error) {
     console.error('Error uploading amenity photo:', error)
-    throw new Error(`Failed to upload photo: ${error.message}`)
+    throw new Error(`Failed to upload photo: ${error.message}`, { cause: error })
   }
 }
 
@@ -94,7 +94,7 @@ export const deleteAmenityPhoto = async (photoUrl) => {
     await deleteObject(storageRef)
   } catch (error) {
     console.error('Error deleting amenity photo:', error)
-    throw new Error(`Failed to delete photo: ${error.message}`)
+    throw new Error(`Failed to delete photo: ${error.message}`, { cause: error })
   }
 }
 
@@ -122,7 +122,7 @@ export const uploadMemberAvatar = async (userId, file) => {
     return downloadURL
   } catch (error) {
     console.error('Error uploading member avatar:', error)
-    throw new Error(`Failed to upload avatar: ${error.message}`)
+    throw new Error(`Failed to upload avatar: ${error.message}`, { cause: error })
   }
 }
 
@@ -149,7 +149,7 @@ export const deleteMemberAvatar = async (photoUrl) => {
     await deleteObject(storageRef)
   } catch (error) {
     console.error('Error deleting member avatar:', error)
-    throw new Error(`Failed to delete avatar: ${error.message}`)
+    throw new Error(`Failed to delete avatar: ${error.message}`, { cause: error })
   }
 }
 
@@ -213,7 +213,7 @@ export const uploadEventBanner = async (file) => {
     return downloadURL
   } catch (error) {
     console.error('Error uploading event banner:', error)
-    throw new Error(`Failed to upload banner: ${error.message}`)
+    throw new Error(`Failed to upload banner: ${error.message}`, { cause: error })
   }
 }
 

@@ -25,7 +25,7 @@ const DAYS_OF_WEEK = [
 const formatAvailableDays = (days, t) => {
   if (!days || days.length === 0) return t('adminAmenities.daysNone')
   if (days.length === 7) return t('adminAmenities.daysEveryDay')
-  if (JSON.stringify([...days].sort()) === JSON.stringify([1, 2, 3, 4, 5])) return t('adminAmenities.daysMonFri')
+  if (JSON.stringify(days.toSorted()) === JSON.stringify([1, 2, 3, 4, 5])) return t('adminAmenities.daysMonFri')
   return days.map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label.slice(0, 3)).join(', ')
 }
 

@@ -188,7 +188,7 @@ const matchesBookingFilters = (booking, filters) => {
   return true
 }
 
-const sortBookingsByStartTime = (bookings) => [...bookings].sort((a, b) => {
+const sortBookingsByStartTime = (bookings) => bookings.toSorted((a, b) => {
   const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
   const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
 

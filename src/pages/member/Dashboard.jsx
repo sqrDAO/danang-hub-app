@@ -135,7 +135,7 @@ const MemberDashboard = () => {
     .filter(b => ['pending', 'approved', 'checked-in'].includes(b.status))
     .filter(b => b.startTime && new Date(b.startTime) >= todayStart)
 
-  const sortedUpcomingBookings = [...upcomingBookingsAll].sort((a, b) => {
+  const sortedUpcomingBookings = upcomingBookingsAll.toSorted((a, b) => {
     const aStart = a.startTime ? (a.startTime instanceof Date ? a.startTime : new Date(a.startTime)) : null
     const bStart = b.startTime ? (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)) : null
 

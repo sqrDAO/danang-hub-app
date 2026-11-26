@@ -15,4 +15,4 @@ export const compareEventsNearestFirst = (a, b) => {
   return left < right ? -1 : 1
 }
 
-export const sortEventsNearestFirst = (events) => [...events].sort(compareEventsNearestFirst)
+export const sortEventsNearestFirst = (events) => events.toSorted(compareEventsNearestFirst)
