@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,7 @@ import { formatHubDateTimeCompact } from '../utils/timezone'
 import { appLocale } from '../utils/appLocale'
 import { deskPlanCopyPrefix, isDeskPlan } from '../utils/deskPlans'
 import { MONTHLY_DESK_HOURS, MONTHLY_HOURS_LIMIT_REASON } from '../utils/monthlyHours'
+import useAnchoredPopover, { hidePopover } from '../hooks/useAnchoredPopover'
 import './NotificationBell.css'
 
 const BellIcon = () => (
@@ -254,8 +255,11 @@ const NotificationItem = ({ notification, onOpen, t, language }) => {
 }
 
 const NotificationBell = ({ userId }) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const panelId = useId()
+  const bellRef = useRef(null)
   const panelRef = useRef(null)
+  // popover="auto": light dismiss, Esc and closing the user menu come natively
+  const isOpen = useAnchoredPopover(bellRef, panelRef)
   const hasLoadedNotificationsRef = useRef(false)
   const previousUnreadNotificationIdsRef = useRef(new Set())
   const navigate = useNavigate()
@@ -295,61 +299,51 @@ const NotificationBell = ({ userId }) => {
     hasLoadedNotificationsRef.current = true
   }, [notifications, isError, isSuccess])
 
-  useEffect(() => {
-    const closePanel = (event) => {
-      if (panelRef.current && !panelRef.current.contains(event.target)) setIsOpen(false)
-    }
-    if (isOpen) document.addEventListener('mousedown', closePanel)
-    return () => document.removeEventListener('mousedown', closePanel)
-  }, [isOpen])
-
   const handleOpenNotification = (notification) => {
     readMutation.mutate(notification.id)
-    setIsOpen(false)
+    hidePopover(panelRef.current)
     navigate(getNotificationPath(notification))
   }
 
   const handleReadAll = () => readAllMutation.mutate(notifications.map(notification => notification.id))
 
   return (
-    <div className="notification-bell" ref={panelRef}>
+    <div className="notification-bell" ref={bellRef}>
       <button
         type="button"
         className="header-icon-btn notification-bell-trigger"
-        onClick={() => setIsOpen(!isOpen)}
+        popovertarget={panelId}
         aria-label={t('notifications.open')}
         aria-expanded={isOpen}
       >
         <BellIcon />
         {notifications.length > 0 && <span className="notification-badge">{notifications.length > 99 ? '99+' : notifications.length}</span>}
       </button>
-      {isOpen && (
-        <section className="notification-panel" aria-label={t('notifications.title')}>
-          <div className="notification-panel-header">
-            <h2>{t('notifications.title')}</h2>
-            {notifications.length > 0 && (
-              <button type="button" onClick={handleReadAll} disabled={readAllMutation.isPending}>
-                {t('notifications.markAllRead')}
-              </button>
-            )}
-          </div>
-          {notifications.length === 0 ? (
-            <p className="notification-empty">{t('notifications.empty')}</p>
-          ) : (
-            <div className="notification-list">
-              {notifications.map(notification => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onOpen={handleOpenNotification}
-                  t={t}
-                  language={i18n.language}
-                />
-              ))}
-            </div>
+      <section id={panelId} ref={panelRef} popover="auto" className="notification-panel" aria-label={t('notifications.title')}>
+        <div className="notification-panel-header">
+          <h2>{t('notifications.title')}</h2>
+          {notifications.length > 0 && (
+            <button type="button" onClick={handleReadAll} disabled={readAllMutation.isPending}>
+              {t('notifications.markAllRead')}
+            </button>
           )}
-        </section>
-      )}
+        </div>
+        {notifications.length === 0 ? (
+          <p className="notification-empty">{t('notifications.empty')}</p>
+        ) : (
+          <div className="notification-list">
+            {notifications.map(notification => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onOpen={handleOpenNotification}
+                t={t}
+                language={i18n.language}
+              />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

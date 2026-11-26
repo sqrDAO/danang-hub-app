@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { discoverEIP6963Wallets, discoverSolanaWallets } from '../../services/walletAuth'
 import { toSafeRedirectPath } from '../../utils/safeRedirect'
+import useAnchoredPopover, { hidePopover } from '../../hooks/useAnchoredPopover'
 import './Login.css'
 
 // Icon components
@@ -76,163 +78,144 @@ const validateLoginForm = (formData, isSignUp, t) => {
   return null
 }
 
+const walletErrorMessage = (error, t) => (
+  error.code === 4001 ? t('auth.errors.walletRejected') : t('auth.errors.walletConnectFailed')
+)
+
+// The picker opens after async discovery, so the handler shows it; `source`
+// (where supported) returns focus to the wallet button when it closes.
+const showPicker = (picker, source) => {
+  if (picker?.isConnected && !picker.matches(':popover-open')) picker.showPopover({ source })
+}
+
+// Discovery result -> error, direct sign-in, or a picker to choose from.
+const openWalletChoice = async ({ discover, errors, pick, picker, source, setWalletError }) => {
+  let wallets
+  try {
+    wallets = await discover()
+  } catch {
+    setWalletError(errors.detect)
+    return
+  }
+  if (wallets.length === 0) {
+    setWalletError(errors.none)
+    return
+  }
+  if (wallets.length === 1) {
+    await pick(wallets[0])
+    return
+  }
+  // render the options before the popover's first frame
+  flushSync(() => picker.setWallets(wallets))
+  showPicker(picker.pickerRef.current, source)
+}
+
+const useWalletPicker = (anchorRef) => {
+  const pickerRef = useRef(null)
+  const isOpen = useAnchoredPopover(anchorRef, pickerRef)
+  const [wallets, setWallets] = useState([])
+  return { pickerRef, isOpen, wallets, setWallets }
+}
+
 const useWalletLogin = ({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t }) => {
-  const [evmWallets, setEvmWallets] = useState([])
-  const [showWalletPicker, setShowWalletPicker] = useState(false)
-  const [solanaWallets, setSolanaWallets] = useState([])
-  const [showSolanaWalletPicker, setShowSolanaWalletPicker] = useState(false)
+  // The wallet row anchors both pickers. popover="auto" gives light dismiss,
+  // Esc, and opening one picker closes the other.
+  const walletButtonsRef = useRef(null)
+  const evm = useWalletPicker(walletButtonsRef)
+  const solana = useWalletPicker(walletButtonsRef)
   // shown in place of the wallet buttons, so it sits where the user clicked
   const [walletError, setWalletError] = useState('')
+  useEscapeClearsWalletError(walletError, setWalletError)
 
-  const handleEVMWalletClick = async () => {
-    if (submitting || loading) return
-    setWalletError('')
-    setShowSolanaWalletPicker(false)
-
-    // second click on the same button closes the picker
-    if (showWalletPicker) {
-      setShowWalletPicker(false)
-      return
-    }
-
-    let wallets
-    try {
-      wallets = await discoverEIP6963Wallets()
-    } catch {
-      setWalletError(t('auth.errors.evmDetectFailed'))
-      return
-    }
-
-    if (wallets.length === 0) {
-      setWalletError(t('auth.errors.noEvmWallet'))
-      return
-    }
-
-    if (wallets.length === 1) {
-      await handleSelectWallet(wallets[0])
-      return
-    }
-
-    setEvmWallets(wallets)
-    setShowWalletPicker(true)
+  const closeWalletPickers = () => {
+    hidePopover(evm.pickerRef.current)
+    hidePopover(solana.pickerRef.current)
   }
 
-  const handleSelectWallet = async (wallet) => {
+  const signIn = async (connect) => {
     if (submitting || loading) return
-    setShowWalletPicker(false)
+    closeWalletPickers()
     setSubmitting(true)
     setWalletError('')
-
     try {
-      const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' })
-      const address = accounts[0]
-      await signInWithEVMWallet(wallet.provider, address)
+      await connect()
     } catch (error) {
-      if (error.code === 4001) {
-        setWalletError(t('auth.errors.walletRejected'))
-      } else {
-        setWalletError(t('auth.errors.walletConnectFailed'))
-      }
+      setWalletError(walletErrorMessage(error, t))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleSolanaWalletClick = async () => {
+  const handleSelectWallet = (wallet) => signIn(async () => {
+    const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' })
+    await signInWithEVMWallet(wallet.provider, accounts[0])
+  })
+
+  const handleSelectSolanaWallet = (wallet) => signIn(() => signInWithSolana(wallet))
+
+  const handleWalletClick = async (event, picker, choice) => {
+    // popovertarget only exempts the button from light dismiss; opening waits
+    // for discovery, so the native toggle is cancelled
+    event.preventDefault()
     if (submitting || loading) return
     setWalletError('')
-    setShowWalletPicker(false)
-
     // second click on the same button closes the picker
-    if (showSolanaWalletPicker) {
-      setShowSolanaWalletPicker(false)
+    if (picker.isOpen) {
+      hidePopover(picker.pickerRef.current)
       return
     }
-
-    let wallets
-    try {
-      wallets = await discoverSolanaWallets()
-    } catch {
-      setWalletError(t('auth.errors.solanaDetectFailed'))
-      return
-    }
-
-    if (wallets.length === 0) {
-      setWalletError(t('auth.errors.noSolanaWallet'))
-      return
-    }
-
-    if (wallets.length === 1) {
-      await handleSelectSolanaWallet(wallets[0])
-      return
-    }
-
-    setSolanaWallets(wallets)
-    setShowSolanaWalletPicker(true)
+    await openWalletChoice({ ...choice, picker, source: event.currentTarget, setWalletError })
   }
 
-  const handleSelectSolanaWallet = async (wallet) => {
-    if (submitting || loading) return
-    setShowSolanaWalletPicker(false)
-    setSubmitting(true)
-    setWalletError('')
+  const handleEVMWalletClick = (event) => handleWalletClick(event, evm, {
+    discover: discoverEIP6963Wallets,
+    errors: { detect: t('auth.errors.evmDetectFailed'), none: t('auth.errors.noEvmWallet') },
+    pick: handleSelectWallet
+  })
 
-    try {
-      await signInWithSolana(wallet)
-    } catch (error) {
-      if (error.code === 4001) {
-        setWalletError(t('auth.errors.walletRejected'))
-      } else {
-        setWalletError(t('auth.errors.walletConnectFailed'))
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const closeWalletPickers = useCallback(() => {
-    setShowWalletPicker(false)
-    setShowSolanaWalletPicker(false)
-  }, [])
-
-  // Escape closes an open picker or wallet error; a click outside closes a picker
-  const walletSectionRef = useRef(null)
-  const pickerOpen = showWalletPicker || showSolanaWalletPicker
-
-  useEffect(() => {
-    if (!pickerOpen && !walletError) return
-
-    const handleKeyDown = (event) => {
-      if (event.key !== 'Escape') return
-      closeWalletPickers()
-      setWalletError('')
-    }
-    const handlePointerDown = (event) => {
-      if (!walletSectionRef.current?.contains(event.target)) closeWalletPickers()
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('pointerdown', handlePointerDown)
-    }
-  }, [pickerOpen, walletError, closeWalletPickers])
+  const handleSolanaWalletClick = (event) => handleWalletClick(event, solana, {
+    discover: discoverSolanaWallets,
+    errors: { detect: t('auth.errors.solanaDetectFailed'), none: t('auth.errors.noSolanaWallet') },
+    pick: handleSelectSolanaWallet
+  })
 
   return {
-    evmWallets,
-    showWalletPicker,
-    solanaWallets,
-    showSolanaWalletPicker,
+    evm,
+    solana,
+    walletButtonsRef,
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
     handleSelectSolanaWallet,
     closeWalletPickers,
-    walletSectionRef,
     walletError,
     setWalletError
   }
+}
+
+// The error is not a popover, so Esc anywhere on the page still dismisses it.
+const useEscapeClearsWalletError = (walletError, setWalletError) => {
+  useEffect(() => {
+    if (!walletError) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setWalletError('')
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [walletError, setWalletError])
+}
+
+// The error replaces the wallet buttons, so a focused button disappears with
+// it. Move lost focus to the error and back to the wallet row when it clears.
+const useWalletErrorFocus = (walletError, sectionRef) => {
+  const errorShown = useRef(false)
+  useEffect(() => {
+    if (!walletError && !errorShown.current) return
+    errorShown.current = Boolean(walletError)
+    const focused = document.activeElement
+    if (focused && focused !== document.body) return
+    sectionRef.current?.querySelector(walletError ? '.wallet-error' : '.wallet-buttons button')?.focus()
+  }, [walletError, sectionRef])
 }
 
 const LoginHeader = ({ isSignUp }) => {
@@ -246,9 +229,11 @@ const LoginHeader = ({ isSignUp }) => {
   )
 }
 
-const EvmWalletPicker = ({ wallets, onSelect }) => (
-  <div className="wallet-picker">
-    {wallets.map((wallet) => (
+// Always rendered: popover="auto" keeps it hidden until the wallet button
+// shows it, and its toggle listeners must exist before the first open.
+const EvmWalletPicker = ({ id, picker, onSelect }) => (
+  <div id={id} ref={picker.pickerRef} popover="auto" className="wallet-picker">
+    {picker.wallets.map((wallet) => (
       <button
         key={wallet.info.uuid}
         className="wallet-option"
@@ -261,9 +246,9 @@ const EvmWalletPicker = ({ wallets, onSelect }) => (
   </div>
 )
 
-const SolanaWalletPicker = ({ wallets, onSelect }) => (
-  <div className="wallet-picker">
-    {wallets.map((wallet) => (
+const SolanaWalletPicker = ({ id, picker, onSelect }) => (
+  <div id={id} ref={picker.pickerRef} popover="auto" className="wallet-picker">
+    {picker.wallets.map((wallet) => (
       <button
         key={wallet.name}
         className="wallet-option"
@@ -360,23 +345,42 @@ const EmailAuthForm = ({ isSignUp, formData, submitting, onInputChange, onSubmit
   )
 }
 
+const WalletError = ({ walletError, onDismissError }) => {
+  const { t } = useTranslation()
+  return (
+    <div role="alert">
+      <button
+        type="button"
+        className="wallet-error"
+        onClick={onDismissError}
+        title={t('auth.dismissWalletError')}
+      >
+        <span>{walletError}</span>
+        <span className="wallet-error-close" aria-hidden="true">✕</span>
+      </button>
+    </div>
+  )
+}
+
 // Wallet sign-in. Shown in both modes: a wallet auto-creates its profile on
 // first use, so the same buttons sign in and sign up.
 const WalletAuthSection = ({
   disabled,
-  evmWallets,
-  solanaWallets,
-  showWalletPicker,
-  showSolanaWalletPicker,
+  evm,
+  solana,
+  walletButtonsRef,
   onEvmClick,
   onSolanaClick,
   onSelectEvm,
   onSelectSolana,
-  sectionRef,
   walletError,
   onDismissError
 }) => {
   const { t } = useTranslation()
+  const pickerId = useId()
+  const sectionRef = useRef(null)
+  useWalletErrorFocus(walletError, sectionRef)
+
   return (
     <div ref={sectionRef}>
       <div className="auth-divider">
@@ -384,24 +388,15 @@ const WalletAuthSection = ({
       </div>
 
       {walletError ? (
-        <div role="alert">
-          <button
-            type="button"
-            className="wallet-error"
-            onClick={onDismissError}
-            title={t('auth.dismissWalletError')}
-          >
-            <span>{walletError}</span>
-            <span className="wallet-error-close" aria-hidden="true">✕</span>
-          </button>
-        </div>
+        <WalletError walletError={walletError} onDismissError={onDismissError} />
       ) : (
-        <div className="wallet-buttons">
+        <div className="wallet-buttons" ref={walletButtonsRef}>
           <button
             className="btn login-button evm-wallet-button"
             onClick={onEvmClick}
             disabled={disabled}
-            aria-expanded={showWalletPicker}
+            popovertarget={`${pickerId}-evm`}
+            aria-expanded={evm.isOpen}
           >
             <EthereumIcon />
             {t('auth.ethereum')}
@@ -411,7 +406,8 @@ const WalletAuthSection = ({
             className="btn login-button solana-button"
             onClick={onSolanaClick}
             disabled={disabled}
-            aria-expanded={showSolanaWalletPicker}
+            popovertarget={`${pickerId}-solana`}
+            aria-expanded={solana.isOpen}
           >
             <SolanaIcon />
             {t('auth.solana')}
@@ -419,13 +415,8 @@ const WalletAuthSection = ({
         </div>
       )}
 
-      {showWalletPicker && (
-        <EvmWalletPicker wallets={evmWallets} onSelect={onSelectEvm} />
-      )}
-
-      {showSolanaWalletPicker && (
-        <SolanaWalletPicker wallets={solanaWallets} onSelect={onSelectSolana} />
-      )}
+      <EvmWalletPicker id={`${pickerId}-evm`} picker={evm} onSelect={onSelectEvm} />
+      <SolanaWalletPicker id={`${pickerId}-solana`} picker={solana} onSelect={onSelectSolana} />
     </div>
   )
 }
@@ -544,16 +535,14 @@ const Login = () => {
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const {
-    evmWallets,
-    showWalletPicker,
-    solanaWallets,
-    showSolanaWalletPicker,
+    evm,
+    solana,
+    walletButtonsRef,
     handleEVMWalletClick,
     handleSelectWallet,
     handleSolanaWalletClick,
     handleSelectSolanaWallet,
     closeWalletPickers,
-    walletSectionRef,
     walletError,
     setWalletError
   } = useWalletLogin({ loading, submitting, setSubmitting, signInWithEVMWallet, signInWithSolana, t })
@@ -744,15 +733,13 @@ const Login = () => {
 
         <WalletAuthSection
           disabled={authButtonsDisabled}
-          evmWallets={evmWallets}
-          solanaWallets={solanaWallets}
-          showWalletPicker={showWalletPicker}
-          showSolanaWalletPicker={showSolanaWalletPicker}
+          evm={evm}
+          solana={solana}
+          walletButtonsRef={walletButtonsRef}
           onEvmClick={handleEVMWalletClick}
           onSolanaClick={handleSolanaWalletClick}
           onSelectEvm={handleSelectWallet}
           onSelectSolana={handleSelectSolanaWallet}
-          sectionRef={walletSectionRef}
           walletError={walletError}
           onDismissError={() => setWalletError('')}
         />

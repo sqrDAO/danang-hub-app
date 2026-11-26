@@ -461,15 +461,28 @@
 }
 
 /* Wallet Picker */
+/* Top-layer popover: placed under the wallet row from --popover-*
+   (useAnchoredPopover), so it overlays the email form instead of pushing it */
 :where(.login-container) .wallet-picker {
-  display: flex;
+  position: fixed;
+  inset: auto;
+  top: calc(var(--popover-top, 0px) + var(--spacing-sm));
+  left: var(--popover-left, 0px);
+  width: var(--popover-width, auto);
+  margin: 0;
+  color: inherit;
   flex-direction: column;
   gap: 6px;
-  margin-top: var(--spacing-sm);
   padding: var(--spacing-md);
-  background: var(--glass-bg);
+  /* opaque: it now covers the form below; the glass tint stays on top */
+  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--surface-color);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+:where(.login-container) .wallet-picker:popover-open {
+  display: flex;
 }
 
 [data-theme="light"] :where(.login-container) .wallet-picker {

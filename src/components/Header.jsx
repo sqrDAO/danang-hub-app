@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { updateMemberLocale } from '../services/members'
+import useAnchoredPopover, { hidePopover } from '../hooks/useAnchoredPopover'
 import Avatar from './Avatar'
 import NotificationBell from './NotificationBell'
 import './Header.css'
@@ -181,21 +182,6 @@ const LoginLink = ({ t }) => (
   </Link>
 )
 
-const UserMenuTrigger = ({ userProfile, onClick, t }) => (
-  <button
-    type="button"
-    className="user-menu-trigger"
-    onClick={onClick}
-    aria-label={t('nav.profile')}
-  >
-    <Avatar
-      src={userProfile?.photoURL}
-      name={userProfile?.displayName}
-      size="md"
-    />
-  </button>
-)
-
 const UserDropdownHeader = ({ userProfile }) => (
   <div className="user-dropdown-header">
     <span className="user-dropdown-name">{userProfile.displayName}</span>
@@ -203,68 +189,80 @@ const UserDropdownHeader = ({ userProfile }) => (
   </div>
 )
 
-const PublicUserMenu = ({ menuRef, isUserMenuOpen, setIsUserMenuOpen, userProfile, checkAdmin, handleLogout, t }) => (
-  <div className="user-menu-wrap" ref={menuRef}>
-    <UserMenuTrigger userProfile={userProfile} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} t={t} />
-    {isUserMenuOpen && (
-      <div className="user-dropdown">
+const MenuLink = ({ to, closeMenu, children }) => (
+  <Link to={to} className="user-dropdown-item" onClick={closeMenu}>
+    {children}
+  </Link>
+)
+
+const PublicMenuItems = ({ checkAdmin, closeMenu, t }) => (
+  <>
+    <MenuLink to={checkAdmin() ? '/admin/profile' : '/member/profile'} closeMenu={closeMenu}>
+      {t('nav.profile')}
+    </MenuLink>
+    <MenuLink to={checkAdmin() ? '/admin' : '/member'} closeMenu={closeMenu}>
+      {t('nav.dashboard')}
+    </MenuLink>
+  </>
+)
+
+const AppMenuItems = ({ profilePath, isAdmin, checkAdmin, closeMenu, t }) => (
+  <>
+    <MenuLink to={profilePath} closeMenu={closeMenu}>{t('nav.profile')}</MenuLink>
+    {checkAdmin() && (
+      <MenuLink to={isAdmin ? '/member' : '/admin'} closeMenu={closeMenu}>
+        {isAdmin ? t('nav.memberView') : t('nav.adminView')}
+      </MenuLink>
+    )}
+  </>
+)
+
+// popover="auto" gives the menu light dismiss, Esc close and one-open-at-a-time
+// with the notification panel; the native state is mirrored for aria-expanded.
+const UserMenu = ({ isPublic, userProfile, handleLogout, t, ...itemProps }) => {
+  const menuId = useId()
+  const wrapRef = useRef(null)
+  const menuRef = useRef(null)
+  const isOpen = useAnchoredPopover(wrapRef, menuRef)
+  const closeMenu = () => hidePopover(menuRef.current)
+  const MenuItems = isPublic ? PublicMenuItems : AppMenuItems
+
+  return (
+    <div className="user-menu-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="user-menu-trigger"
+        popovertarget={menuId}
+        aria-expanded={isOpen}
+        aria-label={t('nav.profile')}
+      >
+        <Avatar
+          src={userProfile?.photoURL}
+          name={userProfile?.displayName}
+          size="md"
+        />
+      </button>
+      <div id={menuId} ref={menuRef} popover="auto" className="user-dropdown">
         {userProfile && <UserDropdownHeader userProfile={userProfile} />}
-        <Link
-          to={checkAdmin() ? '/admin/profile' : '/member/profile'}
-          className="user-dropdown-item"
-          onClick={() => setIsUserMenuOpen(false)}
+        <MenuItems {...itemProps} closeMenu={closeMenu} t={t} />
+        <button
+          type="button"
+          className="user-dropdown-item user-dropdown-logout"
+          onClick={() => {
+            closeMenu()
+            handleLogout()
+          }}
         >
-          {t('nav.profile')}
-        </Link>
-        <Link
-          to={checkAdmin() ? '/admin' : '/member'}
-          className="user-dropdown-item"
-          onClick={() => setIsUserMenuOpen(false)}
-        >
-          {t('nav.dashboard')}
-        </Link>
-        <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
           {t('common.logout')}
         </button>
       </div>
-    )}
-  </div>
-)
+    </div>
+  )
+}
 
-const AppUserMenu = ({ menuRef, isUserMenuOpen, setIsUserMenuOpen, userProfile, profilePath, isAdmin, checkAdmin, handleLogout, t }) => (
-  <div className="user-menu-wrap" ref={menuRef}>
-    <UserMenuTrigger userProfile={userProfile} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} t={t} />
-    {isUserMenuOpen && (
-      <div className="user-dropdown">
-        {userProfile && <UserDropdownHeader userProfile={userProfile} />}
-        <Link
-          to={profilePath}
-          className="user-dropdown-item"
-          onClick={() => setIsUserMenuOpen(false)}
-        >
-          {t('nav.profile')}
-        </Link>
-        {checkAdmin() && (
-          <Link
-            to={isAdmin ? '/member' : '/admin'}
-            className="user-dropdown-item"
-            onClick={() => setIsUserMenuOpen(false)}
-          >
-            {isAdmin ? t('nav.memberView') : t('nav.adminView')}
-          </Link>
-        )}
-        <button className="user-dropdown-item user-dropdown-logout" onClick={handleLogout}>
-          {t('common.logout')}
-        </button>
-      </div>
-    )}
-  </div>
-)
-
-const UserArea = (props) => {
-  if (!props.isPublic) return <AppUserMenu {...props} />
-  if (!props.currentUser) return <LoginLink t={props.t} />
-  return <PublicUserMenu {...props} />
+const UserArea = ({ currentUser, ...props }) => {
+  if (props.isPublic && !currentUser) return <LoginLink t={props.t} />
+  return <UserMenu {...props} />
 }
 
 const Header = ({ isAdmin = false, public: isPublic = false }) => {
@@ -273,8 +271,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [activeSection, setActiveSection] = useState('')
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const userMenuRef = useRef(null)
   const { t, i18n } = useTranslation()
 
   const currentLanguage = getCurrentLanguage(i18n)
@@ -289,7 +285,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
 
   const handleLogout = async () => {
     try {
-      setIsUserMenuOpen(false)
       await logout()
       navigate(isPublic ? '/' : '/login')
     } catch (error) {
@@ -299,19 +294,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
 
   const basePath = getBasePath(isPublic, isAdmin)
   const profilePath = isAdmin ? '/admin/profile' : '/member/profile'
-
-  // Close user menu on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setIsUserMenuOpen(false)
-      }
-    }
-    if (isUserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isUserMenuOpen])
 
   useEffect(() => {
     if (!isPublic || location.pathname !== '/') {
@@ -463,9 +445,6 @@ const Header = ({ isAdmin = false, public: isPublic = false }) => {
             userProfile={userProfile}
             profilePath={profilePath}
             checkAdmin={checkAdmin}
-            menuRef={userMenuRef}
-            isUserMenuOpen={isUserMenuOpen}
-            setIsUserMenuOpen={setIsUserMenuOpen}
             handleLogout={handleLogout}
             t={t}
           />

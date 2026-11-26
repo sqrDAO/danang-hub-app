@@ -21,10 +21,16 @@
   line-height: 16px;
 }
 
+/* Top-layer popover: placed under the bell from --popover-* (useAnchoredPopover) */
 .notification-panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
+  position: fixed;
+  inset: auto;
+  top: calc(var(--popover-top, 0px) + 0.5rem);
+  left: var(--popover-anchor-right, 0px);
+  translate: -100% 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
   width: min(360px, calc(100vw - 2rem));
   max-height: min(420px, calc(100vh - 7rem));
   max-height: min(420px, calc(100dvh - 7rem));
@@ -34,16 +40,16 @@
   border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);
-  z-index: 120;
 }
 
-/* Narrow screens: pin to viewport so absolute+right under the bell cannot spill left/right */
+/* Narrow screens: pin to the viewport width so the panel cannot spill left/right */
 @media (max-width: 480px) {
   .notification-panel {
     position: fixed;
     top: calc(var(--header-height) + 0.25rem);
     left: 0.75rem;
     right: 0.75rem;
+    translate: none;
     width: auto;
     max-width: none;
     max-height: calc(100vh - var(--header-height) - 1rem);
