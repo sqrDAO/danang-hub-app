@@ -2,9 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { makeStore } from './helpers/mcpStore.js'
+import { REQUIRED_PROFILE_FIELDS } from '../src/utils/profileFields.js'
 const require = createRequire(new URL('../functions/package.json', import.meta.url))
 const { createTokenService, hashToken } = require('./mcpTokens')
-const { createBookingTools } = require('./mcpBookings')
+const { createBookingTools, assertComplete, REQUIRED_PROFILE_KEYS } = require('./mcpBookings')
 const { createHttpHandler, authFailureLog, toolDefinitions } = require('./mcpServer')
 const { Timestamp } = require('firebase-admin/firestore')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
@@ -163,6 +164,38 @@ test('cancellation rejects foreign, approved and plan bookings', async () => {
     await assert.rejects(f.handlers.cancel_booking(f.principal, { bookingId: 'target' }), /Only your own/)
     assert.deepEqual(f.data.get('bookings/target'), booking)
   }
+})
+
+test('cancellation refuses an own pending event-space booking', async () => {
+  const f = fixture()
+  f.data.set('amenities/hall', { name: 'Hall', type: 'event-space' })
+  const booking = { memberId: uid, status: 'pending', amenityId: 'hall' }
+  f.data.set('bookings/target', booking)
+  await assert.rejects(f.handlers.cancel_booking(f.principal, { bookingId: 'target' }), /Events in the Hub portal/)
+  assert.deepEqual(f.data.get('bookings/target'), booking)
+})
+
+test('hours left: admins are exempt, members get the 40-hour allowance', async () => {
+  const f = fixture()
+  const own = await f.handlers.get_my_hours_left(f.principal, { month: '2026-12' })
+  assert.deepEqual([own.exempt, own.hoursLeft, own.limit], [false, 40, 40])
+  f.data.set(`members/${uid}`, { ...member, membershipType: 'admin' })
+  const admin = await f.handlers.get_my_hours_left(f.principal, { month: '2026-12' })
+  assert.deepEqual([admin.exempt, admin.hoursLeft, admin.limit], [true, null, null])
+})
+
+test('hours left: a revoked token is refused', async () => {
+  const f = fixture()
+  f.data.delete(`mcpTokens/${hash}`)
+  await assert.rejects(f.handlers.get_my_hours_left(f.principal, { month: '2026-12' }), /revoked/)
+})
+
+test('MCP required profile fields match the portal list', () => {
+  assert.deepEqual(REQUIRED_PROFILE_KEYS, REQUIRED_PROFILE_FIELDS.map(({ key }) => key))
+  for (const key of REQUIRED_PROFILE_KEYS) {
+    assert.throws(() => assertComplete({ ...member, [key]: '  ' }), /Complete your name/)
+  }
+  assert.doesNotThrow(() => assertComplete(member))
 })
 
 test('schemas reject protected fields, malformed IDs and timezone-less times; past or over-24h slots are refused', async () => {

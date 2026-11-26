@@ -49,7 +49,8 @@ const toolDefinitions = [
     "the slot.",
   z.object(slot).strict(), true],
   ["get_my_hours_left", "My desk hours left", "Your used and remaining " +
-    "monthly ad-hoc desk hours; desk plans are excluded.",
+    "monthly ad-hoc desk hours; desk plans are excluded. Admins get " +
+    "exempt: true and no limit.",
   z.object({month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .describe("Month as YYYY-MM, in Asia/Ho_Chi_Minh time.")})
       .strict(), true],
