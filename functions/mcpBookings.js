@@ -8,8 +8,11 @@ const {createEventTools} = require("./mcpEvents");
 const fail = (message) => {
   throw new HttpsError("failed-precondition", message);
 };
+// Mirrors REQUIRED_PROFILE_FIELDS in src/utils/profileFields.js; a test
+// in test/mcp.test.js fails if the two lists drift.
+const REQUIRED_PROFILE_KEYS = ["displayName", "company", "jobTitle"];
 const assertComplete = (member) => {
-  if (!["displayName", "company", "jobTitle"].every((key) =>
+  if (!REQUIRED_PROFILE_KEYS.every((key) =>
     typeof member[key] === "string" && member[key].trim())) {
     fail("Complete your name, company and role in your Hub profile first.");
   }
@@ -36,6 +39,11 @@ const assertCancellation = (booking, uid) => {
   if (!booking || booking.memberId !== uid || booking.status !== "pending" ||
       booking.planType || booking.planGroupId) {
     fail("Only your own pending individual bookings can be cancelled.");
+  }
+};
+const assertNotEventSpace = (amenity) => {
+  if (amenity && amenity.type === "event-space") {
+    fail("Cancel event-space bookings from Events in the Hub portal.");
   }
 };
 const iso = (value) => value && typeof value.toDate === "function" ?
@@ -136,10 +144,21 @@ const createBookingTools = (db, availability) => {
     const ref = db.collection("bookings").doc(args.bookingId);
     const booking = (await tx.get(ref)).data();
     assertCancellation(booking, principal.uid);
+    // A booking with no amenityId can't be an event-space booking.
+    if (booking.amenityId) {
+      assertNotEventSpace((await tx.get(db.collection("amenities")
+          .doc(booking.amenityId))).data());
+    }
     tx.update(ref, {status: "cancelled", updatedAt: new Date().toISOString()});
     return {id: args.bookingId, status: "cancelled"};
   });
   const hours = async (principal, args) => {
+    const member = await db.runTransaction((tx) => memberFor(tx, principal));
+    // Admins are exempt from the limit (enforceMonthlyHours in index.js).
+    if (member.membershipType === "admin") {
+      return {month: args.month, exempt: true, hoursUsed: null,
+        hoursLeft: null, limit: null, timezone: "Asia/Ho_Chi_Minh"};
+    }
     const [bookings, amenities] = await Promise.all([
       db.collection("bookings").where("memberId", "==", principal.uid)
           .limit(2001).get(),
@@ -151,7 +170,7 @@ const createBookingTools = (db, availability) => {
     const usage = usageByMonth(bookings.docs.map((d) => d.data()),
         new Map(amenities.docs.map((d) => [d.id, d.data()])));
     const used = usage.get(args.month) || 0;
-    return {month: args.month, hoursUsed: used,
+    return {month: args.month, exempt: false, hoursUsed: used,
       hoursLeft: Math.max(0, MONTHLY_DESK_HOURS - used),
       limit: MONTHLY_DESK_HOURS, timezone: "Asia/Ho_Chi_Minh"};
   };
@@ -178,4 +197,4 @@ const createBookingTools = (db, availability) => {
 };
 
 module.exports = {createBookingTools, assertComplete, assertAmenity,
-  assertCancellation};
+  assertCancellation, REQUIRED_PROFILE_KEYS};

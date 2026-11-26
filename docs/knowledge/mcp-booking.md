@@ -312,10 +312,10 @@ each client that used it. Disconnecting a client does not revoke the Hub token.
 | --- | --- | --- |
 | `list_amenities` | optional limit (1–50), cursor | Amenity IDs, type, configured hours, capacity; inaccessible partner desks omitted |
 | `check_availability` | amenityId, startTime, endTime | Availability and anonymous busy ranges, without member or booking IDs |
-| `get_my_hours_left` | month (`YYYY-MM`) | Used/remaining hours of the 40-hour monthly ad-hoc desk allowance |
+| `get_my_hours_left` | month (`YYYY-MM`) | Used/remaining hours of the 40-hour monthly ad-hoc desk allowance; admins get `exempt: true` with null hours and limit |
 | `list_my_bookings` | optional limit, cursor | Own booking IDs, times, status and source |
 | `create_booking` | amenityId, startTime, endTime, requestId | Pending booking; reuse requestId for retries of exactly the same slot |
-| `cancel_booking` | bookingId | Cancellation of an own pending individual booking only |
+| `cancel_booking` | bookingId | Cancellation of an own pending individual booking only; event-space bookings are refused (portal Events) |
 | `list_upcoming_events` | optional limit, cursor | Approved events that have not started, nearest first: time, organizer, hosting projects, `eventLink` (web links only), `signUp` (`event-page` or `hub`), `registerUrl` (the event's own page, or the portal link that registers on open), `isFull` (Hub sign-ups only), and your registered/waitlisted state. Descriptions over 1,000 characters are cut (`descriptionTruncated`). Like the portal's member view: no venue, attendee counts or member IDs |
 
 Dates require an explicit offset (`2026-12-01T09:00:00+07:00`); Hub time is

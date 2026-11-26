@@ -49,7 +49,8 @@ const toolDefinitions = [
     "the slot.",
   z.object(slot).strict(), true],
   ["get_my_hours_left", "My desk hours left", "Your used and remaining " +
-    "monthly ad-hoc desk hours; desk plans are excluded.",
+    "monthly ad-hoc desk hours; desk plans are excluded. Admins get " +
+    "exempt: true and no limit.",
   z.object({month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .describe("Month as YYYY-MM, in Asia/Ho_Chi_Minh time.")})
       .strict(), true],
@@ -64,8 +65,9 @@ const toolDefinitions = [
       "Unique key you choose; reuse only to retry this exact slot.")})
       .strict(), false],
   ["cancel_booking", "Cancel my booking", "Cancel only your own pending " +
-    "individual booking. Approved bookings and desk plans cannot be " +
-    "cancelled here.",
+    "individual booking. Approved bookings, desk plans and event-space " +
+    "bookings cannot be cancelled here; event spaces are cancelled from " +
+    "Events in the Hub portal.",
   z.object({bookingId: id.describe("Booking ID from list_my_bookings.")})
       .strict(), false],
   ["list_upcoming_events", "List upcoming Hub events", "List approved " +
