@@ -66,7 +66,7 @@
 }
 
 .toast-message {
-  color: var(--bg-color);
+  color: var(--text-primary-light);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -74,7 +74,7 @@
 .toast-close {
   background: none;
   border: none;
-  color: var(--bg-color);
+  color: var(--text-primary-light);
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
@@ -101,7 +101,7 @@
 }
 
 .toast-success .toast-message {
-  color: var(--color-success-dark);
+  color: var(--toast-success-text);
 }
 
 .toast-error {
@@ -109,7 +109,7 @@
 }
 
 .toast-error .toast-message {
-  color: var(--color-error-darker);
+  color: var(--toast-error-text);
 }
 
 .toast-warning {
@@ -117,7 +117,7 @@
 }
 
 .toast-warning .toast-message {
-  color: var(--color-warning-darker);
+  color: var(--toast-warning-text);
 }
 
 @media (max-width: 768px) {

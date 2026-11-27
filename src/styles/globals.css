@@ -116,6 +116,11 @@ html:has(dialog:modal) {
   /* Floating WhatsApp button — WhatsApp brand colors, identical in both themes */
   --wa-float-bg: #25D366;
   --wa-float-icon: #ffffff;
+
+  /* Toast text — the toast card is near-white in both themes, so these are identical in both */
+  --toast-success-text: #15803d;
+  --toast-error-text: #991b1b;
+  --toast-warning-text: #92400e;
 }
 
 [data-theme="light"] {
