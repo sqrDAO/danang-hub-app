@@ -1,6 +1,20 @@
 // Extension is required: test/bookingRange.test.js loads this through Node's ESM
 // loader, which does not resolve extensionless specifiers the way Vite does.
-import { isSameHubDay } from './timezone.js'
+import { addHubDays, getHubStartOfDay, isSameHubDay } from './timezone.js'
+
+const OPEN_DAY_LOOKAHEAD = 14
+
+// The first hub day, from today on, whose last slot has not started yet.
+// `getLastSlotStartMs(date)` returns null for a closed day.
+export const getFirstOpenDay = (now, getLastSlotStartMs) => {
+  const today = getHubStartOfDay(new Date(now))
+  for (let offset = 0; offset < OPEN_DAY_LOOKAHEAD; offset += 1) {
+    const date = addHubDays(today, offset)
+    const lastSlotStartMs = getLastSlotStartMs(date)
+    if (lastSlotStartMs !== null && lastSlotStartMs >= now) return date
+  }
+  return today
+}
 
 const rangeState = (status, nextRange = null) => ({ status, nextRange })
 
@@ -27,9 +41,11 @@ const isOutsideOperatingHours = (cell, startHour, endHour) => {
 }
 
 export const getBaseSlotStatus = (cell, context) => {
+  // Past comes first: a slot that has started reads as "past", not "closed",
+  // whatever the day or hours were.
+  if (cell.startMs < context.now) return 'past'
   if (!context.dayAvailable) return 'unavailable'
   if (isOutsideOperatingHours(cell, context.dayStartHour, context.dayEndHour)) return 'unavailable'
-  if (cell.startMs < context.now) return 'past'
 
   const overlappingBookings = context.bookingRanges.filter(range => overlapsCell(cell, range))
   if (!context.isSharedDesk) return overlappingBookings.length > 0 ? 'booked' : 'available'

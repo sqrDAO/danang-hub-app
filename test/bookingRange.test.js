@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getBaseSlotStatus, getCellState } from '../src/utils/bookingRange.js'
-import { parseHubDateTime } from '../src/utils/timezone.js'
+import { getBaseSlotStatus, getCellState, getFirstOpenDay } from '../src/utils/bookingRange.js'
+import {
+  getHubDayOfWeek,
+  makeHubDateAtTime,
+  parseHubDateTime,
+  toDateInputHub,
+} from '../src/utils/timezone.js'
 
 // Cells are hub-day offsets, not browser-local times: under a browser timezone
 // far from +07:00 the same wall-clock hours would land on two different hub
@@ -143,4 +148,46 @@ test('getBaseSlotStatus marks slots outside dayStartHour and dayEndHour as unava
   assert.equal(getBaseSlotStatus(morningCell, weekendEventSpaceContext), 'available')
   assert.equal(getBaseSlotStatus(eveningCell, weekendEventSpaceContext), 'available')
   assert.equal(getBaseSlotStatus(lateCell, weekendEventSpaceContext), 'unavailable')
+})
+
+test('getBaseSlotStatus marks a started slot as past even on a closed day or outside hours', () => {
+  const morningCell = { hour: 9, minute: 0, endHour: 9, endMinute: 30, startMs: at(9), endMs: at(9, 30) }
+  const context = {
+    dayAvailable: true,
+    dayStartHour: 18,
+    dayEndHour: 22,
+    now: at(12),
+    bookingRanges: [],
+    isSharedDesk: false,
+    capacity: 1,
+  }
+
+  assert.equal(getBaseSlotStatus(morningCell, { ...context, dayAvailable: false }), 'past')
+  assert.equal(getBaseSlotStatus(morningCell, context), 'past')
+  assert.equal(getBaseSlotStatus(morningCell, { ...context, now: at(8), dayAvailable: false }), 'unavailable')
+})
+
+// Mon–Fri, last 30-minute slot starts at 17:30.
+const officeLastSlotStart = (date) => {
+  const day = getHubDayOfWeek(date)
+  if (day === 0 || day === 6) return null
+  return makeHubDateAtTime(date, 17, 30).getTime()
+}
+const hubMs = (localStr) => parseHubDateTime(localStr).getTime()
+
+test('getFirstOpenDay keeps today while its last slot has not started', () => {
+  const day = getFirstOpenDay(hubMs('2026-08-14T17:30'), officeLastSlotStart)
+  assert.equal(toDateInputHub(day), '2026-08-14')
+})
+
+test('getFirstOpenDay moves to next Monday once Friday is done', () => {
+  const day = getFirstOpenDay(hubMs('2026-08-14T17:31'), officeLastSlotStart)
+  assert.equal(toDateInputHub(day), '2026-08-17')
+})
+
+test('getFirstOpenDay skips a closed day', () => {
+  const closedMonday = (date) =>
+    toDateInputHub(date) === '2026-08-17' ? null : officeLastSlotStart(date)
+  const day = getFirstOpenDay(hubMs('2026-08-14T20:00'), closedMonday)
+  assert.equal(toDateInputHub(day), '2026-08-18')
 })

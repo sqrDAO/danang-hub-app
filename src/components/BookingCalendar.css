@@ -446,16 +446,28 @@
   cursor: not-allowed;
 }
 
-.time-slot.unavailable,
+/* Same hatch shape as .hub-closed, in grey: "already past" must not read as
+   "closed" (flat grey) or "holiday" (red hatch). */
 .time-slot.past {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-past-hatch),
+    var(--color-past-hatch) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  border-color: var(--color-past-border);
+  cursor: not-allowed;
+}
+
+.time-slot.unavailable {
   background: rgba(100, 100, 100, 0.1);
   border-color: rgba(100, 100, 100, 0.2);
   cursor: not-allowed;
   opacity: 0.4;
 }
 
-[data-theme="light"] .time-slot.unavailable,
-[data-theme="light"] .time-slot.past {
+[data-theme="light"] .time-slot.unavailable {
   background: rgba(100, 100, 100, 0.12);
   border-color: rgba(100, 100, 100, 0.3);
 }
