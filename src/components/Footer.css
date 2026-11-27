@@ -63,7 +63,6 @@
 
 .footer-social-link:hover {
   color: var(--accent-primary);
-  background: var(--bg-tertiary);
   border-color: var(--accent-primary);
 }
 
