@@ -203,7 +203,7 @@
 
 :where(.home-container) .amenity-preview-card {
   padding: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--border-radius);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
@@ -335,7 +335,7 @@
   margin: 0 auto;
   padding: var(--spacing-xl);
   text-align: center;
-  border-radius: var(--radius-lg);
+  border-radius: var(--border-radius);
   min-height: 180px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);

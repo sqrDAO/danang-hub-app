@@ -92,6 +92,7 @@ html:has(dialog:modal) {
   --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-main-vi: 'Be Vietnam Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
+  --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 2rem;
