@@ -52,11 +52,21 @@ const officeAmenity = (id, fields) => ({
   id
 })
 
+// Inline placeholder so the photo badge and lightbox can be opened in skipauth.
+const samplePhoto = (label, fill) => `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='1200' height='800' fill='${fill}'/><text x='600' y='440' font-size='120' text-anchor='middle' fill='white'>${label}</text></svg>`
+)}`
+
 export const buildLocalDevAmenities = () => [
   officeAmenity('local-desk', {
     name: 'Coworking Space',
     type: 'desk',
-    capacity: 8
+    capacity: 8,
+    photos: [
+      samplePhoto('Photo 1', '#557'),
+      samplePhoto('Photo 2', '#375'),
+      samplePhoto('Photo 3', '#753')
+    ]
   }),
   officeAmenity('local-meeting', {
     name: 'Meeting Room',
