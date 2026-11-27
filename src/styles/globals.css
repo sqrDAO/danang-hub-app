@@ -74,6 +74,9 @@ html:has(dialog:modal) {
   --color-error-darker: #dc2626;
   --color-error-bg: rgba(239, 68, 68, 0.2);
   --color-error-border: rgba(239, 68, 68, 0.3);
+  /* Booking-calendar slots that have already started */
+  --color-past-hatch: rgba(148, 163, 184, 0.16);
+  --color-past-border: rgba(148, 163, 184, 0.22);
   --color-warning: #fbbf24;
   --color-warning-dark: #f59e0b;
   --color-warning-darker: #d97706;
@@ -166,6 +169,8 @@ html:has(dialog:modal) {
   --color-error-darker: #991b1b;
   --color-error-bg: rgba(239, 68, 68, 0.1);
   --color-error-border: rgba(239, 68, 68, 0.25);
+  --color-past-hatch: rgba(100, 116, 139, 0.16);
+  --color-past-border: rgba(100, 116, 139, 0.28);
   --color-warning: #92400e;
   --color-warning-dark: #b45309;
   --color-warning-darker: #92400e;

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getAmenityBookingRanges } from '../services/functions'
 import { getDefaultAvailability, getDayAvailability } from '../services/amenities'
-import { getBaseSlotStatus, getCellState } from '../utils/bookingRange'
+import { getBaseSlotStatus, getCellState, getFirstOpenDay } from '../utils/bookingRange'
 import { getHubClosure } from '../utils/hubClosures'
 import { appLocale } from '../utils/appLocale'
 import {
@@ -85,6 +85,18 @@ const getCellMarker = (status, cell) => {
 }
 
 const isDateBeforeToday = (date) => getHubStartOfDay(date) < getHubStartOfToday()
+
+const getLastSlotStartMs = (date, amenity) => {
+  const dayAvail = getDayAvailability(getHubDayOfWeek(date), amenity)
+  if (!dayAvail.isDayAvailable || getHubClosure(date)) return null
+  return makeHubDateAtTime(date, dayAvail.endHour, 0).getTime() - CALENDAR_CELL_MINUTES * 60_000
+}
+
+// With no date picked, open on the first day that can still be booked, so a
+// late-Friday visit lands on next week instead of a week of past slots.
+const getInitialDate = (selectedDate, amenity) => selectedDate
+  ? getHubStartOfDay(selectedDate)
+  : getFirstOpenDay(Date.now(), date => getLastSlotStartMs(date, amenity))
 
 const getMobileCarouselDates = () => {
   const startDate = getHubStartOfToday()
@@ -177,7 +189,7 @@ const MobileTimeHeader = ({ date, amenity, locale, t, onChangeDate }) => {
   const dayAvail = getDayAvailability(dayOfWeek, amenity)
   const startStr = dayAvail.startHour.toString().padStart(2, '0')
   const endStr = dayAvail.endHour.toString().padStart(2, '0')
-  const closure = getHubClosure(date)
+  const closure = isDateBeforeToday(date) ? null : getHubClosure(date)
   return (
     <div className="mobile-time-header">
       <div>
@@ -444,9 +456,7 @@ const BookingCalendar = ({
 }) => {
   const { t, i18n } = useTranslation()
   const locale = appLocale(i18n.language)
-  const [currentDate, setCurrentDate] = useState(
-    () => getHubStartOfDay(selectedDate ?? new Date())
-  )
+  const [currentDate, setCurrentDate] = useState(() => getInitialDate(selectedDate, amenity))
   const selectedDateRef = useRef(null)
   const availability = useMemo(() => {
     const defaults = getDefaultAvailability(amenity?.type)
@@ -544,10 +554,12 @@ const BookingCalendar = ({
           baseStatus: getBaseSlotStatus({ ...slot, startMs: key, endMs: endKey }, context),
         }
       })
+      // A past day gets a plain header; its hatched slots already say "past".
+      const isPastDay = isDateBeforeToday(date)
       return {
         date,
-        dayAvailable,
-        closureLabel: closure ? t(closure.labelKey) : null,
+        dayAvailable: dayAvailable || isPastDay,
+        closureLabel: closure && !isPastDay ? t(closure.labelKey) : null,
         cells: cells.map(cell => {
           const state = getCellState(cell, selection, cells)
           // A closed day is unbookable for a different reason than "outside
