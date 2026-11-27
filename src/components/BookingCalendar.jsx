@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getAmenityBookingRanges } from '../services/functions'
 import { getDefaultAvailability, getDayAvailability } from '../services/amenities'
@@ -489,7 +489,7 @@ const BookingCalendar = ({
   }), [weekStart])
   // Keyed under 'bookings' so the mutations' invalidate('bookings') still
   // refreshes the grid after a booking is created or cancelled.
-  const { data: allBookings = [], isLoading, isError, error, refetch } = useQuery({
+  const { data: allBookings = [], isLoading, isError, isPlaceholderData, error, refetch } = useQuery({
     queryKey: ['bookings', 'ranges', amenity?.id, toDateInputHub(weekStart)],
     queryFn: () => getAmenityBookingRanges(
       amenity.id,
@@ -497,6 +497,9 @@ const BookingCalendar = ({
       bookingWindow.endDate
     ),
     enabled: !!amenity?.id,
+    // Keep the last week on screen while the next one loads instead of
+    // swapping the whole calendar for a skeleton (the modal height jumped).
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     retry: 1,
   })
@@ -631,7 +634,9 @@ const BookingCalendar = ({
       />
       <CalendarGrid
         mobileMode={mobileMode}
-        disabled={disabled}
+        // Placeholder rows are the previous week's bookings, so the new
+        // week's cells could look free when they are not: block clicks.
+        disabled={disabled || isPlaceholderData}
         gridStyle={calendarGridStyle}
         dateSlots={dateSlots}
         locale={locale}
